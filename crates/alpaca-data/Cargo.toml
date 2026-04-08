@@ -1,0 +1,8 @@
+[package]
+name = "alpaca-data"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+alpaca-core = { path = "../alpaca-core" }
+alpaca-http = { path = "../alpaca-http" }

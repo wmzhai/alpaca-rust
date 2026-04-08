@@ -1,0 +1,16 @@
+target/
+Cargo.lock
+.env
+.env.*
+.DS_Store
+*.swp
+*~
+docs/superpowers/
+memory/
+website/node_modules/
+website/.docusaurus/
+website/build/
+website/static/api/
+task.md
+design.md
+AGENTS.md

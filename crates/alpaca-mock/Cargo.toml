@@ -1,0 +1,9 @@
+[package]
+name = "alpaca-mock"
+version.workspace = true
+edition.workspace = true
+publish = false
+
+[dependencies]
+alpaca-data = { path = "../alpaca-data" }
+alpaca-trade = { path = "../alpaca-trade" }

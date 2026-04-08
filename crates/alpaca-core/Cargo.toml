@@ -1,0 +1,4 @@
+[package]
+name = "alpaca-core"
+version.workspace = true
+edition.workspace = true

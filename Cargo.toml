@@ -1,0 +1,13 @@
+[workspace]
+members = [
+  "crates/alpaca-core",
+  "crates/alpaca-http",
+  "crates/alpaca-data",
+  "crates/alpaca-trade",
+  "crates/alpaca-mock",
+]
+resolver = "2"
+
+[workspace.package]
+version = "0.0.1"
+edition = "2024"
