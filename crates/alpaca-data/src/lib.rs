@@ -2,6 +2,7 @@
 
 mod client;
 mod error;
+mod pagination;
 
 pub mod corporate_actions;
 pub mod news;
