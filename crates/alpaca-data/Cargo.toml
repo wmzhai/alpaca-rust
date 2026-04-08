@@ -7,6 +7,7 @@ edition.workspace = true
 alpaca-core = { path = "../alpaca-core" }
 alpaca-http = { path = "../alpaca-http" }
 reqwest.workspace = true
+rust_decimal.workspace = true
 serde.workspace = true
 thiserror.workspace = true
 
