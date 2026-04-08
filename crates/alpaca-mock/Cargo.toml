@@ -5,6 +5,7 @@ edition.workspace = true
 publish = false
 
 [dependencies]
+alpaca-core = { path = "../alpaca-core" }
 alpaca-data = { path = "../alpaca-data" }
 alpaca-trade = { path = "../alpaca-trade" }
 axum.workspace = true
@@ -17,7 +18,6 @@ thiserror.workspace = true
 tokio.workspace = true
 
 [dev-dependencies]
-alpaca-core = { path = "../alpaca-core" }
 alpaca-http = { path = "../alpaca-http" }
 dotenvy.workspace = true
 reqwest.workspace = true

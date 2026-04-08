@@ -39,6 +39,22 @@ pub fn build_app_with_state(state: MockServerState) -> Router {
             "/v2/orders:by_client_order_id",
             get(handlers::orders_get_by_client_order_id),
         )
+        .route(
+            "/v2/positions",
+            get(handlers::positions_list).delete(handlers::positions_close_all),
+        )
+        .route(
+            "/v2/positions/{symbol_or_asset_id}",
+            get(handlers::positions_get).delete(handlers::positions_close),
+        )
+        .route(
+            "/v2/positions/{symbol_or_contract_id}/exercise",
+            post(handlers::positions_exercise),
+        )
+        .route(
+            "/v2/positions/{symbol_or_contract_id}/do-not-exercise",
+            post(handlers::positions_do_not_exercise),
+        )
         .route_layer(middleware::from_fn_with_state(
             state.clone(),
             require_trading_auth,

@@ -16,11 +16,14 @@ use alpaca_trade::orders::{
     CancelAllOrderResult, Order, OrderClass, OrderSide, OrderStatus, OrderType, PositionIntent,
     StopLoss, TakeProfit, TimeInForce,
 };
+use alpaca_trade::positions::{
+    ClosePositionBody, ClosePositionResult, ExercisePositionBody, Position,
+};
 
 use activities::{ActivityEvent, ActivityEventKind};
 use executions::ExecutionFact;
 pub use market_data::{DEFAULT_STOCK_SYMBOL, InstrumentSnapshot, LiveMarketDataBridge};
-use positions::PositionBook;
+use positions::{OptionContractType, PositionBook, parse_option_symbol, project_position};
 
 #[derive(Debug, Clone)]
 pub struct MockServerState {
@@ -80,6 +83,12 @@ pub struct ReplaceOrderInput {
     pub stop_price: Option<Decimal>,
     pub trail: Option<Decimal>,
     pub client_order_id: Option<String>,
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct ClosePositionInput {
+    pub qty: Option<Decimal>,
+    pub percentage: Option<Decimal>,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -631,6 +640,331 @@ impl MockServerState {
         results
     }
 
+    pub async fn list_positions(&self, api_key: &str) -> Result<Vec<Position>, MockStateError> {
+        let open_positions = {
+            let accounts = self
+                .inner
+                .accounts
+                .read()
+                .expect("accounts lock should not poison");
+            accounts
+                .get(api_key)
+                .map(|account| account.positions.list_open_positions())
+                .unwrap_or_default()
+        };
+
+        let mut projected = Vec::with_capacity(open_positions.len());
+        for position in open_positions {
+            let snapshot = self
+                .instrument_snapshot(&position.instrument_identity.symbol)
+                .await?;
+            projected.push(public_position_from_projection(project_position(
+                &position, &snapshot,
+            )));
+        }
+        projected.sort_by(|left, right| left.symbol.cmp(&right.symbol));
+
+        Ok(projected)
+    }
+
+    pub async fn get_position(
+        &self,
+        api_key: &str,
+        symbol_or_asset_id: &str,
+    ) -> Result<Position, MockStateError> {
+        let position = {
+            let accounts = self
+                .inner
+                .accounts
+                .read()
+                .expect("accounts lock should not poison");
+            let account = accounts.get(api_key).ok_or_else(|| {
+                MockStateError::NotFound(format!("position {symbol_or_asset_id} was not found"))
+            })?;
+            account
+                .positions
+                .find_open_position(symbol_or_asset_id)
+                .ok_or_else(|| {
+                    MockStateError::NotFound(format!("position {symbol_or_asset_id} was not found"))
+                })?
+        };
+        let snapshot = self
+            .instrument_snapshot(&position.instrument_identity.symbol)
+            .await?;
+
+        Ok(public_position_from_projection(project_position(
+            &position, &snapshot,
+        )))
+    }
+
+    pub async fn close_position(
+        &self,
+        api_key: &str,
+        symbol_or_asset_id: &str,
+        input: ClosePositionInput,
+    ) -> Result<ClosePositionBody, MockStateError> {
+        let position = {
+            let accounts = self
+                .inner
+                .accounts
+                .read()
+                .expect("accounts lock should not poison");
+            let account = accounts.get(api_key).ok_or_else(|| {
+                MockStateError::NotFound(format!("position {symbol_or_asset_id} was not found"))
+            })?;
+            account
+                .positions
+                .find_open_position(symbol_or_asset_id)
+                .ok_or_else(|| {
+                    MockStateError::NotFound(format!("position {symbol_or_asset_id} was not found"))
+                })?
+        };
+        let snapshot = self
+            .instrument_snapshot(&position.instrument_identity.symbol)
+            .await?;
+        let close_qty = resolve_close_qty(&position, &input)?;
+        let request_side = if position.net_qty > Decimal::ZERO {
+            OrderSide::Sell
+        } else {
+            OrderSide::Buy
+        };
+        let price = reference_price(&request_side, &snapshot);
+        let now = now_string();
+
+        let mut accounts = self
+            .inner
+            .accounts
+            .write()
+            .expect("accounts lock should not poison");
+        let account = accounts
+            .entry(api_key.to_owned())
+            .or_insert_with(|| VirtualAccountState::new(api_key));
+        let order = Order {
+            id: account.next_order_id(),
+            client_order_id: format!("mock-position-close-{}", now_millis()),
+            created_at: now.clone(),
+            updated_at: now.clone(),
+            submitted_at: now.clone(),
+            filled_at: Some(now.clone()),
+            expired_at: None,
+            expires_at: None,
+            canceled_at: None,
+            failed_at: None,
+            replaced_at: None,
+            replaced_by: None,
+            replaces: None,
+            asset_id: position.instrument_identity.asset_id.clone(),
+            symbol: position.instrument_identity.symbol.clone(),
+            asset_class: position.instrument_identity.asset_class.clone(),
+            notional: None,
+            qty: Some(close_qty),
+            filled_qty: close_qty,
+            filled_avg_price: Some(price),
+            order_class: OrderClass::Simple,
+            order_type: OrderType::Market,
+            r#type: OrderType::Market,
+            side: request_side.clone(),
+            position_intent: closing_position_intent(&position, &request_side),
+            time_in_force: TimeInForce::Day,
+            limit_price: None,
+            stop_price: None,
+            status: OrderStatus::Filled,
+            extended_hours: false,
+            legs: None,
+            trail_percent: None,
+            trail_price: None,
+            hwm: None,
+            ratio_qty: None,
+            take_profit: None,
+            stop_loss: None,
+            subtag: None,
+            source: None,
+        };
+        account
+            .client_order_ids
+            .insert(order.client_order_id.clone(), order.id.clone());
+        account.orders.insert(
+            order.id.clone(),
+            StoredOrder {
+                order: order.clone(),
+                request_side: request_side.clone(),
+            },
+        );
+        apply_fill_effects(account, &order, &request_side);
+
+        Ok(ClosePositionBody::from(order))
+    }
+
+    pub async fn close_all_positions(
+        &self,
+        api_key: &str,
+        cancel_orders: bool,
+    ) -> Result<Vec<ClosePositionResult>, MockStateError> {
+        if cancel_orders {
+            let _ = self.cancel_all_orders(api_key);
+        }
+
+        let positions = {
+            let accounts = self
+                .inner
+                .accounts
+                .read()
+                .expect("accounts lock should not poison");
+            accounts
+                .get(api_key)
+                .map(|account| account.positions.list_open_positions())
+                .unwrap_or_default()
+        };
+
+        let mut results = Vec::with_capacity(positions.len());
+        for position in positions {
+            let symbol = position.instrument_identity.symbol.clone();
+            let body = self
+                .close_position(api_key, &symbol, ClosePositionInput::default())
+                .await?;
+            results.push(ClosePositionResult {
+                symbol,
+                status: 200,
+                body: Some(body),
+            });
+        }
+
+        Ok(results)
+    }
+
+    pub fn do_not_exercise_position(
+        &self,
+        api_key: &str,
+        symbol_or_contract_id: &str,
+    ) -> Result<(), MockStateError> {
+        let now = now_string();
+        let mut accounts = self
+            .inner
+            .accounts
+            .write()
+            .expect("accounts lock should not poison");
+        let account = accounts
+            .entry(api_key.to_owned())
+            .or_insert_with(|| VirtualAccountState::new(api_key));
+        let position = account
+            .positions
+            .find_open_position(symbol_or_contract_id)
+            .ok_or_else(|| {
+                MockStateError::NotFound(format!("position {symbol_or_contract_id} was not found"))
+            })?;
+        ensure_exercisable_long_option_position(&position)?;
+        account
+            .positions
+            .record_do_not_exercise(&position.instrument_identity.symbol, &now);
+        let sequence = account.next_sequence();
+        let action_id = format!("mock-dne-{}", now_millis());
+        account.activities.push(ActivityEvent::new(
+            sequence,
+            ActivityEventKind::DoNotExercise,
+            action_id.clone(),
+            action_id,
+            None,
+            None,
+            position.instrument_identity.symbol,
+            position.instrument_identity.asset_class,
+            now,
+            Decimal::ZERO,
+        ));
+        Ok(())
+    }
+
+    pub fn exercise_position(
+        &self,
+        api_key: &str,
+        symbol_or_contract_id: &str,
+    ) -> Result<ExercisePositionBody, MockStateError> {
+        let now = now_string();
+        let mut accounts = self
+            .inner
+            .accounts
+            .write()
+            .expect("accounts lock should not poison");
+        let account = accounts
+            .entry(api_key.to_owned())
+            .or_insert_with(|| VirtualAccountState::new(api_key));
+        let position = account
+            .positions
+            .find_open_position(symbol_or_contract_id)
+            .ok_or_else(|| {
+                MockStateError::NotFound(format!("position {symbol_or_contract_id} was not found"))
+            })?;
+        ensure_exercisable_long_option_position(&position)?;
+        let parsed =
+            parse_option_symbol(&position.instrument_identity.symbol).ok_or_else(|| {
+                MockStateError::Conflict(format!(
+                    "option symbol {} is not a parseable OCC contract",
+                    position.instrument_identity.symbol
+                ))
+            })?;
+        let option_qty = position.net_qty.abs();
+        let share_qty = option_qty * Decimal::new(100, 0);
+        let option_execution = ExecutionFact::new(
+            account.next_sequence(),
+            format!("mock-exercise-option-{}", now_millis()),
+            position.instrument_identity.asset_id.clone(),
+            position.instrument_identity.symbol.clone(),
+            position.instrument_identity.asset_class.clone(),
+            OrderSide::Sell,
+            Some(PositionIntent::SellToClose),
+            option_qty,
+            Decimal::ZERO,
+            now.clone(),
+        );
+        let (underlying_side, position_intent) = match parsed.contract_type {
+            OptionContractType::Call => (OrderSide::Buy, Some(PositionIntent::BuyToOpen)),
+            OptionContractType::Put => (OrderSide::Sell, Some(PositionIntent::SellToOpen)),
+        };
+        let underlying_execution = ExecutionFact::new(
+            account.next_sequence(),
+            format!("mock-exercise-underlying-{}", now_millis()),
+            mock_asset_id(&parsed.underlying_symbol),
+            parsed.underlying_symbol.clone(),
+            "us_equity".to_owned(),
+            underlying_side.clone(),
+            position_intent,
+            share_qty,
+            parsed.strike_price,
+            now.clone(),
+        );
+        account
+            .positions
+            .clear_do_not_exercise_override(&position.instrument_identity.symbol);
+        account.positions.apply_execution(&option_execution);
+        account.executions.push(option_execution);
+        let underlying_cash_delta = signed_cash_delta(
+            &underlying_side,
+            underlying_execution.qty,
+            underlying_execution.price,
+        );
+        account.cash_ledger.apply_delta(underlying_cash_delta);
+        account.positions.apply_execution(&underlying_execution);
+        account.executions.push(underlying_execution);
+        let sequence = account.next_sequence();
+        let action_id = format!("mock-exercise-{}", now_millis());
+        account.activities.push(ActivityEvent::new(
+            sequence,
+            ActivityEventKind::Exercised,
+            action_id.clone(),
+            action_id,
+            None,
+            None,
+            position.instrument_identity.symbol,
+            position.instrument_identity.asset_class,
+            now,
+            underlying_cash_delta,
+        ));
+
+        Ok(ExercisePositionBody {
+            qty_exercised: option_qty,
+            qty_remaining: Decimal::ZERO,
+        })
+    }
+
     pub fn reset(&self) {
         self.inner
             .accounts
@@ -781,6 +1115,38 @@ fn normalize_qty(
     Ok(qty)
 }
 
+fn resolve_close_qty(
+    position: &positions::InstrumentPosition,
+    input: &ClosePositionInput,
+) -> Result<Decimal, MockStateError> {
+    let available = position.net_qty.abs();
+    let qty = if let Some(qty) = input.qty {
+        qty
+    } else if let Some(percentage) = input.percentage {
+        if percentage <= Decimal::ZERO || percentage > Decimal::new(100, 0) {
+            return Err(MockStateError::Conflict(
+                "close percentage must be greater than 0 and at most 100".to_owned(),
+            ));
+        }
+        (available * percentage / Decimal::new(100, 0)).round_dp(8)
+    } else {
+        available
+    };
+
+    if qty <= Decimal::ZERO {
+        return Err(MockStateError::Conflict(
+            "close quantity must be greater than 0".to_owned(),
+        ));
+    }
+    if qty > available {
+        return Err(MockStateError::Conflict(format!(
+            "close quantity {qty} exceeds available position quantity {available}"
+        )));
+    }
+
+    Ok(qty)
+}
+
 fn reference_price(side: &OrderSide, snapshot: &InstrumentSnapshot) -> Decimal {
     match side {
         OrderSide::Buy => snapshot.ask,
@@ -866,12 +1232,7 @@ fn apply_fill_effects(account: &mut VirtualAccountState, order: &Order, request_
         .filled_avg_price
         .expect("filled mock order should always have filled_avg_price");
     let qty = order.filled_qty;
-    let gross = (price * qty).round_dp(8);
-    let cash_delta = match request_side {
-        OrderSide::Buy => -gross,
-        OrderSide::Sell => gross,
-        OrderSide::Unspecified => Decimal::ZERO,
-    };
+    let cash_delta = signed_cash_delta(request_side, qty, price);
     account.cash_ledger.apply_delta(cash_delta);
     let execution_sequence = account.next_sequence();
     let execution = ExecutionFact::new(
@@ -909,6 +1270,15 @@ fn apply_fill_effects(account: &mut VirtualAccountState, order: &Order, request_
     ));
 }
 
+fn signed_cash_delta(side: &OrderSide, qty: Decimal, price: Decimal) -> Decimal {
+    let gross = (price * qty).round_dp(8);
+    match side {
+        OrderSide::Buy => -gross,
+        OrderSide::Sell => gross,
+        OrderSide::Unspecified => Decimal::ZERO,
+    }
+}
+
 fn is_terminal_status(status: &OrderStatus) -> bool {
     matches!(
         status,
@@ -944,6 +1314,61 @@ fn mock_asset_id(symbol: &str) -> String {
         }
     }
     format!("mock-asset-{}", sanitized.trim_matches('-'))
+}
+
+fn public_position_from_projection(projected: positions::ProjectedPosition) -> Position {
+    Position {
+        asset_id: projected.asset_id,
+        symbol: projected.symbol,
+        exchange: projected.exchange,
+        asset_class: projected.asset_class,
+        asset_marginable: projected.asset_marginable,
+        side: projected.side,
+        qty: projected.qty,
+        avg_entry_price: projected.avg_entry_price,
+        market_value: projected.market_value,
+        cost_basis: projected.cost_basis,
+        unrealized_pl: projected.unrealized_pl,
+        unrealized_plpc: projected.unrealized_plpc,
+        current_price: projected.current_price,
+        lastday_price: projected.lastday_price,
+        change_today: projected.change_today,
+        qty_available: projected.qty_available,
+    }
+}
+
+fn closing_position_intent(
+    position: &positions::InstrumentPosition,
+    request_side: &OrderSide,
+) -> Option<PositionIntent> {
+    if position.instrument_identity.asset_class != "us_option" {
+        return None;
+    }
+
+    match request_side {
+        OrderSide::Buy => Some(PositionIntent::BuyToClose),
+        OrderSide::Sell => Some(PositionIntent::SellToClose),
+        OrderSide::Unspecified => None,
+    }
+}
+
+fn ensure_exercisable_long_option_position(
+    position: &positions::InstrumentPosition,
+) -> Result<(), MockStateError> {
+    if position.instrument_identity.asset_class != "us_option" {
+        return Err(MockStateError::Conflict(format!(
+            "position {} is not an option contract",
+            position.instrument_identity.symbol
+        )));
+    }
+    if position.net_qty <= Decimal::ZERO {
+        return Err(MockStateError::Conflict(format!(
+            "position {} must be a long option position to use exercise controls",
+            position.instrument_identity.symbol
+        )));
+    }
+
+    Ok(())
 }
 
 fn now_string() -> String {

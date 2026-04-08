@@ -195,6 +195,7 @@ impl InstrumentPosition {
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub(crate) struct PositionBook {
     instrument_positions: HashMap<InstrumentKey, InstrumentPosition>,
+    do_not_exercise_overrides: HashMap<String, String>,
 }
 
 impl PositionBook {
@@ -262,6 +263,7 @@ impl PositionBook {
         };
 
         if should_remove {
+            self.do_not_exercise_overrides.remove(&execution.symbol);
             self.instrument_positions.remove(&key);
         }
     }
@@ -297,6 +299,19 @@ impl PositionBook {
                 None
             }
         })
+    }
+
+    pub(crate) fn record_do_not_exercise(&mut self, symbol: &str, occurred_at: &str) {
+        self.do_not_exercise_overrides
+            .insert(symbol.to_owned(), occurred_at.to_owned());
+    }
+
+    pub(crate) fn has_do_not_exercise_override(&self, symbol: &str) -> bool {
+        self.do_not_exercise_overrides.contains_key(symbol)
+    }
+
+    pub(crate) fn clear_do_not_exercise_override(&mut self, symbol: &str) {
+        self.do_not_exercise_overrides.remove(symbol);
     }
 }
 

@@ -11,6 +11,9 @@ pub(crate) enum ActivityEventKind {
     Filled,
     Canceled,
     Replaced,
+    PositionClosed,
+    Exercised,
+    DoNotExercise,
 }
 
 impl ActivityEventKind {
@@ -20,6 +23,9 @@ impl ActivityEventKind {
             Self::Filled => "FILL",
             Self::Canceled => "CANCELED",
             Self::Replaced => "REPLACED",
+            Self::PositionClosed => "POSITION_CLOSED",
+            Self::Exercised => "EXERCISED",
+            Self::DoNotExercise => "DO_NOT_EXERCISE",
         }
     }
 }
