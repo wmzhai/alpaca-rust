@@ -1,7 +1,11 @@
 use std::fmt;
 use std::sync::Arc;
 
+use alpaca_http::RequestParts;
+use reqwest::Method;
+
 use crate::client::ClientInner;
+use crate::{Error, clock::Clock};
 
 #[derive(Clone)]
 pub struct ClockClient {
@@ -11,6 +15,15 @@ pub struct ClockClient {
 impl ClockClient {
     pub(crate) fn new(inner: Arc<ClientInner>) -> Self {
         Self { inner }
+    }
+
+    pub async fn get(&self) -> Result<Clock, Error> {
+        let request = RequestParts::new(Method::GET, "/v2/clock").with_operation("clock.get");
+
+        self.inner
+            .send_json::<Clock>(request)
+            .await
+            .map(|response| response.into_body())
     }
 
     #[allow(dead_code)]
