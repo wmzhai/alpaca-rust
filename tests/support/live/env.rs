@@ -6,8 +6,6 @@ use alpaca_core::{BaseUrl, Credentials};
 
 use super::SupportError;
 
-pub const LIVE_TESTS_ENV: &str = "ALPACA_LIVE_TESTS";
-pub const LIVE_PAPER_TESTS_ENV: &str = "ALPACA_LIVE_PAPER_TESTS";
 pub const RECORD_SAMPLES_ENV: &str = "ALPACA_RECORD_SAMPLES";
 pub const SAMPLE_ROOT_ENV: &str = "ALPACA_SAMPLE_ROOT";
 pub const DATA_API_KEY_ENV: &str = "ALPACA_DATA_API_KEY";
@@ -54,8 +52,6 @@ impl ServiceConfig {
 pub struct LiveTestEnv {
     workspace_root: PathBuf,
     sample_root: PathBuf,
-    live_tests_enabled: bool,
-    live_paper_tests_enabled: bool,
     record_samples: bool,
     data: Option<ServiceConfig>,
     trade: Option<ServiceConfig>,
@@ -103,12 +99,6 @@ impl LiveTestEnv {
         Ok(Self {
             workspace_root,
             sample_root,
-            live_tests_enabled: parse_bool_flag(&process_values, &dotenv_values, LIVE_TESTS_ENV),
-            live_paper_tests_enabled: parse_bool_flag(
-                &process_values,
-                &dotenv_values,
-                LIVE_PAPER_TESTS_ENV,
-            ),
             record_samples: parse_bool_flag(&process_values, &dotenv_values, RECORD_SAMPLES_ENV),
             data,
             trade,
@@ -123,16 +113,6 @@ impl LiveTestEnv {
     #[must_use]
     pub fn sample_root(&self) -> &Path {
         &self.sample_root
-    }
-
-    #[must_use]
-    pub fn live_tests_enabled(&self) -> bool {
-        self.live_tests_enabled
-    }
-
-    #[must_use]
-    pub fn live_paper_tests_enabled(&self) -> bool {
-        self.live_paper_tests_enabled
     }
 
     #[must_use]
@@ -160,10 +140,6 @@ impl LiveTestEnv {
 
     #[must_use]
     pub fn skip_reason_for_service(&self, service: AlpacaService) -> Option<String> {
-        if !self.live_tests_enabled {
-            return Some(format!("set {LIVE_TESTS_ENV}=1 to enable live tests"));
-        }
-
         if self.service(service).is_some() {
             return None;
         }
@@ -176,19 +152,6 @@ impl LiveTestEnv {
         Some(format!(
             "missing {label} credentials; expected {key_name} and {secret_name} or legacy {LEGACY_KEY_ENV} and {LEGACY_SECRET_ENV}"
         ))
-    }
-
-    #[must_use]
-    pub fn skip_reason_for_live_paper(&self) -> Option<String> {
-        if let Some(reason) = self.skip_reason_for_service(AlpacaService::Trade) {
-            return Some(reason);
-        }
-        if !self.live_paper_tests_enabled {
-            return Some(format!(
-                "set {LIVE_PAPER_TESTS_ENV}=1 to enable live paper mutating tests"
-            ));
-        }
-        None
     }
 }
 
@@ -251,8 +214,6 @@ pub fn parse_bool_flag(
 
 fn all_known_env_names() -> Vec<&'static str> {
     vec![
-        LIVE_TESTS_ENV,
-        LIVE_PAPER_TESTS_ENV,
         RECORD_SAMPLES_ENV,
         SAMPLE_ROOT_ENV,
         DATA_API_KEY_ENV,

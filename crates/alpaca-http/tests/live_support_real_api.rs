@@ -7,15 +7,15 @@ use live_support::{
 };
 
 #[tokio::test]
-async fn live_support_smoke_hits_real_data_and_paper_endpoints() {
+async fn live_support_real_api_reads_data_and_paper_endpoints() {
     let env = LiveTestEnv::load().expect("live test environment should load");
 
     if let Some(reason) = env.skip_reason_for_service(AlpacaService::Data) {
-        eprintln!("skipping live data smoke: {reason}");
+        eprintln!("skipping real API test: {reason}");
         return;
     }
     if let Some(reason) = env.skip_reason_for_service(AlpacaService::Trade) {
-        eprintln!("skipping live trade smoke: {reason}");
+        eprintln!("skipping real API test: {reason}");
         return;
     }
 
