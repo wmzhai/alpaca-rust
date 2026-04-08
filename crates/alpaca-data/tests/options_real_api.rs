@@ -32,10 +32,15 @@ async fn options_resource_reads_real_api_endpoints() {
     let probe = LiveHttpProbe::new().expect("live probe should build");
 
     let contract = discover_contract(&probe, service, &recorder).await;
-    let nearby_contracts =
-        discover_option_contracts(&probe, service, Some(&recorder), &contract.underlying_symbol, 8)
-            .await
-            .expect("should discover nearby option contracts");
+    let nearby_contracts = discover_option_contracts(
+        &probe,
+        service,
+        Some(&recorder),
+        &contract.underlying_symbol,
+        8,
+    )
+    .await
+    .expect("should discover nearby option contracts");
     let symbols = nearby_contracts
         .iter()
         .take(2)

@@ -26,8 +26,12 @@ impl OptionsClient {
 
     pub async fn bars(&self, request: BarsRequest) -> Result<BarsResponse, Error> {
         request.validate()?;
-        self.get_json("options.bars", "/v1beta1/options/bars", request.into_query())
-            .await
+        self.get_json(
+            "options.bars",
+            "/v1beta1/options/bars",
+            request.into_query(),
+        )
+        .await
     }
 
     pub async fn bars_all(&self, request: BarsRequest) -> Result<BarsResponse, Error> {
@@ -41,8 +45,12 @@ impl OptionsClient {
 
     pub async fn trades(&self, request: TradesRequest) -> Result<TradesResponse, Error> {
         request.validate()?;
-        self.get_json("options.trades", "/v1beta1/options/trades", request.into_query())
-            .await
+        self.get_json(
+            "options.trades",
+            "/v1beta1/options/trades",
+            request.into_query(),
+        )
+        .await
     }
 
     pub async fn trades_all(&self, request: TradesRequest) -> Result<TradesResponse, Error> {
@@ -108,7 +116,8 @@ impl OptionsClient {
             "/v1beta1/options/snapshots/{}",
             request.underlying_symbol.as_str()
         );
-        self.get_json("options.chain", path, request.into_query()).await
+        self.get_json("options.chain", path, request.into_query())
+            .await
     }
 
     pub async fn chain_all(&self, request: ChainRequest) -> Result<ChainResponse, Error> {
