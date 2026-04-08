@@ -1,14 +1,15 @@
 #![forbid(unsafe_code)]
 
-/// Phase 1 placeholder for shared primitives.
-pub const CRATE_NAME: &str = "alpaca-core";
+mod auth;
+pub mod decimal;
+pub mod env;
+mod error;
+pub mod integer;
+pub mod pagination;
+mod query;
+pub mod validate;
 
-#[cfg(test)]
-mod tests {
-    use super::CRATE_NAME;
-
-    #[test]
-    fn crate_name_is_stable() {
-        assert_eq!(CRATE_NAME, "alpaca-core");
-    }
-}
+pub use auth::Credentials;
+pub use env::BaseUrl;
+pub use error::Error;
+pub use query::QueryWriter;
