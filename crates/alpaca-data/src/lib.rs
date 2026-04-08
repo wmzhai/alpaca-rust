@@ -1,14 +1,15 @@
 #![forbid(unsafe_code)]
 
-#[derive(Debug, Clone, Default)]
-pub struct Client;
+mod client;
+mod error;
 
-#[derive(Debug, Clone, Default)]
-pub struct ClientBuilder;
+pub mod corporate_actions;
+pub mod news;
+pub mod options;
+pub mod stocks;
 
-impl Client {
-    #[must_use]
-    pub fn builder() -> ClientBuilder {
-        ClientBuilder
-    }
-}
+pub use client::{
+    Client, ClientBuilder, DATA_API_KEY_ENV, DATA_BASE_URL_ENV, DATA_SECRET_KEY_ENV,
+    DEFAULT_DATA_BASE_URL, LEGACY_DATA_BASE_URL_ENV,
+};
+pub use error::Error;

@@ -6,6 +6,8 @@ edition.workspace = true
 [dependencies]
 alpaca-core = { path = "../alpaca-core" }
 alpaca-http = { path = "../alpaca-http" }
+reqwest.workspace = true
+thiserror.workspace = true
 
 [dev-dependencies]
 dotenvy.workspace = true
