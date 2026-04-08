@@ -1,7 +1,14 @@
 use std::fmt;
 use std::sync::Arc;
 
+use alpaca_http::RequestParts;
+use reqwest::Method;
+
 use crate::client::ClientInner;
+use crate::{
+    Error,
+    assets::{Asset, ListRequest},
+};
 
 #[derive(Clone)]
 pub struct AssetsClient {
@@ -11,6 +18,33 @@ pub struct AssetsClient {
 impl AssetsClient {
     pub(crate) fn new(inner: Arc<ClientInner>) -> Self {
         Self { inner }
+    }
+
+    pub async fn list(&self, request: ListRequest) -> Result<Vec<Asset>, Error> {
+        let request = RequestParts::new(Method::GET, "/v2/assets")
+            .with_operation("assets.list")
+            .with_query(request.into_query()?);
+
+        self.inner
+            .send_json::<Vec<Asset>>(request)
+            .await
+            .map(|response| response.into_body())
+    }
+
+    pub async fn get(&self, symbol_or_asset_id: &str) -> Result<Asset, Error> {
+        let request = RequestParts::new(
+            Method::GET,
+            format!(
+                "/v2/assets/{}",
+                super::request::validate_symbol_or_asset_id(symbol_or_asset_id)?
+            ),
+        )
+        .with_operation("assets.get");
+
+        self.inner
+            .send_json::<Asset>(request)
+            .await
+            .map(|response| response.into_body())
     }
 
     #[allow(dead_code)]
