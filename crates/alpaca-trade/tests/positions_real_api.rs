@@ -53,6 +53,8 @@ async fn positions_resource_reads_real_paper_positions_after_open_and_close() {
         return;
     }
 
+    ensure_symbol_flat(&trade_client, POSITION_TEST_SYMBOL).await;
+
     let client_order_id = format!(
         "phase13-paper-{}",
         SystemTime::now()
@@ -171,4 +173,23 @@ async fn wait_for_position_absent(client: &Client, symbol: &str) {
         Err(Error::Http(error)) if error.meta().map(|meta| meta.status()) == Some(404) => {}
         other => panic!("position {symbol} should disappear after close, got {other:?}"),
     }
+}
+
+async fn ensure_symbol_flat(client: &Client, symbol: &str) {
+    let existing = match client.positions().get(symbol).await {
+        Ok(position) => Some(position),
+        Err(Error::Http(error)) if error.meta().map(|meta| meta.status()) == Some(404) => None,
+        Err(other) => panic!("unexpected preflight position lookup error: {other:?}"),
+    };
+    if existing.is_none() {
+        return;
+    }
+
+    let close = client
+        .positions()
+        .close(symbol, ClosePositionRequest::default())
+        .await
+        .expect("preflight close position should submit");
+    let _ = wait_for_order_status(client, &close.id, OrderStatus::Filled).await;
+    wait_for_position_absent(client, symbol).await;
 }
