@@ -1,7 +1,14 @@
 use std::fmt;
 use std::sync::Arc;
 
+use alpaca_http::RequestParts;
+use reqwest::Method;
+
 use crate::client::ClientInner;
+use crate::{
+    Error,
+    calendar::{Calendar, ListRequest},
+};
 
 #[derive(Clone)]
 pub struct CalendarClient {
@@ -11,6 +18,17 @@ pub struct CalendarClient {
 impl CalendarClient {
     pub(crate) fn new(inner: Arc<ClientInner>) -> Self {
         Self { inner }
+    }
+
+    pub async fn list(&self, request: ListRequest) -> Result<Vec<Calendar>, Error> {
+        let request = RequestParts::new(Method::GET, "/v2/calendar")
+            .with_operation("calendar.list")
+            .with_query(request.into_query()?);
+
+        self.inner
+            .send_json::<Vec<Calendar>>(request)
+            .await
+            .map(|response| response.into_body())
     }
 
     #[allow(dead_code)]
