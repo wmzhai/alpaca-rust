@@ -36,6 +36,10 @@ impl CashLedger {
     pub fn cash_balance(&self) -> Decimal {
         self.cash
     }
+
+    pub fn apply_delta(&mut self, delta: Decimal) {
+        self.cash += delta;
+    }
 }
 
 pub(crate) fn project_account(state: &VirtualAccountState) -> alpaca_trade::account::Account {

@@ -9,9 +9,12 @@ alpaca-http = { path = "../alpaca-http" }
 reqwest.workspace = true
 rust_decimal.workspace = true
 serde.workspace = true
+serde_json.workspace = true
 thiserror.workspace = true
 
 [dev-dependencies]
+alpaca-data = { path = "../alpaca-data" }
+alpaca-mock = { path = "../alpaca-mock" }
 dotenvy.workspace = true
 reqwest.workspace = true
 rust_decimal.workspace = true

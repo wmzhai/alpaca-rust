@@ -8,6 +8,7 @@ publish = false
 alpaca-data = { path = "../alpaca-data" }
 alpaca-trade = { path = "../alpaca-trade" }
 axum.workspace = true
+chrono.workspace = true
 dotenvy.workspace = true
 rust_decimal.workspace = true
 serde.workspace = true

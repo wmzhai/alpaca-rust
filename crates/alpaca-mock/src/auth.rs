@@ -38,6 +38,27 @@ impl MockHttpError {
         }
     }
 
+    pub(crate) fn not_found(message: impl Into<String>) -> Self {
+        Self {
+            status: StatusCode::NOT_FOUND,
+            message: message.into(),
+        }
+    }
+
+    pub(crate) fn conflict(message: impl Into<String>) -> Self {
+        Self {
+            status: StatusCode::UNPROCESSABLE_ENTITY,
+            message: message.into(),
+        }
+    }
+
+    pub(crate) fn internal(message: impl Into<String>) -> Self {
+        Self {
+            status: StatusCode::INTERNAL_SERVER_ERROR,
+            message: message.into(),
+        }
+    }
+
     pub(crate) fn with_status(status: StatusCode, message: impl Into<String>) -> Self {
         Self {
             status,
