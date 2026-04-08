@@ -14,8 +14,8 @@ use thiserror::Error;
 
 use alpaca_trade::activities::Activity;
 use alpaca_trade::orders::{
-    CancelAllOrderResult, Order, OrderClass, OrderSide, OrderStatus, OrderType, PositionIntent,
-    SortDirection, StopLoss, TakeProfit, TimeInForce,
+    CancelAllOrderResult, OptionLegRequest, Order, OrderClass, OrderSide, OrderStatus, OrderType,
+    PositionIntent, SortDirection, StopLoss, TakeProfit, TimeInForce,
 };
 use alpaca_trade::positions::{
     ClosePositionBody, ClosePositionResult, ExercisePositionBody, Position,
@@ -76,6 +76,7 @@ pub struct CreateOrderInput {
     pub position_intent: Option<PositionIntent>,
     pub take_profit: Option<TakeProfit>,
     pub stop_loss: Option<StopLoss>,
+    pub legs: Option<Vec<OptionLegRequest>>,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -207,12 +208,6 @@ impl MockServerState {
         input: CreateOrderInput,
     ) -> Result<Order, MockStateError> {
         let order_class = input.order_class.clone().unwrap_or(OrderClass::Simple);
-        if order_class == OrderClass::Mleg {
-            return Err(MockStateError::Conflict(
-                "alpaca-mock does not yet support mleg order simulation".to_owned(),
-            ));
-        }
-
         let request_side = input.side.clone().unwrap_or(OrderSide::Buy);
         if request_side == OrderSide::Unspecified {
             return Err(MockStateError::Conflict(
@@ -222,18 +217,34 @@ impl MockServerState {
 
         let order_type = input.order_type.clone().unwrap_or(OrderType::Market);
         let time_in_force = input.time_in_force.clone().unwrap_or(TimeInForce::Day);
-        let symbol = input
+        let requested_symbol = input
             .symbol
             .clone()
             .unwrap_or_else(|| DEFAULT_STOCK_SYMBOL.to_owned());
-        let snapshot = self.instrument_snapshot(&symbol).await?;
-        let reference_price = reference_price(&request_side, &snapshot);
-        let qty = normalize_qty(input.qty, input.notional, reference_price)?;
-        let fill_price =
-            marketable_fill_price(&order_type, &request_side, input.limit_price, &snapshot);
         let client_order_id = input
             .client_order_id
             .unwrap_or_else(|| format!("mock-client-order-{}", now_millis()));
+        let market_quotes = self
+            .resolve_market_quotes(
+                if order_class == OrderClass::Mleg {
+                    None
+                } else {
+                    Some(requested_symbol.as_str())
+                },
+                input.legs.as_deref(),
+            )
+            .await?;
+        let qty = if order_class == OrderClass::Mleg {
+            normalize_qty(input.qty, None, Decimal::ONE)?
+        } else {
+            let snapshot = market_quotes.get(&requested_symbol).ok_or_else(|| {
+                MockStateError::MarketDataUnavailable(format!(
+                    "mock order creation for {requested_symbol} requires live market data"
+                ))
+            })?;
+            let reference_price = reference_price(&request_side, snapshot);
+            normalize_qty(input.qty, input.notional, reference_price)?
+        };
 
         let mut accounts = self
             .inner
@@ -251,13 +262,15 @@ impl MockServerState {
 
         let order_id = account.next_order_id();
         let now = now_string();
-        let order = Order {
+        let order_time_in_force = time_in_force.clone();
+        let order_type_for_legs = order_type.clone();
+        let mut order = Order {
             id: order_id.clone(),
             client_order_id: client_order_id.clone(),
             created_at: now.clone(),
             updated_at: now.clone(),
             submitted_at: now.clone(),
-            filled_at: fill_price.map(|_| now.clone()),
+            filled_at: None,
             expired_at: None,
             expires_at: expires_at_for(&time_in_force),
             canceled_at: None,
@@ -265,28 +278,59 @@ impl MockServerState {
             replaced_at: None,
             replaced_by: None,
             replaces: None,
-            asset_id: mock_asset_id(&symbol),
-            symbol: symbol.clone(),
-            asset_class: snapshot.asset_class.clone(),
+            asset_id: if order_class == OrderClass::Mleg {
+                String::new()
+            } else {
+                mock_asset_id(&requested_symbol)
+            },
+            symbol: if order_class == OrderClass::Mleg {
+                String::new()
+            } else {
+                requested_symbol.clone()
+            },
+            asset_class: if order_class == OrderClass::Mleg {
+                String::new()
+            } else {
+                market_quotes
+                    .get(&requested_symbol)
+                    .expect("simple order market quote should exist")
+                    .asset_class
+                    .clone()
+            },
             notional: input.notional,
             qty: Some(qty),
-            filled_qty: fill_price.map_or(Decimal::ZERO, |_| qty),
-            filled_avg_price: fill_price,
-            order_class,
+            filled_qty: Decimal::ZERO,
+            filled_avg_price: None,
+            order_class: order_class.clone(),
             order_type: order_type.clone(),
             r#type: order_type,
-            side: request_side.clone(),
-            position_intent: input.position_intent.clone(),
-            time_in_force,
+            side: if order_class == OrderClass::Mleg {
+                OrderSide::Unspecified
+            } else {
+                request_side.clone()
+            },
+            position_intent: if order_class == OrderClass::Mleg {
+                None
+            } else {
+                input.position_intent.clone()
+            },
+            time_in_force: order_time_in_force,
             limit_price: input.limit_price,
             stop_price: input.stop_price,
-            status: if fill_price.is_some() {
-                OrderStatus::Filled
-            } else {
-                OrderStatus::New
-            },
+            status: OrderStatus::New,
             extended_hours: input.extended_hours.unwrap_or(false),
-            legs: None,
+            legs: if order_class == OrderClass::Mleg {
+                Some(build_leg_orders_from_requests(
+                    input.legs.as_deref().unwrap_or(&[]),
+                    qty,
+                    order_type_for_legs,
+                    time_in_force.clone(),
+                    &now,
+                    None,
+                ))
+            } else {
+                None
+            },
             trail_percent: input.trail_percent,
             trail_price: input.trail_price,
             hwm: None,
@@ -296,6 +340,27 @@ impl MockServerState {
             subtag: None,
             source: None,
         };
+        if order_class == OrderClass::Mleg {
+            apply_mleg_fill_rules(&mut order, &request_side, &market_quotes);
+        } else {
+            let snapshot = market_quotes
+                .get(&requested_symbol)
+                .expect("simple order market quote should exist");
+            let fill_price = marketable_fill_price(
+                &order.order_type,
+                &request_side,
+                order.limit_price,
+                snapshot,
+            );
+            order.filled_at = fill_price.map(|_| now.clone());
+            order.filled_qty = fill_price.map_or(Decimal::ZERO, |_| qty);
+            order.filled_avg_price = fill_price;
+            order.status = if fill_price.is_some() {
+                OrderStatus::Filled
+            } else {
+                OrderStatus::New
+            };
+        }
 
         account
             .client_order_ids
@@ -482,8 +547,27 @@ impl MockServerState {
             )));
         }
 
-        let symbol = current.order.symbol.clone();
-        let snapshot = self.instrument_snapshot(&symbol).await?;
+        let leg_requests = current
+            .order
+            .legs
+            .as_deref()
+            .map(option_leg_requests_from_orders)
+            .unwrap_or_default();
+        let market_quotes = self
+            .resolve_market_quotes(
+                if current.order.order_class == OrderClass::Mleg || current.order.symbol.is_empty()
+                {
+                    None
+                } else {
+                    Some(current.order.symbol.as_str())
+                },
+                if leg_requests.is_empty() {
+                    None
+                } else {
+                    Some(leg_requests.as_slice())
+                },
+            )
+            .await?;
         let request_side = current.request_side.clone();
         let replacement_limit_price = input.limit_price.or(current.order.limit_price);
         let replacement_qty = input.qty.or(current.order.qty);
@@ -495,17 +579,21 @@ impl MockServerState {
             .time_in_force
             .clone()
             .unwrap_or_else(|| current.order.time_in_force.clone());
-        let fill_price = marketable_fill_price(
-            &current.order.r#type,
-            &request_side,
-            replacement_limit_price,
-            &snapshot,
-        );
-        let qty = normalize_qty(
-            replacement_qty,
-            current.order.notional,
-            reference_price(&request_side, &snapshot),
-        )?;
+        let qty = if current.order.order_class == OrderClass::Mleg {
+            normalize_qty(replacement_qty, None, Decimal::ONE)?
+        } else {
+            let snapshot = market_quotes.get(&current.order.symbol).ok_or_else(|| {
+                MockStateError::MarketDataUnavailable(format!(
+                    "mock order replacement for {} requires live market data",
+                    current.order.symbol
+                ))
+            })?;
+            normalize_qty(
+                replacement_qty,
+                current.order.notional,
+                reference_price(&request_side, snapshot),
+            )?
+        };
 
         let mut accounts = self
             .inner
@@ -528,13 +616,14 @@ impl MockServerState {
 
         let now = now_string();
         let replacement_order_id = account.next_order_id();
-        let replacement = Order {
+        let replacement_time_in_force_for_legs = replacement_time_in_force.clone();
+        let mut replacement = Order {
             id: replacement_order_id.clone(),
             client_order_id: replacement_client_order_id.clone(),
             created_at: now.clone(),
             updated_at: now.clone(),
             submitted_at: now.clone(),
-            filled_at: fill_price.map(|_| now.clone()),
+            filled_at: None,
             expired_at: None,
             expires_at: expires_at_for(&replacement_time_in_force),
             canceled_at: None,
@@ -547,23 +636,30 @@ impl MockServerState {
             asset_class: current.order.asset_class.clone(),
             notional: current.order.notional,
             qty: Some(qty),
-            filled_qty: fill_price.map_or(Decimal::ZERO, |_| qty),
-            filled_avg_price: fill_price,
+            filled_qty: Decimal::ZERO,
+            filled_avg_price: None,
             order_class: current.order.order_class.clone(),
             order_type: current.order.order_type.clone(),
             r#type: current.order.r#type.clone(),
-            side: request_side.clone(),
+            side: current.order.side.clone(),
             position_intent: current.order.position_intent.clone(),
             time_in_force: replacement_time_in_force,
             limit_price: replacement_limit_price,
             stop_price: input.stop_price.or(current.order.stop_price),
-            status: if fill_price.is_some() {
-                OrderStatus::Filled
-            } else {
-                OrderStatus::New
-            },
+            status: OrderStatus::New,
             extended_hours: current.order.extended_hours,
-            legs: current.order.legs.clone(),
+            legs: if current.order.order_class == OrderClass::Mleg {
+                Some(build_leg_orders_from_requests(
+                    &leg_requests,
+                    qty,
+                    current.order.r#type.clone(),
+                    replacement_time_in_force_for_legs,
+                    &now,
+                    current.order.legs.as_deref(),
+                ))
+            } else {
+                current.order.legs.clone()
+            },
             trail_percent: current.order.trail_percent,
             trail_price: input.trail.or(current.order.trail_price),
             hwm: current.order.hwm,
@@ -573,6 +669,27 @@ impl MockServerState {
             subtag: current.order.subtag.clone(),
             source: current.order.source.clone(),
         };
+        if current.order.order_class == OrderClass::Mleg {
+            apply_mleg_fill_rules(&mut replacement, &request_side, &market_quotes);
+        } else {
+            let snapshot = market_quotes
+                .get(&current.order.symbol)
+                .expect("simple order market quote should exist");
+            let fill_price = marketable_fill_price(
+                &current.order.r#type,
+                &request_side,
+                replacement.limit_price,
+                snapshot,
+            );
+            replacement.filled_at = fill_price.map(|_| now.clone());
+            replacement.filled_qty = fill_price.map_or(Decimal::ZERO, |_| qty);
+            replacement.filled_avg_price = fill_price;
+            replacement.status = if fill_price.is_some() {
+                OrderStatus::Filled
+            } else {
+                OrderStatus::New
+            };
+        }
 
         let (current_order_id, current_client_order_id, current_symbol, current_asset_class) = {
             let current = account.orders.get_mut(order_id).ok_or_else(|| {
@@ -583,10 +700,7 @@ impl MockServerState {
                     "order {order_id} is no longer replaceable"
                 )));
             }
-            current.order.status = OrderStatus::Replaced;
-            current.order.updated_at = now.clone();
-            current.order.replaced_at = Some(now.clone());
-            current.order.replaced_by = Some(replacement.id.clone());
+            mark_order_replaced(&mut current.order, &replacement, &now);
             (
                 current.order.id.clone(),
                 current.order.client_order_id.clone(),
@@ -649,9 +763,7 @@ impl MockServerState {
                     "order {order_id} is no longer cancelable"
                 )));
             }
-            stored.order.status = OrderStatus::Canceled;
-            stored.order.updated_at = now.clone();
-            stored.order.canceled_at = Some(now.clone());
+            mark_order_canceled(&mut stored.order, &now);
             (
                 stored.order.id.clone(),
                 stored.order.client_order_id.clone(),
@@ -704,9 +816,7 @@ impl MockServerState {
                     .orders
                     .get_mut(&order_id)
                     .expect("cancelable order should remain present");
-                stored.order.status = OrderStatus::Canceled;
-                stored.order.updated_at = now.clone();
-                stored.order.canceled_at = Some(now.clone());
+                mark_order_canceled(&mut stored.order, &now);
                 stored.order.clone()
             };
             let sequence = account.next_sequence();
@@ -1123,6 +1233,19 @@ impl MockServerState {
             .await
             .map_err(|error| MockStateError::MarketDataUnavailable(error.to_string()))
     }
+
+    async fn resolve_market_quotes(
+        &self,
+        symbol: Option<&str>,
+        legs: Option<&[OptionLegRequest]>,
+    ) -> Result<HashMap<String, InstrumentSnapshot>, MockStateError> {
+        let mut quotes = HashMap::new();
+        for requested_symbol in requested_symbols(symbol, legs) {
+            let snapshot = self.instrument_snapshot(&requested_symbol).await?;
+            quotes.insert(requested_symbol, snapshot);
+        }
+        Ok(quotes)
+    }
 }
 
 impl Default for MockServerState {
@@ -1271,6 +1394,49 @@ fn marketable_fill_price(
     }
 }
 
+fn apply_mleg_fill_rules(
+    order: &mut Order,
+    request_side: &OrderSide,
+    market_quotes: &HashMap<String, InstrumentSnapshot>,
+) {
+    let fill_price =
+        mleg_mid_price(order, request_side, market_quotes).and_then(|mid| match order.r#type {
+            OrderType::Market => Some(mid),
+            OrderType::Limit => match request_side {
+                OrderSide::Buy | OrderSide::Unspecified => order
+                    .limit_price
+                    .filter(|limit_price| *limit_price >= mid)
+                    .map(|_| mid),
+                OrderSide::Sell => order
+                    .limit_price
+                    .filter(|limit_price| *limit_price <= mid)
+                    .map(|_| mid),
+            },
+            OrderType::Stop
+            | OrderType::StopLimit
+            | OrderType::TrailingStop
+            | OrderType::Unspecified => None,
+        });
+
+    if let Some(fill_price) = fill_price {
+        let now = now_string();
+        order.status = OrderStatus::Filled;
+        order.filled_qty = order.qty.unwrap_or(Decimal::ZERO);
+        order.filled_avg_price = Some(fill_price);
+        order.filled_at = Some(now.clone());
+        order.updated_at = now;
+        order.canceled_at = None;
+        sync_nested_legs(order, market_quotes, Some(fill_price), OrderStatus::Filled);
+        return;
+    }
+
+    order.status = OrderStatus::New;
+    order.filled_qty = Decimal::ZERO;
+    order.filled_avg_price = None;
+    order.filled_at = None;
+    sync_nested_legs(order, market_quotes, None, OrderStatus::New);
+}
+
 fn record_create_effects(
     account: &mut VirtualAccountState,
     order: &Order,
@@ -1326,24 +1492,15 @@ fn apply_fill_effects(account: &mut VirtualAccountState, order: &Order, request_
     let qty = order.filled_qty;
     let cash_delta = signed_cash_delta(request_side, qty, price);
     account.cash_ledger.apply_delta(cash_delta);
-    let execution_sequence = account.next_sequence();
-    let execution = ExecutionFact::new(
-        execution_sequence,
-        order.id.clone(),
-        order.asset_id.clone(),
-        order.symbol.clone(),
-        order.asset_class.clone(),
-        request_side.clone(),
-        order.position_intent.clone(),
-        qty,
-        price,
-        order
-            .filled_at
-            .clone()
-            .unwrap_or_else(|| order.updated_at.clone()),
-    );
-    account.positions.apply_execution(&execution);
-    account.executions.push(execution);
+    let occurred_at = order
+        .filled_at
+        .clone()
+        .unwrap_or_else(|| order.updated_at.clone());
+    let executions = execution_facts_from_order(account, order, request_side, &occurred_at);
+    for execution in executions {
+        account.positions.apply_execution(&execution);
+        account.executions.push(execution);
+    }
     let activity_sequence = account.next_sequence();
     account.activities.push(
         ActivityEvent::new(
@@ -1372,6 +1529,53 @@ fn signed_cash_delta(side: &OrderSide, qty: Decimal, price: Decimal) -> Decimal 
         OrderSide::Sell => gross,
         OrderSide::Unspecified => Decimal::ZERO,
     }
+}
+
+fn execution_facts_from_order(
+    account: &mut VirtualAccountState,
+    order: &Order,
+    request_side: &OrderSide,
+    occurred_at: &str,
+) -> Vec<ExecutionFact> {
+    if order.order_class == OrderClass::Mleg {
+        return order
+            .legs
+            .as_ref()
+            .map(|legs| {
+                legs.iter()
+                    .map(|leg| {
+                        ExecutionFact::new(
+                            account.next_sequence(),
+                            leg.id.clone(),
+                            leg.asset_id.clone(),
+                            leg.symbol.clone(),
+                            leg.asset_class.clone(),
+                            leg.side.clone(),
+                            leg.position_intent.clone(),
+                            leg.filled_qty,
+                            leg.filled_avg_price.unwrap_or(Decimal::ZERO),
+                            leg.filled_at
+                                .clone()
+                                .unwrap_or_else(|| occurred_at.to_owned()),
+                        )
+                    })
+                    .collect()
+            })
+            .unwrap_or_default();
+    }
+
+    vec![ExecutionFact::new(
+        account.next_sequence(),
+        order.id.clone(),
+        order.asset_id.clone(),
+        order.symbol.clone(),
+        order.asset_class.clone(),
+        request_side.clone(),
+        order.position_intent.clone(),
+        order.filled_qty,
+        order.filled_avg_price.unwrap_or(Decimal::ZERO),
+        occurred_at.to_owned(),
+    )]
 }
 
 fn is_terminal_status(status: &OrderStatus) -> bool {
@@ -1417,6 +1621,189 @@ fn mock_asset_id(symbol: &str) -> String {
         }
     }
     format!("mock-asset-{}", sanitized.trim_matches('-'))
+}
+
+fn mleg_mid_price(
+    order: &Order,
+    request_side: &OrderSide,
+    market_quotes: &HashMap<String, InstrumentSnapshot>,
+) -> Option<Decimal> {
+    let raw_total = order
+        .legs
+        .as_ref()?
+        .iter()
+        .try_fold(Decimal::ZERO, |total, leg| {
+            let instrument = market_quotes.get(&leg.symbol)?;
+            let leg_mid = instrument.mid_price();
+            let ratio_qty = Decimal::from(leg.ratio_qty.unwrap_or(1));
+            let contribution = match leg.side {
+                OrderSide::Buy => leg_mid * ratio_qty,
+                OrderSide::Sell => -(leg_mid * ratio_qty),
+                OrderSide::Unspecified => return None,
+            };
+            Some(total + contribution)
+        })?;
+
+    let normalized_total = match request_side {
+        OrderSide::Buy | OrderSide::Unspecified => raw_total,
+        OrderSide::Sell => -raw_total,
+    };
+
+    Some(normalized_total.round_dp(2))
+}
+
+fn sync_nested_legs(
+    order: &mut Order,
+    market_quotes: &HashMap<String, InstrumentSnapshot>,
+    fill_price: Option<Decimal>,
+    status: OrderStatus,
+) {
+    let Some(legs) = order.legs.as_mut() else {
+        return;
+    };
+
+    let now = now_string();
+    for leg in legs {
+        leg.updated_at = now.clone();
+        leg.status = status.clone();
+        match fill_price {
+            Some(_) => {
+                leg.filled_qty = leg.qty.unwrap_or(Decimal::ZERO);
+                leg.filled_avg_price = market_quotes
+                    .get(&leg.symbol)
+                    .map(InstrumentSnapshot::mid_price);
+                leg.filled_at = Some(now.clone());
+                leg.canceled_at = None;
+            }
+            None => {
+                leg.filled_qty = Decimal::ZERO;
+                leg.filled_avg_price = None;
+                leg.filled_at = None;
+            }
+        }
+    }
+}
+
+fn mark_order_canceled(order: &mut Order, canceled_at: &str) {
+    order.status = OrderStatus::Canceled;
+    order.updated_at = canceled_at.to_owned();
+    order.canceled_at = Some(canceled_at.to_owned());
+    order.filled_at = None;
+    order.filled_qty = Decimal::ZERO;
+    order.filled_avg_price = None;
+
+    if let Some(legs) = order.legs.as_mut() {
+        for leg in legs {
+            leg.status = OrderStatus::Canceled;
+            leg.updated_at = canceled_at.to_owned();
+            leg.canceled_at = Some(canceled_at.to_owned());
+            leg.filled_at = None;
+            leg.filled_qty = Decimal::ZERO;
+            leg.filled_avg_price = None;
+        }
+    }
+}
+
+fn mark_order_replaced(order: &mut Order, replacement: &Order, replaced_at: &str) {
+    order.status = OrderStatus::Replaced;
+    order.updated_at = replaced_at.to_owned();
+    order.replaced_at = Some(replaced_at.to_owned());
+    order.replaced_by = Some(replacement.id.clone());
+
+    if let (Some(current_legs), Some(replacement_legs)) =
+        (order.legs.as_mut(), replacement.legs.as_ref())
+    {
+        for (current_leg, replacement_leg) in current_legs.iter_mut().zip(replacement_legs.iter()) {
+            current_leg.status = OrderStatus::Replaced;
+            current_leg.updated_at = replaced_at.to_owned();
+            current_leg.replaced_at = Some(replaced_at.to_owned());
+            current_leg.replaced_by = Some(replacement_leg.id.clone());
+        }
+    }
+}
+
+fn requested_symbols(symbol: Option<&str>, legs: Option<&[OptionLegRequest]>) -> Vec<String> {
+    let mut symbols = Vec::new();
+    if let Some(symbol) = symbol {
+        symbols.push(symbol.to_owned());
+    }
+    if let Some(legs) = legs {
+        symbols.extend(legs.iter().map(|leg| leg.symbol.clone()));
+    }
+    symbols.sort();
+    symbols.dedup();
+    symbols
+}
+
+fn option_leg_requests_from_orders(legs: &[Order]) -> Vec<OptionLegRequest> {
+    legs.iter()
+        .map(|leg| OptionLegRequest {
+            symbol: leg.symbol.clone(),
+            ratio_qty: leg.ratio_qty.unwrap_or(1),
+            side: Some(leg.side.clone()),
+            position_intent: leg.position_intent.clone(),
+        })
+        .collect()
+}
+
+fn build_leg_orders_from_requests(
+    legs: &[OptionLegRequest],
+    parent_qty: Decimal,
+    order_type: OrderType,
+    time_in_force: TimeInForce,
+    now: &str,
+    previous_legs: Option<&[Order]>,
+) -> Vec<Order> {
+    legs.iter()
+        .enumerate()
+        .map(|(index, leg)| {
+            let previous_leg = previous_legs.and_then(|legs| legs.get(index));
+            let leg_qty = parent_qty * Decimal::from(leg.ratio_qty);
+            Order {
+                id: format!("mock-leg-order-{}-{index}", now_millis()),
+                client_order_id: format!("mock-leg-client-order-{}-{index}", now_millis()),
+                created_at: now.to_owned(),
+                updated_at: now.to_owned(),
+                submitted_at: now.to_owned(),
+                filled_at: None,
+                expired_at: None,
+                expires_at: expires_at_for(&time_in_force),
+                canceled_at: None,
+                failed_at: None,
+                replaced_at: None,
+                replaced_by: None,
+                replaces: previous_leg.map(|leg| leg.id.clone()),
+                asset_id: previous_leg
+                    .map(|leg| leg.asset_id.clone())
+                    .unwrap_or_else(|| mock_asset_id(&leg.symbol)),
+                symbol: leg.symbol.clone(),
+                asset_class: "us_option".to_owned(),
+                notional: None,
+                qty: Some(leg_qty),
+                filled_qty: Decimal::ZERO,
+                filled_avg_price: None,
+                order_class: OrderClass::Mleg,
+                order_type: order_type.clone(),
+                r#type: order_type.clone(),
+                side: leg.side.clone().unwrap_or(OrderSide::Buy),
+                position_intent: leg.position_intent.clone(),
+                time_in_force: time_in_force.clone(),
+                limit_price: None,
+                stop_price: None,
+                status: OrderStatus::New,
+                extended_hours: false,
+                legs: None,
+                trail_percent: None,
+                trail_price: None,
+                hwm: None,
+                ratio_qty: Some(leg.ratio_qty),
+                take_profit: None,
+                stop_loss: None,
+                subtag: None,
+                source: None,
+            }
+        })
+        .collect()
 }
 
 fn public_position_from_projection(projected: positions::ProjectedPosition) -> Position {

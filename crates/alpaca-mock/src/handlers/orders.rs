@@ -9,8 +9,8 @@ use serde::{Deserialize, Deserializer};
 use serde_json::Value;
 
 use alpaca_trade::orders::{
-    CancelAllOrderResult, Order, OrderClass, OrderSide, OrderType, PositionIntent,
-    QueryOrderStatus, SortDirection, StopLoss, TakeProfit, TimeInForce,
+    CancelAllOrderResult, OptionLegRequest, Order, OrderClass, OrderSide, OrderType,
+    PositionIntent, QueryOrderStatus, SortDirection, StopLoss, TakeProfit, TimeInForce,
 };
 
 use crate::auth::{AuthenticatedAccount, MockHttpError};
@@ -72,6 +72,7 @@ pub(crate) struct CreateOrderBody {
     order_class: Option<OrderClass>,
     take_profit: Option<TakeProfit>,
     stop_loss: Option<StopLoss>,
+    legs: Option<Vec<OptionLegRequest>>,
     position_intent: Option<PositionIntent>,
 }
 
@@ -114,6 +115,7 @@ pub(crate) async fn orders_create(
                 position_intent: body.position_intent,
                 take_profit: body.take_profit,
                 stop_loss: body.stop_loss,
+                legs: body.legs,
             },
         )
         .await?;

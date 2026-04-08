@@ -1,5 +1,7 @@
 #[path = "../../../tests/support/live/mod.rs"]
 mod live_support;
+#[path = "support/orders.rs"]
+mod order_support;
 
 use std::collections::BTreeSet;
 use std::time::Duration;
@@ -10,11 +12,12 @@ use alpaca_data::Client as DataClient;
 use alpaca_mock::{LiveMarketDataBridge, MockServerState, spawn_test_server_with_state};
 use alpaca_trade::{
     Client, Error,
-    orders::{CreateRequest, OrderSide, OrderStatus, OrderType, TimeInForce},
+    orders::{CreateRequest, OrderClass, OrderSide, OrderStatus, OrderType, TimeInForce},
     positions::{CloseAllRequest, ClosePositionRequest},
 };
 
 use live_support::{AlpacaService, LiveTestEnv};
+use order_support::discover_mleg_call_spread;
 
 const SYMBOL_A: &str = "SPY";
 const SYMBOL_B: &str = "QQQ";
@@ -110,6 +113,89 @@ async fn positions_mock_supports_list_get_close_and_close_all() {
     wait_for_position_absent(&client, SYMBOL_B).await;
 
     assert_ne!(opened_spy.asset_id, opened_qqq.asset_id);
+}
+
+#[tokio::test]
+async fn positions_mock_project_filled_mleg_legs_without_creating_parent_combo_position() {
+    let env = LiveTestEnv::load().expect("live test environment should load");
+    if let Some(reason) = env.skip_reason_for_service(AlpacaService::Data) {
+        eprintln!("skipping mock mleg positions test: {reason}");
+        return;
+    }
+
+    let data_service = env.data().expect("data config should exist");
+    let data_client = DataClient::builder()
+        .credentials(data_service.credentials().clone())
+        .base_url(data_service.base_url().clone())
+        .build()
+        .expect("data client should build from live service config");
+    let spread = discover_mleg_call_spread(&data_client, SYMBOL_A)
+        .await
+        .expect("dynamic call spread should be discoverable");
+    let state =
+        MockServerState::new().with_market_data_bridge(LiveMarketDataBridge::new(data_client));
+    let server = spawn_test_server_with_state(state).await;
+    let client = Client::builder()
+        .api_key("mock-key")
+        .secret_key("mock-secret")
+        .base_url_str(&server.base_url)
+        .expect("mock base url should parse")
+        .build()
+        .expect("mock trade client should build");
+
+    let created = client
+        .orders()
+        .create(CreateRequest {
+            symbol: None,
+            qty: Some(Decimal::ONE),
+            notional: None,
+            side: Some(OrderSide::Buy),
+            r#type: Some(OrderType::Limit),
+            time_in_force: Some(TimeInForce::Day),
+            limit_price: Some(spread.marketable_limit_price),
+            stop_price: None,
+            trail_price: None,
+            trail_percent: None,
+            extended_hours: Some(false),
+            client_order_id: Some("phase20-mock-positions-mleg".to_owned()),
+            order_class: Some(OrderClass::Mleg),
+            take_profit: None,
+            stop_loss: None,
+            legs: Some(spread.legs.clone()),
+            position_intent: None,
+        })
+        .await
+        .expect("mock marketable mleg order should succeed");
+    assert_eq!(created.status, OrderStatus::Filled);
+
+    let positions = client
+        .positions()
+        .list()
+        .await
+        .expect("mock positions list should succeed after mleg fill");
+    assert_eq!(positions.len(), spread.legs.len());
+    assert!(positions.iter().all(|position| !position.symbol.is_empty()));
+    assert!(
+        positions
+            .iter()
+            .all(|position| position.symbol != created.symbol)
+    );
+    for leg in &spread.legs {
+        let position = positions
+            .iter()
+            .find(|position| position.symbol == leg.symbol)
+            .expect("each spread leg should project into a position");
+        assert_eq!(position.asset_class, "us_option");
+        assert_eq!(position.qty, Decimal::ONE);
+        assert_eq!(
+            position.side,
+            match leg.side {
+                Some(OrderSide::Buy) => "long",
+                Some(OrderSide::Sell) => "short",
+                _ => panic!("spread leg should have a side"),
+            }
+        );
+    }
 }
 
 async fn open_mock_position(

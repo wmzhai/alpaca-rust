@@ -1,7 +1,7 @@
 use std::fmt;
 
 use rust_decimal::Decimal;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 use alpaca_core::QueryWriter;
 
@@ -171,10 +171,13 @@ impl ReplaceRequest {
     }
 }
 
-#[derive(Clone, Debug, Default, PartialEq, Serialize)]
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct OptionLegRequest {
     pub symbol: String,
-    #[serde(serialize_with = "alpaca_core::integer::string_contract::serialize_u32")]
+    #[serde(
+        deserialize_with = "alpaca_core::integer::deserialize_u32_from_string_or_number",
+        serialize_with = "alpaca_core::integer::string_contract::serialize_u32"
+    )]
     pub ratio_qty: u32,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub side: Option<OrderSide>,
