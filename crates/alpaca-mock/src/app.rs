@@ -23,6 +23,11 @@ pub fn build_app_from_env() -> Result<Router, MarketDataBridgeError> {
 pub fn build_app_with_state(state: MockServerState) -> Router {
     let trading_router = Router::new()
         .route("/v2/account", get(handlers::account_get))
+        .route("/v2/account/activities", get(handlers::activities_list))
+        .route(
+            "/v2/account/activities/{activity_type}",
+            get(handlers::activities_by_type),
+        )
         .route(
             "/v2/orders",
             get(handlers::orders_list)

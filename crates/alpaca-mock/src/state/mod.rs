@@ -12,15 +12,18 @@ use rust_decimal::Decimal;
 use serde::Serialize;
 use thiserror::Error;
 
+use alpaca_trade::activities::Activity;
 use alpaca_trade::orders::{
     CancelAllOrderResult, Order, OrderClass, OrderSide, OrderStatus, OrderType, PositionIntent,
-    StopLoss, TakeProfit, TimeInForce,
+    SortDirection, StopLoss, TakeProfit, TimeInForce,
 };
 use alpaca_trade::positions::{
     ClosePositionBody, ClosePositionResult, ExercisePositionBody, Position,
 };
 
-use activities::{ActivityEvent, ActivityEventKind};
+use activities::{
+    ActivityEvent, ActivityEventKind, is_public_activity, matches_activity_type, project_activity,
+};
 use executions::ExecutionFact;
 pub use market_data::{DEFAULT_STOCK_SYMBOL, InstrumentSnapshot, LiveMarketDataBridge};
 use positions::{OptionContractType, PositionBook, parse_option_symbol, project_position};
@@ -97,6 +100,17 @@ pub struct ListOrdersFilter {
     pub symbols: Option<Vec<String>>,
     pub side: Option<OrderSide>,
     pub asset_class: Option<String>,
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct ListActivitiesFilter {
+    pub activity_types: Option<Vec<String>>,
+    pub date: Option<String>,
+    pub until: Option<String>,
+    pub after: Option<String>,
+    pub direction: Option<SortDirection>,
+    pub page_size: Option<u32>,
+    pub page_token: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -362,6 +376,84 @@ impl MockServerState {
             .orders
             .get(order_id)
             .map(|stored| stored.order.clone())
+    }
+
+    #[must_use]
+    pub fn list_activities(&self, api_key: &str, filter: ListActivitiesFilter) -> Vec<Activity> {
+        let accounts = self
+            .inner
+            .accounts
+            .read()
+            .expect("accounts lock should not poison");
+        let Some(account) = accounts.get(api_key) else {
+            return Vec::new();
+        };
+
+        let requested_types = filter.activity_types.map(|activity_types| {
+            activity_types
+                .into_iter()
+                .map(|activity_type| activity_type.trim().to_owned())
+                .filter(|activity_type| !activity_type.is_empty())
+                .collect::<Vec<_>>()
+        });
+        let direction = filter.direction.unwrap_or(SortDirection::Desc);
+
+        let mut events = account
+            .activities
+            .iter()
+            .filter(|event| is_public_activity(event))
+            .filter(|event| {
+                requested_types.as_ref().is_none_or(|activity_types| {
+                    activity_types
+                        .iter()
+                        .any(|activity_type| matches_activity_type(event, activity_type))
+                })
+            })
+            .filter(|event| {
+                filter
+                    .date
+                    .as_deref()
+                    .is_none_or(|date| event_matches_date(event, date))
+            })
+            .filter(|event| {
+                filter
+                    .after
+                    .as_deref()
+                    .is_none_or(|after| event.occurred_at.as_str() >= after)
+            })
+            .filter(|event| {
+                filter
+                    .until
+                    .as_deref()
+                    .is_none_or(|until| event.occurred_at.as_str() <= until)
+            })
+            .cloned()
+            .collect::<Vec<_>>();
+
+        events.sort_by(|left, right| left.sequence.cmp(&right.sequence));
+        if matches!(direction, SortDirection::Desc) {
+            events.reverse();
+        }
+
+        let mut activities = events
+            .into_iter()
+            .filter_map(|event| project_activity(&event))
+            .collect::<Vec<_>>();
+
+        if let Some(page_token) = filter.page_token {
+            if let Some(position) = activities
+                .iter()
+                .position(|activity| activity.id == page_token)
+            {
+                activities = activities.into_iter().skip(position + 1).collect();
+            }
+        }
+
+        if let Some(page_size) = filter.page_size {
+            activities.truncate(page_size as usize);
+        }
+
+        activities
     }
 
     pub async fn replace_order(
@@ -1253,21 +1345,24 @@ fn apply_fill_effects(account: &mut VirtualAccountState, order: &Order, request_
     account.positions.apply_execution(&execution);
     account.executions.push(execution);
     let activity_sequence = account.next_sequence();
-    account.activities.push(ActivityEvent::new(
-        activity_sequence,
-        ActivityEventKind::Filled,
-        order.id.clone(),
-        order.client_order_id.clone(),
-        order.replaces.clone(),
-        Some(OrderStatus::Filled),
-        order.symbol.clone(),
-        order.asset_class.clone(),
-        order
-            .filled_at
-            .clone()
-            .unwrap_or_else(|| order.updated_at.clone()),
-        cash_delta,
-    ));
+    account.activities.push(
+        ActivityEvent::new(
+            activity_sequence,
+            ActivityEventKind::Filled,
+            order.id.clone(),
+            order.client_order_id.clone(),
+            order.replaces.clone(),
+            Some(OrderStatus::Filled),
+            order.symbol.clone(),
+            order.asset_class.clone(),
+            order
+                .filled_at
+                .clone()
+                .unwrap_or_else(|| order.updated_at.clone()),
+            cash_delta,
+        )
+        .with_fill_order(order, request_side),
+    );
 }
 
 fn signed_cash_delta(side: &OrderSide, qty: Decimal, price: Decimal) -> Decimal {
@@ -1302,6 +1397,14 @@ fn matches_status_filter(order: &Order, status: Option<&str>) -> bool {
         Some(value) if value.eq_ignore_ascii_case("closed") => is_terminal_status(&order.status),
         Some(_) => true,
     }
+}
+
+fn event_matches_date(event: &ActivityEvent, date: &str) -> bool {
+    event
+        .occurred_at
+        .split_once('T')
+        .map(|(event_date, _)| event_date == date)
+        .unwrap_or_else(|| event.occurred_at.starts_with(date))
 }
 
 fn mock_asset_id(symbol: &str) -> String {
