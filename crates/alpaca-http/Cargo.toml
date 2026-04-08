@@ -5,3 +5,9 @@ edition.workspace = true
 
 [dependencies]
 alpaca-core = { path = "../alpaca-core" }
+reqwest.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+tokio.workspace = true
+url.workspace = true
