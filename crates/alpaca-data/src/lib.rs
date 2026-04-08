@@ -13,3 +13,6 @@ pub use client::{
     DEFAULT_DATA_BASE_URL, LEGACY_DATA_BASE_URL_ENV,
 };
 pub use error::Error;
+
+#[cfg(test)]
+mod tests;
