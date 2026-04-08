@@ -12,13 +12,3 @@ impl Client {
         ClientBuilder
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::Client;
-
-    #[test]
-    fn exposes_builder_entrypoint() {
-        let _builder = Client::builder();
-    }
-}

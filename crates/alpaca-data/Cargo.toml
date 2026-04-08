@@ -6,3 +6,11 @@ edition.workspace = true
 [dependencies]
 alpaca-core = { path = "../alpaca-core" }
 alpaca-http = { path = "../alpaca-http" }
+
+[dev-dependencies]
+dotenvy.workspace = true
+reqwest.workspace = true
+rust_decimal.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tokio.workspace = true
