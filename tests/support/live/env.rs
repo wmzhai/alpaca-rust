@@ -24,6 +24,7 @@ pub const DEFAULT_TRADE_BASE_URL: &str = "https://paper-api.alpaca.markets";
 pub const DEFAULT_SAMPLE_ROOT_DIR: &str = ".local/live-samples";
 
 const TRUE_VALUES: [&str; 4] = ["1", "true", "yes", "on"];
+const PLACEHOLDER_VALUES: [&str; 1] = ["REPLACE_ME"];
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum AlpacaService {
@@ -325,6 +326,12 @@ fn select_value(
 fn normalized_value(value: Option<&str>) -> Option<String> {
     let trimmed = value?.trim();
     if trimmed.is_empty() {
+        return None;
+    }
+    if PLACEHOLDER_VALUES
+        .iter()
+        .any(|placeholder| trimmed.eq_ignore_ascii_case(placeholder))
+    {
         return None;
     }
     Some(trimmed.to_owned())
