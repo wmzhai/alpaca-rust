@@ -1,14 +1,22 @@
 #![forbid(unsafe_code)]
 
-#[derive(Debug, Clone, Default)]
-pub struct Client;
+mod client;
+mod error;
 
-#[derive(Debug, Clone, Default)]
-pub struct ClientBuilder;
+pub mod account;
+pub mod activities;
+pub mod assets;
+pub mod calendar;
+pub mod clock;
+pub mod options_contracts;
+pub mod orders;
+pub mod positions;
 
-impl Client {
-    #[must_use]
-    pub fn builder() -> ClientBuilder {
-        ClientBuilder
-    }
-}
+pub use client::{
+    Client, ClientBuilder, DEFAULT_LIVE_BASE_URL, DEFAULT_PAPER_BASE_URL, TRADE_API_KEY_ENV,
+    TRADE_BASE_URL_ENV, TRADE_SECRET_KEY_ENV,
+};
+pub use error::Error;
+
+#[cfg(test)]
+mod tests;
