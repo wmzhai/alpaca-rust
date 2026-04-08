@@ -13,4 +13,5 @@ website/build/
 website/static/api/
 task.md
 design.md
-AGENTS.md.local/
+AGENTS.md
+.local/
