@@ -1,14 +1,17 @@
 #![forbid(unsafe_code)]
 
-/// Phase 1 placeholder for the internal HTTP transport crate.
-pub const CRATE_NAME: &str = "alpaca-http";
+pub mod auth;
+pub mod error;
+pub mod meta;
+pub mod observer;
+pub mod rate_limit;
+pub mod request;
+pub mod retry;
 
-#[cfg(test)]
-mod tests {
-    use super::CRATE_NAME;
-
-    #[test]
-    fn crate_name_is_stable() {
-        assert_eq!(CRATE_NAME, "alpaca-http");
-    }
-}
+pub use auth::{Authenticator, StaticHeaderAuthenticator};
+pub use error::Error;
+pub use meta::{ErrorMeta, HttpResponse, ResponseMeta};
+pub use observer::{ErrorEvent, NoopObserver, RequestStart, ResponseEvent, RetryEvent, TransportObserver};
+pub use rate_limit::{ConcurrencyLimit, ConcurrencyPermit};
+pub use request::{NoContent, RequestBody, RequestParts};
+pub use retry::{RetryConfig, RetryDecision};
