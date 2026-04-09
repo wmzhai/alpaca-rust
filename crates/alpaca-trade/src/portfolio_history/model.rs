@@ -63,10 +63,7 @@ where
         .collect()
 }
 
-fn serialize_decimal_vec_as_numbers<S>(
-    values: &[Decimal],
-    serializer: S,
-) -> Result<S::Ok, S::Error>
+fn serialize_decimal_vec_as_numbers<S>(values: &[Decimal], serializer: S) -> Result<S::Ok, S::Error>
 where
     S: Serializer,
 {

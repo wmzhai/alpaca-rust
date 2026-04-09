@@ -302,13 +302,11 @@ fn merge_batch_currency(
     next_currency: Option<Currency>,
 ) -> Result<(), CoreError> {
     match (currency.as_ref(), next_currency) {
-        (Some(current), Some(next)) if current != &next => Err(CoreError::InvalidRequest(
-            format!(
-                "{operation} received mismatched currency across pages: expected {}, got {}",
-                current.as_str(),
-                next.as_str()
-            ),
-        )),
+        (Some(current), Some(next)) if current != &next => Err(CoreError::InvalidRequest(format!(
+            "{operation} received mismatched currency across pages: expected {}, got {}",
+            current.as_str(),
+            next.as_str()
+        ))),
         (None, Some(next)) => {
             *currency = Some(next);
             Ok(())
@@ -345,13 +343,11 @@ fn merge_single_metadata(
     }
 
     match (currency.as_ref(), next_currency) {
-        (Some(current), Some(next)) if current != &next => Err(CoreError::InvalidRequest(
-            format!(
-                "{operation} received mismatched currency across pages: expected {}, got {}",
-                current.as_str(),
-                next.as_str()
-            ),
-        )),
+        (Some(current), Some(next)) if current != &next => Err(CoreError::InvalidRequest(format!(
+            "{operation} received mismatched currency across pages: expected {}, got {}",
+            current.as_str(),
+            next.as_str()
+        ))),
         (None, Some(next)) => {
             *currency = Some(next);
             Ok(())

@@ -18,7 +18,10 @@ impl ListRequest {
             "asset_class",
             validate_optional_text("asset_class", self.asset_class)?,
         );
-        query.push_opt("exchange", validate_optional_text("exchange", self.exchange)?);
+        query.push_opt(
+            "exchange",
+            validate_optional_text("exchange", self.exchange)?,
+        );
         if let Some(attributes) = validate_optional_csv_text("attributes", self.attributes)? {
             query.push_csv("attributes", attributes);
         }

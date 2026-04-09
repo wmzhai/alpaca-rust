@@ -1364,8 +1364,7 @@ fn resolve_close_qty(
 
 fn reference_price(side: &OrderSide, snapshot: &InstrumentSnapshot) -> Decimal {
     match side {
-        OrderSide::Buy => snapshot.ask,
-        OrderSide::Sell => snapshot.bid,
+        OrderSide::Buy | OrderSide::Sell => snapshot.mid_price(),
         OrderSide::Unspecified => snapshot.mid_price(),
     }
 }
@@ -1376,15 +1375,12 @@ fn marketable_fill_price(
     limit_price: Option<Decimal>,
     snapshot: &InstrumentSnapshot,
 ) -> Option<Decimal> {
+    let mid = snapshot.mid_price();
     match order_type {
         OrderType::Market => Some(reference_price(side, snapshot)),
         OrderType::Limit => match side {
-            OrderSide::Buy => limit_price
-                .filter(|limit| *limit >= snapshot.ask)
-                .map(|_| snapshot.ask),
-            OrderSide::Sell => limit_price
-                .filter(|limit| *limit <= snapshot.bid)
-                .map(|_| snapshot.bid),
+            OrderSide::Buy => limit_price.filter(|limit| *limit >= mid).map(|_| mid),
+            OrderSide::Sell => limit_price.filter(|limit| *limit <= mid).map(|_| mid),
             OrderSide::Unspecified => None,
         },
         OrderType::Stop
@@ -1863,6 +1859,184 @@ fn ensure_exercisable_long_option_position(
 
 fn now_string() -> String {
     Utc::now().to_rfc3339_opts(SecondsFormat::Secs, true)
+}
+
+#[cfg(test)]
+mod tests {
+    use std::collections::HashMap;
+
+    use super::*;
+
+    fn equity_snapshot() -> InstrumentSnapshot {
+        InstrumentSnapshot::equity(Decimal::new(100, 0), Decimal::new(101, 0))
+    }
+
+    fn option_snapshot() -> InstrumentSnapshot {
+        InstrumentSnapshot::option(Decimal::new(120, 2), Decimal::new(140, 2))
+    }
+
+    fn build_test_mleg_order(order_type: OrderType, limit_price: Option<Decimal>) -> Order {
+        let now = "2026-04-09T12:00:00Z";
+        Order {
+            id: "mock-parent-order".to_owned(),
+            client_order_id: "mock-parent-client-order".to_owned(),
+            created_at: now.to_owned(),
+            updated_at: now.to_owned(),
+            submitted_at: now.to_owned(),
+            filled_at: None,
+            expired_at: None,
+            expires_at: expires_at_for(&TimeInForce::Day),
+            canceled_at: None,
+            failed_at: None,
+            replaced_at: None,
+            replaced_by: None,
+            replaces: None,
+            asset_id: String::new(),
+            symbol: String::new(),
+            asset_class: String::new(),
+            notional: None,
+            qty: Some(Decimal::ONE),
+            filled_qty: Decimal::ZERO,
+            filled_avg_price: None,
+            order_class: OrderClass::Mleg,
+            order_type: order_type.clone(),
+            r#type: order_type.clone(),
+            side: OrderSide::Unspecified,
+            position_intent: None,
+            time_in_force: TimeInForce::Day,
+            limit_price,
+            stop_price: None,
+            status: OrderStatus::New,
+            extended_hours: false,
+            legs: Some(build_leg_orders_from_requests(
+                &[
+                    OptionLegRequest {
+                        symbol: "OPT-BUY".to_owned(),
+                        ratio_qty: 1,
+                        side: Some(OrderSide::Buy),
+                        position_intent: None,
+                    },
+                    OptionLegRequest {
+                        symbol: "OPT-SELL".to_owned(),
+                        ratio_qty: 1,
+                        side: Some(OrderSide::Sell),
+                        position_intent: None,
+                    },
+                ],
+                Decimal::ONE,
+                order_type,
+                TimeInForce::Day,
+                now,
+                None,
+            )),
+            trail_percent: None,
+            trail_price: None,
+            hwm: None,
+            ratio_qty: None,
+            take_profit: None,
+            stop_loss: None,
+            subtag: None,
+            source: None,
+        }
+    }
+
+    #[test]
+    fn stock_single_leg_orders_use_mid_price_for_market_and_limit() {
+        let snapshot = equity_snapshot();
+        let mid = snapshot.mid_price();
+
+        assert_eq!(reference_price(&OrderSide::Buy, &snapshot), mid);
+        assert_eq!(reference_price(&OrderSide::Sell, &snapshot), mid);
+        assert_eq!(
+            marketable_fill_price(&OrderType::Market, &OrderSide::Buy, None, &snapshot),
+            Some(mid)
+        );
+        assert_eq!(
+            marketable_fill_price(&OrderType::Limit, &OrderSide::Buy, Some(mid), &snapshot,),
+            Some(mid)
+        );
+        assert_eq!(
+            marketable_fill_price(
+                &OrderType::Limit,
+                &OrderSide::Buy,
+                Some(mid - Decimal::new(1, 2)),
+                &snapshot,
+            ),
+            None
+        );
+        assert_eq!(
+            marketable_fill_price(&OrderType::Limit, &OrderSide::Sell, Some(mid), &snapshot,),
+            Some(mid)
+        );
+        assert_eq!(
+            marketable_fill_price(
+                &OrderType::Limit,
+                &OrderSide::Sell,
+                Some(mid + Decimal::new(1, 2)),
+                &snapshot,
+            ),
+            None
+        );
+    }
+
+    #[test]
+    fn option_single_leg_orders_use_mid_price_for_market_and_limit() {
+        let snapshot = option_snapshot();
+        let mid = snapshot.mid_price();
+
+        assert_eq!(reference_price(&OrderSide::Buy, &snapshot), mid);
+        assert_eq!(reference_price(&OrderSide::Sell, &snapshot), mid);
+        assert_eq!(
+            marketable_fill_price(&OrderType::Market, &OrderSide::Sell, None, &snapshot),
+            Some(mid)
+        );
+        assert_eq!(
+            marketable_fill_price(&OrderType::Limit, &OrderSide::Buy, Some(mid), &snapshot,),
+            Some(mid)
+        );
+        assert_eq!(
+            marketable_fill_price(&OrderType::Limit, &OrderSide::Sell, Some(mid), &snapshot,),
+            Some(mid)
+        );
+    }
+
+    #[test]
+    fn multi_leg_orders_use_composite_mid_price_for_market_and_limit() {
+        let market_quotes = HashMap::from([
+            (
+                "OPT-BUY".to_owned(),
+                InstrumentSnapshot::option(Decimal::new(300, 2), Decimal::new(340, 2)),
+            ),
+            (
+                "OPT-SELL".to_owned(),
+                InstrumentSnapshot::option(Decimal::new(100, 2), Decimal::new(140, 2)),
+            ),
+        ]);
+        let expected_mid = Decimal::new(200, 2);
+
+        let mut market_order = build_test_mleg_order(OrderType::Market, None);
+        apply_mleg_fill_rules(&mut market_order, &OrderSide::Buy, &market_quotes);
+        assert_eq!(market_order.status, OrderStatus::Filled);
+        assert_eq!(market_order.filled_avg_price, Some(expected_mid));
+
+        let filled_legs = market_order
+            .legs
+            .expect("filled mleg should keep nested legs");
+        assert_eq!(filled_legs.len(), 2);
+        assert_eq!(filled_legs[0].filled_avg_price, Some(Decimal::new(320, 2)));
+        assert_eq!(filled_legs[1].filled_avg_price, Some(Decimal::new(120, 2)));
+
+        let mut limit_order = build_test_mleg_order(OrderType::Limit, Some(expected_mid));
+        apply_mleg_fill_rules(&mut limit_order, &OrderSide::Buy, &market_quotes);
+        assert_eq!(limit_order.status, OrderStatus::Filled);
+        assert_eq!(limit_order.filled_avg_price, Some(expected_mid));
+
+        let mut resting_order =
+            build_test_mleg_order(OrderType::Limit, Some(expected_mid - Decimal::new(1, 2)));
+        apply_mleg_fill_rules(&mut resting_order, &OrderSide::Buy, &market_quotes);
+        assert_eq!(resting_order.status, OrderStatus::New);
+        assert_eq!(resting_order.filled_avg_price, None);
+    }
 }
 
 fn now_millis() -> u128 {

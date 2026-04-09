@@ -33,7 +33,12 @@ impl SampleRecorder {
         self.enabled
     }
 
-    pub fn record_json<T>(&self, suite: &str, name: &str, payload: &T) -> Result<Option<PathBuf>, SupportError>
+    pub fn record_json<T>(
+        &self,
+        suite: &str,
+        name: &str,
+        payload: &T,
+    ) -> Result<Option<PathBuf>, SupportError>
     where
         T: Serialize,
     {

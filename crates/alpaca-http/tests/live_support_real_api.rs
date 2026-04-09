@@ -2,8 +2,8 @@
 mod live_support;
 
 use live_support::{
-    discover_active_option_contract, paper_market_session_state, AlpacaService, LiveHttpProbe,
-    LiveTestEnv, SampleRecorder,
+    AlpacaService, LiveHttpProbe, LiveTestEnv, SampleRecorder, discover_active_option_contract,
+    paper_market_session_state,
 };
 
 #[tokio::test]

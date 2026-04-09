@@ -116,8 +116,14 @@ impl fmt::Debug for ClientBuilder {
             .field("secret_key", &redacted_option(&self.secret_key))
             .field("base_url", &self.base_url)
             .field("timeout", &self.timeout)
-            .field("reqwest_client", &self.reqwest_client.as_ref().map(|_| "reqwest::Client"))
-            .field("observer", &self.observer.as_ref().map(|_| "TransportObserver"))
+            .field(
+                "reqwest_client",
+                &self.reqwest_client.as_ref().map(|_| "reqwest::Client"),
+            )
+            .field(
+                "observer",
+                &self.observer.as_ref().map(|_| "TransportObserver"),
+            )
             .field("retry_config", &self.retry_config)
             .field("max_in_flight", &self.max_in_flight)
             .finish()

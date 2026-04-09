@@ -5,13 +5,15 @@ use alpaca_core::BaseUrl;
 use reqwest::header::{CONTENT_TYPE, HeaderMap, HeaderName, HeaderValue};
 use serde::de::DeserializeOwned;
 
+use crate::Error;
 use crate::auth::Authenticator;
 use crate::meta::{ErrorMeta, HttpResponse, ResponseMeta};
-use crate::observer::{ErrorEvent, NoopObserver, RequestStart, ResponseEvent, RetryEvent, TransportObserver};
+use crate::observer::{
+    ErrorEvent, NoopObserver, RequestStart, ResponseEvent, RetryEvent, TransportObserver,
+};
 use crate::rate_limit::ConcurrencyLimit;
 use crate::request::{NoContent, RequestBody, RequestParts};
 use crate::retry::{RetryConfig, RetryDecision};
-use crate::Error;
 
 #[derive(Clone)]
 pub struct HttpClient {
@@ -253,17 +255,20 @@ impl HttpClientBuilder {
     }
 
     pub fn default_header(mut self, name: &str, value: &str) -> Result<Self, Error> {
-        let name = HeaderName::from_bytes(name.as_bytes())
-            .map_err(|error| Error::InvalidRequest(format!("invalid default header name: {error}")))?;
-        let value = HeaderValue::from_str(value)
-            .map_err(|error| Error::InvalidRequest(format!("invalid default header value: {error}")))?;
+        let name = HeaderName::from_bytes(name.as_bytes()).map_err(|error| {
+            Error::InvalidRequest(format!("invalid default header name: {error}"))
+        })?;
+        let value = HeaderValue::from_str(value).map_err(|error| {
+            Error::InvalidRequest(format!("invalid default header value: {error}"))
+        })?;
         self.default_headers.insert(name, value);
         Ok(self)
     }
 
     pub fn request_id_header_name(mut self, name: &str) -> Result<Self, Error> {
-        self.request_id_header_name = HeaderName::from_bytes(name.as_bytes())
-            .map_err(|error| Error::InvalidRequest(format!("invalid request id header name: {error}")))?;
+        self.request_id_header_name = HeaderName::from_bytes(name.as_bytes()).map_err(|error| {
+            Error::InvalidRequest(format!("invalid request id header name: {error}"))
+        })?;
         Ok(self)
     }
 

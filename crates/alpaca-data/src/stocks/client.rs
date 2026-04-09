@@ -43,7 +43,10 @@ impl StocksClient {
         .await
     }
 
-    pub async fn bars_single(&self, request: BarsSingleRequest) -> Result<BarsSingleResponse, Error> {
+    pub async fn bars_single(
+        &self,
+        request: BarsSingleRequest,
+    ) -> Result<BarsSingleResponse, Error> {
         request.validate()?;
         let path = format!("/v2/stocks/{}/bars", request.symbol);
         self.get_json("stocks.bars_single", path, request.into_query())
@@ -64,8 +67,12 @@ impl StocksClient {
 
     pub async fn auctions(&self, request: AuctionsRequest) -> Result<AuctionsResponse, Error> {
         request.validate()?;
-        self.get_json("stocks.auctions", "/v2/stocks/auctions", request.into_query())
-            .await
+        self.get_json(
+            "stocks.auctions",
+            "/v2/stocks/auctions",
+            request.into_query(),
+        )
+        .await
     }
 
     pub async fn auctions_all(&self, request: AuctionsRequest) -> Result<AuctionsResponse, Error> {
@@ -241,8 +248,12 @@ impl StocksClient {
 
     pub async fn snapshots(&self, request: SnapshotsRequest) -> Result<SnapshotsResponse, Error> {
         request.validate()?;
-        self.get_json("stocks.snapshots", "/v2/stocks/snapshots", request.into_query())
-            .await
+        self.get_json(
+            "stocks.snapshots",
+            "/v2/stocks/snapshots",
+            request.into_query(),
+        )
+        .await
     }
 
     pub async fn snapshot(&self, request: SnapshotRequest) -> Result<SnapshotResponse, Error> {
@@ -262,8 +273,12 @@ impl StocksClient {
     }
 
     pub async fn exchange_codes(&self) -> Result<ExchangeCodesResponse, Error> {
-        self.get_json("stocks.exchange_codes", "/v2/stocks/meta/exchanges", Vec::new())
-            .await
+        self.get_json(
+            "stocks.exchange_codes",
+            "/v2/stocks/meta/exchanges",
+            Vec::new(),
+        )
+        .await
     }
 
     #[allow(dead_code)]

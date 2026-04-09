@@ -13,7 +13,9 @@ pub use auth::{Authenticator, StaticHeaderAuthenticator};
 pub use client::{HttpClient, HttpClientBuilder};
 pub use error::Error;
 pub use meta::{ErrorMeta, HttpResponse, ResponseMeta};
-pub use observer::{ErrorEvent, NoopObserver, RequestStart, ResponseEvent, RetryEvent, TransportObserver};
+pub use observer::{
+    ErrorEvent, NoopObserver, RequestStart, ResponseEvent, RetryEvent, TransportObserver,
+};
 pub use rate_limit::{ConcurrencyLimit, ConcurrencyPermit};
 pub use request::{NoContent, RequestBody, RequestParts};
 pub use retry::{RetryConfig, RetryDecision};

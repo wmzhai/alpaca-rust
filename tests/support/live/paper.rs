@@ -53,21 +53,13 @@ pub async fn paper_market_session_state(
         .get_json(
             service,
             "/v2/calendar",
-            [
-                ("start", trading_day.clone()),
-                ("end", trading_day),
-            ],
+            [("start", trading_day.clone()), ("end", trading_day)],
         )
         .await?;
     maybe_record_calendar_sample(recorder, &response)?;
-    let calendar_days = response
-        .body()
-        .as_array()
-        .ok_or_else(|| {
-            SupportError::InvalidConfiguration(
-                "paper calendar response was not an array".to_owned(),
-            )
-        })?;
+    let calendar_days = response.body().as_array().ok_or_else(|| {
+        SupportError::InvalidConfiguration("paper calendar response was not an array".to_owned())
+    })?;
 
     Ok(PaperSessionState {
         clock,
@@ -97,9 +89,7 @@ fn required_string_field(body: &serde_json::Value, field: &str) -> Result<String
         .and_then(serde_json::Value::as_str)
         .map(ToOwned::to_owned)
         .ok_or_else(|| {
-            SupportError::InvalidConfiguration(format!(
-                "paper clock response was missing {field}"
-            ))
+            SupportError::InvalidConfiguration(format!("paper clock response was missing {field}"))
         })
 }
 

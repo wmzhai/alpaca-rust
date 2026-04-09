@@ -397,26 +397,26 @@ fn find_iron_condor(
                                 strategy_leg(
                                     outer_put.clone(),
                                     1,
-                                    OrderSide::Buy,
-                                    PositionIntent::BuyToOpen,
+                                    OrderSide::Sell,
+                                    PositionIntent::SellToOpen,
                                 ),
                                 strategy_leg(
                                     inner_put.clone(),
                                     1,
-                                    OrderSide::Sell,
-                                    PositionIntent::SellToOpen,
+                                    OrderSide::Buy,
+                                    PositionIntent::BuyToOpen,
                                 ),
                                 strategy_leg(
                                     inner_call.clone(),
                                     1,
-                                    OrderSide::Sell,
-                                    PositionIntent::SellToOpen,
+                                    OrderSide::Buy,
+                                    PositionIntent::BuyToOpen,
                                 ),
                                 strategy_leg(
                                     outer_call.clone(),
                                     1,
-                                    OrderSide::Buy,
-                                    PositionIntent::BuyToOpen,
+                                    OrderSide::Sell,
+                                    PositionIntent::SellToOpen,
                                 ),
                             ],
                         );
@@ -545,4 +545,84 @@ fn group_by_expiration(
 
 fn sort_by_strike(contracts: &mut [QuotedOptionContract]) {
     contracts.sort_by(|left, right| left.contract.strike_price.cmp(&right.contract.strike_price));
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn quoted(
+        symbol: &str,
+        expiration_date: &str,
+        contract_type: OptionContractType,
+        strike_price: i64,
+        bid: i64,
+        ask: i64,
+    ) -> QuotedOptionContract {
+        QuotedOptionContract {
+            contract: ObservedOptionContract {
+                symbol: symbol.to_owned(),
+                expiration_date: expiration_date.to_owned(),
+                contract_type,
+                strike_price: Decimal::new(strike_price, 0),
+            },
+            bid: Decimal::new(bid, 1),
+            ask: Decimal::new(ask, 1),
+        }
+    }
+
+    #[test]
+    fn find_iron_condor_builds_a_debit_buy_strategy() {
+        let spot = Decimal::new(102, 0);
+        let puts = vec![
+            quoted(
+                "SPY250620P00095000",
+                "2025-06-20",
+                OptionContractType::Put,
+                95,
+                10,
+                11,
+            ),
+            quoted(
+                "SPY250620P00100000",
+                "2025-06-20",
+                OptionContractType::Put,
+                100,
+                20,
+                21,
+            ),
+        ];
+        let calls = vec![
+            quoted(
+                "SPY250620C00105000",
+                "2025-06-20",
+                OptionContractType::Call,
+                105,
+                20,
+                21,
+            ),
+            quoted(
+                "SPY250620C00110000",
+                "2025-06-20",
+                OptionContractType::Call,
+                110,
+                10,
+                11,
+            ),
+        ];
+
+        let context = find_iron_condor("SPY", spot, puts, calls)
+            .expect("balanced quoted wings should produce a debit iron condor");
+
+        assert_eq!(context.legs.len(), 4);
+        assert_eq!(context.legs[0].side, Some(OrderSide::Sell));
+        assert_eq!(context.legs[0].symbol, "SPY250620P00095000");
+        assert_eq!(context.legs[1].side, Some(OrderSide::Buy));
+        assert_eq!(context.legs[1].symbol, "SPY250620P00100000");
+        assert_eq!(context.legs[2].side, Some(OrderSide::Buy));
+        assert_eq!(context.legs[2].symbol, "SPY250620C00105000");
+        assert_eq!(context.legs[3].side, Some(OrderSide::Sell));
+        assert_eq!(context.legs[3].symbol, "SPY250620C00110000");
+        assert!(context.marketable_limit_price > Decimal::ZERO);
+    }
 }

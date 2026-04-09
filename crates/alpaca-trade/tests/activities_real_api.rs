@@ -59,7 +59,11 @@ async fn activities_resource_reads_real_paper_specific_type_endpoint() {
         .record_json("alpaca-trade-activities", "list-by-type-fill", &fills)
         .expect("typed activities sample should record");
 
-    assert!(fills.iter().all(|activity| activity.activity_type == "FILL"));
+    assert!(
+        fills
+            .iter()
+            .all(|activity| activity.activity_type == "FILL")
+    );
 }
 
 #[tokio::test]

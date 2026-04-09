@@ -37,10 +37,16 @@ async fn client_foundation_uses_real_data_api() {
         .expect("foundation client should read latest stock bars from real API");
 
     recorder
-        .record_json("alpaca-data", "stocks-latest-bars-foundation", response.body())
+        .record_json(
+            "alpaca-data",
+            "stocks-latest-bars-foundation",
+            response.body(),
+        )
         .expect("sample recording should not fail");
 
-    let bars = response.body()["bars"].as_object().expect("bars object should exist");
+    let bars = response.body()["bars"]
+        .as_object()
+        .expect("bars object should exist");
     assert!(bars.contains_key("AAPL"));
     assert_eq!(response.meta().status(), 200);
 }

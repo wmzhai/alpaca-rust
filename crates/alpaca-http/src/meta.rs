@@ -1,6 +1,9 @@
 use std::time::Duration;
 
-use reqwest::{StatusCode, header::{HeaderMap, HeaderName, RETRY_AFTER}};
+use reqwest::{
+    StatusCode,
+    header::{HeaderMap, HeaderName, RETRY_AFTER},
+};
 
 const MAX_BODY_SNIPPET_CHARS: usize = 256;
 

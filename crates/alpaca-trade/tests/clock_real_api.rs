@@ -1,10 +1,7 @@
 #[path = "../../../tests/support/live/mod.rs"]
 mod live_support;
 
-use alpaca_trade::{
-    Client,
-    clock::GetV3Request,
-};
+use alpaca_trade::{Client, clock::GetV3Request};
 use live_support::{AlpacaService, LiveTestEnv, SampleRecorder};
 
 #[tokio::test]
@@ -38,8 +35,18 @@ async fn clock_resource_reads_real_paper_v3_clock() {
     assert!(!clock.clocks.is_empty());
     assert!(clock.clocks.iter().all(|item| !item.market.name.is_empty()));
     assert!(clock.clocks.iter().all(|item| !item.timestamp.is_empty()));
-    assert!(clock.clocks.iter().all(|item| !item.next_market_open.is_empty()));
-    assert!(clock.clocks.iter().all(|item| !item.next_market_close.is_empty()));
+    assert!(
+        clock
+            .clocks
+            .iter()
+            .all(|item| !item.next_market_open.is_empty())
+    );
+    assert!(
+        clock
+            .clocks
+            .iter()
+            .all(|item| !item.next_market_close.is_empty())
+    );
 }
 
 #[tokio::test]

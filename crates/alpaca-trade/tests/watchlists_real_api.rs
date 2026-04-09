@@ -53,7 +53,11 @@ async fn watchlists_resource_covers_id_and_name_flows_against_real_paper_api() {
     recorder
         .record_json("alpaca-trade-watchlists", "list", &watchlists)
         .expect("watchlist list sample should record");
-    assert!(watchlists.iter().any(|watchlist| watchlist.id == primary.id));
+    assert!(
+        watchlists
+            .iter()
+            .any(|watchlist| watchlist.id == primary.id)
+    );
 
     let fetched_by_id = client
         .watchlists()
@@ -92,7 +96,12 @@ async fn watchlists_resource_covers_id_and_name_flows_against_real_paper_api() {
         .delete_symbol_by_id(&primary.id, "AAPL")
         .await
         .expect("watchlist delete symbol by id should succeed against real paper API");
-    assert!(removed_symbol.assets.iter().all(|asset| asset.symbol != "AAPL"));
+    assert!(
+        removed_symbol
+            .assets
+            .iter()
+            .all(|asset| asset.symbol != "AAPL")
+    );
 
     client
         .watchlists()
@@ -139,7 +148,12 @@ async fn watchlists_resource_covers_id_and_name_flows_against_real_paper_api() {
         )
         .await
         .expect("watchlist add asset by name should succeed against real paper API");
-    assert!(added_by_name.assets.iter().any(|asset| asset.symbol == "DIA"));
+    assert!(
+        added_by_name
+            .assets
+            .iter()
+            .any(|asset| asset.symbol == "DIA")
+    );
 
     client
         .watchlists()

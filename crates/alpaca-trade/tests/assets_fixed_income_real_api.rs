@@ -27,13 +27,17 @@ async fn assets_resource_reads_real_paper_fixed_income_us_corporates() {
             eprintln!("skipping fixed income corporates test: {error}");
             return;
         }
-        Err(error) => panic!(
-            "fixed income corporates request should succeed against real paper API: {error}"
-        ),
+        Err(error) => {
+            panic!("fixed income corporates request should succeed against real paper API: {error}")
+        }
     };
 
     recorder
-        .record_json("alpaca-trade-assets", "fixed-income-us-corporates", &corporates)
+        .record_json(
+            "alpaca-trade-assets",
+            "fixed-income-us-corporates",
+            &corporates,
+        )
         .expect("fixed income corporates sample should record");
     assert!(!corporates.us_corporates.is_empty());
     assert!(!corporates.us_corporates[0].ticker.is_empty());
@@ -60,13 +64,17 @@ async fn assets_resource_reads_real_paper_fixed_income_us_treasuries() {
             eprintln!("skipping fixed income treasuries test: {error}");
             return;
         }
-        Err(error) => panic!(
-            "fixed income treasuries request should succeed against real paper API: {error}"
-        ),
+        Err(error) => {
+            panic!("fixed income treasuries request should succeed against real paper API: {error}")
+        }
     };
 
     recorder
-        .record_json("alpaca-trade-assets", "fixed-income-us-treasuries", &treasuries)
+        .record_json(
+            "alpaca-trade-assets",
+            "fixed-income-us-treasuries",
+            &treasuries,
+        )
         .expect("fixed income treasuries sample should record");
     assert!(!treasuries.us_treasuries.is_empty());
     assert!(!treasuries.us_treasuries[0].isin.is_empty());

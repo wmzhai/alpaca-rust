@@ -28,7 +28,9 @@ impl Error {
 impl From<alpaca_core::Error> for Error {
     fn from(error: alpaca_core::Error) -> Self {
         match error {
-            alpaca_core::Error::InvalidConfiguration(message) => Self::InvalidConfiguration(message),
+            alpaca_core::Error::InvalidConfiguration(message) => {
+                Self::InvalidConfiguration(message)
+            }
             alpaca_core::Error::InvalidRequest(message) => Self::InvalidRequest(message),
         }
     }

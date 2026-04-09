@@ -10,10 +10,9 @@ use alpaca_http::{
 use serde::de::DeserializeOwned;
 
 use crate::{
-    Error, account::AccountClient,
-    account_configurations::AccountConfigurationsClient, activities::ActivitiesClient,
-    assets::AssetsClient, calendar::CalendarClient, clock::ClockClient,
-    options_contracts::OptionsContractsClient, orders::OrdersClient,
+    Error, account::AccountClient, account_configurations::AccountConfigurationsClient,
+    activities::ActivitiesClient, assets::AssetsClient, calendar::CalendarClient,
+    clock::ClockClient, options_contracts::OptionsContractsClient, orders::OrdersClient,
     portfolio_history::PortfolioHistoryClient, positions::PositionsClient,
     watchlists::WatchlistsClient,
 };

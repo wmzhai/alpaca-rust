@@ -23,7 +23,9 @@ where
         .map_err(|error| E::custom(format!("invalid decimal value `{raw}`: {error}")))
 }
 
-pub fn deserialize_decimal_from_string_or_number<'de, D>(deserializer: D) -> Result<Decimal, D::Error>
+pub fn deserialize_decimal_from_string_or_number<'de, D>(
+    deserializer: D,
+) -> Result<Decimal, D::Error>
 where
     D: Deserializer<'de>,
 {

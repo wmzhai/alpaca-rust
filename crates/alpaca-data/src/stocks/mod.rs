@@ -8,10 +8,10 @@ pub use client::StocksClient;
 pub use enums::{Adjustment, AuctionFeed, Currency, DataFeed, Sort, Tape, TickType, TimeFrame};
 pub use model::{Auction, Bar, DailyAuction, Quote, Snapshot, Trade};
 pub use request::{
-    AuctionsRequest, AuctionsSingleRequest, BarsRequest, BarsSingleRequest,
-    ConditionCodesRequest, LatestBarRequest, LatestBarsRequest, LatestQuoteRequest,
-    LatestQuotesRequest, LatestTradeRequest, LatestTradesRequest, QuotesRequest,
-    QuotesSingleRequest, SnapshotRequest, SnapshotsRequest, TradesRequest, TradesSingleRequest,
+    AuctionsRequest, AuctionsSingleRequest, BarsRequest, BarsSingleRequest, ConditionCodesRequest,
+    LatestBarRequest, LatestBarsRequest, LatestQuoteRequest, LatestQuotesRequest,
+    LatestTradeRequest, LatestTradesRequest, QuotesRequest, QuotesSingleRequest, SnapshotRequest,
+    SnapshotsRequest, TradesRequest, TradesSingleRequest,
 };
 pub use response::{
     AuctionsResponse, AuctionsSingleResponse, BarsResponse, BarsSingleResponse,

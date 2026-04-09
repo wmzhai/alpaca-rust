@@ -1,10 +1,7 @@
 #[path = "../../../tests/support/live/mod.rs"]
 mod live_support;
 
-use alpaca_trade::{
-    Client,
-    account_configurations::UpdateRequest,
-};
+use alpaca_trade::{Client, account_configurations::UpdateRequest};
 use live_support::{AlpacaService, LiveTestEnv, SampleRecorder};
 
 #[tokio::test]

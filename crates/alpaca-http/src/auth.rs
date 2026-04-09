@@ -21,12 +21,10 @@ impl StaticHeaderAuthenticator {
         let mut headers = HeaderMap::new();
 
         for (name, value) in pairs {
-            let name = HeaderName::from_bytes(name.as_ref().as_bytes()).map_err(|error| {
-                Error::Authentication(format!("invalid header name: {error}"))
-            })?;
-            let value = HeaderValue::from_str(value.as_ref()).map_err(|error| {
-                Error::Authentication(format!("invalid header value: {error}"))
-            })?;
+            let name = HeaderName::from_bytes(name.as_ref().as_bytes())
+                .map_err(|error| Error::Authentication(format!("invalid header name: {error}")))?;
+            let value = HeaderValue::from_str(value.as_ref())
+                .map_err(|error| Error::Authentication(format!("invalid header value: {error}")))?;
             headers.insert(name, value);
         }
 

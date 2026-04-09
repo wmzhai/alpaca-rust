@@ -78,7 +78,8 @@ pub async fn discover_active_option_contract(
     underlying_symbol: &str,
     limit: usize,
 ) -> Result<ObservedOptionContract, SupportError> {
-    let contracts = discover_option_contracts(probe, service, recorder, underlying_symbol, limit).await?;
+    let contracts =
+        discover_option_contracts(probe, service, recorder, underlying_symbol, limit).await?;
 
     contracts
         .iter()
@@ -102,19 +103,14 @@ pub fn parse_occ_option_symbol(symbol: &str) -> Result<ObservedOptionContract, S
     let root_end = symbol.len() - 15;
     let underlying_symbol = &symbol[..root_end];
     let suffix = &symbol[root_end..];
-    let expiration_date = format!(
-        "20{}-{}-{}",
-        &suffix[0..2],
-        &suffix[2..4],
-        &suffix[4..6]
-    );
+    let expiration_date = format!("20{}-{}-{}", &suffix[0..2], &suffix[2..4], &suffix[4..6]);
     let contract_type = match &suffix[6..7] {
         "C" => OptionContractType::Call,
         "P" => OptionContractType::Put,
         value => {
             return Err(SupportError::InvalidConfiguration(format!(
                 "option symbol {symbol} contained an unknown contract type marker {value}"
-            )))
+            )));
         }
     };
     let strike_suffix = suffix[7..15].parse::<i64>().map_err(|error| {

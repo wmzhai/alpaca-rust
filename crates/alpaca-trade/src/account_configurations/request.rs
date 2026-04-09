@@ -28,7 +28,8 @@ pub struct UpdateRequest {
 
 impl UpdateRequest {
     pub(crate) fn into_json(self) -> Result<serde_json::Value, Error> {
-        serde_json::to_value(self)
-            .map_err(|error| Error::InvalidRequest(format!("invalid account configurations body: {error}")))
+        serde_json::to_value(self).map_err(|error| {
+            Error::InvalidRequest(format!("invalid account configurations body: {error}"))
+        })
     }
 }

@@ -70,7 +70,8 @@ impl RetryConfig {
         retry_after: Option<Duration>,
         elapsed: Duration,
     ) -> RetryDecision {
-        if attempt >= self.max_retries || !self.retryable_methods.iter().any(|item| item == method) {
+        if attempt >= self.max_retries || !self.retryable_methods.iter().any(|item| item == method)
+        {
             return RetryDecision::DoNotRetry;
         }
 
