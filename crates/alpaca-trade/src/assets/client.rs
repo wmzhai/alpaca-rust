@@ -7,10 +7,7 @@ use reqwest::Method;
 use crate::client::ClientInner;
 use crate::{
     Error,
-    assets::{
-        Asset, ListRequest, UsCorporatesRequest, UsCorporatesResponse, UsTreasuriesRequest,
-        UsTreasuriesResponse,
-    },
+    assets::{Asset, ListRequest},
 };
 
 #[derive(Clone)]
@@ -46,34 +43,6 @@ impl AssetsClient {
 
         self.inner
             .send_json::<Asset>(request)
-            .await
-            .map(|response| response.into_body())
-    }
-
-    pub async fn fixed_income_us_corporates(
-        &self,
-        request: UsCorporatesRequest,
-    ) -> Result<UsCorporatesResponse, Error> {
-        let request = RequestParts::new(Method::GET, "/v2/assets/fixed_income/us_corporates")
-            .with_operation("assets.fixed_income_us_corporates")
-            .with_query(request.into_query()?);
-
-        self.inner
-            .send_json::<UsCorporatesResponse>(request)
-            .await
-            .map(|response| response.into_body())
-    }
-
-    pub async fn fixed_income_us_treasuries(
-        &self,
-        request: UsTreasuriesRequest,
-    ) -> Result<UsTreasuriesResponse, Error> {
-        let request = RequestParts::new(Method::GET, "/v2/assets/fixed_income/us_treasuries")
-            .with_operation("assets.fixed_income_us_treasuries")
-            .with_query(request.into_query()?);
-
-        self.inner
-            .send_json::<UsTreasuriesResponse>(request)
             .await
             .map(|response| response.into_body())
     }
