@@ -248,13 +248,12 @@ fn contracts_for_type(
 
 fn find_call_spread(
     underlying_symbol: &str,
-    spot: Decimal,
+    _spot: Decimal,
     contracts: Vec<QuotedOptionContract>,
 ) -> Result<MultiLegOrderContext, String> {
     for (_, mut expiration_contracts) in group_by_expiration(contracts) {
         sort_by_strike(&mut expiration_contracts);
 
-        let mut best_candidate = None;
         for window in expiration_contracts.windows(2) {
             let lower = &window[0];
             let higher = &window[1];
@@ -262,8 +261,7 @@ fn find_call_spread(
                 continue;
             }
 
-            let score = (lower.contract.strike_price - spot).abs();
-            let candidate = build_debit_mleg_context(
+            if let Ok(context) = build_debit_mleg_context(
                 underlying_symbol,
                 vec![
                     strategy_leg(lower.clone(), 1, OrderSide::Buy, PositionIntent::BuyToOpen),
@@ -274,17 +272,9 @@ fn find_call_spread(
                         PositionIntent::SellToOpen,
                     ),
                 ],
-            );
-            if let Ok(context) = candidate {
-                match &best_candidate {
-                    Some((best_score, _)) if score >= *best_score => {}
-                    _ => best_candidate = Some((score, context)),
-                }
+            ) {
+                return Ok(context);
             }
-        }
-
-        if let Some((_, context)) = best_candidate {
-            return Ok(context);
         }
     }
 
@@ -295,13 +285,12 @@ fn find_call_spread(
 
 fn find_put_spread(
     underlying_symbol: &str,
-    spot: Decimal,
+    _spot: Decimal,
     contracts: Vec<QuotedOptionContract>,
 ) -> Result<MultiLegOrderContext, String> {
     for (_, mut expiration_contracts) in group_by_expiration(contracts) {
         sort_by_strike(&mut expiration_contracts);
 
-        let mut best_candidate = None;
         for window in expiration_contracts.windows(2) {
             let lower = &window[0];
             let higher = &window[1];
@@ -309,8 +298,7 @@ fn find_put_spread(
                 continue;
             }
 
-            let score = (higher.contract.strike_price - spot).abs();
-            let candidate = build_debit_mleg_context(
+            if let Ok(context) = build_debit_mleg_context(
                 underlying_symbol,
                 vec![
                     strategy_leg(higher.clone(), 1, OrderSide::Buy, PositionIntent::BuyToOpen),
@@ -321,17 +309,9 @@ fn find_put_spread(
                         PositionIntent::SellToOpen,
                     ),
                 ],
-            );
-            if let Ok(context) = candidate {
-                match &best_candidate {
-                    Some((best_score, _)) if score >= *best_score => {}
-                    _ => best_candidate = Some((score, context)),
-                }
+            ) {
+                return Ok(context);
             }
-        }
-
-        if let Some((_, context)) = best_candidate {
-            return Ok(context);
         }
     }
 
@@ -342,7 +322,7 @@ fn find_put_spread(
 
 fn find_iron_condor(
     underlying_symbol: &str,
-    spot: Decimal,
+    _spot: Decimal,
     puts: Vec<QuotedOptionContract>,
     calls: Vec<QuotedOptionContract>,
 ) -> Result<MultiLegOrderContext, String> {
@@ -359,22 +339,13 @@ fn find_iron_condor(
         sort_by_strike(&mut expiration_puts);
         sort_by_strike(&mut expiration_calls);
 
-        let put_candidates = expiration_puts
-            .iter()
-            .filter(|contract| contract.contract.strike_price < spot)
-            .cloned()
-            .collect::<Vec<_>>();
-        let call_candidates = expiration_calls
-            .iter()
-            .filter(|contract| contract.contract.strike_price > spot)
-            .cloned()
-            .collect::<Vec<_>>();
+        let put_candidates = expiration_puts;
+        let call_candidates = expiration_calls;
 
         if put_candidates.len() < 2 || call_candidates.len() < 2 {
             continue;
         }
 
-        let mut best_candidate = None;
         for outer_put_index in 0..put_candidates.len() - 1 {
             for inner_put_index in outer_put_index + 1..put_candidates.len() {
                 let outer_put = put_candidates[outer_put_index].clone();
@@ -384,14 +355,7 @@ fn find_iron_condor(
                     for outer_call_index in inner_call_index + 1..call_candidates.len() {
                         let inner_call = call_candidates[inner_call_index].clone();
                         let outer_call = call_candidates[outer_call_index].clone();
-                        let score = (spot - inner_put.contract.strike_price).abs()
-                            + (inner_call.contract.strike_price - spot).abs()
-                            + (inner_put.contract.strike_price - outer_put.contract.strike_price)
-                                .abs()
-                            + (outer_call.contract.strike_price - inner_call.contract.strike_price)
-                                .abs();
-
-                        let candidate = build_debit_mleg_context(
+                        if let Ok(context) = build_debit_mleg_context(
                             underlying_symbol,
                             vec![
                                 strategy_leg(
@@ -419,21 +383,12 @@ fn find_iron_condor(
                                     PositionIntent::SellToOpen,
                                 ),
                             ],
-                        );
-
-                        if let Ok(context) = candidate {
-                            match &best_candidate {
-                                Some((best_score, _)) if score >= *best_score => {}
-                                _ => best_candidate = Some((score, context)),
-                            }
+                        ) {
+                            return Ok(context);
                         }
                     }
                 }
             }
-        }
-
-        if let Some((_, context)) = best_candidate {
-            return Ok(context);
         }
     }
 
@@ -623,6 +578,134 @@ mod tests {
         assert_eq!(context.legs[2].symbol, "SPY250620C00105000");
         assert_eq!(context.legs[3].side, Some(OrderSide::Sell));
         assert_eq!(context.legs[3].symbol, "SPY250620C00110000");
+        assert!(context.marketable_limit_price > Decimal::ZERO);
+    }
+
+    #[test]
+    fn find_call_spread_returns_first_valid_orderable_pair() {
+        let context = find_call_spread(
+            "SPY",
+            Decimal::new(94, 0),
+            vec![
+                quoted(
+                    "SPY250620C00090000",
+                    "2025-06-20",
+                    OptionContractType::Call,
+                    90,
+                    20,
+                    21,
+                ),
+                quoted(
+                    "SPY250620C00095000",
+                    "2025-06-20",
+                    OptionContractType::Call,
+                    95,
+                    10,
+                    11,
+                ),
+                quoted(
+                    "SPY250620C00100000",
+                    "2025-06-20",
+                    OptionContractType::Call,
+                    100,
+                    5,
+                    6,
+                ),
+            ],
+        )
+        .expect("first quoted debit call spread should be discoverable");
+
+        assert_eq!(context.legs[0].symbol, "SPY250620C00090000");
+        assert_eq!(context.legs[0].side, Some(OrderSide::Buy));
+        assert_eq!(context.legs[1].symbol, "SPY250620C00095000");
+        assert_eq!(context.legs[1].side, Some(OrderSide::Sell));
+    }
+
+    #[test]
+    fn find_put_spread_returns_first_valid_orderable_pair() {
+        let context = find_put_spread(
+            "SPY",
+            Decimal::new(99, 0),
+            vec![
+                quoted(
+                    "SPY250620P00090000",
+                    "2025-06-20",
+                    OptionContractType::Put,
+                    90,
+                    5,
+                    6,
+                ),
+                quoted(
+                    "SPY250620P00095000",
+                    "2025-06-20",
+                    OptionContractType::Put,
+                    95,
+                    10,
+                    11,
+                ),
+                quoted(
+                    "SPY250620P00100000",
+                    "2025-06-20",
+                    OptionContractType::Put,
+                    100,
+                    20,
+                    21,
+                ),
+            ],
+        )
+        .expect("first quoted debit put spread should be discoverable");
+
+        assert_eq!(context.legs[0].symbol, "SPY250620P00095000");
+        assert_eq!(context.legs[0].side, Some(OrderSide::Buy));
+        assert_eq!(context.legs[1].symbol, "SPY250620P00090000");
+        assert_eq!(context.legs[1].side, Some(OrderSide::Sell));
+    }
+
+    #[test]
+    fn find_iron_condor_ignores_spot_preference_when_a_valid_combo_exists() {
+        let context = find_iron_condor(
+            "SPY",
+            Decimal::new(80, 0),
+            vec![
+                quoted(
+                    "SPY250620P00095000",
+                    "2025-06-20",
+                    OptionContractType::Put,
+                    95,
+                    10,
+                    11,
+                ),
+                quoted(
+                    "SPY250620P00100000",
+                    "2025-06-20",
+                    OptionContractType::Put,
+                    100,
+                    20,
+                    21,
+                ),
+            ],
+            vec![
+                quoted(
+                    "SPY250620C00105000",
+                    "2025-06-20",
+                    OptionContractType::Call,
+                    105,
+                    20,
+                    21,
+                ),
+                quoted(
+                    "SPY250620C00110000",
+                    "2025-06-20",
+                    OptionContractType::Call,
+                    110,
+                    10,
+                    11,
+                ),
+            ],
+        )
+        .expect("a valid quoted iron condor should not depend on proximity to spot");
+
+        assert_eq!(context.legs.len(), 4);
         assert!(context.marketable_limit_price > Decimal::ZERO);
     }
 }
