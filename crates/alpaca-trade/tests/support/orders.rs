@@ -6,7 +6,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use alpaca_data::{
     Client as DataClient,
-    options::{ChainRequest, OptionsFeed, Snapshot},
+    options::{ChainRequest, OptionsFeed, Snapshot, SnapshotsRequest},
     stocks::{DataFeed, SnapshotRequest},
 };
 use alpaca_trade::orders::{OptionLegRequest, OrderSide, PositionIntent};
@@ -197,6 +197,39 @@ pub(crate) async fn discover_single_leg_call(
     ))
 }
 
+pub(crate) async fn current_mleg_replacement_limit_price(
+    data_client: &DataClient,
+    legs: &[OptionLegRequest],
+    request_side: OrderSide,
+) -> Result<Decimal, String> {
+    let symbols = legs
+        .iter()
+        .map(|leg| leg.symbol.clone())
+        .collect::<Vec<_>>();
+    let snapshots = data_client
+        .options()
+        .snapshots(SnapshotsRequest {
+            symbols,
+            feed: Some(OptionsFeed::Indicative),
+            limit: Some(legs.len() as u32),
+            page_token: None,
+        })
+        .await
+        .map_err(|error| format!("option snapshots request failed: {error}"))?;
+    let current_mid = current_mleg_mid_price(legs, &request_side, &snapshots.snapshots)?;
+    let non_marketable_limit_price =
+        conservative_price_below_market(current_mid.max(Decimal::new(1, 2)));
+    let more_conservative_limit_price = distinct_more_conservative_limit_price(
+        non_marketable_limit_price,
+        "current multi-leg replacement",
+    )?;
+
+    distinct_more_conservative_limit_price(
+        more_conservative_limit_price,
+        "current multi-leg replacement",
+    )
+}
+
 fn option_universe_cache() -> &'static Mutex<HashMap<String, CachedOptionUniverse>> {
     OPTION_UNIVERSE_CACHE.get_or_init(|| Mutex::new(HashMap::new()))
 }
@@ -308,6 +341,78 @@ fn quoted_contract_from_snapshot(
     }
 
     Some(QuotedOptionContract { contract, bid, ask })
+}
+
+fn current_mleg_mid_price(
+    legs: &[OptionLegRequest],
+    request_side: &OrderSide,
+    snapshots: &HashMap<String, Snapshot>,
+) -> Result<Decimal, String> {
+    let raw_total = legs.iter().try_fold(Decimal::ZERO, |total, leg| {
+        let side = leg
+            .side
+            .clone()
+            .ok_or_else(|| format!("multi-leg request for {} did not include side", leg.symbol))?;
+        let leg_mid_price = option_mid_price_from_snapshot(
+            leg.symbol.as_str(),
+            snapshots.get(&leg.symbol).ok_or_else(|| {
+                format!(
+                    "option snapshots response did not include multi-leg leg {}",
+                    leg.symbol
+                )
+            })?,
+        )?;
+        let ratio_qty = Decimal::from(leg.ratio_qty);
+        let contribution = match side {
+            OrderSide::Buy => leg_mid_price * ratio_qty,
+            OrderSide::Sell => -(leg_mid_price * ratio_qty),
+            OrderSide::Unspecified => {
+                return Err(format!(
+                    "multi-leg request for {} used an unspecified side",
+                    leg.symbol
+                ));
+            }
+        };
+
+        Ok(total + contribution)
+    })?;
+
+    let normalized_total = match request_side {
+        OrderSide::Buy | OrderSide::Unspecified => raw_total,
+        OrderSide::Sell => -raw_total,
+    }
+    .round_dp(2);
+    if normalized_total <= MIN_PRICE {
+        return Err(format!(
+            "current multi-leg replacement debit {normalized_total} was not positive"
+        ));
+    }
+
+    Ok(normalized_total)
+}
+
+fn option_mid_price_from_snapshot(symbol: &str, snapshot: &Snapshot) -> Result<Decimal, String> {
+    let latest_trade_price = snapshot.latest_trade.as_ref().and_then(|trade| trade.p);
+    let bid = snapshot
+        .latest_quote
+        .as_ref()
+        .and_then(|quote| quote.bp)
+        .or(latest_trade_price)
+        .ok_or_else(|| format!("option snapshot for {symbol} did not include bid or trade"))?;
+    let ask = snapshot
+        .latest_quote
+        .as_ref()
+        .and_then(|quote| quote.ap.or(quote.bp))
+        .or(latest_trade_price)
+        .ok_or_else(|| format!("option snapshot for {symbol} did not include ask or trade"))?;
+
+    if bid <= MIN_PRICE || ask <= MIN_PRICE || ask < bid {
+        return Err(format!(
+            "option snapshot for {symbol} did not expose a usable bid/ask pair"
+        ));
+    }
+
+    Ok(((bid + ask) / Decimal::new(2, 0)).round_dp(2))
 }
 
 fn parse_occ_option_symbol(symbol: &str) -> Result<ObservedOptionContract, String> {

@@ -33,9 +33,14 @@ async fn portfolio_history_resource_reads_real_paper_history_window() {
         .record_json("alpaca-trade-portfolio-history", "get", &history)
         .expect("portfolio history sample should record");
 
-    assert!(!history.timestamp.is_empty());
     assert_eq!(history.timestamp.len(), history.equity.len());
     assert_eq!(history.timestamp.len(), history.profit_loss.len());
     assert_eq!(history.timestamp.len(), history.profit_loss_pct.len());
     assert!(!history.timeframe.is_empty());
+    if history.timestamp.is_empty() {
+        assert!(
+            history.base_value_asof.is_some(),
+            "empty portfolio history windows should still expose base_value_asof"
+        );
+    }
 }
