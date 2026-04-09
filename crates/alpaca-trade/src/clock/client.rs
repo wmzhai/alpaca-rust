@@ -5,7 +5,10 @@ use alpaca_http::RequestParts;
 use reqwest::Method;
 
 use crate::client::ClientInner;
-use crate::{Error, clock::Clock};
+use crate::{
+    Error,
+    clock::{Clock, ClockV3Response, GetV3Request},
+};
 
 #[derive(Clone)]
 pub struct ClockClient {
@@ -22,6 +25,17 @@ impl ClockClient {
 
         self.inner
             .send_json::<Clock>(request)
+            .await
+            .map(|response| response.into_body())
+    }
+
+    pub async fn get_v3(&self, request: GetV3Request) -> Result<ClockV3Response, Error> {
+        let request = RequestParts::new(Method::GET, "/v3/clock")
+            .with_operation("clock.get_v3")
+            .with_query(request.into_query()?);
+
+        self.inner
+            .send_json::<ClockV3Response>(request)
             .await
             .map(|response| response.into_body())
     }

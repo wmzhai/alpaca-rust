@@ -8,6 +8,13 @@ pub struct ListRequest {
     pub end: Option<String>,
 }
 
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct ListV3Request {
+    pub start: Option<String>,
+    pub end: Option<String>,
+    pub timezone: Option<String>,
+}
+
 impl ListRequest {
     pub(crate) fn into_query(self) -> Result<Vec<(String, String)>, Error> {
         let mut query = QueryWriter::default();
@@ -15,6 +22,30 @@ impl ListRequest {
         query.push_opt("end", validate_optional_text("end", self.end)?);
         Ok(query.finish())
     }
+}
+
+impl ListV3Request {
+    pub(crate) fn into_query(self) -> Result<Vec<(String, String)>, Error> {
+        let mut query = QueryWriter::default();
+        query.push_opt("start", validate_optional_text("start", self.start)?);
+        query.push_opt("end", validate_optional_text("end", self.end)?);
+        query.push_opt(
+            "timezone",
+            validate_optional_text("timezone", self.timezone)?,
+        );
+        Ok(query.finish())
+    }
+}
+
+pub(crate) fn validate_market(market: &str) -> Result<String, Error> {
+    let trimmed = validate_required_text("market", market)?;
+    if trimmed.contains('/') {
+        return Err(Error::InvalidRequest(
+            "market must not contain `/`".to_owned(),
+        ));
+    }
+
+    Ok(trimmed)
 }
 
 fn validate_optional_text(name: &str, value: Option<String>) -> Result<Option<String>, Error> {

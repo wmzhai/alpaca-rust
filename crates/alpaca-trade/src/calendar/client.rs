@@ -7,7 +7,7 @@ use reqwest::Method;
 use crate::client::ClientInner;
 use crate::{
     Error,
-    calendar::{Calendar, ListRequest},
+    calendar::{Calendar, CalendarV3Response, ListRequest, ListV3Request},
 };
 
 #[derive(Clone)]
@@ -27,6 +27,24 @@ impl CalendarClient {
 
         self.inner
             .send_json::<Vec<Calendar>>(request)
+            .await
+            .map(|response| response.into_body())
+    }
+
+    pub async fn list_v3(
+        &self,
+        market: &str,
+        request: ListV3Request,
+    ) -> Result<CalendarV3Response, Error> {
+        let request = RequestParts::new(
+            Method::GET,
+            format!("/v3/calendar/{}", super::request::validate_market(market)?),
+        )
+        .with_operation("calendar.list_v3")
+        .with_query(request.into_query()?);
+
+        self.inner
+            .send_json::<CalendarV3Response>(request)
             .await
             .map(|response| response.into_body())
     }

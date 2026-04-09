@@ -7,7 +7,7 @@ use reqwest::Method;
 use crate::client::ClientInner;
 use crate::{
     Error,
-    activities::{Activity, ListRequest},
+    activities::{Activity, ListByTypeRequest, ListRequest},
 };
 
 #[derive(Clone)]
@@ -24,6 +24,27 @@ impl ActivitiesClient {
         let request = RequestParts::new(Method::GET, "/v2/account/activities")
             .with_operation("activities.list")
             .with_query(request.into_query()?);
+
+        self.inner
+            .send_json::<Vec<Activity>>(request)
+            .await
+            .map(|response| response.into_body())
+    }
+
+    pub async fn list_by_type(
+        &self,
+        activity_type: &str,
+        request: ListByTypeRequest,
+    ) -> Result<Vec<Activity>, Error> {
+        let request = RequestParts::new(
+            Method::GET,
+            format!(
+                "/v2/account/activities/{}",
+                super::request::validate_activity_type(activity_type)?
+            ),
+        )
+        .with_operation("activities.list_by_type")
+        .with_query(request.into_query()?);
 
         self.inner
             .send_json::<Vec<Activity>>(request)

@@ -13,6 +13,16 @@ pub struct ListRequest {
     pub page_token: Option<String>,
 }
 
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct ListByTypeRequest {
+    pub date: Option<String>,
+    pub until: Option<String>,
+    pub after: Option<String>,
+    pub direction: Option<SortDirection>,
+    pub page_size: Option<u32>,
+    pub page_token: Option<String>,
+}
+
 impl ListRequest {
     pub(crate) fn into_query(self) -> Result<Vec<(String, String)>, Error> {
         let mut query = QueryWriter::default();
@@ -35,6 +45,36 @@ impl ListRequest {
         );
         Ok(query.finish())
     }
+}
+
+impl ListByTypeRequest {
+    pub(crate) fn into_query(self) -> Result<Vec<(String, String)>, Error> {
+        let mut query = QueryWriter::default();
+        query.push_opt("date", validate_optional_text("date", self.date)?);
+        query.push_opt("until", validate_optional_text("until", self.until)?);
+        query.push_opt("after", validate_optional_text("after", self.after)?);
+        query.push_opt("direction", self.direction);
+        query.push_opt(
+            "page_size",
+            validate_positive_u32("page_size", self.page_size)?,
+        );
+        query.push_opt(
+            "page_token",
+            validate_optional_text("page_token", self.page_token)?,
+        );
+        Ok(query.finish())
+    }
+}
+
+pub(crate) fn validate_activity_type(activity_type: &str) -> Result<String, Error> {
+    let trimmed = validate_required_text("activity_type", activity_type)?;
+    if trimmed.contains('/') {
+        return Err(Error::InvalidRequest(
+            "activity_type must not contain `/`".to_owned(),
+        ));
+    }
+
+    Ok(trimmed)
 }
 
 fn validate_optional_csv_text(

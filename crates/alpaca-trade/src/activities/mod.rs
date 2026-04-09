@@ -4,4 +4,4 @@ mod request;
 
 pub use client::ActivitiesClient;
 pub use model::Activity;
-pub use request::ListRequest;
+pub use request::{ListByTypeRequest, ListRequest};

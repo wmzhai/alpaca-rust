@@ -33,8 +33,8 @@
   "summary": {
     "official_total_operations": 64,
     "adopted_family_total_operations": 40,
-    "implemented_mirror_operations": 21,
-    "open_gaps": 19
+    "implemented_mirror_operations": 24,
+    "open_gaps": 16
   },
   "mirror_layer": [
     {
@@ -99,6 +99,30 @@
           "activity_types|query|optional|array|items=string",
           "after|query|optional|string",
           "category|query|optional|string|enum=non_trade_activity,trade_activity",
+          "date|query|optional|string",
+          "direction|query|optional|string|enum=asc,desc|default=desc",
+          "page_size|query|optional|integer|default=100",
+          "page_token|query|optional|string",
+          "until|query|optional|string"
+        ]
+      },
+      "response_contract": {
+        "status": "200",
+        "field_signatures": [
+          "[]|unknown"
+        ]
+      }
+    },
+    {
+      "tag": "Account Activities",
+      "method": "GET",
+      "path": "/v2/account/activities/{activity_type}",
+      "local_resource": "activities",
+      "mirror_method": "list_by_type",
+      "parameter_contract": {
+        "signatures": [
+          "activity_type|path|required|string",
+          "after|query|optional|string",
           "date|query|optional|string",
           "direction|query|optional|string|enum=asc,desc|default=desc",
           "page_size|query|optional|integer|default=100",
@@ -182,6 +206,51 @@
           "status|string|enum=active,inactive",
           "symbol|string",
           "tradable|boolean"
+        ]
+      }
+    },
+    {
+      "tag": "Calendar",
+      "method": "GET",
+      "path": "/v2/calendar",
+      "local_resource": "calendar",
+      "mirror_method": "list",
+      "parameter_contract": {
+        "signatures": [
+          "date_type|query|optional|string|enum=SETTLEMENT,TRADING",
+          "end|query|optional|string",
+          "start|query|optional|string"
+        ]
+      },
+      "response_contract": {
+        "status": "200",
+        "field_signatures": [
+          "[].close|string",
+          "[].date|string",
+          "[].open|string",
+          "[].session_close|string",
+          "[].session_open|string",
+          "[].settlement_date|string",
+          "[]|object"
+        ]
+      }
+    },
+    {
+      "tag": "Calendar",
+      "method": "GET",
+      "path": "/v2/clock",
+      "local_resource": "clock",
+      "mirror_method": "get",
+      "parameter_contract": {
+        "signatures": []
+      },
+      "response_contract": {
+        "status": "200",
+        "field_signatures": [
+          "is_open|boolean",
+          "next_close|string",
+          "next_open|string",
+          "timestamp|string"
         ]
       }
     },
@@ -292,47 +361,20 @@
       }
     },
     {
-      "tag": "Calendar",
-      "method": "GET",
-      "path": "/v2/calendar",
-      "local_resource": "calendar",
-      "mirror_method": "list",
-      "parameter_contract": {
-        "signatures": [
-          "date_type|query|optional|string|enum=SETTLEMENT,TRADING",
-          "end|query|optional|string",
-          "start|query|optional|string"
-        ]
-      },
-      "response_contract": {
-        "status": "200",
-        "field_signatures": [
-          "[].close|string",
-          "[].date|string",
-          "[].open|string",
-          "[].session_close|string",
-          "[].session_open|string",
-          "[].settlement_date|string",
-          "[]|object"
-        ]
-      }
-    },
-    {
-      "tag": "Calendar",
-      "method": "GET",
-      "path": "/v2/clock",
-      "local_resource": "clock",
-      "mirror_method": "get",
+      "tag": "Orders",
+      "method": "DELETE",
+      "path": "/v2/orders",
+      "local_resource": "orders",
+      "mirror_method": "cancel_all",
       "parameter_contract": {
         "signatures": []
       },
       "response_contract": {
-        "status": "200",
+        "status": "207",
         "field_signatures": [
-          "is_open|boolean",
-          "next_close|string",
-          "next_open|string",
-          "timestamp|string"
+          "[].id|string",
+          "[].status|integer",
+          "[]|object"
         ]
       }
     },
@@ -516,19 +558,17 @@
     {
       "tag": "Orders",
       "method": "DELETE",
-      "path": "/v2/orders",
+      "path": "/v2/orders/{order_id}",
       "local_resource": "orders",
-      "mirror_method": "cancel_all",
+      "mirror_method": "cancel",
       "parameter_contract": {
-        "signatures": []
+        "signatures": [
+          "order_id|path|required|string"
+        ]
       },
       "response_contract": {
-        "status": "207",
-        "field_signatures": [
-          "[].id|string",
-          "[].status|integer",
-          "[]|object"
-        ]
+        "status": "204",
+        "field_signatures": []
       }
     },
     {
@@ -702,22 +742,6 @@
     },
     {
       "tag": "Orders",
-      "method": "DELETE",
-      "path": "/v2/orders/{order_id}",
-      "local_resource": "orders",
-      "mirror_method": "cancel",
-      "parameter_contract": {
-        "signatures": [
-          "order_id|path|required|string"
-        ]
-      },
-      "response_contract": {
-        "status": "204",
-        "field_signatures": []
-      }
-    },
-    {
-      "tag": "Orders",
       "method": "GET",
       "path": "/v2/orders:by_client_order_id",
       "local_resource": "orders",
@@ -797,40 +821,6 @@
           "trail_price|string",
           "type|string|enum=limit,market,stop,stop_limit,trailing_stop",
           "updated_at|string"
-        ]
-      }
-    },
-    {
-      "tag": "Positions",
-      "method": "GET",
-      "path": "/v2/positions",
-      "local_resource": "positions",
-      "mirror_method": "list",
-      "parameter_contract": {
-        "signatures": []
-      },
-      "response_contract": {
-        "status": "200",
-        "field_signatures": [
-          "[].asset_class|string|enum=crypto,us_equity,us_option",
-          "[].asset_id|string",
-          "[].asset_marginable|boolean",
-          "[].avg_entry_price|string",
-          "[].change_today|string",
-          "[].cost_basis|string",
-          "[].current_price|string",
-          "[].exchange|string|enum=AMEX,ARCA,BATS,NASDAQ,NYSE,NYSEARCA,OTC,null",
-          "[].lastday_price|string",
-          "[].market_value|string",
-          "[].qty_available|string",
-          "[].qty|string",
-          "[].side|string",
-          "[].symbol|string",
-          "[].unrealized_intraday_plpc|string",
-          "[].unrealized_intraday_pl|string",
-          "[].unrealized_plpc|string",
-          "[].unrealized_pl|string",
-          "[]|object"
         ]
       }
     },
@@ -925,35 +915,34 @@
     {
       "tag": "Positions",
       "method": "GET",
-      "path": "/v2/positions/{symbol_or_asset_id}",
+      "path": "/v2/positions",
       "local_resource": "positions",
-      "mirror_method": "get",
+      "mirror_method": "list",
       "parameter_contract": {
-        "signatures": [
-          "symbol_or_asset_id|path|required|string"
-        ]
+        "signatures": []
       },
       "response_contract": {
         "status": "200",
         "field_signatures": [
-          "asset_class|string|enum=crypto,us_equity,us_option",
-          "asset_id|string",
-          "asset_marginable|boolean",
-          "avg_entry_price|string",
-          "change_today|string",
-          "cost_basis|string",
-          "current_price|string",
-          "exchange|string|enum=AMEX,ARCA,BATS,NASDAQ,NYSE,NYSEARCA,OTC,null",
-          "lastday_price|string",
-          "market_value|string",
-          "qty_available|string",
-          "qty|string",
-          "side|string",
-          "symbol|string",
-          "unrealized_intraday_plpc|string",
-          "unrealized_intraday_pl|string",
-          "unrealized_plpc|string",
-          "unrealized_pl|string"
+          "[].asset_class|string|enum=crypto,us_equity,us_option",
+          "[].asset_id|string",
+          "[].asset_marginable|boolean",
+          "[].avg_entry_price|string",
+          "[].change_today|string",
+          "[].cost_basis|string",
+          "[].current_price|string",
+          "[].exchange|string|enum=AMEX,ARCA,BATS,NASDAQ,NYSE,NYSEARCA,OTC,null",
+          "[].lastday_price|string",
+          "[].market_value|string",
+          "[].qty_available|string",
+          "[].qty|string",
+          "[].side|string",
+          "[].symbol|string",
+          "[].unrealized_intraday_plpc|string",
+          "[].unrealized_intraday_pl|string",
+          "[].unrealized_plpc|string",
+          "[].unrealized_pl|string",
+          "[]|object"
         ]
       }
     },
@@ -1045,18 +1034,37 @@
     },
     {
       "tag": "Positions",
-      "method": "POST",
-      "path": "/v2/positions/{symbol_or_contract_id}/exercise",
+      "method": "GET",
+      "path": "/v2/positions/{symbol_or_asset_id}",
       "local_resource": "positions",
-      "mirror_method": "exercise",
+      "mirror_method": "get",
       "parameter_contract": {
         "signatures": [
-          "symbol_or_contract_id|path|required|string"
+          "symbol_or_asset_id|path|required|string"
         ]
       },
       "response_contract": {
         "status": "200",
-        "field_signatures": []
+        "field_signatures": [
+          "asset_class|string|enum=crypto,us_equity,us_option",
+          "asset_id|string",
+          "asset_marginable|boolean",
+          "avg_entry_price|string",
+          "change_today|string",
+          "cost_basis|string",
+          "current_price|string",
+          "exchange|string|enum=AMEX,ARCA,BATS,NASDAQ,NYSE,NYSEARCA,OTC,null",
+          "lastday_price|string",
+          "market_value|string",
+          "qty_available|string",
+          "qty|string",
+          "side|string",
+          "symbol|string",
+          "unrealized_intraday_plpc|string",
+          "unrealized_intraday_pl|string",
+          "unrealized_plpc|string",
+          "unrealized_pl|string"
+        ]
       }
     },
     {
@@ -1074,18 +1082,96 @@
         "status": "200",
         "field_signatures": []
       }
+    },
+    {
+      "tag": "Positions",
+      "method": "POST",
+      "path": "/v2/positions/{symbol_or_contract_id}/exercise",
+      "local_resource": "positions",
+      "mirror_method": "exercise",
+      "parameter_contract": {
+        "signatures": [
+          "symbol_or_contract_id|path|required|string"
+        ]
+      },
+      "response_contract": {
+        "status": "200",
+        "field_signatures": []
+      }
+    },
+    {
+      "tag": "Calendar",
+      "method": "GET",
+      "path": "/v3/calendar/{market}",
+      "local_resource": "calendar",
+      "mirror_method": "list_v3",
+      "parameter_contract": {
+        "signatures": [
+          "market|path|required|string|enum=BMO,BNYM,BOATS,CEUX,CHIX,HKEX,IEX,IEXG,ISE,LSE,MTA,MTAA,NASDAQ,NYSE,OCEA,OPRA,OTC,OTCM,SIFMA,TADAWUL,XAMS,XBRU,XDUB,XETR,XETRA,XHKG,XLIS,XLON,XNAS,XNYS,XPAR,XSAU",
+          "end|query|optional|string",
+          "start|query|optional|string",
+          "timezone|query|optional|string|enum=UTC"
+        ]
+      },
+      "response_contract": {
+        "status": "200",
+        "field_signatures": [
+          "calendar[].core_end|string",
+          "calendar[].core_start|string",
+          "calendar[].date|string",
+          "calendar[].lunch_end|string",
+          "calendar[].lunch_start|string",
+          "calendar[].post_end|string",
+          "calendar[].post_start|string",
+          "calendar[].pre_end|string",
+          "calendar[].pre_start|string",
+          "calendar[].settlement_date|string",
+          "calendar[]|object",
+          "calendar|array",
+          "market.acronym|string",
+          "market.bic|string",
+          "market.mic|string",
+          "market.name|string",
+          "market.timezone|string",
+          "market|object"
+        ]
+      }
+    },
+    {
+      "tag": "Calendar",
+      "method": "GET",
+      "path": "/v3/clock",
+      "local_resource": "clock",
+      "mirror_method": "get_v3",
+      "parameter_contract": {
+        "signatures": [
+          "markets|query|optional|string",
+          "time|query|optional|string"
+        ]
+      },
+      "response_contract": {
+        "status": "200",
+        "field_signatures": [
+          "clocks[].is_market_day|boolean",
+          "clocks[].market.acronym|string",
+          "clocks[].market.bic|string",
+          "clocks[].market.mic|string",
+          "clocks[].market.name|string",
+          "clocks[].market.timezone|string",
+          "clocks[].market|object",
+          "clocks[].next_market_close|string",
+          "clocks[].next_market_open|string",
+          "clocks[].phase_until|string",
+          "clocks[].phase|string|enum=closed,core,lunch,post,pre",
+          "clocks[].timestamp|string",
+          "clocks[]|object",
+          "clocks|array"
+        ]
+      }
     }
   ],
   "convenience_layer": [],
   "planned_gaps": [
-    {
-      "tag": "Account Activities",
-      "method": "GET",
-      "path": "/v2/account/activities/{activity_type}",
-      "local_resource": "activities",
-      "mirror_method": "list_by_type",
-      "status": "planned_gap"
-    },
     {
       "tag": "Account Configurations",
       "method": "GET",
@@ -1124,22 +1210,6 @@
       "path": "/v2/assets/fixed_income/us_treasuries",
       "local_resource": "assets",
       "mirror_method": "fixed_income_us_treasuries",
-      "status": "planned_gap"
-    },
-    {
-      "tag": "Calendar",
-      "method": "GET",
-      "path": "/v3/calendar/{market}",
-      "local_resource": "calendar",
-      "mirror_method": "list_v3",
-      "status": "planned_gap"
-    },
-    {
-      "tag": "Calendar",
-      "method": "GET",
-      "path": "/v3/clock",
-      "local_resource": "clock",
-      "mirror_method": "get_v3",
       "status": "planned_gap"
     },
     {

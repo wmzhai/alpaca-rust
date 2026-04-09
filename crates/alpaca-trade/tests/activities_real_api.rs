@@ -7,7 +7,7 @@ use rust_decimal::Decimal;
 
 use alpaca_trade::{
     Client,
-    activities::ListRequest,
+    activities::{ListByTypeRequest, ListRequest},
     orders::{CreateRequest, OrderSide, OrderStatus, OrderType, TimeInForce},
     positions::ClosePositionRequest,
 };
@@ -18,6 +18,49 @@ use live_support::{
 };
 
 const ACTIVITY_TEST_SYMBOL: &str = "SPY";
+
+#[tokio::test]
+async fn activities_resource_reads_real_paper_specific_type_endpoint() {
+    let env = LiveTestEnv::load().expect("live test environment should load");
+    if let Some(reason) = env.skip_reason_for_service(AlpacaService::Trade) {
+        eprintln!("skipping real API test: {reason}");
+        return;
+    }
+
+    let service = env.trade().expect("trade config should exist");
+    let client = Client::builder()
+        .credentials(service.credentials().clone())
+        .base_url(service.base_url().clone())
+        .build()
+        .expect("trade client should build from live service config");
+    let recorder = SampleRecorder::from_live_env(&env);
+    let clock = client
+        .clock()
+        .get()
+        .await
+        .expect("clock request should succeed before the activities query");
+    let trading_day = trading_day_from_timestamp(&clock.timestamp)
+        .expect("paper clock timestamp should contain a trading day");
+
+    let fills = client
+        .activities()
+        .list_by_type(
+            "FILL",
+            ListByTypeRequest {
+                date: Some(trading_day),
+                direction: Some(alpaca_trade::orders::SortDirection::Desc),
+                page_size: Some(100),
+                ..ListByTypeRequest::default()
+            },
+        )
+        .await
+        .expect("typed activities endpoint should succeed against real paper API");
+    recorder
+        .record_json("alpaca-trade-activities", "list-by-type-fill", &fills)
+        .expect("typed activities sample should record");
+
+    assert!(fills.iter().all(|activity| activity.activity_type == "FILL"));
+}
 
 #[tokio::test]
 async fn activities_resource_reads_real_paper_fill_activities_after_open_and_close() {
