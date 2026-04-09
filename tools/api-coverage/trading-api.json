@@ -1,0 +1,1268 @@
+{
+  "manifest_version": 1,
+  "generated_at": "2026-04-09",
+  "scope": {
+    "api": "trading-http-rest",
+    "included_asset_scope": "non-crypto",
+    "excluded_scopes": [
+      "crypto",
+      "stream",
+      "websocket",
+      "broker",
+      "fix"
+    ]
+  },
+  "official": {
+    "reference_root": "https://docs.alpaca.markets/reference/api-references",
+    "openapi_url": "https://docs.alpaca.markets/openapi/trading-api.json"
+  },
+  "local": {
+    "crate": "alpaca-trade",
+    "adopted_tags": [
+      "Account Activities",
+      "Account Configurations",
+      "Accounts",
+      "Assets",
+      "Calendar",
+      "Orders",
+      "Portfolio History",
+      "Positions",
+      "Watchlists"
+    ]
+  },
+  "summary": {
+    "official_total_operations": 64,
+    "adopted_family_total_operations": 40,
+    "implemented_mirror_operations": 21,
+    "open_gaps": 19
+  },
+  "mirror_layer": [
+    {
+      "tag": "Accounts",
+      "method": "GET",
+      "path": "/v2/account",
+      "local_resource": "account",
+      "mirror_method": "get",
+      "parameter_contract": {
+        "signatures": []
+      },
+      "response_contract": {
+        "status": "200",
+        "field_signatures": [
+          "account_blocked|boolean",
+          "account_number|string",
+          "accrued_fees|string",
+          "balance_asof|string",
+          "buying_power|string",
+          "cash|string",
+          "created_at|string",
+          "currency|string",
+          "daytrade_count|integer",
+          "daytrading_buying_power|string",
+          "equity|string",
+          "id|string",
+          "initial_margin|string",
+          "intraday_adjustments|string",
+          "last_equity|string",
+          "last_maintenance_margin|string",
+          "long_market_value|string",
+          "maintenance_margin|string",
+          "multiplier|string",
+          "non_marginable_buying_power|string",
+          "options_approved_level|integer|enum=0,1,2,3",
+          "options_buying_power|string",
+          "options_trading_level|integer|enum=0,1,2,3",
+          "pattern_day_trader|boolean",
+          "pending_reg_taf_fees|string",
+          "pending_transfer_in|string",
+          "pending_transfer_out|string",
+          "portfolio_value|string",
+          "regt_buying_power|string",
+          "short_market_value|string",
+          "shorting_enabled|boolean",
+          "sma|string",
+          "status|string|enum=ACCOUNT_UPDATED,ACTIVE,APPROVAL_PENDING,ONBOARDING,REJECTED,SUBMISSION_FAILED,SUBMITTED",
+          "trade_suspended_by_user|boolean",
+          "trading_blocked|boolean",
+          "transfers_blocked|boolean"
+        ]
+      }
+    },
+    {
+      "tag": "Account Activities",
+      "method": "GET",
+      "path": "/v2/account/activities",
+      "local_resource": "activities",
+      "mirror_method": "list",
+      "parameter_contract": {
+        "signatures": [
+          "activity_types|query|optional|array|items=string",
+          "after|query|optional|string",
+          "category|query|optional|string|enum=non_trade_activity,trade_activity",
+          "date|query|optional|string",
+          "direction|query|optional|string|enum=asc,desc|default=desc",
+          "page_size|query|optional|integer|default=100",
+          "page_token|query|optional|string",
+          "until|query|optional|string"
+        ]
+      },
+      "response_contract": {
+        "status": "200",
+        "field_signatures": [
+          "[]|unknown"
+        ]
+      }
+    },
+    {
+      "tag": "Assets",
+      "method": "GET",
+      "path": "/v2/assets",
+      "local_resource": "assets",
+      "mirror_method": "list",
+      "parameter_contract": {
+        "signatures": [
+          "asset_class|query|optional|string",
+          "attributes|query|optional|array|items=string|default=[]",
+          "exchange|query|optional|string",
+          "status|query|optional|string"
+        ]
+      },
+      "response_contract": {
+        "status": "200",
+        "field_signatures": [
+          "[].attributes[]|string|enum=fractional_eh_enabled,has_options,ipo,options_late_close,overnight_halted,overnight_tradable,ptp_no_exception,ptp_with_exception",
+          "[].attributes|array",
+          "[].class|string|enum=crypto,us_equity,us_option",
+          "[].cusip|string",
+          "[].easy_to_borrow|boolean",
+          "[].exchange|string|enum=AMEX,ARCA,BATS,NASDAQ,NYSE,NYSEARCA,OTC",
+          "[].fractionable|boolean",
+          "[].id|string",
+          "[].maintenance_margin_requirement|number",
+          "[].margin_requirement_long|string",
+          "[].margin_requirement_short|string",
+          "[].marginable|boolean",
+          "[].name|string",
+          "[].shortable|boolean",
+          "[].status|string|enum=active,inactive",
+          "[].symbol|string",
+          "[].tradable|boolean",
+          "[]|object"
+        ]
+      }
+    },
+    {
+      "tag": "Assets",
+      "method": "GET",
+      "path": "/v2/assets/{symbol_or_asset_id}",
+      "local_resource": "assets",
+      "mirror_method": "get",
+      "parameter_contract": {
+        "signatures": [
+          "symbol_or_asset_id|path|required|string"
+        ]
+      },
+      "response_contract": {
+        "status": "200",
+        "field_signatures": [
+          "attributes[]|string|enum=fractional_eh_enabled,has_options,ipo,options_late_close,overnight_halted,overnight_tradable,ptp_no_exception,ptp_with_exception",
+          "attributes|array",
+          "class|string|enum=crypto,us_equity,us_option",
+          "cusip|string",
+          "easy_to_borrow|boolean",
+          "exchange|string|enum=AMEX,ARCA,BATS,NASDAQ,NYSE,NYSEARCA,OTC",
+          "fractionable|boolean",
+          "id|string",
+          "maintenance_margin_requirement|number",
+          "margin_requirement_long|string",
+          "margin_requirement_short|string",
+          "marginable|boolean",
+          "name|string",
+          "shortable|boolean",
+          "status|string|enum=active,inactive",
+          "symbol|string",
+          "tradable|boolean"
+        ]
+      }
+    },
+    {
+      "tag": "Assets",
+      "method": "GET",
+      "path": "/v2/options/contracts",
+      "local_resource": "options_contracts",
+      "mirror_method": "list",
+      "parameter_contract": {
+        "signatures": [
+          "expiration_date|query|optional|string",
+          "expiration_date_gte|query|optional|string",
+          "expiration_date_lte|query|optional|string",
+          "limit|query|optional|integer",
+          "page_token|query|optional|string",
+          "ppind|query|optional|boolean",
+          "root_symbol|query|optional|string",
+          "show_deliverables|query|optional|boolean",
+          "status|query|optional|string|enum=active,inactive",
+          "strike_price_gte|query|optional|number",
+          "strike_price_lte|query|optional|number",
+          "style|query|optional|string|enum=american,european",
+          "type|query|optional|string|enum=call,put",
+          "underlying_symbols|query|optional|string"
+        ]
+      },
+      "response_contract": {
+        "status": "200",
+        "field_signatures": [
+          "next_page_token|string",
+          "option_contracts[].close_price_date|string",
+          "option_contracts[].close_price|string",
+          "option_contracts[].deliverables[].allocation_percentage|string",
+          "option_contracts[].deliverables[].amount|string",
+          "option_contracts[].deliverables[].asset_id|string",
+          "option_contracts[].deliverables[].delayed_settlement|boolean",
+          "option_contracts[].deliverables[].settlement_method|string|enum=BTOB,CADF,CAFX,CCC",
+          "option_contracts[].deliverables[].settlement_type|string|enum=T+0,T+1,T+2,T+3,T+4,T+5",
+          "option_contracts[].deliverables[].symbol|string",
+          "option_contracts[].deliverables[].type|string|enum=cash,equity",
+          "option_contracts[].deliverables[]|object",
+          "option_contracts[].deliverables|array",
+          "option_contracts[].expiration_date|string",
+          "option_contracts[].id|string",
+          "option_contracts[].multiplier|string",
+          "option_contracts[].name|string",
+          "option_contracts[].open_interest_date|string",
+          "option_contracts[].open_interest|string",
+          "option_contracts[].root_symbol|string",
+          "option_contracts[].size|string",
+          "option_contracts[].status|string|enum=active,inactive",
+          "option_contracts[].strike_price|string",
+          "option_contracts[].style|string|enum=american,european",
+          "option_contracts[].symbol|string",
+          "option_contracts[].tradable|boolean",
+          "option_contracts[].type|string|enum=call,put",
+          "option_contracts[].underlying_asset_id|string",
+          "option_contracts[].underlying_symbol|string",
+          "option_contracts[]|object",
+          "option_contracts|array"
+        ]
+      }
+    },
+    {
+      "tag": "Assets",
+      "method": "GET",
+      "path": "/v2/options/contracts/{symbol_or_id}",
+      "local_resource": "options_contracts",
+      "mirror_method": "get",
+      "parameter_contract": {
+        "signatures": [
+          "symbol_or_id|path|required|string"
+        ]
+      },
+      "response_contract": {
+        "status": "200",
+        "field_signatures": [
+          "close_price_date|string",
+          "close_price|string",
+          "deliverables[].allocation_percentage|string",
+          "deliverables[].amount|string",
+          "deliverables[].asset_id|string",
+          "deliverables[].delayed_settlement|boolean",
+          "deliverables[].settlement_method|string|enum=BTOB,CADF,CAFX,CCC",
+          "deliverables[].settlement_type|string|enum=T+0,T+1,T+2,T+3,T+4,T+5",
+          "deliverables[].symbol|string",
+          "deliverables[].type|string|enum=cash,equity",
+          "deliverables[]|object",
+          "deliverables|array",
+          "expiration_date|string",
+          "id|string",
+          "multiplier|string",
+          "name|string",
+          "open_interest_date|string",
+          "open_interest|string",
+          "root_symbol|string",
+          "size|string",
+          "status|string|enum=active,inactive",
+          "strike_price|string",
+          "style|string|enum=american,european",
+          "symbol|string",
+          "tradable|boolean",
+          "type|string|enum=call,put",
+          "underlying_asset_id|string",
+          "underlying_symbol|string"
+        ]
+      }
+    },
+    {
+      "tag": "Calendar",
+      "method": "GET",
+      "path": "/v2/calendar",
+      "local_resource": "calendar",
+      "mirror_method": "list",
+      "parameter_contract": {
+        "signatures": [
+          "date_type|query|optional|string|enum=SETTLEMENT,TRADING",
+          "end|query|optional|string",
+          "start|query|optional|string"
+        ]
+      },
+      "response_contract": {
+        "status": "200",
+        "field_signatures": [
+          "[].close|string",
+          "[].date|string",
+          "[].open|string",
+          "[].session_close|string",
+          "[].session_open|string",
+          "[].settlement_date|string",
+          "[]|object"
+        ]
+      }
+    },
+    {
+      "tag": "Calendar",
+      "method": "GET",
+      "path": "/v2/clock",
+      "local_resource": "clock",
+      "mirror_method": "get",
+      "parameter_contract": {
+        "signatures": []
+      },
+      "response_contract": {
+        "status": "200",
+        "field_signatures": [
+          "is_open|boolean",
+          "next_close|string",
+          "next_open|string",
+          "timestamp|string"
+        ]
+      }
+    },
+    {
+      "tag": "Orders",
+      "method": "GET",
+      "path": "/v2/orders",
+      "local_resource": "orders",
+      "mirror_method": "list",
+      "parameter_contract": {
+        "signatures": [
+          "after|query|optional|string",
+          "after_order_id|query|optional|string",
+          "asset_class|query|optional|array|items=string",
+          "before_order_id|query|optional|string",
+          "direction|query|optional|string|enum=asc,desc",
+          "limit|query|optional|integer",
+          "nested|query|optional|boolean",
+          "side|query|optional|string",
+          "status|query|optional|string|enum=all,closed,open",
+          "symbols|query|optional|string",
+          "until|query|optional|string"
+        ]
+      },
+      "response_contract": {
+        "status": "200",
+        "field_signatures": [
+          "[].asset_class|string|enum=crypto,us_equity,us_option",
+          "[].asset_id|string",
+          "[].canceled_at|string",
+          "[].client_order_id|string",
+          "[].created_at|string",
+          "[].expired_at|string",
+          "[].extended_hours|boolean",
+          "[].failed_at|string",
+          "[].filled_at|string",
+          "[].filled_avg_price|string",
+          "[].filled_qty|string",
+          "[].hwm|string",
+          "[].id|string",
+          "[].legs[].asset_class|string|enum=crypto,us_equity,us_option",
+          "[].legs[].asset_id|string",
+          "[].legs[].canceled_at|string",
+          "[].legs[].client_order_id|string",
+          "[].legs[].created_at|string",
+          "[].legs[].expired_at|string",
+          "[].legs[].extended_hours|boolean",
+          "[].legs[].failed_at|string",
+          "[].legs[].filled_at|string",
+          "[].legs[].filled_avg_price|string",
+          "[].legs[].filled_qty|string",
+          "[].legs[].hwm|string",
+          "[].legs[].id|string",
+          "[].legs[].legs|array",
+          "[].legs[].limit_price|string",
+          "[].legs[].notional|string",
+          "[].legs[].order_class|string|enum=,bracket,mleg,oco,oto,simple",
+          "[].legs[].order_type|string",
+          "[].legs[].position_intent|string|enum=buy_to_close,buy_to_open,sell_to_close,sell_to_open",
+          "[].legs[].qty|string",
+          "[].legs[].replaced_at|string",
+          "[].legs[].replaced_by|string",
+          "[].legs[].replaces|string",
+          "[].legs[].side|string|enum=buy,sell",
+          "[].legs[].status|string|enum=accepted,accepted_for_bidding,calculated,canceled,done_for_day,expired,filled,new,partially_filled,pending_cancel,pending_new,pending_replace,rejected,replaced,stopped,suspended",
+          "[].legs[].stop_price|string",
+          "[].legs[].submitted_at|string",
+          "[].legs[].symbol|string",
+          "[].legs[].time_in_force|string|enum=cls,day,fok,gtc,ioc,opg",
+          "[].legs[].trail_percent|string",
+          "[].legs[].trail_price|string",
+          "[].legs[].type|string|enum=limit,market,stop,stop_limit,trailing_stop",
+          "[].legs[].updated_at|string",
+          "[].legs[]|object",
+          "[].legs|array",
+          "[].limit_price|string",
+          "[].notional|string",
+          "[].order_class|string|enum=,bracket,mleg,oco,oto,simple",
+          "[].order_type|string",
+          "[].position_intent|string|enum=buy_to_close,buy_to_open,sell_to_close,sell_to_open",
+          "[].qty|string",
+          "[].replaced_at|string",
+          "[].replaced_by|string",
+          "[].replaces|string",
+          "[].side|string|enum=buy,sell",
+          "[].status|string|enum=accepted,accepted_for_bidding,calculated,canceled,done_for_day,expired,filled,new,partially_filled,pending_cancel,pending_new,pending_replace,rejected,replaced,stopped,suspended",
+          "[].stop_price|string",
+          "[].submitted_at|string",
+          "[].symbol|string",
+          "[].time_in_force|string|enum=cls,day,fok,gtc,ioc,opg",
+          "[].trail_percent|string",
+          "[].trail_price|string",
+          "[].type|string|enum=limit,market,stop,stop_limit,trailing_stop",
+          "[].updated_at|string",
+          "[]|object"
+        ]
+      }
+    },
+    {
+      "tag": "Orders",
+      "method": "POST",
+      "path": "/v2/orders",
+      "local_resource": "orders",
+      "mirror_method": "create",
+      "parameter_contract": {
+        "signatures": []
+      },
+      "response_contract": {
+        "status": "200",
+        "field_signatures": [
+          "asset_class|string|enum=crypto,us_equity,us_option",
+          "asset_id|string",
+          "canceled_at|string",
+          "client_order_id|string",
+          "created_at|string",
+          "expired_at|string",
+          "extended_hours|boolean",
+          "failed_at|string",
+          "filled_at|string",
+          "filled_avg_price|string",
+          "filled_qty|string",
+          "hwm|string",
+          "id|string",
+          "legs[].asset_class|string|enum=crypto,us_equity,us_option",
+          "legs[].asset_id|string",
+          "legs[].canceled_at|string",
+          "legs[].client_order_id|string",
+          "legs[].created_at|string",
+          "legs[].expired_at|string",
+          "legs[].extended_hours|boolean",
+          "legs[].failed_at|string",
+          "legs[].filled_at|string",
+          "legs[].filled_avg_price|string",
+          "legs[].filled_qty|string",
+          "legs[].hwm|string",
+          "legs[].id|string",
+          "legs[].legs|array",
+          "legs[].limit_price|string",
+          "legs[].notional|string",
+          "legs[].order_class|string|enum=,bracket,mleg,oco,oto,simple",
+          "legs[].order_type|string",
+          "legs[].position_intent|string|enum=buy_to_close,buy_to_open,sell_to_close,sell_to_open",
+          "legs[].qty|string",
+          "legs[].replaced_at|string",
+          "legs[].replaced_by|string",
+          "legs[].replaces|string",
+          "legs[].side|string|enum=buy,sell",
+          "legs[].status|string|enum=accepted,accepted_for_bidding,calculated,canceled,done_for_day,expired,filled,new,partially_filled,pending_cancel,pending_new,pending_replace,rejected,replaced,stopped,suspended",
+          "legs[].stop_price|string",
+          "legs[].submitted_at|string",
+          "legs[].symbol|string",
+          "legs[].time_in_force|string|enum=cls,day,fok,gtc,ioc,opg",
+          "legs[].trail_percent|string",
+          "legs[].trail_price|string",
+          "legs[].type|string|enum=limit,market,stop,stop_limit,trailing_stop",
+          "legs[].updated_at|string",
+          "legs[]|object",
+          "legs|array",
+          "limit_price|string",
+          "notional|string",
+          "order_class|string|enum=,bracket,mleg,oco,oto,simple",
+          "order_type|string",
+          "position_intent|string|enum=buy_to_close,buy_to_open,sell_to_close,sell_to_open",
+          "qty|string",
+          "replaced_at|string",
+          "replaced_by|string",
+          "replaces|string",
+          "side|string|enum=buy,sell",
+          "status|string|enum=accepted,accepted_for_bidding,calculated,canceled,done_for_day,expired,filled,new,partially_filled,pending_cancel,pending_new,pending_replace,rejected,replaced,stopped,suspended",
+          "stop_price|string",
+          "submitted_at|string",
+          "symbol|string",
+          "time_in_force|string|enum=cls,day,fok,gtc,ioc,opg",
+          "trail_percent|string",
+          "trail_price|string",
+          "type|string|enum=limit,market,stop,stop_limit,trailing_stop",
+          "updated_at|string"
+        ]
+      }
+    },
+    {
+      "tag": "Orders",
+      "method": "DELETE",
+      "path": "/v2/orders",
+      "local_resource": "orders",
+      "mirror_method": "cancel_all",
+      "parameter_contract": {
+        "signatures": []
+      },
+      "response_contract": {
+        "status": "207",
+        "field_signatures": [
+          "[].id|string",
+          "[].status|integer",
+          "[]|object"
+        ]
+      }
+    },
+    {
+      "tag": "Orders",
+      "method": "GET",
+      "path": "/v2/orders/{order_id}",
+      "local_resource": "orders",
+      "mirror_method": "get",
+      "parameter_contract": {
+        "signatures": [
+          "order_id|path|required|string",
+          "nested|query|optional|boolean"
+        ]
+      },
+      "response_contract": {
+        "status": "200",
+        "field_signatures": [
+          "asset_class|string|enum=crypto,us_equity,us_option",
+          "asset_id|string",
+          "canceled_at|string",
+          "client_order_id|string",
+          "created_at|string",
+          "expired_at|string",
+          "extended_hours|boolean",
+          "failed_at|string",
+          "filled_at|string",
+          "filled_avg_price|string",
+          "filled_qty|string",
+          "hwm|string",
+          "id|string",
+          "legs[].asset_class|string|enum=crypto,us_equity,us_option",
+          "legs[].asset_id|string",
+          "legs[].canceled_at|string",
+          "legs[].client_order_id|string",
+          "legs[].created_at|string",
+          "legs[].expired_at|string",
+          "legs[].extended_hours|boolean",
+          "legs[].failed_at|string",
+          "legs[].filled_at|string",
+          "legs[].filled_avg_price|string",
+          "legs[].filled_qty|string",
+          "legs[].hwm|string",
+          "legs[].id|string",
+          "legs[].legs|array",
+          "legs[].limit_price|string",
+          "legs[].notional|string",
+          "legs[].order_class|string|enum=,bracket,mleg,oco,oto,simple",
+          "legs[].order_type|string",
+          "legs[].position_intent|string|enum=buy_to_close,buy_to_open,sell_to_close,sell_to_open",
+          "legs[].qty|string",
+          "legs[].replaced_at|string",
+          "legs[].replaced_by|string",
+          "legs[].replaces|string",
+          "legs[].side|string|enum=buy,sell",
+          "legs[].status|string|enum=accepted,accepted_for_bidding,calculated,canceled,done_for_day,expired,filled,new,partially_filled,pending_cancel,pending_new,pending_replace,rejected,replaced,stopped,suspended",
+          "legs[].stop_price|string",
+          "legs[].submitted_at|string",
+          "legs[].symbol|string",
+          "legs[].time_in_force|string|enum=cls,day,fok,gtc,ioc,opg",
+          "legs[].trail_percent|string",
+          "legs[].trail_price|string",
+          "legs[].type|string|enum=limit,market,stop,stop_limit,trailing_stop",
+          "legs[].updated_at|string",
+          "legs[]|object",
+          "legs|array",
+          "limit_price|string",
+          "notional|string",
+          "order_class|string|enum=,bracket,mleg,oco,oto,simple",
+          "order_type|string",
+          "position_intent|string|enum=buy_to_close,buy_to_open,sell_to_close,sell_to_open",
+          "qty|string",
+          "replaced_at|string",
+          "replaced_by|string",
+          "replaces|string",
+          "side|string|enum=buy,sell",
+          "status|string|enum=accepted,accepted_for_bidding,calculated,canceled,done_for_day,expired,filled,new,partially_filled,pending_cancel,pending_new,pending_replace,rejected,replaced,stopped,suspended",
+          "stop_price|string",
+          "submitted_at|string",
+          "symbol|string",
+          "time_in_force|string|enum=cls,day,fok,gtc,ioc,opg",
+          "trail_percent|string",
+          "trail_price|string",
+          "type|string|enum=limit,market,stop,stop_limit,trailing_stop",
+          "updated_at|string"
+        ]
+      }
+    },
+    {
+      "tag": "Orders",
+      "method": "PATCH",
+      "path": "/v2/orders/{order_id}",
+      "local_resource": "orders",
+      "mirror_method": "replace",
+      "parameter_contract": {
+        "signatures": [
+          "order_id|path|required|string"
+        ]
+      },
+      "response_contract": {
+        "status": "200",
+        "field_signatures": [
+          "asset_class|string|enum=crypto,us_equity,us_option",
+          "asset_id|string",
+          "canceled_at|string",
+          "client_order_id|string",
+          "created_at|string",
+          "expired_at|string",
+          "extended_hours|boolean",
+          "failed_at|string",
+          "filled_at|string",
+          "filled_avg_price|string",
+          "filled_qty|string",
+          "hwm|string",
+          "id|string",
+          "legs[].asset_class|string|enum=crypto,us_equity,us_option",
+          "legs[].asset_id|string",
+          "legs[].canceled_at|string",
+          "legs[].client_order_id|string",
+          "legs[].created_at|string",
+          "legs[].expired_at|string",
+          "legs[].extended_hours|boolean",
+          "legs[].failed_at|string",
+          "legs[].filled_at|string",
+          "legs[].filled_avg_price|string",
+          "legs[].filled_qty|string",
+          "legs[].hwm|string",
+          "legs[].id|string",
+          "legs[].legs|array",
+          "legs[].limit_price|string",
+          "legs[].notional|string",
+          "legs[].order_class|string|enum=,bracket,mleg,oco,oto,simple",
+          "legs[].order_type|string",
+          "legs[].position_intent|string|enum=buy_to_close,buy_to_open,sell_to_close,sell_to_open",
+          "legs[].qty|string",
+          "legs[].replaced_at|string",
+          "legs[].replaced_by|string",
+          "legs[].replaces|string",
+          "legs[].side|string|enum=buy,sell",
+          "legs[].status|string|enum=accepted,accepted_for_bidding,calculated,canceled,done_for_day,expired,filled,new,partially_filled,pending_cancel,pending_new,pending_replace,rejected,replaced,stopped,suspended",
+          "legs[].stop_price|string",
+          "legs[].submitted_at|string",
+          "legs[].symbol|string",
+          "legs[].time_in_force|string|enum=cls,day,fok,gtc,ioc,opg",
+          "legs[].trail_percent|string",
+          "legs[].trail_price|string",
+          "legs[].type|string|enum=limit,market,stop,stop_limit,trailing_stop",
+          "legs[].updated_at|string",
+          "legs[]|object",
+          "legs|array",
+          "limit_price|string",
+          "notional|string",
+          "order_class|string|enum=,bracket,mleg,oco,oto,simple",
+          "order_type|string",
+          "position_intent|string|enum=buy_to_close,buy_to_open,sell_to_close,sell_to_open",
+          "qty|string",
+          "replaced_at|string",
+          "replaced_by|string",
+          "replaces|string",
+          "side|string|enum=buy,sell",
+          "status|string|enum=accepted,accepted_for_bidding,calculated,canceled,done_for_day,expired,filled,new,partially_filled,pending_cancel,pending_new,pending_replace,rejected,replaced,stopped,suspended",
+          "stop_price|string",
+          "submitted_at|string",
+          "symbol|string",
+          "time_in_force|string|enum=cls,day,fok,gtc,ioc,opg",
+          "trail_percent|string",
+          "trail_price|string",
+          "type|string|enum=limit,market,stop,stop_limit,trailing_stop",
+          "updated_at|string"
+        ]
+      }
+    },
+    {
+      "tag": "Orders",
+      "method": "DELETE",
+      "path": "/v2/orders/{order_id}",
+      "local_resource": "orders",
+      "mirror_method": "cancel",
+      "parameter_contract": {
+        "signatures": [
+          "order_id|path|required|string"
+        ]
+      },
+      "response_contract": {
+        "status": "204",
+        "field_signatures": []
+      }
+    },
+    {
+      "tag": "Orders",
+      "method": "GET",
+      "path": "/v2/orders:by_client_order_id",
+      "local_resource": "orders",
+      "mirror_method": "get_by_client_order_id",
+      "parameter_contract": {
+        "signatures": [
+          "client_order_id|query|required|string"
+        ]
+      },
+      "response_contract": {
+        "status": "200",
+        "field_signatures": [
+          "asset_class|string|enum=crypto,us_equity,us_option",
+          "asset_id|string",
+          "canceled_at|string",
+          "client_order_id|string",
+          "created_at|string",
+          "expired_at|string",
+          "extended_hours|boolean",
+          "failed_at|string",
+          "filled_at|string",
+          "filled_avg_price|string",
+          "filled_qty|string",
+          "hwm|string",
+          "id|string",
+          "legs[].asset_class|string|enum=crypto,us_equity,us_option",
+          "legs[].asset_id|string",
+          "legs[].canceled_at|string",
+          "legs[].client_order_id|string",
+          "legs[].created_at|string",
+          "legs[].expired_at|string",
+          "legs[].extended_hours|boolean",
+          "legs[].failed_at|string",
+          "legs[].filled_at|string",
+          "legs[].filled_avg_price|string",
+          "legs[].filled_qty|string",
+          "legs[].hwm|string",
+          "legs[].id|string",
+          "legs[].legs|array",
+          "legs[].limit_price|string",
+          "legs[].notional|string",
+          "legs[].order_class|string|enum=,bracket,mleg,oco,oto,simple",
+          "legs[].order_type|string",
+          "legs[].position_intent|string|enum=buy_to_close,buy_to_open,sell_to_close,sell_to_open",
+          "legs[].qty|string",
+          "legs[].replaced_at|string",
+          "legs[].replaced_by|string",
+          "legs[].replaces|string",
+          "legs[].side|string|enum=buy,sell",
+          "legs[].status|string|enum=accepted,accepted_for_bidding,calculated,canceled,done_for_day,expired,filled,new,partially_filled,pending_cancel,pending_new,pending_replace,rejected,replaced,stopped,suspended",
+          "legs[].stop_price|string",
+          "legs[].submitted_at|string",
+          "legs[].symbol|string",
+          "legs[].time_in_force|string|enum=cls,day,fok,gtc,ioc,opg",
+          "legs[].trail_percent|string",
+          "legs[].trail_price|string",
+          "legs[].type|string|enum=limit,market,stop,stop_limit,trailing_stop",
+          "legs[].updated_at|string",
+          "legs[]|object",
+          "legs|array",
+          "limit_price|string",
+          "notional|string",
+          "order_class|string|enum=,bracket,mleg,oco,oto,simple",
+          "order_type|string",
+          "position_intent|string|enum=buy_to_close,buy_to_open,sell_to_close,sell_to_open",
+          "qty|string",
+          "replaced_at|string",
+          "replaced_by|string",
+          "replaces|string",
+          "side|string|enum=buy,sell",
+          "status|string|enum=accepted,accepted_for_bidding,calculated,canceled,done_for_day,expired,filled,new,partially_filled,pending_cancel,pending_new,pending_replace,rejected,replaced,stopped,suspended",
+          "stop_price|string",
+          "submitted_at|string",
+          "symbol|string",
+          "time_in_force|string|enum=cls,day,fok,gtc,ioc,opg",
+          "trail_percent|string",
+          "trail_price|string",
+          "type|string|enum=limit,market,stop,stop_limit,trailing_stop",
+          "updated_at|string"
+        ]
+      }
+    },
+    {
+      "tag": "Positions",
+      "method": "GET",
+      "path": "/v2/positions",
+      "local_resource": "positions",
+      "mirror_method": "list",
+      "parameter_contract": {
+        "signatures": []
+      },
+      "response_contract": {
+        "status": "200",
+        "field_signatures": [
+          "[].asset_class|string|enum=crypto,us_equity,us_option",
+          "[].asset_id|string",
+          "[].asset_marginable|boolean",
+          "[].avg_entry_price|string",
+          "[].change_today|string",
+          "[].cost_basis|string",
+          "[].current_price|string",
+          "[].exchange|string|enum=AMEX,ARCA,BATS,NASDAQ,NYSE,NYSEARCA,OTC,null",
+          "[].lastday_price|string",
+          "[].market_value|string",
+          "[].qty_available|string",
+          "[].qty|string",
+          "[].side|string",
+          "[].symbol|string",
+          "[].unrealized_intraday_plpc|string",
+          "[].unrealized_intraday_pl|string",
+          "[].unrealized_plpc|string",
+          "[].unrealized_pl|string",
+          "[]|object"
+        ]
+      }
+    },
+    {
+      "tag": "Positions",
+      "method": "DELETE",
+      "path": "/v2/positions",
+      "local_resource": "positions",
+      "mirror_method": "close_all",
+      "parameter_contract": {
+        "signatures": [
+          "cancel_orders|query|optional|boolean"
+        ]
+      },
+      "response_contract": {
+        "status": "207",
+        "field_signatures": [
+          "[].body.asset_class|string|enum=crypto,us_equity,us_option",
+          "[].body.asset_id|string",
+          "[].body.canceled_at|string",
+          "[].body.client_order_id|string",
+          "[].body.created_at|string",
+          "[].body.expired_at|string",
+          "[].body.extended_hours|boolean",
+          "[].body.failed_at|string",
+          "[].body.filled_at|string",
+          "[].body.filled_avg_price|string",
+          "[].body.filled_qty|string",
+          "[].body.hwm|string",
+          "[].body.id|string",
+          "[].body.legs[].asset_class|string|enum=crypto,us_equity,us_option",
+          "[].body.legs[].asset_id|string",
+          "[].body.legs[].canceled_at|string",
+          "[].body.legs[].client_order_id|string",
+          "[].body.legs[].created_at|string",
+          "[].body.legs[].expired_at|string",
+          "[].body.legs[].extended_hours|boolean",
+          "[].body.legs[].failed_at|string",
+          "[].body.legs[].filled_at|string",
+          "[].body.legs[].filled_avg_price|string",
+          "[].body.legs[].filled_qty|string",
+          "[].body.legs[].hwm|string",
+          "[].body.legs[].id|string",
+          "[].body.legs[].legs|array",
+          "[].body.legs[].limit_price|string",
+          "[].body.legs[].notional|string",
+          "[].body.legs[].order_class|string|enum=,bracket,mleg,oco,oto,simple",
+          "[].body.legs[].order_type|string",
+          "[].body.legs[].position_intent|string|enum=buy_to_close,buy_to_open,sell_to_close,sell_to_open",
+          "[].body.legs[].qty|string",
+          "[].body.legs[].replaced_at|string",
+          "[].body.legs[].replaced_by|string",
+          "[].body.legs[].replaces|string",
+          "[].body.legs[].side|string|enum=buy,sell",
+          "[].body.legs[].status|string|enum=accepted,accepted_for_bidding,calculated,canceled,done_for_day,expired,filled,new,partially_filled,pending_cancel,pending_new,pending_replace,rejected,replaced,stopped,suspended",
+          "[].body.legs[].stop_price|string",
+          "[].body.legs[].submitted_at|string",
+          "[].body.legs[].symbol|string",
+          "[].body.legs[].time_in_force|string|enum=cls,day,fok,gtc,ioc,opg",
+          "[].body.legs[].trail_percent|string",
+          "[].body.legs[].trail_price|string",
+          "[].body.legs[].type|string|enum=limit,market,stop,stop_limit,trailing_stop",
+          "[].body.legs[].updated_at|string",
+          "[].body.legs[]|object",
+          "[].body.legs|array",
+          "[].body.limit_price|string",
+          "[].body.notional|string",
+          "[].body.order_class|string|enum=,bracket,mleg,oco,oto,simple",
+          "[].body.order_type|string",
+          "[].body.position_intent|string|enum=buy_to_close,buy_to_open,sell_to_close,sell_to_open",
+          "[].body.qty|string",
+          "[].body.replaced_at|string",
+          "[].body.replaced_by|string",
+          "[].body.replaces|string",
+          "[].body.side|string|enum=buy,sell",
+          "[].body.status|string|enum=accepted,accepted_for_bidding,calculated,canceled,done_for_day,expired,filled,new,partially_filled,pending_cancel,pending_new,pending_replace,rejected,replaced,stopped,suspended",
+          "[].body.stop_price|string",
+          "[].body.submitted_at|string",
+          "[].body.symbol|string",
+          "[].body.time_in_force|string|enum=cls,day,fok,gtc,ioc,opg",
+          "[].body.trail_percent|string",
+          "[].body.trail_price|string",
+          "[].body.type|string|enum=limit,market,stop,stop_limit,trailing_stop",
+          "[].body.updated_at|string",
+          "[].body|object",
+          "[].status|integer",
+          "[].symbol|string",
+          "[]|object"
+        ]
+      }
+    },
+    {
+      "tag": "Positions",
+      "method": "GET",
+      "path": "/v2/positions/{symbol_or_asset_id}",
+      "local_resource": "positions",
+      "mirror_method": "get",
+      "parameter_contract": {
+        "signatures": [
+          "symbol_or_asset_id|path|required|string"
+        ]
+      },
+      "response_contract": {
+        "status": "200",
+        "field_signatures": [
+          "asset_class|string|enum=crypto,us_equity,us_option",
+          "asset_id|string",
+          "asset_marginable|boolean",
+          "avg_entry_price|string",
+          "change_today|string",
+          "cost_basis|string",
+          "current_price|string",
+          "exchange|string|enum=AMEX,ARCA,BATS,NASDAQ,NYSE,NYSEARCA,OTC,null",
+          "lastday_price|string",
+          "market_value|string",
+          "qty_available|string",
+          "qty|string",
+          "side|string",
+          "symbol|string",
+          "unrealized_intraday_plpc|string",
+          "unrealized_intraday_pl|string",
+          "unrealized_plpc|string",
+          "unrealized_pl|string"
+        ]
+      }
+    },
+    {
+      "tag": "Positions",
+      "method": "DELETE",
+      "path": "/v2/positions/{symbol_or_asset_id}",
+      "local_resource": "positions",
+      "mirror_method": "close",
+      "parameter_contract": {
+        "signatures": [
+          "symbol_or_asset_id|path|required|string",
+          "percentage|query|optional|number",
+          "qty|query|optional|number"
+        ]
+      },
+      "response_contract": {
+        "status": "200",
+        "field_signatures": [
+          "asset_class|string|enum=crypto,us_equity,us_option",
+          "asset_id|string",
+          "canceled_at|string",
+          "client_order_id|string",
+          "created_at|string",
+          "expired_at|string",
+          "extended_hours|boolean",
+          "failed_at|string",
+          "filled_at|string",
+          "filled_avg_price|string",
+          "filled_qty|string",
+          "hwm|string",
+          "id|string",
+          "legs[].asset_class|string|enum=crypto,us_equity,us_option",
+          "legs[].asset_id|string",
+          "legs[].canceled_at|string",
+          "legs[].client_order_id|string",
+          "legs[].created_at|string",
+          "legs[].expired_at|string",
+          "legs[].extended_hours|boolean",
+          "legs[].failed_at|string",
+          "legs[].filled_at|string",
+          "legs[].filled_avg_price|string",
+          "legs[].filled_qty|string",
+          "legs[].hwm|string",
+          "legs[].id|string",
+          "legs[].legs|array",
+          "legs[].limit_price|string",
+          "legs[].notional|string",
+          "legs[].order_class|string|enum=,bracket,mleg,oco,oto,simple",
+          "legs[].order_type|string",
+          "legs[].position_intent|string|enum=buy_to_close,buy_to_open,sell_to_close,sell_to_open",
+          "legs[].qty|string",
+          "legs[].replaced_at|string",
+          "legs[].replaced_by|string",
+          "legs[].replaces|string",
+          "legs[].side|string|enum=buy,sell",
+          "legs[].status|string|enum=accepted,accepted_for_bidding,calculated,canceled,done_for_day,expired,filled,new,partially_filled,pending_cancel,pending_new,pending_replace,rejected,replaced,stopped,suspended",
+          "legs[].stop_price|string",
+          "legs[].submitted_at|string",
+          "legs[].symbol|string",
+          "legs[].time_in_force|string|enum=cls,day,fok,gtc,ioc,opg",
+          "legs[].trail_percent|string",
+          "legs[].trail_price|string",
+          "legs[].type|string|enum=limit,market,stop,stop_limit,trailing_stop",
+          "legs[].updated_at|string",
+          "legs[]|object",
+          "legs|array",
+          "limit_price|string",
+          "notional|string",
+          "order_class|string|enum=,bracket,mleg,oco,oto,simple",
+          "order_type|string",
+          "position_intent|string|enum=buy_to_close,buy_to_open,sell_to_close,sell_to_open",
+          "qty|string",
+          "replaced_at|string",
+          "replaced_by|string",
+          "replaces|string",
+          "side|string|enum=buy,sell",
+          "status|string|enum=accepted,accepted_for_bidding,calculated,canceled,done_for_day,expired,filled,new,partially_filled,pending_cancel,pending_new,pending_replace,rejected,replaced,stopped,suspended",
+          "stop_price|string",
+          "submitted_at|string",
+          "symbol|string",
+          "time_in_force|string|enum=cls,day,fok,gtc,ioc,opg",
+          "trail_percent|string",
+          "trail_price|string",
+          "type|string|enum=limit,market,stop,stop_limit,trailing_stop",
+          "updated_at|string"
+        ]
+      }
+    },
+    {
+      "tag": "Positions",
+      "method": "POST",
+      "path": "/v2/positions/{symbol_or_contract_id}/exercise",
+      "local_resource": "positions",
+      "mirror_method": "exercise",
+      "parameter_contract": {
+        "signatures": [
+          "symbol_or_contract_id|path|required|string"
+        ]
+      },
+      "response_contract": {
+        "status": "200",
+        "field_signatures": []
+      }
+    },
+    {
+      "tag": "Positions",
+      "method": "POST",
+      "path": "/v2/positions/{symbol_or_contract_id}/do-not-exercise",
+      "local_resource": "positions",
+      "mirror_method": "do_not_exercise",
+      "parameter_contract": {
+        "signatures": [
+          "symbol_or_contract_id|path|required|string"
+        ]
+      },
+      "response_contract": {
+        "status": "200",
+        "field_signatures": []
+      }
+    }
+  ],
+  "convenience_layer": [],
+  "planned_gaps": [
+    {
+      "tag": "Account Activities",
+      "method": "GET",
+      "path": "/v2/account/activities/{activity_type}",
+      "local_resource": "activities",
+      "mirror_method": "list_by_type",
+      "status": "planned_gap"
+    },
+    {
+      "tag": "Account Configurations",
+      "method": "GET",
+      "path": "/v2/account/configurations",
+      "local_resource": "account_configurations",
+      "mirror_method": "get",
+      "status": "planned_gap"
+    },
+    {
+      "tag": "Account Configurations",
+      "method": "PATCH",
+      "path": "/v2/account/configurations",
+      "local_resource": "account_configurations",
+      "mirror_method": "update",
+      "status": "planned_gap"
+    },
+    {
+      "tag": "Portfolio History",
+      "method": "GET",
+      "path": "/v2/account/portfolio/history",
+      "local_resource": "portfolio_history",
+      "mirror_method": "get",
+      "status": "planned_gap"
+    },
+    {
+      "tag": "Assets",
+      "method": "GET",
+      "path": "/v2/assets/fixed_income/us_corporates",
+      "local_resource": "assets",
+      "mirror_method": "fixed_income_us_corporates",
+      "status": "planned_gap"
+    },
+    {
+      "tag": "Assets",
+      "method": "GET",
+      "path": "/v2/assets/fixed_income/us_treasuries",
+      "local_resource": "assets",
+      "mirror_method": "fixed_income_us_treasuries",
+      "status": "planned_gap"
+    },
+    {
+      "tag": "Calendar",
+      "method": "GET",
+      "path": "/v3/calendar/{market}",
+      "local_resource": "calendar",
+      "mirror_method": "list_v3",
+      "status": "planned_gap"
+    },
+    {
+      "tag": "Calendar",
+      "method": "GET",
+      "path": "/v3/clock",
+      "local_resource": "clock",
+      "mirror_method": "get_v3",
+      "status": "planned_gap"
+    },
+    {
+      "tag": "Watchlists",
+      "method": "GET",
+      "path": "/v2/watchlists",
+      "local_resource": "watchlists",
+      "mirror_method": "list",
+      "status": "planned_gap"
+    },
+    {
+      "tag": "Watchlists",
+      "method": "POST",
+      "path": "/v2/watchlists",
+      "local_resource": "watchlists",
+      "mirror_method": "create",
+      "status": "planned_gap"
+    },
+    {
+      "tag": "Watchlists",
+      "method": "GET",
+      "path": "/v2/watchlists/{watchlist_id}",
+      "local_resource": "watchlists",
+      "mirror_method": "get_by_id",
+      "status": "planned_gap"
+    },
+    {
+      "tag": "Watchlists",
+      "method": "PUT",
+      "path": "/v2/watchlists/{watchlist_id}",
+      "local_resource": "watchlists",
+      "mirror_method": "update_by_id",
+      "status": "planned_gap"
+    },
+    {
+      "tag": "Watchlists",
+      "method": "DELETE",
+      "path": "/v2/watchlists/{watchlist_id}",
+      "local_resource": "watchlists",
+      "mirror_method": "delete_by_id",
+      "status": "planned_gap"
+    },
+    {
+      "tag": "Watchlists",
+      "method": "POST",
+      "path": "/v2/watchlists/{watchlist_id}",
+      "local_resource": "watchlists",
+      "mirror_method": "add_asset_by_id",
+      "status": "planned_gap"
+    },
+    {
+      "tag": "Watchlists",
+      "method": "DELETE",
+      "path": "/v2/watchlists/{watchlist_id}/{symbol}",
+      "local_resource": "watchlists",
+      "mirror_method": "delete_symbol_by_id",
+      "status": "planned_gap"
+    },
+    {
+      "tag": "Watchlists",
+      "method": "GET",
+      "path": "/v2/watchlists:by_name",
+      "local_resource": "watchlists",
+      "mirror_method": "get_by_name",
+      "status": "planned_gap"
+    },
+    {
+      "tag": "Watchlists",
+      "method": "PUT",
+      "path": "/v2/watchlists:by_name",
+      "local_resource": "watchlists",
+      "mirror_method": "update_by_name",
+      "status": "planned_gap"
+    },
+    {
+      "tag": "Watchlists",
+      "method": "POST",
+      "path": "/v2/watchlists:by_name",
+      "local_resource": "watchlists",
+      "mirror_method": "add_asset_by_name",
+      "status": "planned_gap"
+    },
+    {
+      "tag": "Watchlists",
+      "method": "DELETE",
+      "path": "/v2/watchlists:by_name",
+      "local_resource": "watchlists",
+      "mirror_method": "delete_by_name",
+      "status": "planned_gap"
+    }
+  ],
+  "excluded_families": [
+    {
+      "tag": "Corporate Actions",
+      "status": "explicitly_excluded",
+      "reason": "Corporate action announcement coverage is owned by alpaca-data in the current workspace scope"
+    },
+    {
+      "tag": "Crypto Funding",
+      "status": "explicitly_excluded"
+    },
+    {
+      "tag": "Crypto Perpetuals Account Vitals (Beta)",
+      "status": "explicitly_excluded"
+    },
+    {
+      "tag": "Crypto Perpetuals Funding (Beta)",
+      "status": "explicitly_excluded"
+    },
+    {
+      "tag": "Crypto Perpetuals Leverage (Beta)",
+      "status": "explicitly_excluded"
+    },
+    {
+      "tag": "Events",
+      "status": "explicitly_excluded",
+      "reason": "SSE and event-stream APIs are out of scope for the current HTTP-only batch"
+    },
+    {
+      "tag": "Tokenization",
+      "status": "explicitly_excluded",
+      "reason": "Tokenization endpoints are outside the current Alpaca trading SDK scope"
+    }
+  ],
+  "known_parity_gaps": []
+}

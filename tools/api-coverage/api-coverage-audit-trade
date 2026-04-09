@@ -1,0 +1,500 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+TOOL_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "$TOOL_ROOT/../.." && pwd)"
+OPENAPI_SOURCE="${ALPACA_TRADING_OPENAPI_URL:-https://docs.alpaca.markets/openapi/trading-api.json}"
+MANIFEST_PATH="${ALPACA_TRADING_MANIFEST_PATH:-$TOOL_ROOT/trading-api.json}"
+DOCS_PATH="${ALPACA_TRADING_DOCS_PATH:-$REPO_ROOT/docs/api-coverage/trading.md}"
+OBSERVED_AT="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+
+if [ "$#" -ne 0 ]; then
+  echo "error: ./tools/api-coverage/api-coverage-audit-trade does not accept command-line arguments" >&2
+  exit 2
+fi
+
+require_tool() {
+  if ! command -v "$1" >/dev/null 2>&1; then
+    echo "error: required tool '$1' is not installed" >&2
+    exit 2
+  fi
+}
+
+fetch_openapi() {
+  local source="$1"
+  local destination="$2"
+
+  if [[ "$source" == file://* ]]; then
+    cp "${source#file://}" "$destination"
+  elif [ -f "$source" ]; then
+    cp "$source" "$destination"
+  else
+    curl -fsSL "$source" >"$destination"
+  fi
+}
+
+require_tool curl
+require_tool jq
+require_tool comm
+require_tool sort
+require_tool mktemp
+require_tool date
+require_tool grep
+
+if [ ! -f "$MANIFEST_PATH" ]; then
+  echo "error: missing trading manifest at $MANIFEST_PATH" >&2
+  exit 2
+fi
+
+if [ ! -f "$DOCS_PATH" ]; then
+  echo "error: missing trading docs at $DOCS_PATH" >&2
+  exit 2
+fi
+
+openapi_file="$(mktemp)"
+official_ops_file="$(mktemp)"
+official_tags_file="$(mktemp)"
+adopted_tags_file="$(mktemp)"
+excluded_tags_file="$(mktemp)"
+official_adopted_ops_file="$(mktemp)"
+manifest_covered_ops_file="$(mktemp)"
+manifest_mirror_ops_file="$(mktemp)"
+manifest_mirror_methods_file="$(mktemp)"
+missing_contract_ops_file="$(mktemp)"
+stale_mirror_ops_file="$(mktemp)"
+missing_method_defs_file="$(mktemp)"
+untracked_official_tags_file="$(mktemp)"
+parameter_drift_file="$(mktemp)"
+response_drift_file="$(mktemp)"
+
+cleanup() {
+  rm -f \
+    "$openapi_file" \
+    "$official_ops_file" \
+    "$official_tags_file" \
+    "$adopted_tags_file" \
+    "$excluded_tags_file" \
+    "$official_adopted_ops_file" \
+    "$manifest_covered_ops_file" \
+    "$manifest_mirror_ops_file" \
+    "$manifest_mirror_methods_file" \
+    "$missing_contract_ops_file" \
+    "$stale_mirror_ops_file" \
+    "$missing_method_defs_file" \
+    "$untracked_official_tags_file" \
+    "$parameter_drift_file" \
+    "$response_drift_file"
+}
+trap cleanup EXIT
+
+fetch_openapi "$OPENAPI_SOURCE" "$openapi_file"
+
+read -r -d '' JQ_LIB <<'JQ' || true
+def pointer_target($root; $ref):
+  ($ref | sub("^#/"; "") | split("/") | map(gsub("~1"; "/") | gsub("~0"; "~")))
+  | reduce .[] as $segment ($root; .[$segment]);
+
+def deref($root; $node):
+  if ($node | type) == "object" and $node["$ref"]? != null then
+    deref($root; pointer_target($root; $node["$ref"]))
+  else
+    $node
+  end;
+
+def merge_schema($left; $right):
+  ($left * $right)
+  | if ($left.required? != null) or ($right.required? != null) then
+      .required = ((($left.required // []) + ($right.required // [])) | unique | sort)
+    else
+      .
+    end
+  | if ($left.properties? != null) or ($right.properties? != null) then
+      .properties = (($left.properties // {}) * ($right.properties // {}))
+    else
+      .
+    end;
+
+def normalized_schema($root; $schema):
+  deref($root; $schema) as $resolved
+  | if ($resolved.allOf? | type) == "array" then
+      reduce $resolved.allOf[] as $part (($resolved | del(.allOf)); merge_schema(.; normalized_schema($root; $part)))
+    else
+      $resolved
+    end;
+
+def scalar_string:
+  if . == null then
+    "null"
+  elif type == "string" then
+    .
+  else
+    tostring
+  end;
+
+def type_label($schema):
+  if $schema == null then
+    "unknown"
+  elif ($schema.type? | type) == "array" then
+    ($schema.type | map(tostring) | sort | join("|"))
+  elif $schema.type? != null then
+    ($schema.type | tostring)
+  elif $schema.properties? != null or $schema.additionalProperties? != null then
+    "object"
+  elif $schema.items? != null then
+    "array"
+  elif $schema.enum? != null then
+    "string"
+  else
+    "unknown"
+  end;
+
+def parameter_signatures($root; $path_item; $operation):
+  (($path_item.parameters // []) + ($operation.parameters // []))
+  | map(deref($root; .))
+  | unique_by(.name + "|" + .in)
+  | sort_by(.in, .name)
+  | map(
+      normalized_schema($root; .schema) as $schema
+      | [
+          .name,
+          .in,
+          (if .required then "required" else "optional" end),
+          type_label($schema),
+          (if $schema.items? != null then "items=" + type_label(normalized_schema($root; $schema.items)) else empty end),
+          (if $schema.enum? != null then "enum=" + ($schema.enum | map(scalar_string) | sort | join(",")) else empty end),
+          (if $schema.default? != null then "default=" + ($schema.default | scalar_string) else empty end)
+        ]
+      | map(select(length > 0))
+      | join("|")
+    );
+
+def field_signatures($root; $schema; $path):
+  normalized_schema($root; $schema) as $resolved
+  | if (($resolved.properties? | type) == "object") or ($resolved.additionalProperties? != null) or (type_label($resolved) == "object") then
+      ((if ($path | length) > 0 then [{path: $path, type: "object"}] else [] end)
+      + ([($resolved.properties // {}) | to_entries[]? | field_signatures($root; .value; (if ($path | length) == 0 then .key else $path + "." + .key end))] | add // [])
+      + (if $resolved.additionalProperties? != null then field_signatures($root; $resolved.additionalProperties; (if ($path | length) == 0 then "*" else $path + ".*" end)) else [] end))
+    elif ($resolved.items? != null) or (type_label($resolved) == "array") then
+      ((if ($path | length) > 0 then [{path: $path, type: "array"}] else [] end)
+      + (if $resolved.items? != null then field_signatures($root; $resolved.items; ($path + "[]")) else [] end))
+    elif ($path | length) == 0 then
+      []
+    else
+      [{path: $path, type: (type_label($resolved) + (if $resolved.enum? != null then "|enum=" + ($resolved.enum | map(scalar_string) | sort | join(",")) else "" end))}]
+    end;
+
+def response_contract($root; $operation):
+  ($operation.responses // {}) as $responses
+  | ([$responses
+      | keys[]
+      | select(test("^[0-9]{3}$"))
+      | tonumber
+      | select(. >= 200 and . < 300)]
+     | sort
+     | .[0]? // "default") as $status_candidate
+  | (if $status_candidate == "default" and $responses["default"] == null then null else ($status_candidate | tostring) end) as $status
+  | if $status == null then
+      {status: null, field_signatures: []}
+    else
+      ($responses[$status] | deref($root; .)) as $response
+      | (($response.content // {}) as $content
+      | ($content["application/json"].schema // ($content | to_entries[0]? | .value.schema) // null)) as $schema
+      | {
+          status: $status,
+          field_signatures: (
+            if $schema == null then
+              []
+            else
+              [field_signatures($root; $schema; "")[] | "\(.path)|\(.type)"] | unique | sort
+            end
+          )
+        }
+    end;
+JQ
+
+extract_parameter_signatures() {
+  local method="$1"
+  local path="$2"
+  jq -r --arg method "$method" --arg path "$path" "$JQ_LIB
+    . as \$root
+    | (\$root.paths[\$path] // empty) as \$path_item
+    | (\$path_item[(\$method | ascii_downcase)] // empty) as \$operation
+    | if \$operation == null then
+        empty
+      else
+        parameter_signatures(\$root; \$path_item; \$operation)[]
+      end
+  " "$openapi_file" | sort -u
+}
+
+extract_response_contract() {
+  local method="$1"
+  local path="$2"
+  jq -c --arg method "$method" --arg path "$path" "$JQ_LIB
+    . as \$root
+    | (\$root.paths[\$path] // empty) as \$path_item
+    | (\$path_item[(\$method | ascii_downcase)] // empty) as \$operation
+    | if \$operation == null then
+        {status: null, field_signatures: []}
+      else
+        response_contract(\$root; \$operation)
+      end
+  " "$openapi_file"
+}
+
+jq -r '
+  .paths
+  | to_entries[]
+  | .key as $path
+  | .value
+  | to_entries[]
+  | select(.value | type == "object")
+  | [(.key | ascii_upcase), $path, ((.value.tags // [])[0] // "")]
+  | @tsv
+' "$openapi_file" | sort -u >"$official_ops_file"
+
+cut -f3 "$official_ops_file" | grep -v '^$' | sort -u >"$official_tags_file"
+jq -r '.local.adopted_tags[]?' "$MANIFEST_PATH" | sort -u >"$adopted_tags_file"
+jq -r '.excluded_families[]? | (.tag // .family // empty)' "$MANIFEST_PATH" | sort -u >"$excluded_tags_file"
+
+while IFS=$'\t' read -r method path tag; do
+  [ -n "$tag" ] || continue
+  if grep -Fx "$tag" "$adopted_tags_file" >/dev/null 2>&1; then
+    printf '%s\t%s\n' "$method" "$path"
+  fi
+done <"$official_ops_file" | sort -u >"$official_adopted_ops_file"
+
+jq -r '
+  (.mirror_layer[]? | [.method, .path] | @tsv),
+  (.planned_gaps[]? | select(.method != null and .path != null) | [.method, .path] | @tsv)
+' "$MANIFEST_PATH" | sort -u >"$manifest_covered_ops_file"
+
+jq -r '.mirror_layer[]? | [.method, .path] | @tsv' "$MANIFEST_PATH" | sort -u >"$manifest_mirror_ops_file"
+jq -r '.mirror_layer[]? | [.path, .local_resource, .mirror_method] | @tsv' "$MANIFEST_PATH" >"$manifest_mirror_methods_file"
+
+comm -23 "$official_adopted_ops_file" "$manifest_covered_ops_file" >"$missing_contract_ops_file"
+comm -23 "$manifest_mirror_ops_file" "$official_adopted_ops_file" >"$stale_mirror_ops_file"
+
+while IFS=$'\t' read -r path resource method; do
+  [ -n "$path" ] || continue
+  [ -n "$resource" ] || continue
+  [ -n "$method" ] || continue
+
+  client_file="$REPO_ROOT/crates/alpaca-trade/src/$resource/client.rs"
+  if [ ! -f "$client_file" ] || ! grep -F "pub async fn ${method}(" "$client_file" >/dev/null 2>&1; then
+    printf '%s\t%s\t%s\t%s\n' "$path" "$resource" "$method" "$client_file" >>"$missing_method_defs_file"
+  fi
+done <"$manifest_mirror_methods_file"
+
+while IFS=$'\t' read -r method path; do
+  [ -n "$method" ] || continue
+  [ -n "$path" ] || continue
+  if ! jq -e --arg method "$method" --arg path "$path" '
+    .paths[$path][($method | ascii_downcase)]? != null
+  ' "$openapi_file" >/dev/null 2>&1; then
+    continue
+  fi
+
+  official_parameter_file="$(mktemp)"
+  manifest_parameter_file="$(mktemp)"
+  official_response_file="$(mktemp)"
+  manifest_response_file="$(mktemp)"
+
+  extract_parameter_signatures "$method" "$path" >"$official_parameter_file"
+  jq -r --arg method "$method" --arg path "$path" '
+    .mirror_layer[]
+    | select(.method == $method and .path == $path)
+    | .parameter_contract.signatures[]?
+  ' "$MANIFEST_PATH" | sort -u >"$manifest_parameter_file"
+
+  if ! cmp -s "$manifest_parameter_file" "$official_parameter_file"; then
+    while IFS= read -r signature; do
+      [ -n "$signature" ] || continue
+      printf '%s\t%s\tmissing\t%s\n' "$method" "$path" "$signature" >>"$parameter_drift_file"
+    done < <(comm -23 "$manifest_parameter_file" "$official_parameter_file")
+
+    while IFS= read -r signature; do
+      [ -n "$signature" ] || continue
+      printf '%s\t%s\tadded\t%s\n' "$method" "$path" "$signature" >>"$parameter_drift_file"
+    done < <(comm -13 "$manifest_parameter_file" "$official_parameter_file")
+  fi
+
+  extract_response_contract "$method" "$path" >"$official_response_file"
+  jq -c --arg method "$method" --arg path "$path" '
+    .mirror_layer[]
+    | select(.method == $method and .path == $path)
+    | {
+        status: (.response_contract.status // null),
+        field_signatures: (.response_contract.field_signatures // [])
+      }
+  ' "$MANIFEST_PATH" >"$manifest_response_file"
+
+  official_status="$(jq -r '.status // "null"' "$official_response_file")"
+  manifest_status="$(jq -r '.status // "null"' "$manifest_response_file")"
+
+  jq -r '.field_signatures[]?' "$official_response_file" | sort -u >"${official_response_file}.fields"
+  jq -r '.field_signatures[]?' "$manifest_response_file" | sort -u >"${manifest_response_file}.fields"
+
+  if [ "$official_status" != "$manifest_status" ]; then
+    printf '%s\t%s\tstatus\tmanifest=%s official=%s\n' "$method" "$path" "$manifest_status" "$official_status" >>"$response_drift_file"
+  fi
+
+  if ! cmp -s "${manifest_response_file}.fields" "${official_response_file}.fields"; then
+    while IFS= read -r signature; do
+      [ -n "$signature" ] || continue
+      printf '%s\t%s\tmissing\t%s\n' "$method" "$path" "$signature" >>"$response_drift_file"
+    done < <(comm -23 "${manifest_response_file}.fields" "${official_response_file}.fields")
+
+    while IFS= read -r signature; do
+      [ -n "$signature" ] || continue
+      printf '%s\t%s\tadded\t%s\n' "$method" "$path" "$signature" >>"$response_drift_file"
+    done < <(comm -13 "${manifest_response_file}.fields" "${official_response_file}.fields")
+  fi
+
+  rm -f \
+    "$official_parameter_file" \
+    "$manifest_parameter_file" \
+    "$official_response_file" \
+    "$manifest_response_file" \
+    "${official_response_file}.fields" \
+    "${manifest_response_file}.fields"
+done <"$manifest_mirror_ops_file"
+
+while IFS= read -r tag; do
+  [ -n "$tag" ] || continue
+  if grep -Fx "$tag" "$adopted_tags_file" >/dev/null 2>&1; then
+    continue
+  fi
+  if grep -Fx "$tag" "$excluded_tags_file" >/dev/null 2>&1; then
+    continue
+  fi
+  printf '%s\n' "$tag"
+done <"$official_tags_file" | sort -u >"$untracked_official_tags_file"
+
+official_title="$(jq -r '.info.title // .official.title // "unknown"' "$openapi_file")"
+official_version="$(jq -r '.info.version // "unknown"' "$openapi_file")"
+official_total_paths="$(wc -l <"$official_ops_file" | tr -d ' ')"
+official_adopted_total_paths="$(wc -l <"$official_adopted_ops_file" | tr -d ' ')"
+manifest_generated_at="$(jq -r '.generated_at // "unknown"' "$MANIFEST_PATH")"
+manifest_mirror_paths="$(jq -r '(.mirror_layer // []) | length' "$MANIFEST_PATH")"
+manifest_planned_gaps="$(jq -r '(.planned_gaps // []) | length' "$MANIFEST_PATH")"
+missing_contract_count="$(wc -l <"$missing_contract_ops_file" | tr -d ' ')"
+stale_mirror_count="$(wc -l <"$stale_mirror_ops_file" | tr -d ' ')"
+missing_method_count="$(wc -l <"$missing_method_defs_file" | tr -d ' ')"
+untracked_tag_count="$(wc -l <"$untracked_official_tags_file" | tr -d ' ')"
+parameter_drift_count="$(wc -l <"$parameter_drift_file" | tr -d ' ')"
+response_drift_count="$(wc -l <"$response_drift_file" | tr -d ' ')"
+blocking_count=$((missing_contract_count + stale_mirror_count + missing_method_count + parameter_drift_count + response_drift_count))
+
+echo "alpaca-rust trading coverage audit"
+echo "Official source: $official_title v$official_version"
+echo "Official OpenAPI: $OPENAPI_SOURCE"
+echo "Observed at: $OBSERVED_AT"
+echo "Local manifest: $MANIFEST_PATH"
+echo "Manifest generated_at: $manifest_generated_at"
+echo "Coverage docs: $DOCS_PATH"
+echo
+echo "Summary"
+echo "- Official total operations: $official_total_paths"
+echo "- Adopted-family official operations: $official_adopted_total_paths"
+echo "- Manifest mirror operations: $manifest_mirror_paths"
+echo "- Manifest planned gaps: $manifest_planned_gaps"
+echo
+echo "Findings"
+if [ "$blocking_count" -eq 0 ]; then
+  echo "- No blocking path-level drift detected in trading coverage."
+fi
+if [ "$manifest_planned_gaps" -gt 0 ]; then
+  echo "- The manifest still records $manifest_planned_gaps planned trading gap(s) listed below."
+fi
+if [ "$blocking_count" -eq 0 ] && [ "$manifest_planned_gaps" -eq 0 ] && [ "$untracked_tag_count" -eq 0 ]; then
+  echo "- No additional warnings or planned gaps were detected."
+fi
+
+if [ "$missing_contract_count" -gt 0 ]; then
+  echo
+  echo "Blocking: official adopted-family paths missing from the local coverage contract"
+  while IFS=$'\t' read -r method path; do
+    [ -n "$path" ] || continue
+    echo "- $method $path"
+  done <"$missing_contract_ops_file"
+fi
+
+if [ "$stale_mirror_count" -gt 0 ]; then
+  echo
+  echo "Blocking: local mirror paths no longer exist in the current official OpenAPI"
+  while IFS=$'\t' read -r method path; do
+    [ -n "$path" ] || continue
+    echo "- $method $path"
+  done <"$stale_mirror_ops_file"
+fi
+
+if [ "$missing_method_count" -gt 0 ]; then
+  echo
+  echo "Blocking: mirror methods declared in the manifest but missing from source"
+  while IFS=$'\t' read -r path resource method client_file; do
+    [ -n "$path" ] || continue
+    echo "- $path => ${resource}.${method} expected in $client_file"
+  done <"$missing_method_defs_file"
+fi
+
+if [ "$parameter_drift_count" -gt 0 ]; then
+  echo
+  echo "Blocking: parameter drift in adopted-family mirror contracts"
+  while IFS=$'\t' read -r method path change_kind signature; do
+    [ -n "$path" ] || continue
+    echo "- $method $path"
+    echo "  ${change_kind} parameter signature: $signature"
+  done <"$parameter_drift_file"
+fi
+
+if [ "$response_drift_count" -gt 0 ]; then
+  echo
+  echo "Blocking: response-field drift in adopted-family mirror contracts"
+  while IFS=$'\t' read -r method path change_kind signature; do
+    [ -n "$path" ] || continue
+    echo "- $method $path"
+    if [ "$change_kind" = "status" ]; then
+      echo "  response status drift: $signature"
+    else
+      echo "  ${change_kind} response field signature: $signature"
+    fi
+  done <"$response_drift_file"
+fi
+
+if [ "$manifest_planned_gaps" -gt 0 ]; then
+  echo
+  echo "Open planned gaps"
+  jq -r '.planned_gaps[]? | select(.method != null and .path != null) | "- \(.method) \(.path)"' "$MANIFEST_PATH"
+fi
+
+if [ "$untracked_tag_count" -gt 0 ]; then
+  echo
+  echo "Warning: official resource families not tracked in the manifest"
+  while IFS= read -r tag; do
+    [ -n "$tag" ] || continue
+    echo "- $tag"
+  done <"$untracked_official_tags_file"
+fi
+
+echo
+echo "Recommended changes"
+if [ "$missing_contract_count" -gt 0 ] || [ "$stale_mirror_count" -gt 0 ]; then
+  echo "- Refresh the trading coverage manifest so the adopted-family contract matches the current official OpenAPI."
+fi
+if [ "$missing_method_count" -gt 0 ]; then
+  echo "- Implement or remove any trading mirror entries whose source methods do not exist."
+fi
+if [ "$parameter_drift_count" -gt 0 ] || [ "$response_drift_count" -gt 0 ]; then
+  echo "- Refresh parameter and response contracts for any adopted trading mirrors that drifted from the current official OpenAPI."
+fi
+if [ "$manifest_planned_gaps" -gt 0 ]; then
+  echo "- Use the listed planned gaps as the initial trading implementation backlog."
+fi
+if [ "$untracked_tag_count" -gt 0 ]; then
+  echo "- Classify any newly observed official trading families as planned or explicitly excluded."
+fi
+
+if [ "$blocking_count" -gt 0 ]; then
+  exit 1
+fi

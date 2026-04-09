@@ -1,0 +1,1395 @@
+{
+  "manifest_version": 1,
+  "generated_at": "2026-04-09",
+  "scope": {
+    "api": "market-data-http",
+    "included_asset_scope": "non-crypto",
+    "excluded_scopes": [
+      "crypto",
+      "stream",
+      "websocket"
+    ]
+  },
+  "official": {
+    "reference_root": "https://docs.alpaca.markets/reference/api-references",
+    "openapi_url": "https://docs.alpaca.markets/openapi/market-data-api.json"
+  },
+  "local": {
+    "crate": "alpaca-data",
+    "adopted_tags": [
+      "Corporate actions",
+      "Fixed income",
+      "Forex",
+      "Logos",
+      "News",
+      "Option",
+      "Screener",
+      "Stock"
+    ]
+  },
+  "summary": {
+    "official_total_operations": 47,
+    "adopted_family_total_operations": 34,
+    "implemented_mirror_operations": 28,
+    "open_gaps": 6
+  },
+  "mirror_layer": [
+    {
+      "tag": "Stock",
+      "operation_id": "StockBars",
+      "path": "/v2/stocks/bars",
+      "local_resource": "stocks",
+      "mirror_method": "bars",
+      "request_type": "stocks::BarsRequest",
+      "response_type": "stocks::BarsResponse",
+      "parameter_contract": {
+        "signatures": [
+          "adjustment|query|optional|string|default=raw",
+          "asof|query|optional|string",
+          "currency|query|optional|string",
+          "end|query|optional|string",
+          "feed|query|optional|string|enum=boats,iex,otc,sip|default=sip",
+          "limit|query|optional|integer|default=1000",
+          "page_token|query|optional|string",
+          "sort|query|optional|string|enum=asc,desc|default=asc",
+          "start|query|optional|string",
+          "symbols|query|required|string",
+          "timeframe|query|required|string"
+        ]
+      },
+      "response_contract": {
+        "status": "200",
+        "field_signatures": [
+          "bars.*[].c|number",
+          "bars.*[].h|number",
+          "bars.*[].l|number",
+          "bars.*[].n|integer",
+          "bars.*[].o|number",
+          "bars.*[].t|string",
+          "bars.*[].vw|number",
+          "bars.*[].v|integer",
+          "bars.*[]|object",
+          "bars.*|array",
+          "bars|object",
+          "currency|string",
+          "next_page_token|string"
+        ]
+      },
+      "method": "GET"
+    },
+    {
+      "tag": "Stock",
+      "operation_id": "StockBarSingle",
+      "path": "/v2/stocks/{symbol}/bars",
+      "local_resource": "stocks",
+      "mirror_method": "bars_single",
+      "request_type": "stocks::BarsSingleRequest",
+      "response_type": "stocks::BarsSingleResponse",
+      "parameter_contract": {
+        "signatures": [
+          "symbol|path|required|string",
+          "adjustment|query|optional|string|default=raw",
+          "asof|query|optional|string",
+          "currency|query|optional|string",
+          "end|query|optional|string",
+          "feed|query|optional|string|enum=boats,iex,otc,sip|default=sip",
+          "limit|query|optional|integer|default=1000",
+          "page_token|query|optional|string",
+          "sort|query|optional|string|enum=asc,desc|default=asc",
+          "start|query|optional|string",
+          "timeframe|query|required|string"
+        ]
+      },
+      "response_contract": {
+        "status": "200",
+        "field_signatures": [
+          "bars[].c|number",
+          "bars[].h|number",
+          "bars[].l|number",
+          "bars[].n|integer",
+          "bars[].o|number",
+          "bars[].t|string",
+          "bars[].vw|number",
+          "bars[].v|integer",
+          "bars[]|object",
+          "bars|array",
+          "currency|string",
+          "next_page_token|string",
+          "symbol|string"
+        ]
+      },
+      "method": "GET"
+    },
+    {
+      "tag": "Stock",
+      "operation_id": "StockQuotes",
+      "path": "/v2/stocks/quotes",
+      "local_resource": "stocks",
+      "mirror_method": "quotes",
+      "request_type": "stocks::QuotesRequest",
+      "response_type": "stocks::QuotesResponse",
+      "parameter_contract": {
+        "signatures": [
+          "asof|query|optional|string",
+          "currency|query|optional|string",
+          "end|query|optional|string",
+          "feed|query|optional|string|enum=boats,iex,otc,sip|default=sip",
+          "limit|query|optional|integer|default=1000",
+          "page_token|query|optional|string",
+          "sort|query|optional|string|enum=asc,desc|default=asc",
+          "start|query|optional|string",
+          "symbols|query|required|string"
+        ]
+      },
+      "response_contract": {
+        "status": "200",
+        "field_signatures": [
+          "currency|string",
+          "next_page_token|string",
+          "quotes.*[].ap|number",
+          "quotes.*[].as|integer",
+          "quotes.*[].ax|string",
+          "quotes.*[].bp|number",
+          "quotes.*[].bs|integer",
+          "quotes.*[].bx|string",
+          "quotes.*[].c[]|string",
+          "quotes.*[].c|array",
+          "quotes.*[].t|string",
+          "quotes.*[].z|string|enum=A,B,C,N,O",
+          "quotes.*[]|object",
+          "quotes.*|array",
+          "quotes|object"
+        ]
+      },
+      "method": "GET"
+    },
+    {
+      "tag": "Stock",
+      "operation_id": "StockQuoteSingle",
+      "path": "/v2/stocks/{symbol}/quotes",
+      "local_resource": "stocks",
+      "mirror_method": "quotes_single",
+      "request_type": "stocks::QuotesSingleRequest",
+      "response_type": "stocks::QuotesSingleResponse",
+      "parameter_contract": {
+        "signatures": [
+          "symbol|path|required|string",
+          "asof|query|optional|string",
+          "currency|query|optional|string",
+          "end|query|optional|string",
+          "feed|query|optional|string|enum=boats,iex,otc,sip|default=sip",
+          "limit|query|optional|integer|default=1000",
+          "page_token|query|optional|string",
+          "sort|query|optional|string|enum=asc,desc|default=asc",
+          "start|query|optional|string"
+        ]
+      },
+      "response_contract": {
+        "status": "200",
+        "field_signatures": [
+          "currency|string",
+          "next_page_token|string",
+          "quotes[].ap|number",
+          "quotes[].as|integer",
+          "quotes[].ax|string",
+          "quotes[].bp|number",
+          "quotes[].bs|integer",
+          "quotes[].bx|string",
+          "quotes[].c[]|string",
+          "quotes[].c|array",
+          "quotes[].t|string",
+          "quotes[].z|string|enum=A,B,C,N,O",
+          "quotes[]|object",
+          "quotes|array",
+          "symbol|string"
+        ]
+      },
+      "method": "GET"
+    },
+    {
+      "tag": "Stock",
+      "operation_id": "StockTrades",
+      "path": "/v2/stocks/trades",
+      "local_resource": "stocks",
+      "mirror_method": "trades",
+      "request_type": "stocks::TradesRequest",
+      "response_type": "stocks::TradesResponse",
+      "parameter_contract": {
+        "signatures": [
+          "asof|query|optional|string",
+          "currency|query|optional|string",
+          "end|query|optional|string",
+          "feed|query|optional|string|enum=boats,iex,otc,sip|default=sip",
+          "limit|query|optional|integer|default=1000",
+          "page_token|query|optional|string",
+          "sort|query|optional|string|enum=asc,desc|default=asc",
+          "start|query|optional|string",
+          "symbols|query|required|string"
+        ]
+      },
+      "response_contract": {
+        "status": "200",
+        "field_signatures": [
+          "currency|string",
+          "next_page_token|string",
+          "trades.*[].c[]|string",
+          "trades.*[].c|array",
+          "trades.*[].i|integer",
+          "trades.*[].p|number",
+          "trades.*[].s|integer",
+          "trades.*[].t|string",
+          "trades.*[].u|string",
+          "trades.*[].x|string",
+          "trades.*[].z|string|enum=A,B,C,N,O",
+          "trades.*[]|object",
+          "trades.*|array",
+          "trades|object"
+        ]
+      },
+      "method": "GET"
+    },
+    {
+      "tag": "Stock",
+      "operation_id": "StockTradeSingle",
+      "path": "/v2/stocks/{symbol}/trades",
+      "local_resource": "stocks",
+      "mirror_method": "trades_single",
+      "request_type": "stocks::TradesSingleRequest",
+      "response_type": "stocks::TradesSingleResponse",
+      "parameter_contract": {
+        "signatures": [
+          "symbol|path|required|string",
+          "asof|query|optional|string",
+          "currency|query|optional|string",
+          "end|query|optional|string",
+          "feed|query|optional|string|enum=boats,iex,otc,sip|default=sip",
+          "limit|query|optional|integer|default=1000",
+          "page_token|query|optional|string",
+          "sort|query|optional|string|enum=asc,desc|default=asc",
+          "start|query|optional|string"
+        ]
+      },
+      "response_contract": {
+        "status": "200",
+        "field_signatures": [
+          "currency|string",
+          "next_page_token|string",
+          "symbol|string",
+          "trades[].c[]|string",
+          "trades[].c|array",
+          "trades[].i|integer",
+          "trades[].p|number",
+          "trades[].s|integer",
+          "trades[].t|string",
+          "trades[].u|string",
+          "trades[].x|string",
+          "trades[].z|string|enum=A,B,C,N,O",
+          "trades[]|object",
+          "trades|array"
+        ]
+      },
+      "method": "GET"
+    },
+    {
+      "tag": "Stock",
+      "operation_id": "StockLatestBars",
+      "path": "/v2/stocks/bars/latest",
+      "local_resource": "stocks",
+      "mirror_method": "latest_bars",
+      "request_type": "stocks::LatestBarsRequest",
+      "response_type": "stocks::LatestBarsResponse",
+      "parameter_contract": {
+        "signatures": [
+          "currency|query|optional|string",
+          "feed|query|optional|string|enum=boats,delayed_sip,iex,otc,overnight,sip",
+          "symbols|query|required|string"
+        ]
+      },
+      "response_contract": {
+        "status": "200",
+        "field_signatures": [
+          "bars.*.c|number",
+          "bars.*.h|number",
+          "bars.*.l|number",
+          "bars.*.n|integer",
+          "bars.*.o|number",
+          "bars.*.t|string",
+          "bars.*.vw|number",
+          "bars.*.v|integer",
+          "bars.*|object",
+          "bars|object",
+          "currency|string"
+        ]
+      },
+      "method": "GET"
+    },
+    {
+      "tag": "Stock",
+      "operation_id": "StockLatestBarSingle",
+      "path": "/v2/stocks/{symbol}/bars/latest",
+      "local_resource": "stocks",
+      "mirror_method": "latest_bar",
+      "request_type": "stocks::LatestBarRequest",
+      "response_type": "stocks::LatestBarResponse",
+      "parameter_contract": {
+        "signatures": [
+          "symbol|path|required|string",
+          "currency|query|optional|string",
+          "feed|query|optional|string|enum=boats,delayed_sip,iex,otc,overnight,sip"
+        ]
+      },
+      "response_contract": {
+        "status": "200",
+        "field_signatures": [
+          "bar.c|number",
+          "bar.h|number",
+          "bar.l|number",
+          "bar.n|integer",
+          "bar.o|number",
+          "bar.t|string",
+          "bar.vw|number",
+          "bar.v|integer",
+          "bar|object",
+          "currency|string",
+          "symbol|string"
+        ]
+      },
+      "method": "GET"
+    },
+    {
+      "tag": "Stock",
+      "operation_id": "StockLatestQuotes",
+      "path": "/v2/stocks/quotes/latest",
+      "local_resource": "stocks",
+      "mirror_method": "latest_quotes",
+      "request_type": "stocks::LatestQuotesRequest",
+      "response_type": "stocks::LatestQuotesResponse",
+      "parameter_contract": {
+        "signatures": [
+          "currency|query|optional|string",
+          "feed|query|optional|string|enum=boats,delayed_sip,iex,otc,overnight,sip",
+          "symbols|query|required|string"
+        ]
+      },
+      "response_contract": {
+        "status": "200",
+        "field_signatures": [
+          "currency|string",
+          "quotes.*.ap|number",
+          "quotes.*.as|integer",
+          "quotes.*.ax|string",
+          "quotes.*.bp|number",
+          "quotes.*.bs|integer",
+          "quotes.*.bx|string",
+          "quotes.*.c[]|string",
+          "quotes.*.c|array",
+          "quotes.*.t|string",
+          "quotes.*.z|string|enum=A,B,C,N,O",
+          "quotes.*|object",
+          "quotes|object"
+        ]
+      },
+      "method": "GET"
+    },
+    {
+      "tag": "Stock",
+      "operation_id": "StockLatestQuoteSingle",
+      "path": "/v2/stocks/{symbol}/quotes/latest",
+      "local_resource": "stocks",
+      "mirror_method": "latest_quote",
+      "request_type": "stocks::LatestQuoteRequest",
+      "response_type": "stocks::LatestQuoteResponse",
+      "parameter_contract": {
+        "signatures": [
+          "symbol|path|required|string",
+          "currency|query|optional|string",
+          "feed|query|optional|string|enum=boats,delayed_sip,iex,otc,overnight,sip"
+        ]
+      },
+      "response_contract": {
+        "status": "200",
+        "field_signatures": [
+          "currency|string",
+          "quote.ap|number",
+          "quote.as|integer",
+          "quote.ax|string",
+          "quote.bp|number",
+          "quote.bs|integer",
+          "quote.bx|string",
+          "quote.c[]|string",
+          "quote.c|array",
+          "quote.t|string",
+          "quote.z|string|enum=A,B,C,N,O",
+          "quote|object",
+          "symbol|string"
+        ]
+      },
+      "method": "GET"
+    },
+    {
+      "tag": "Stock",
+      "operation_id": "StockLatestTrades",
+      "path": "/v2/stocks/trades/latest",
+      "local_resource": "stocks",
+      "mirror_method": "latest_trades",
+      "request_type": "stocks::LatestTradesRequest",
+      "response_type": "stocks::LatestTradesResponse",
+      "parameter_contract": {
+        "signatures": [
+          "currency|query|optional|string",
+          "feed|query|optional|string|enum=boats,delayed_sip,iex,otc,overnight,sip",
+          "symbols|query|required|string"
+        ]
+      },
+      "response_contract": {
+        "status": "200",
+        "field_signatures": [
+          "currency|string",
+          "trades.*.c[]|string",
+          "trades.*.c|array",
+          "trades.*.i|integer",
+          "trades.*.p|number",
+          "trades.*.s|integer",
+          "trades.*.t|string",
+          "trades.*.u|string",
+          "trades.*.x|string",
+          "trades.*.z|string|enum=A,B,C,N,O",
+          "trades.*|object",
+          "trades|object"
+        ]
+      },
+      "method": "GET"
+    },
+    {
+      "tag": "Stock",
+      "operation_id": "StockLatestTradeSingle",
+      "path": "/v2/stocks/{symbol}/trades/latest",
+      "local_resource": "stocks",
+      "mirror_method": "latest_trade",
+      "request_type": "stocks::LatestTradeRequest",
+      "response_type": "stocks::LatestTradeResponse",
+      "parameter_contract": {
+        "signatures": [
+          "symbol|path|required|string",
+          "currency|query|optional|string",
+          "feed|query|optional|string|enum=boats,delayed_sip,iex,otc,overnight,sip"
+        ]
+      },
+      "response_contract": {
+        "status": "200",
+        "field_signatures": [
+          "currency|string",
+          "symbol|string",
+          "trade.c[]|string",
+          "trade.c|array",
+          "trade.i|integer",
+          "trade.p|number",
+          "trade.s|integer",
+          "trade.t|string",
+          "trade.u|string",
+          "trade.x|string",
+          "trade.z|string|enum=A,B,C,N,O",
+          "trade|object"
+        ]
+      },
+      "method": "GET"
+    },
+    {
+      "tag": "Stock",
+      "operation_id": "StockSnapshots",
+      "path": "/v2/stocks/snapshots",
+      "local_resource": "stocks",
+      "mirror_method": "snapshots",
+      "request_type": "stocks::SnapshotsRequest",
+      "response_type": "stocks::SnapshotsResponse",
+      "parameter_contract": {
+        "signatures": [
+          "currency|query|optional|string",
+          "feed|query|optional|string|enum=boats,delayed_sip,iex,otc,overnight,sip",
+          "symbols|query|required|string"
+        ]
+      },
+      "response_contract": {
+        "status": "200",
+        "field_signatures": [
+          "*.dailyBar.c|number",
+          "*.dailyBar.h|number",
+          "*.dailyBar.l|number",
+          "*.dailyBar.n|integer",
+          "*.dailyBar.o|number",
+          "*.dailyBar.t|string",
+          "*.dailyBar.vw|number",
+          "*.dailyBar.v|integer",
+          "*.dailyBar|object",
+          "*.latestQuote.ap|number",
+          "*.latestQuote.as|integer",
+          "*.latestQuote.ax|string",
+          "*.latestQuote.bp|number",
+          "*.latestQuote.bs|integer",
+          "*.latestQuote.bx|string",
+          "*.latestQuote.c[]|string",
+          "*.latestQuote.c|array",
+          "*.latestQuote.t|string",
+          "*.latestQuote.z|string|enum=A,B,C,N,O",
+          "*.latestQuote|object",
+          "*.latestTrade.c[]|string",
+          "*.latestTrade.c|array",
+          "*.latestTrade.i|integer",
+          "*.latestTrade.p|number",
+          "*.latestTrade.s|integer",
+          "*.latestTrade.t|string",
+          "*.latestTrade.u|string",
+          "*.latestTrade.x|string",
+          "*.latestTrade.z|string|enum=A,B,C,N,O",
+          "*.latestTrade|object",
+          "*.minuteBar.c|number",
+          "*.minuteBar.h|number",
+          "*.minuteBar.l|number",
+          "*.minuteBar.n|integer",
+          "*.minuteBar.o|number",
+          "*.minuteBar.t|string",
+          "*.minuteBar.vw|number",
+          "*.minuteBar.v|integer",
+          "*.minuteBar|object",
+          "*.prevDailyBar.c|number",
+          "*.prevDailyBar.h|number",
+          "*.prevDailyBar.l|number",
+          "*.prevDailyBar.n|integer",
+          "*.prevDailyBar.o|number",
+          "*.prevDailyBar.t|string",
+          "*.prevDailyBar.vw|number",
+          "*.prevDailyBar.v|integer",
+          "*.prevDailyBar|object",
+          "*|object"
+        ]
+      },
+      "method": "GET"
+    },
+    {
+      "tag": "Stock",
+      "operation_id": "StockSnapshotSingle",
+      "path": "/v2/stocks/{symbol}/snapshot",
+      "local_resource": "stocks",
+      "mirror_method": "snapshot",
+      "request_type": "stocks::SnapshotRequest",
+      "response_type": "stocks::SnapshotResponse",
+      "parameter_contract": {
+        "signatures": [
+          "symbol|path|required|string",
+          "currency|query|optional|string",
+          "feed|query|optional|string|enum=boats,delayed_sip,iex,otc,overnight,sip"
+        ]
+      },
+      "response_contract": {
+        "status": "200",
+        "field_signatures": [
+          "currency|string",
+          "dailyBar.c|number",
+          "dailyBar.h|number",
+          "dailyBar.l|number",
+          "dailyBar.n|integer",
+          "dailyBar.o|number",
+          "dailyBar.t|string",
+          "dailyBar.vw|number",
+          "dailyBar.v|integer",
+          "dailyBar|object",
+          "latestQuote.ap|number",
+          "latestQuote.as|integer",
+          "latestQuote.ax|string",
+          "latestQuote.bp|number",
+          "latestQuote.bs|integer",
+          "latestQuote.bx|string",
+          "latestQuote.c[]|string",
+          "latestQuote.c|array",
+          "latestQuote.t|string",
+          "latestQuote.z|string|enum=A,B,C,N,O",
+          "latestQuote|object",
+          "latestTrade.c[]|string",
+          "latestTrade.c|array",
+          "latestTrade.i|integer",
+          "latestTrade.p|number",
+          "latestTrade.s|integer",
+          "latestTrade.t|string",
+          "latestTrade.u|string",
+          "latestTrade.x|string",
+          "latestTrade.z|string|enum=A,B,C,N,O",
+          "latestTrade|object",
+          "minuteBar.c|number",
+          "minuteBar.h|number",
+          "minuteBar.l|number",
+          "minuteBar.n|integer",
+          "minuteBar.o|number",
+          "minuteBar.t|string",
+          "minuteBar.vw|number",
+          "minuteBar.v|integer",
+          "minuteBar|object",
+          "prevDailyBar.c|number",
+          "prevDailyBar.h|number",
+          "prevDailyBar.l|number",
+          "prevDailyBar.n|integer",
+          "prevDailyBar.o|number",
+          "prevDailyBar.t|string",
+          "prevDailyBar.vw|number",
+          "prevDailyBar.v|integer",
+          "prevDailyBar|object",
+          "symbol|string"
+        ]
+      },
+      "method": "GET"
+    },
+    {
+      "tag": "Stock",
+      "operation_id": "StockAuctions",
+      "path": "/v2/stocks/auctions",
+      "local_resource": "stocks",
+      "mirror_method": "auctions",
+      "request_type": "stocks::AuctionsRequest",
+      "response_type": "stocks::AuctionsResponse",
+      "parameter_contract": {
+        "signatures": [
+          "asof|query|optional|string",
+          "currency|query|optional|string",
+          "end|query|optional|string",
+          "feed|query|optional|string|default=sip",
+          "limit|query|optional|integer|default=1000",
+          "page_token|query|optional|string",
+          "sort|query|optional|string|enum=asc,desc|default=asc",
+          "start|query|optional|string",
+          "symbols|query|required|string"
+        ]
+      },
+      "response_contract": {
+        "status": "200",
+        "field_signatures": [
+          "auctions.*[].c[].c|string",
+          "auctions.*[].c[].p|number",
+          "auctions.*[].c[].s|integer",
+          "auctions.*[].c[].t|string",
+          "auctions.*[].c[].x|string",
+          "auctions.*[].c[]|object",
+          "auctions.*[].c|array",
+          "auctions.*[].d|string",
+          "auctions.*[].o[].c|string",
+          "auctions.*[].o[].p|number",
+          "auctions.*[].o[].s|integer",
+          "auctions.*[].o[].t|string",
+          "auctions.*[].o[].x|string",
+          "auctions.*[].o[]|object",
+          "auctions.*[].o|array",
+          "auctions.*[]|object",
+          "auctions.*|array",
+          "auctions|object",
+          "currency|string",
+          "next_page_token|string"
+        ]
+      },
+      "method": "GET"
+    },
+    {
+      "tag": "Stock",
+      "operation_id": "StockAuctionSingle",
+      "path": "/v2/stocks/{symbol}/auctions",
+      "local_resource": "stocks",
+      "mirror_method": "auctions_single",
+      "request_type": "stocks::AuctionsSingleRequest",
+      "response_type": "stocks::AuctionsSingleResponse",
+      "parameter_contract": {
+        "signatures": [
+          "symbol|path|required|string",
+          "asof|query|optional|string",
+          "currency|query|optional|string",
+          "end|query|optional|string",
+          "feed|query|optional|string|default=sip",
+          "limit|query|optional|integer|default=1000",
+          "page_token|query|optional|string",
+          "sort|query|optional|string|enum=asc,desc|default=asc",
+          "start|query|optional|string"
+        ]
+      },
+      "response_contract": {
+        "status": "200",
+        "field_signatures": [
+          "auctions[].c[].c|string",
+          "auctions[].c[].p|number",
+          "auctions[].c[].s|integer",
+          "auctions[].c[].t|string",
+          "auctions[].c[].x|string",
+          "auctions[].c[]|object",
+          "auctions[].c|array",
+          "auctions[].d|string",
+          "auctions[].o[].c|string",
+          "auctions[].o[].p|number",
+          "auctions[].o[].s|integer",
+          "auctions[].o[].t|string",
+          "auctions[].o[].x|string",
+          "auctions[].o[]|object",
+          "auctions[].o|array",
+          "auctions[]|object",
+          "auctions|array",
+          "currency|string",
+          "next_page_token|string",
+          "symbol|string"
+        ]
+      },
+      "method": "GET"
+    },
+    {
+      "tag": "Stock",
+      "operation_id": "StockMetaConditions",
+      "path": "/v2/stocks/meta/conditions/{ticktype}",
+      "local_resource": "stocks",
+      "mirror_method": "condition_codes",
+      "request_type": "stocks::ConditionCodesRequest",
+      "response_type": "stocks::ConditionCodesResponse",
+      "parameter_contract": {
+        "signatures": [
+          "ticktype|path|required|string|enum=quote,trade",
+          "tape|query|required|string|enum=A,B,C"
+        ]
+      },
+      "response_contract": {
+        "status": "200",
+        "field_signatures": [
+          "*|string"
+        ]
+      },
+      "method": "GET"
+    },
+    {
+      "tag": "Stock",
+      "operation_id": "StockMetaExchanges",
+      "path": "/v2/stocks/meta/exchanges",
+      "local_resource": "stocks",
+      "mirror_method": "exchange_codes",
+      "request_type": null,
+      "response_type": "stocks::ExchangeCodesResponse",
+      "parameter_contract": {
+        "signatures": []
+      },
+      "response_contract": {
+        "status": "200",
+        "field_signatures": [
+          "*|string"
+        ]
+      },
+      "method": "GET"
+    },
+    {
+      "tag": "Option",
+      "operation_id": "optionBars",
+      "path": "/v1beta1/options/bars",
+      "local_resource": "options",
+      "mirror_method": "bars",
+      "request_type": "options::BarsRequest",
+      "response_type": "options::BarsResponse",
+      "parameter_contract": {
+        "signatures": [
+          "end|query|optional|string",
+          "limit|query|optional|integer|default=1000",
+          "page_token|query|optional|string",
+          "sort|query|optional|string|enum=asc,desc|default=asc",
+          "start|query|optional|string",
+          "symbols|query|required|string",
+          "timeframe|query|required|string"
+        ]
+      },
+      "response_contract": {
+        "status": "200",
+        "field_signatures": [
+          "bars.*[].c|number",
+          "bars.*[].h|number",
+          "bars.*[].l|number",
+          "bars.*[].n|integer",
+          "bars.*[].o|number",
+          "bars.*[].t|string",
+          "bars.*[].vw|number",
+          "bars.*[].v|integer",
+          "bars.*[]|object",
+          "bars.*|array",
+          "bars|object",
+          "currency|string",
+          "next_page_token|string"
+        ]
+      },
+      "method": "GET"
+    },
+    {
+      "tag": "Option",
+      "operation_id": "OptionTrades",
+      "path": "/v1beta1/options/trades",
+      "local_resource": "options",
+      "mirror_method": "trades",
+      "request_type": "options::TradesRequest",
+      "response_type": "options::TradesResponse",
+      "parameter_contract": {
+        "signatures": [
+          "end|query|optional|string",
+          "limit|query|optional|integer|default=1000",
+          "page_token|query|optional|string",
+          "sort|query|optional|string|enum=asc,desc|default=asc",
+          "start|query|optional|string",
+          "symbols|query|required|string"
+        ]
+      },
+      "response_contract": {
+        "status": "200",
+        "field_signatures": [
+          "currency|string",
+          "next_page_token|string",
+          "trades.*[].c|string",
+          "trades.*[].p|number",
+          "trades.*[].s|integer",
+          "trades.*[].t|string",
+          "trades.*[].x|string",
+          "trades.*[]|object",
+          "trades.*|array",
+          "trades|object"
+        ]
+      },
+      "method": "GET"
+    },
+    {
+      "tag": "Option",
+      "operation_id": "OptionLatestQuotes",
+      "path": "/v1beta1/options/quotes/latest",
+      "local_resource": "options",
+      "mirror_method": "latest_quotes",
+      "request_type": "options::LatestQuotesRequest",
+      "response_type": "options::LatestQuotesResponse",
+      "parameter_contract": {
+        "signatures": [
+          "feed|query|optional|string|enum=indicative,opra|default=opra",
+          "symbols|query|required|string"
+        ]
+      },
+      "response_contract": {
+        "status": "200",
+        "field_signatures": [
+          "quotes.*.ap|number",
+          "quotes.*.as|integer",
+          "quotes.*.ax|string",
+          "quotes.*.bp|number",
+          "quotes.*.bs|integer",
+          "quotes.*.bx|string",
+          "quotes.*.c|string",
+          "quotes.*.t|string",
+          "quotes.*|object",
+          "quotes|object"
+        ]
+      },
+      "method": "GET"
+    },
+    {
+      "tag": "Option",
+      "operation_id": "OptionLatestTrades",
+      "path": "/v1beta1/options/trades/latest",
+      "local_resource": "options",
+      "mirror_method": "latest_trades",
+      "request_type": "options::LatestTradesRequest",
+      "response_type": "options::LatestTradesResponse",
+      "parameter_contract": {
+        "signatures": [
+          "feed|query|optional|string|enum=indicative,opra|default=opra",
+          "symbols|query|required|string"
+        ]
+      },
+      "response_contract": {
+        "status": "200",
+        "field_signatures": [
+          "trades.*.c|string",
+          "trades.*.p|number",
+          "trades.*.s|integer",
+          "trades.*.t|string",
+          "trades.*.x|string",
+          "trades.*|object",
+          "trades|object"
+        ]
+      },
+      "method": "GET"
+    },
+    {
+      "tag": "Option",
+      "operation_id": "OptionSnapshots",
+      "path": "/v1beta1/options/snapshots",
+      "local_resource": "options",
+      "mirror_method": "snapshots",
+      "request_type": "options::SnapshotsRequest",
+      "response_type": "options::SnapshotsResponse",
+      "parameter_contract": {
+        "signatures": [
+          "feed|query|optional|string|enum=indicative,opra|default=opra",
+          "limit|query|optional|integer|default=100",
+          "page_token|query|optional|string",
+          "symbols|query|required|string",
+          "updated_since|query|optional|string"
+        ]
+      },
+      "response_contract": {
+        "status": "200",
+        "field_signatures": [
+          "next_page_token|string",
+          "snapshots.*.dailyBar.c|number",
+          "snapshots.*.dailyBar.h|number",
+          "snapshots.*.dailyBar.l|number",
+          "snapshots.*.dailyBar.n|integer",
+          "snapshots.*.dailyBar.o|number",
+          "snapshots.*.dailyBar.t|string",
+          "snapshots.*.dailyBar.vw|number",
+          "snapshots.*.dailyBar.v|integer",
+          "snapshots.*.dailyBar|object",
+          "snapshots.*.greeks.delta|number",
+          "snapshots.*.greeks.gamma|number",
+          "snapshots.*.greeks.rho|number",
+          "snapshots.*.greeks.theta|number",
+          "snapshots.*.greeks.vega|number",
+          "snapshots.*.greeks|object",
+          "snapshots.*.impliedVolatility|number",
+          "snapshots.*.latestQuote.ap|number",
+          "snapshots.*.latestQuote.as|integer",
+          "snapshots.*.latestQuote.ax|string",
+          "snapshots.*.latestQuote.bp|number",
+          "snapshots.*.latestQuote.bs|integer",
+          "snapshots.*.latestQuote.bx|string",
+          "snapshots.*.latestQuote.c|string",
+          "snapshots.*.latestQuote.t|string",
+          "snapshots.*.latestQuote|object",
+          "snapshots.*.latestTrade.c|string",
+          "snapshots.*.latestTrade.p|number",
+          "snapshots.*.latestTrade.s|integer",
+          "snapshots.*.latestTrade.t|string",
+          "snapshots.*.latestTrade.x|string",
+          "snapshots.*.latestTrade|object",
+          "snapshots.*.minuteBar.c|number",
+          "snapshots.*.minuteBar.h|number",
+          "snapshots.*.minuteBar.l|number",
+          "snapshots.*.minuteBar.n|integer",
+          "snapshots.*.minuteBar.o|number",
+          "snapshots.*.minuteBar.t|string",
+          "snapshots.*.minuteBar.vw|number",
+          "snapshots.*.minuteBar.v|integer",
+          "snapshots.*.minuteBar|object",
+          "snapshots.*.prevDailyBar.c|number",
+          "snapshots.*.prevDailyBar.h|number",
+          "snapshots.*.prevDailyBar.l|number",
+          "snapshots.*.prevDailyBar.n|integer",
+          "snapshots.*.prevDailyBar.o|number",
+          "snapshots.*.prevDailyBar.t|string",
+          "snapshots.*.prevDailyBar.vw|number",
+          "snapshots.*.prevDailyBar.v|integer",
+          "snapshots.*.prevDailyBar|object",
+          "snapshots.*|object",
+          "snapshots|object"
+        ]
+      },
+      "method": "GET"
+    },
+    {
+      "tag": "Option",
+      "operation_id": "OptionChain",
+      "path": "/v1beta1/options/snapshots/{underlying_symbol}",
+      "local_resource": "options",
+      "mirror_method": "chain",
+      "request_type": "options::ChainRequest",
+      "response_type": "options::ChainResponse",
+      "parameter_contract": {
+        "signatures": [
+          "underlying_symbol|path|required|string",
+          "expiration_date|query|optional|string",
+          "expiration_date_gte|query|optional|string",
+          "expiration_date_lte|query|optional|string",
+          "feed|query|optional|string|enum=indicative,opra|default=opra",
+          "limit|query|optional|integer|default=100",
+          "page_token|query|optional|string",
+          "root_symbol|query|optional|string",
+          "strike_price_gte|query|optional|number",
+          "strike_price_lte|query|optional|number",
+          "type|query|optional|string|enum=call,put",
+          "updated_since|query|optional|string"
+        ]
+      },
+      "response_contract": {
+        "status": "200",
+        "field_signatures": [
+          "next_page_token|string",
+          "snapshots.*.dailyBar.c|number",
+          "snapshots.*.dailyBar.h|number",
+          "snapshots.*.dailyBar.l|number",
+          "snapshots.*.dailyBar.n|integer",
+          "snapshots.*.dailyBar.o|number",
+          "snapshots.*.dailyBar.t|string",
+          "snapshots.*.dailyBar.vw|number",
+          "snapshots.*.dailyBar.v|integer",
+          "snapshots.*.dailyBar|object",
+          "snapshots.*.greeks.delta|number",
+          "snapshots.*.greeks.gamma|number",
+          "snapshots.*.greeks.rho|number",
+          "snapshots.*.greeks.theta|number",
+          "snapshots.*.greeks.vega|number",
+          "snapshots.*.greeks|object",
+          "snapshots.*.impliedVolatility|number",
+          "snapshots.*.latestQuote.ap|number",
+          "snapshots.*.latestQuote.as|integer",
+          "snapshots.*.latestQuote.ax|string",
+          "snapshots.*.latestQuote.bp|number",
+          "snapshots.*.latestQuote.bs|integer",
+          "snapshots.*.latestQuote.bx|string",
+          "snapshots.*.latestQuote.c|string",
+          "snapshots.*.latestQuote.t|string",
+          "snapshots.*.latestQuote|object",
+          "snapshots.*.latestTrade.c|string",
+          "snapshots.*.latestTrade.p|number",
+          "snapshots.*.latestTrade.s|integer",
+          "snapshots.*.latestTrade.t|string",
+          "snapshots.*.latestTrade.x|string",
+          "snapshots.*.latestTrade|object",
+          "snapshots.*.minuteBar.c|number",
+          "snapshots.*.minuteBar.h|number",
+          "snapshots.*.minuteBar.l|number",
+          "snapshots.*.minuteBar.n|integer",
+          "snapshots.*.minuteBar.o|number",
+          "snapshots.*.minuteBar.t|string",
+          "snapshots.*.minuteBar.vw|number",
+          "snapshots.*.minuteBar.v|integer",
+          "snapshots.*.minuteBar|object",
+          "snapshots.*.prevDailyBar.c|number",
+          "snapshots.*.prevDailyBar.h|number",
+          "snapshots.*.prevDailyBar.l|number",
+          "snapshots.*.prevDailyBar.n|integer",
+          "snapshots.*.prevDailyBar.o|number",
+          "snapshots.*.prevDailyBar.t|string",
+          "snapshots.*.prevDailyBar.vw|number",
+          "snapshots.*.prevDailyBar.v|integer",
+          "snapshots.*.prevDailyBar|object",
+          "snapshots.*|object",
+          "snapshots|object"
+        ]
+      },
+      "method": "GET"
+    },
+    {
+      "tag": "Option",
+      "operation_id": "OptionMetaConditions",
+      "path": "/v1beta1/options/meta/conditions/{ticktype}",
+      "local_resource": "options",
+      "mirror_method": "condition_codes",
+      "request_type": "options::ConditionCodesRequest",
+      "response_type": "options::ConditionCodesResponse",
+      "parameter_contract": {
+        "signatures": [
+          "ticktype|path|required|string|enum=quote,trade"
+        ]
+      },
+      "response_contract": {
+        "status": "200",
+        "field_signatures": [
+          "*|string"
+        ]
+      },
+      "method": "GET"
+    },
+    {
+      "tag": "Option",
+      "operation_id": "OptionMetaExchanges",
+      "path": "/v1beta1/options/meta/exchanges",
+      "local_resource": "options",
+      "mirror_method": "exchange_codes",
+      "request_type": null,
+      "response_type": "options::ExchangeCodesResponse",
+      "parameter_contract": {
+        "signatures": []
+      },
+      "response_contract": {
+        "status": "200",
+        "field_signatures": [
+          "*|string"
+        ]
+      },
+      "method": "GET"
+    },
+    {
+      "tag": "News",
+      "operation_id": "News",
+      "path": "/v1beta1/news",
+      "local_resource": "news",
+      "mirror_method": "list",
+      "request_type": "news::ListRequest",
+      "response_type": "news::ListResponse",
+      "parameter_contract": {
+        "signatures": [
+          "end|query|optional|string",
+          "exclude_contentless|query|optional|boolean",
+          "include_content|query|optional|boolean",
+          "limit|query|optional|integer",
+          "page_token|query|optional|string",
+          "sort|query|optional|string|enum=asc,desc|default=desc",
+          "start|query|optional|string",
+          "symbols|query|optional|string"
+        ]
+      },
+      "response_contract": {
+        "status": "200",
+        "field_signatures": [
+          "news[].author|string",
+          "news[].content|string",
+          "news[].created_at|string",
+          "news[].headline|string",
+          "news[].id|integer",
+          "news[].images[].size|string|enum=large,small,thumb",
+          "news[].images[].url|string",
+          "news[].images[]|object",
+          "news[].images|array",
+          "news[].source|string",
+          "news[].summary|string",
+          "news[].symbols[]|string",
+          "news[].symbols|array",
+          "news[].updated_at|string",
+          "news[].url|string",
+          "news[]|object",
+          "news|array",
+          "next_page_token|string"
+        ]
+      },
+      "method": "GET"
+    },
+    {
+      "tag": "Corporate actions",
+      "operation_id": "CorporateActions",
+      "path": "/v1/corporate-actions",
+      "local_resource": "corporate_actions",
+      "mirror_method": "list",
+      "request_type": "corporate_actions::ListRequest",
+      "response_type": "corporate_actions::ListResponse",
+      "parameter_contract": {
+        "signatures": [
+          "cusips|query|optional|string",
+          "end|query|optional|string",
+          "ids|query|optional|string",
+          "limit|query|optional|integer|default=100",
+          "page_token|query|optional|string",
+          "sort|query|optional|string|enum=asc,desc|default=asc",
+          "start|query|optional|string",
+          "symbols|query|optional|string",
+          "types|query|optional|string"
+        ]
+      },
+      "response_contract": {
+        "status": "200",
+        "field_signatures": [
+          "corporate_actions.cash_dividends[].cusip|string",
+          "corporate_actions.cash_dividends[].due_bill_off_date|string",
+          "corporate_actions.cash_dividends[].due_bill_on_date|string",
+          "corporate_actions.cash_dividends[].ex_date|string",
+          "corporate_actions.cash_dividends[].foreign|boolean",
+          "corporate_actions.cash_dividends[].id|string",
+          "corporate_actions.cash_dividends[].payable_date|string",
+          "corporate_actions.cash_dividends[].process_date|string",
+          "corporate_actions.cash_dividends[].rate|number",
+          "corporate_actions.cash_dividends[].record_date|string",
+          "corporate_actions.cash_dividends[].special|boolean",
+          "corporate_actions.cash_dividends[].symbol|string",
+          "corporate_actions.cash_dividends[]|object",
+          "corporate_actions.cash_dividends|array",
+          "corporate_actions.cash_mergers[].acquiree_cusip|string",
+          "corporate_actions.cash_mergers[].acquiree_symbol|string",
+          "corporate_actions.cash_mergers[].acquirer_cusip|string",
+          "corporate_actions.cash_mergers[].acquirer_symbol|string",
+          "corporate_actions.cash_mergers[].effective_date|string",
+          "corporate_actions.cash_mergers[].id|string",
+          "corporate_actions.cash_mergers[].payable_date|string",
+          "corporate_actions.cash_mergers[].process_date|string",
+          "corporate_actions.cash_mergers[].rate|number",
+          "corporate_actions.cash_mergers[]|object",
+          "corporate_actions.cash_mergers|array",
+          "corporate_actions.forward_splits[].cusip|string",
+          "corporate_actions.forward_splits[].due_bill_redemption_date|string",
+          "corporate_actions.forward_splits[].ex_date|string",
+          "corporate_actions.forward_splits[].id|string",
+          "corporate_actions.forward_splits[].new_rate|number",
+          "corporate_actions.forward_splits[].old_rate|number",
+          "corporate_actions.forward_splits[].payable_date|string",
+          "corporate_actions.forward_splits[].process_date|string",
+          "corporate_actions.forward_splits[].record_date|string",
+          "corporate_actions.forward_splits[].symbol|string",
+          "corporate_actions.forward_splits[]|object",
+          "corporate_actions.forward_splits|array",
+          "corporate_actions.name_changes[].id|string",
+          "corporate_actions.name_changes[].new_cusip|string",
+          "corporate_actions.name_changes[].new_symbol|string",
+          "corporate_actions.name_changes[].old_cusip|string",
+          "corporate_actions.name_changes[].old_symbol|string",
+          "corporate_actions.name_changes[].process_date|string",
+          "corporate_actions.name_changes[]|object",
+          "corporate_actions.name_changes|array",
+          "corporate_actions.redemptions[].cusip|string",
+          "corporate_actions.redemptions[].id|string",
+          "corporate_actions.redemptions[].payable_date|string",
+          "corporate_actions.redemptions[].process_date|string",
+          "corporate_actions.redemptions[].rate|number",
+          "corporate_actions.redemptions[].symbol|string",
+          "corporate_actions.redemptions[]|object",
+          "corporate_actions.redemptions|array",
+          "corporate_actions.reverse_splits[].ex_date|string",
+          "corporate_actions.reverse_splits[].id|string",
+          "corporate_actions.reverse_splits[].new_cusip|string",
+          "corporate_actions.reverse_splits[].new_rate|number",
+          "corporate_actions.reverse_splits[].old_cusip|string",
+          "corporate_actions.reverse_splits[].old_rate|number",
+          "corporate_actions.reverse_splits[].payable_date|string",
+          "corporate_actions.reverse_splits[].process_date|string",
+          "corporate_actions.reverse_splits[].record_date|string",
+          "corporate_actions.reverse_splits[].symbol|string",
+          "corporate_actions.reverse_splits[]|object",
+          "corporate_actions.reverse_splits|array",
+          "corporate_actions.rights_distributions[].ex_date|string",
+          "corporate_actions.rights_distributions[].expiration_date|string",
+          "corporate_actions.rights_distributions[].id|string",
+          "corporate_actions.rights_distributions[].new_cusip|string",
+          "corporate_actions.rights_distributions[].new_symbol|string",
+          "corporate_actions.rights_distributions[].payable_date|string",
+          "corporate_actions.rights_distributions[].process_date|string",
+          "corporate_actions.rights_distributions[].rate|number",
+          "corporate_actions.rights_distributions[].record_date|string",
+          "corporate_actions.rights_distributions[].source_cusip|string",
+          "corporate_actions.rights_distributions[].source_symbol|string",
+          "corporate_actions.rights_distributions[]|object",
+          "corporate_actions.rights_distributions|array",
+          "corporate_actions.spin_offs[].due_bill_redemption_date|string",
+          "corporate_actions.spin_offs[].ex_date|string",
+          "corporate_actions.spin_offs[].id|string",
+          "corporate_actions.spin_offs[].new_cusip|string",
+          "corporate_actions.spin_offs[].new_rate|number",
+          "corporate_actions.spin_offs[].new_symbol|string",
+          "corporate_actions.spin_offs[].payable_date|string",
+          "corporate_actions.spin_offs[].process_date|string",
+          "corporate_actions.spin_offs[].record_date|string",
+          "corporate_actions.spin_offs[].source_cusip|string",
+          "corporate_actions.spin_offs[].source_rate|number",
+          "corporate_actions.spin_offs[].source_symbol|string",
+          "corporate_actions.spin_offs[]|object",
+          "corporate_actions.spin_offs|array",
+          "corporate_actions.stock_and_cash_mergers[].acquiree_cusip|string",
+          "corporate_actions.stock_and_cash_mergers[].acquiree_rate|number",
+          "corporate_actions.stock_and_cash_mergers[].acquiree_symbol|string",
+          "corporate_actions.stock_and_cash_mergers[].acquirer_cusip|string",
+          "corporate_actions.stock_and_cash_mergers[].acquirer_rate|number",
+          "corporate_actions.stock_and_cash_mergers[].acquirer_symbol|string",
+          "corporate_actions.stock_and_cash_mergers[].cash_rate|number",
+          "corporate_actions.stock_and_cash_mergers[].effective_date|string",
+          "corporate_actions.stock_and_cash_mergers[].id|string",
+          "corporate_actions.stock_and_cash_mergers[].payable_date|string",
+          "corporate_actions.stock_and_cash_mergers[].process_date|string",
+          "corporate_actions.stock_and_cash_mergers[]|object",
+          "corporate_actions.stock_and_cash_mergers|array",
+          "corporate_actions.stock_dividends[].cusip|string",
+          "corporate_actions.stock_dividends[].ex_date|string",
+          "corporate_actions.stock_dividends[].id|string",
+          "corporate_actions.stock_dividends[].payable_date|string",
+          "corporate_actions.stock_dividends[].process_date|string",
+          "corporate_actions.stock_dividends[].rate|number",
+          "corporate_actions.stock_dividends[].record_date|string",
+          "corporate_actions.stock_dividends[].symbol|string",
+          "corporate_actions.stock_dividends[]|object",
+          "corporate_actions.stock_dividends|array",
+          "corporate_actions.stock_mergers[].acquiree_cusip|string",
+          "corporate_actions.stock_mergers[].acquiree_rate|number",
+          "corporate_actions.stock_mergers[].acquiree_symbol|string",
+          "corporate_actions.stock_mergers[].acquirer_cusip|string",
+          "corporate_actions.stock_mergers[].acquirer_rate|number",
+          "corporate_actions.stock_mergers[].acquirer_symbol|string",
+          "corporate_actions.stock_mergers[].effective_date|string",
+          "corporate_actions.stock_mergers[].id|string",
+          "corporate_actions.stock_mergers[].payable_date|string",
+          "corporate_actions.stock_mergers[].process_date|string",
+          "corporate_actions.stock_mergers[]|object",
+          "corporate_actions.stock_mergers|array",
+          "corporate_actions.unit_splits[].alternate_cusip|string",
+          "corporate_actions.unit_splits[].alternate_rate|number",
+          "corporate_actions.unit_splits[].alternate_symbol|string",
+          "corporate_actions.unit_splits[].effective_date|string",
+          "corporate_actions.unit_splits[].id|string",
+          "corporate_actions.unit_splits[].new_cusip|string",
+          "corporate_actions.unit_splits[].new_rate|number",
+          "corporate_actions.unit_splits[].new_symbol|string",
+          "corporate_actions.unit_splits[].old_cusip|string",
+          "corporate_actions.unit_splits[].old_rate|number",
+          "corporate_actions.unit_splits[].old_symbol|string",
+          "corporate_actions.unit_splits[].payable_date|string",
+          "corporate_actions.unit_splits[].process_date|string",
+          "corporate_actions.unit_splits[]|object",
+          "corporate_actions.unit_splits|array",
+          "corporate_actions.worthless_removals[].cusip|string",
+          "corporate_actions.worthless_removals[].id|string",
+          "corporate_actions.worthless_removals[].process_date|string",
+          "corporate_actions.worthless_removals[].symbol|string",
+          "corporate_actions.worthless_removals[]|object",
+          "corporate_actions.worthless_removals|array",
+          "corporate_actions|object",
+          "next_page_token|string"
+        ]
+      },
+      "method": "GET"
+    }
+  ],
+  "convenience_layer": [],
+  "planned_gaps": [
+    {
+      "tag": "Forex",
+      "method": "GET",
+      "path": "/v1beta1/forex/latest/rates",
+      "local_resource": "forex",
+      "mirror_method": "latest_rates",
+      "status": "planned_gap"
+    },
+    {
+      "tag": "Forex",
+      "method": "GET",
+      "path": "/v1beta1/forex/rates",
+      "local_resource": "forex",
+      "mirror_method": "rates",
+      "status": "planned_gap"
+    },
+    {
+      "tag": "Logos",
+      "method": "GET",
+      "path": "/v1beta1/logos/{symbol}",
+      "local_resource": "logos",
+      "mirror_method": "get",
+      "status": "planned_gap"
+    },
+    {
+      "tag": "Fixed income",
+      "method": "GET",
+      "path": "/v1beta1/fixed_income/latest/prices",
+      "local_resource": "fixed_income",
+      "mirror_method": "latest_prices",
+      "status": "planned_gap"
+    },
+    {
+      "tag": "Screener",
+      "method": "GET",
+      "path": "/v1beta1/screener/stocks/most-actives",
+      "local_resource": "screener",
+      "mirror_method": "most_actives",
+      "status": "planned_gap"
+    },
+    {
+      "tag": "Screener",
+      "method": "GET",
+      "path": "/v1beta1/screener/{market_type}/movers",
+      "local_resource": "screener",
+      "mirror_method": "movers",
+      "status": "planned_gap"
+    }
+  ],
+  "excluded_families": [
+    {
+      "tag": "Crypto",
+      "status": "explicitly_excluded"
+    },
+    {
+      "tag": "Crypto perpetual futures",
+      "status": "explicitly_excluded"
+    }
+  ],
+  "known_parity_gaps": []
+}

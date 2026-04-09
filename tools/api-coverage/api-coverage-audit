@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+TOOL_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+if [ "$#" -ne 0 ]; then
+  echo "error: ./tools/api-coverage/api-coverage-audit does not accept command-line arguments" >&2
+  exit 2
+fi
+
+status=0
+
+"$TOOL_ROOT/api-coverage-audit-data" || status=$?
+"$TOOL_ROOT/api-coverage-audit-trade" || status=$?
+
+exit "$status"
