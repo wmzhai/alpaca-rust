@@ -125,12 +125,37 @@ async fn cancel_open_orders_for_symbol(harness: &TradeTestHarness, symbol: &str)
         .expect("preflight open orders should remain readable");
 
     for order in open_orders {
-        harness
-            .trade_client()
-            .orders()
-            .cancel(&order.id)
-            .await
-            .expect("preflight open order cancel should submit");
-        let _ = wait_for_order_status(harness, &order.id, OrderStatus::Canceled).await;
+        match harness.trade_client().orders().cancel(&order.id).await {
+            Ok(_) => {
+                let _ = wait_for_order_status(harness, &order.id, OrderStatus::Canceled).await;
+            }
+            Err(Error::Http(error)) if error.meta().map(|meta| meta.status()) == Some(422) => {
+                let terminal =
+                    harness.trade_client().orders().get(&order.id).await.expect(
+                        "preflight order should remain readable after terminal cancel race",
+                    );
+                assert!(
+                    is_terminal_status(&terminal.status),
+                    "preflight open order cancel returned 422 but order {} remained non-terminal: {:?}",
+                    order.id,
+                    terminal.status
+                );
+            }
+            Err(other) => panic!("preflight open order cancel should submit: {other:?}"),
+        }
     }
+}
+
+fn is_terminal_status(status: &OrderStatus) -> bool {
+    matches!(
+        status,
+        OrderStatus::Filled
+            | OrderStatus::DoneForDay
+            | OrderStatus::Canceled
+            | OrderStatus::Expired
+            | OrderStatus::Replaced
+            | OrderStatus::Rejected
+            | OrderStatus::Suspended
+            | OrderStatus::Calculated
+    )
 }
