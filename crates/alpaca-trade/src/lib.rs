@@ -13,6 +13,7 @@ pub mod options_contracts;
 pub mod orders;
 pub mod portfolio_history;
 pub mod positions;
+pub mod watchlists;
 
 pub use client::{
     Client, ClientBuilder, DEFAULT_LIVE_BASE_URL, DEFAULT_PAPER_BASE_URL, TRADE_API_KEY_ENV,

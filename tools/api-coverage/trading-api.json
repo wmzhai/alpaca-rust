@@ -33,8 +33,8 @@
   "summary": {
     "official_total_operations": 64,
     "adopted_family_total_operations": 40,
-    "implemented_mirror_operations": 27,
-    "open_gaps": 13
+    "implemented_mirror_operations": 38,
+    "open_gaps": 2
   },
   "mirror_layer": [
     {
@@ -1291,6 +1291,395 @@
           "clocks|array"
         ]
       }
+    },
+    {
+      "tag": "Watchlists",
+      "method": "GET",
+      "path": "/v2/watchlists",
+      "local_resource": "watchlists",
+      "mirror_method": "list",
+      "parameter_contract": {
+        "signatures": []
+      },
+      "response_contract": {
+        "status": "200",
+        "field_signatures": [
+          "[].account_id|string",
+          "[].created_at|string",
+          "[].id|string",
+          "[].name|string",
+          "[].updated_at|string",
+          "[]|object"
+        ]
+      }
+    },
+    {
+      "tag": "Watchlists",
+      "method": "POST",
+      "path": "/v2/watchlists",
+      "local_resource": "watchlists",
+      "mirror_method": "create",
+      "parameter_contract": {
+        "signatures": [
+          "name|body|required|string",
+          "symbols|body|optional|array|items=string"
+        ]
+      },
+      "response_contract": {
+        "status": "200",
+        "field_signatures": [
+          "account_id|string",
+          "assets[].attributes[]|string|enum=fractional_eh_enabled,has_options,ipo,options_late_close,overnight_halted,overnight_tradable,ptp_no_exception,ptp_with_exception",
+          "assets[].attributes|array",
+          "assets[].class|string|enum=crypto,us_equity,us_option",
+          "assets[].cusip|string",
+          "assets[].easy_to_borrow|boolean",
+          "assets[].exchange|string|enum=AMEX,ARCA,BATS,NASDAQ,NYSE,NYSEARCA,OTC",
+          "assets[].fractionable|boolean",
+          "assets[].id|string",
+          "assets[].maintenance_margin_requirement|number",
+          "assets[].margin_requirement_long|string",
+          "assets[].margin_requirement_short|string",
+          "assets[].marginable|boolean",
+          "assets[].name|string",
+          "assets[].shortable|boolean",
+          "assets[].status|string|enum=active,inactive",
+          "assets[].symbol|string",
+          "assets[].tradable|boolean",
+          "assets[]|object",
+          "assets|array",
+          "created_at|string",
+          "id|string",
+          "name|string",
+          "updated_at|string"
+        ]
+      }
+    },
+    {
+      "tag": "Watchlists",
+      "method": "GET",
+      "path": "/v2/watchlists/{watchlist_id}",
+      "local_resource": "watchlists",
+      "mirror_method": "get_by_id",
+      "parameter_contract": {
+        "signatures": [
+          "watchlist_id|path|required|string"
+        ]
+      },
+      "response_contract": {
+        "status": "200",
+        "field_signatures": [
+          "account_id|string",
+          "assets[].attributes[]|string|enum=fractional_eh_enabled,has_options,ipo,options_late_close,overnight_halted,overnight_tradable,ptp_no_exception,ptp_with_exception",
+          "assets[].attributes|array",
+          "assets[].class|string|enum=crypto,us_equity,us_option",
+          "assets[].cusip|string",
+          "assets[].easy_to_borrow|boolean",
+          "assets[].exchange|string|enum=AMEX,ARCA,BATS,NASDAQ,NYSE,NYSEARCA,OTC",
+          "assets[].fractionable|boolean",
+          "assets[].id|string",
+          "assets[].maintenance_margin_requirement|number",
+          "assets[].margin_requirement_long|string",
+          "assets[].margin_requirement_short|string",
+          "assets[].marginable|boolean",
+          "assets[].name|string",
+          "assets[].shortable|boolean",
+          "assets[].status|string|enum=active,inactive",
+          "assets[].symbol|string",
+          "assets[].tradable|boolean",
+          "assets[]|object",
+          "assets|array",
+          "created_at|string",
+          "id|string",
+          "name|string",
+          "updated_at|string"
+        ]
+      }
+    },
+    {
+      "tag": "Watchlists",
+      "method": "PUT",
+      "path": "/v2/watchlists/{watchlist_id}",
+      "local_resource": "watchlists",
+      "mirror_method": "update_by_id",
+      "parameter_contract": {
+        "signatures": [
+          "name|body|required|string",
+          "symbols|body|optional|array|items=string",
+          "watchlist_id|path|required|string"
+        ]
+      },
+      "response_contract": {
+        "status": "200",
+        "field_signatures": [
+          "account_id|string",
+          "assets[].attributes[]|string|enum=fractional_eh_enabled,has_options,ipo,options_late_close,overnight_halted,overnight_tradable,ptp_no_exception,ptp_with_exception",
+          "assets[].attributes|array",
+          "assets[].class|string|enum=crypto,us_equity,us_option",
+          "assets[].cusip|string",
+          "assets[].easy_to_borrow|boolean",
+          "assets[].exchange|string|enum=AMEX,ARCA,BATS,NASDAQ,NYSE,NYSEARCA,OTC",
+          "assets[].fractionable|boolean",
+          "assets[].id|string",
+          "assets[].maintenance_margin_requirement|number",
+          "assets[].margin_requirement_long|string",
+          "assets[].margin_requirement_short|string",
+          "assets[].marginable|boolean",
+          "assets[].name|string",
+          "assets[].shortable|boolean",
+          "assets[].status|string|enum=active,inactive",
+          "assets[].symbol|string",
+          "assets[].tradable|boolean",
+          "assets[]|object",
+          "assets|array",
+          "created_at|string",
+          "id|string",
+          "name|string",
+          "updated_at|string"
+        ]
+      }
+    },
+    {
+      "tag": "Watchlists",
+      "method": "DELETE",
+      "path": "/v2/watchlists/{watchlist_id}",
+      "local_resource": "watchlists",
+      "mirror_method": "delete_by_id",
+      "parameter_contract": {
+        "signatures": [
+          "watchlist_id|path|required|string"
+        ]
+      },
+      "response_contract": {
+        "status": "204",
+        "field_signatures": []
+      }
+    },
+    {
+      "tag": "Watchlists",
+      "method": "POST",
+      "path": "/v2/watchlists/{watchlist_id}",
+      "local_resource": "watchlists",
+      "mirror_method": "add_asset_by_id",
+      "parameter_contract": {
+        "signatures": [
+          "symbol|body|optional|string",
+          "watchlist_id|path|required|string"
+        ]
+      },
+      "response_contract": {
+        "status": "200",
+        "field_signatures": [
+          "account_id|string",
+          "assets[].attributes[]|string|enum=fractional_eh_enabled,has_options,ipo,options_late_close,overnight_halted,overnight_tradable,ptp_no_exception,ptp_with_exception",
+          "assets[].attributes|array",
+          "assets[].class|string|enum=crypto,us_equity,us_option",
+          "assets[].cusip|string",
+          "assets[].easy_to_borrow|boolean",
+          "assets[].exchange|string|enum=AMEX,ARCA,BATS,NASDAQ,NYSE,NYSEARCA,OTC",
+          "assets[].fractionable|boolean",
+          "assets[].id|string",
+          "assets[].maintenance_margin_requirement|number",
+          "assets[].margin_requirement_long|string",
+          "assets[].margin_requirement_short|string",
+          "assets[].marginable|boolean",
+          "assets[].name|string",
+          "assets[].shortable|boolean",
+          "assets[].status|string|enum=active,inactive",
+          "assets[].symbol|string",
+          "assets[].tradable|boolean",
+          "assets[]|object",
+          "assets|array",
+          "created_at|string",
+          "id|string",
+          "name|string",
+          "updated_at|string"
+        ]
+      }
+    },
+    {
+      "tag": "Watchlists",
+      "method": "DELETE",
+      "path": "/v2/watchlists/{watchlist_id}/{symbol}",
+      "local_resource": "watchlists",
+      "mirror_method": "delete_symbol_by_id",
+      "parameter_contract": {
+        "signatures": [
+          "symbol|path|required|string",
+          "watchlist_id|path|required|string"
+        ]
+      },
+      "response_contract": {
+        "status": "200",
+        "field_signatures": [
+          "account_id|string",
+          "assets[].attributes[]|string|enum=fractional_eh_enabled,has_options,ipo,options_late_close,overnight_halted,overnight_tradable,ptp_no_exception,ptp_with_exception",
+          "assets[].attributes|array",
+          "assets[].class|string|enum=crypto,us_equity,us_option",
+          "assets[].cusip|string",
+          "assets[].easy_to_borrow|boolean",
+          "assets[].exchange|string|enum=AMEX,ARCA,BATS,NASDAQ,NYSE,NYSEARCA,OTC",
+          "assets[].fractionable|boolean",
+          "assets[].id|string",
+          "assets[].maintenance_margin_requirement|number",
+          "assets[].margin_requirement_long|string",
+          "assets[].margin_requirement_short|string",
+          "assets[].marginable|boolean",
+          "assets[].name|string",
+          "assets[].shortable|boolean",
+          "assets[].status|string|enum=active,inactive",
+          "assets[].symbol|string",
+          "assets[].tradable|boolean",
+          "assets[]|object",
+          "assets|array",
+          "created_at|string",
+          "id|string",
+          "name|string",
+          "updated_at|string"
+        ]
+      }
+    },
+    {
+      "tag": "Watchlists",
+      "method": "GET",
+      "path": "/v2/watchlists:by_name",
+      "local_resource": "watchlists",
+      "mirror_method": "get_by_name",
+      "parameter_contract": {
+        "signatures": [
+          "name|query|required|string"
+        ]
+      },
+      "response_contract": {
+        "status": "200",
+        "field_signatures": [
+          "account_id|string",
+          "assets[].attributes[]|string|enum=fractional_eh_enabled,has_options,ipo,options_late_close,overnight_halted,overnight_tradable,ptp_no_exception,ptp_with_exception",
+          "assets[].attributes|array",
+          "assets[].class|string|enum=crypto,us_equity,us_option",
+          "assets[].cusip|string",
+          "assets[].easy_to_borrow|boolean",
+          "assets[].exchange|string|enum=AMEX,ARCA,BATS,NASDAQ,NYSE,NYSEARCA,OTC",
+          "assets[].fractionable|boolean",
+          "assets[].id|string",
+          "assets[].maintenance_margin_requirement|number",
+          "assets[].margin_requirement_long|string",
+          "assets[].margin_requirement_short|string",
+          "assets[].marginable|boolean",
+          "assets[].name|string",
+          "assets[].shortable|boolean",
+          "assets[].status|string|enum=active,inactive",
+          "assets[].symbol|string",
+          "assets[].tradable|boolean",
+          "assets[]|object",
+          "assets|array",
+          "created_at|string",
+          "id|string",
+          "name|string",
+          "updated_at|string"
+        ]
+      }
+    },
+    {
+      "tag": "Watchlists",
+      "method": "PUT",
+      "path": "/v2/watchlists:by_name",
+      "local_resource": "watchlists",
+      "mirror_method": "update_by_name",
+      "parameter_contract": {
+        "signatures": [
+          "name|body|required|string",
+          "name|query|required|string",
+          "symbols|body|optional|array|items=string"
+        ]
+      },
+      "response_contract": {
+        "status": "200",
+        "field_signatures": [
+          "account_id|string",
+          "assets[].attributes[]|string|enum=fractional_eh_enabled,has_options,ipo,options_late_close,overnight_halted,overnight_tradable,ptp_no_exception,ptp_with_exception",
+          "assets[].attributes|array",
+          "assets[].class|string|enum=crypto,us_equity,us_option",
+          "assets[].cusip|string",
+          "assets[].easy_to_borrow|boolean",
+          "assets[].exchange|string|enum=AMEX,ARCA,BATS,NASDAQ,NYSE,NYSEARCA,OTC",
+          "assets[].fractionable|boolean",
+          "assets[].id|string",
+          "assets[].maintenance_margin_requirement|number",
+          "assets[].margin_requirement_long|string",
+          "assets[].margin_requirement_short|string",
+          "assets[].marginable|boolean",
+          "assets[].name|string",
+          "assets[].shortable|boolean",
+          "assets[].status|string|enum=active,inactive",
+          "assets[].symbol|string",
+          "assets[].tradable|boolean",
+          "assets[]|object",
+          "assets|array",
+          "created_at|string",
+          "id|string",
+          "name|string",
+          "updated_at|string"
+        ]
+      }
+    },
+    {
+      "tag": "Watchlists",
+      "method": "POST",
+      "path": "/v2/watchlists:by_name",
+      "local_resource": "watchlists",
+      "mirror_method": "add_asset_by_name",
+      "parameter_contract": {
+        "signatures": [
+          "name|query|required|string",
+          "symbol|body|optional|string"
+        ]
+      },
+      "response_contract": {
+        "status": "200",
+        "field_signatures": [
+          "account_id|string",
+          "assets[].attributes[]|string|enum=fractional_eh_enabled,has_options,ipo,options_late_close,overnight_halted,overnight_tradable,ptp_no_exception,ptp_with_exception",
+          "assets[].attributes|array",
+          "assets[].class|string|enum=crypto,us_equity,us_option",
+          "assets[].cusip|string",
+          "assets[].easy_to_borrow|boolean",
+          "assets[].exchange|string|enum=AMEX,ARCA,BATS,NASDAQ,NYSE,NYSEARCA,OTC",
+          "assets[].fractionable|boolean",
+          "assets[].id|string",
+          "assets[].maintenance_margin_requirement|number",
+          "assets[].margin_requirement_long|string",
+          "assets[].margin_requirement_short|string",
+          "assets[].marginable|boolean",
+          "assets[].name|string",
+          "assets[].shortable|boolean",
+          "assets[].status|string|enum=active,inactive",
+          "assets[].symbol|string",
+          "assets[].tradable|boolean",
+          "assets[]|object",
+          "assets|array",
+          "created_at|string",
+          "id|string",
+          "name|string",
+          "updated_at|string"
+        ]
+      }
+    },
+    {
+      "tag": "Watchlists",
+      "method": "DELETE",
+      "path": "/v2/watchlists:by_name",
+      "local_resource": "watchlists",
+      "mirror_method": "delete_by_name",
+      "parameter_contract": {
+        "signatures": [
+          "name|query|required|string"
+        ]
+      },
+      "response_contract": {
+        "status": "204",
+        "field_signatures": []
+      }
     }
   ],
   "convenience_layer": [],
@@ -1309,94 +1698,6 @@
       "path": "/v2/assets/fixed_income/us_treasuries",
       "local_resource": "assets",
       "mirror_method": "fixed_income_us_treasuries",
-      "status": "planned_gap"
-    },
-    {
-      "tag": "Watchlists",
-      "method": "GET",
-      "path": "/v2/watchlists",
-      "local_resource": "watchlists",
-      "mirror_method": "list",
-      "status": "planned_gap"
-    },
-    {
-      "tag": "Watchlists",
-      "method": "POST",
-      "path": "/v2/watchlists",
-      "local_resource": "watchlists",
-      "mirror_method": "create",
-      "status": "planned_gap"
-    },
-    {
-      "tag": "Watchlists",
-      "method": "GET",
-      "path": "/v2/watchlists/{watchlist_id}",
-      "local_resource": "watchlists",
-      "mirror_method": "get_by_id",
-      "status": "planned_gap"
-    },
-    {
-      "tag": "Watchlists",
-      "method": "PUT",
-      "path": "/v2/watchlists/{watchlist_id}",
-      "local_resource": "watchlists",
-      "mirror_method": "update_by_id",
-      "status": "planned_gap"
-    },
-    {
-      "tag": "Watchlists",
-      "method": "DELETE",
-      "path": "/v2/watchlists/{watchlist_id}",
-      "local_resource": "watchlists",
-      "mirror_method": "delete_by_id",
-      "status": "planned_gap"
-    },
-    {
-      "tag": "Watchlists",
-      "method": "POST",
-      "path": "/v2/watchlists/{watchlist_id}",
-      "local_resource": "watchlists",
-      "mirror_method": "add_asset_by_id",
-      "status": "planned_gap"
-    },
-    {
-      "tag": "Watchlists",
-      "method": "DELETE",
-      "path": "/v2/watchlists/{watchlist_id}/{symbol}",
-      "local_resource": "watchlists",
-      "mirror_method": "delete_symbol_by_id",
-      "status": "planned_gap"
-    },
-    {
-      "tag": "Watchlists",
-      "method": "GET",
-      "path": "/v2/watchlists:by_name",
-      "local_resource": "watchlists",
-      "mirror_method": "get_by_name",
-      "status": "planned_gap"
-    },
-    {
-      "tag": "Watchlists",
-      "method": "PUT",
-      "path": "/v2/watchlists:by_name",
-      "local_resource": "watchlists",
-      "mirror_method": "update_by_name",
-      "status": "planned_gap"
-    },
-    {
-      "tag": "Watchlists",
-      "method": "POST",
-      "path": "/v2/watchlists:by_name",
-      "local_resource": "watchlists",
-      "mirror_method": "add_asset_by_name",
-      "status": "planned_gap"
-    },
-    {
-      "tag": "Watchlists",
-      "method": "DELETE",
-      "path": "/v2/watchlists:by_name",
-      "local_resource": "watchlists",
-      "mirror_method": "delete_by_name",
       "status": "planned_gap"
     }
   ],

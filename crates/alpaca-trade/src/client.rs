@@ -15,6 +15,7 @@ use crate::{
     assets::AssetsClient, calendar::CalendarClient, clock::ClockClient,
     options_contracts::OptionsContractsClient, orders::OrdersClient,
     portfolio_history::PortfolioHistoryClient, positions::PositionsClient,
+    watchlists::WatchlistsClient,
 };
 
 pub const TRADE_API_KEY_ENV: &str = "ALPACA_TRADE_API_KEY";
@@ -127,6 +128,11 @@ impl Client {
     #[must_use]
     pub fn positions(&self) -> PositionsClient {
         PositionsClient::new(self.inner.clone())
+    }
+
+    #[must_use]
+    pub fn watchlists(&self) -> WatchlistsClient {
+        WatchlistsClient::new(self.inner.clone())
     }
 }
 
