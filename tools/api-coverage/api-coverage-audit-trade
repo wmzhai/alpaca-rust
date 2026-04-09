@@ -56,6 +56,7 @@ official_ops_file="$(mktemp)"
 official_tags_file="$(mktemp)"
 adopted_tags_file="$(mktemp)"
 excluded_tags_file="$(mktemp)"
+excluded_ops_file="$(mktemp)"
 official_adopted_ops_file="$(mktemp)"
 manifest_covered_ops_file="$(mktemp)"
 manifest_mirror_ops_file="$(mktemp)"
@@ -74,6 +75,7 @@ cleanup() {
     "$official_tags_file" \
     "$adopted_tags_file" \
     "$excluded_tags_file" \
+    "$excluded_ops_file" \
     "$official_adopted_ops_file" \
     "$manifest_covered_ops_file" \
     "$manifest_mirror_ops_file" \
@@ -288,6 +290,7 @@ jq -r '
 cut -f3 "$official_ops_file" | grep -v '^$' | sort -u >"$official_tags_file"
 jq -r '.local.adopted_tags[]?' "$MANIFEST_PATH" | sort -u >"$adopted_tags_file"
 jq -r '.excluded_families[]? | (.tag // .family // empty)' "$MANIFEST_PATH" | sort -u >"$excluded_tags_file"
+jq -r '.excluded_operations[]? | select(.method != null and .path != null) | [.method, .path] | @tsv' "$MANIFEST_PATH" | sort -u >"$excluded_ops_file"
 
 while IFS=$'\t' read -r method path tag; do
   [ -n "$tag" ] || continue
@@ -296,13 +299,37 @@ while IFS=$'\t' read -r method path tag; do
   fi
 done <"$official_ops_file" | sort -u >"$official_adopted_ops_file"
 
+if [ -s "$excluded_ops_file" ]; then
+  filtered_official_adopted_ops_file="$(mktemp)"
+  comm -23 "$official_adopted_ops_file" "$excluded_ops_file" >"$filtered_official_adopted_ops_file"
+  mv "$filtered_official_adopted_ops_file" "$official_adopted_ops_file"
+fi
+
 jq -r '
   (.mirror_layer[]? | [.method, .path] | @tsv),
   (.planned_gaps[]? | select(.method != null and .path != null) | [.method, .path] | @tsv)
 ' "$MANIFEST_PATH" | sort -u >"$manifest_covered_ops_file"
 
 jq -r '.mirror_layer[]? | [.method, .path] | @tsv' "$MANIFEST_PATH" | sort -u >"$manifest_mirror_ops_file"
-jq -r '.mirror_layer[]? | [.path, .local_resource, .mirror_method] | @tsv' "$MANIFEST_PATH" >"$manifest_mirror_methods_file"
+if [ -s "$excluded_ops_file" ]; then
+  filtered_manifest_covered_ops_file="$(mktemp)"
+  filtered_manifest_mirror_ops_file="$(mktemp)"
+  comm -23 "$manifest_covered_ops_file" "$excluded_ops_file" >"$filtered_manifest_covered_ops_file"
+  comm -23 "$manifest_mirror_ops_file" "$excluded_ops_file" >"$filtered_manifest_mirror_ops_file"
+  mv "$filtered_manifest_covered_ops_file" "$manifest_covered_ops_file"
+  mv "$filtered_manifest_mirror_ops_file" "$manifest_mirror_ops_file"
+fi
+
+jq -r '
+  . as $manifest
+  | .mirror_layer[]? as $entry
+  | select(
+      (($manifest.excluded_operations // [])
+        | any(.method == $entry.method and .path == $entry.path)) | not
+    )
+  | [$entry.path, $entry.local_resource, $entry.mirror_method]
+  | @tsv
+' "$MANIFEST_PATH" >"$manifest_mirror_methods_file"
 
 comm -23 "$official_adopted_ops_file" "$manifest_covered_ops_file" >"$missing_contract_ops_file"
 comm -23 "$manifest_mirror_ops_file" "$official_adopted_ops_file" >"$stale_mirror_ops_file"
@@ -408,8 +435,9 @@ official_version="$(jq -r '.info.version // "unknown"' "$openapi_file")"
 official_total_paths="$(wc -l <"$official_ops_file" | tr -d ' ')"
 official_adopted_total_paths="$(wc -l <"$official_adopted_ops_file" | tr -d ' ')"
 manifest_generated_at="$(jq -r '.generated_at // "unknown"' "$MANIFEST_PATH")"
-manifest_mirror_paths="$(jq -r '(.mirror_layer // []) | length' "$MANIFEST_PATH")"
+manifest_mirror_paths="$(wc -l <"$manifest_mirror_ops_file" | tr -d ' ')"
 manifest_planned_gaps="$(jq -r '(.planned_gaps // []) | length' "$MANIFEST_PATH")"
+excluded_operation_count="$(wc -l <"$excluded_ops_file" | tr -d ' ')"
 missing_contract_count="$(wc -l <"$missing_contract_ops_file" | tr -d ' ')"
 stale_mirror_count="$(wc -l <"$stale_mirror_ops_file" | tr -d ' ')"
 missing_method_count="$(wc -l <"$missing_method_defs_file" | tr -d ' ')"
@@ -428,8 +456,9 @@ echo "Coverage docs: $DOCS_PATH"
 echo
 echo "Summary"
 echo "- Official total operations: $official_total_paths"
-echo "- Adopted-family official operations: $official_adopted_total_paths"
-echo "- Manifest mirror operations: $manifest_mirror_paths"
+echo "- Adopted-scope official operations: $official_adopted_total_paths"
+echo "- Explicitly excluded operations: $excluded_operation_count"
+echo "- Manifest mirror operations in scope: $manifest_mirror_paths"
 echo "- Manifest planned gaps: $manifest_planned_gaps"
 echo
 echo "Findings"

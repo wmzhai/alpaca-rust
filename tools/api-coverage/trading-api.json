@@ -32,8 +32,8 @@
   },
   "summary": {
     "official_total_operations": 64,
-    "adopted_family_total_operations": 40,
-    "implemented_mirror_operations": 40,
+    "adopted_family_total_operations": 38,
+    "implemented_mirror_operations": 38,
     "open_gaps": 0
   },
   "mirror_layer": [
@@ -1835,6 +1835,20 @@
       "tag": "Tokenization",
       "status": "explicitly_excluded",
       "reason": "Tokenization endpoints are outside the current Alpaca trading SDK scope"
+    }
+  ],
+  "excluded_operations": [
+    {
+      "method": "POST",
+      "path": "/v2/positions/{symbol_or_contract_id}/do-not-exercise",
+      "status": "explicitly_excluded",
+      "reason": "Option exercise lifecycle coverage is deferred from the current delivery scope"
+    },
+    {
+      "method": "POST",
+      "path": "/v2/positions/{symbol_or_contract_id}/exercise",
+      "status": "explicitly_excluded",
+      "reason": "Option exercise lifecycle coverage is deferred from the current delivery scope"
     }
   ],
   "known_parity_gaps": []
