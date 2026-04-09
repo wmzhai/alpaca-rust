@@ -26,6 +26,60 @@ impl ListRequest {
     }
 }
 
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct UsCorporatesRequest {
+    pub bond_status: Option<String>,
+    pub isins: Option<Vec<String>>,
+    pub cusips: Option<Vec<String>>,
+    pub tickers: Option<Vec<String>>,
+}
+
+impl UsCorporatesRequest {
+    pub(crate) fn into_query(self) -> Result<Vec<(String, String)>, Error> {
+        let mut query = QueryWriter::default();
+        query.push_opt(
+            "bond_status",
+            validate_optional_text("bond_status", self.bond_status)?,
+        );
+        if let Some(isins) = validate_optional_csv_text("isins", self.isins)? {
+            query.push_csv("isins", isins);
+        }
+        if let Some(cusips) = validate_optional_csv_text("cusips", self.cusips)? {
+            query.push_csv("cusips", cusips);
+        }
+        if let Some(tickers) = validate_optional_csv_text("tickers", self.tickers)? {
+            query.push_csv("tickers", tickers);
+        }
+        Ok(query.finish())
+    }
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct UsTreasuriesRequest {
+    pub subtype: Option<String>,
+    pub bond_status: Option<String>,
+    pub cusips: Option<Vec<String>>,
+    pub isins: Option<Vec<String>>,
+}
+
+impl UsTreasuriesRequest {
+    pub(crate) fn into_query(self) -> Result<Vec<(String, String)>, Error> {
+        let mut query = QueryWriter::default();
+        query.push_opt("subtype", validate_optional_text("subtype", self.subtype)?);
+        query.push_opt(
+            "bond_status",
+            validate_optional_text("bond_status", self.bond_status)?,
+        );
+        if let Some(cusips) = validate_optional_csv_text("cusips", self.cusips)? {
+            query.push_csv("cusips", cusips);
+        }
+        if let Some(isins) = validate_optional_csv_text("isins", self.isins)? {
+            query.push_csv("isins", isins);
+        }
+        Ok(query.finish())
+    }
+}
+
 pub(crate) fn validate_symbol_or_asset_id(symbol_or_asset_id: &str) -> Result<String, Error> {
     let trimmed = symbol_or_asset_id.trim();
     if trimmed.is_empty() {

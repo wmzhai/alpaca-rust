@@ -33,8 +33,8 @@
   "summary": {
     "official_total_operations": 64,
     "adopted_family_total_operations": 40,
-    "implemented_mirror_operations": 38,
-    "open_gaps": 2
+    "implemented_mirror_operations": 40,
+    "open_gaps": 0
   },
   "mirror_layer": [
     {
@@ -1680,17 +1680,85 @@
         "status": "204",
         "field_signatures": []
       }
-    }
-  ],
-  "convenience_layer": [],
-  "planned_gaps": [
+    },
     {
       "tag": "Assets",
       "method": "GET",
       "path": "/v2/assets/fixed_income/us_corporates",
       "local_resource": "assets",
       "mirror_method": "fixed_income_us_corporates",
-      "status": "planned_gap"
+      "parameter_contract": {
+        "signatures": [
+          "bond_status|query|optional|string|enum=matured,outstanding,pre_issuance",
+          "cusips|query|optional|string",
+          "isins|query|optional|string",
+          "tickers|query|optional|string"
+        ]
+      },
+      "response_contract": {
+        "status": "200",
+        "field_signatures": [
+          "us_corporates[].accrued_interest|number",
+          "us_corporates[].bond_status|string|enum=matured,outstanding,pre_issuance",
+          "us_corporates[].call_type|string|enum=make_whole,ordinary,regulatory,special",
+          "us_corporates[].callable|boolean",
+          "us_corporates[].close_price_date|string",
+          "us_corporates[].close_price|number",
+          "us_corporates[].close_yield_to_maturity|number",
+          "us_corporates[].close_yield_to_worst|number",
+          "us_corporates[].convertible|boolean",
+          "us_corporates[].country_domicile|string",
+          "us_corporates[].coupon_frequency|string|enum=annual,monthly,quarterly,semi_annual,zero",
+          "us_corporates[].coupon_type|string|enum=fixed,floating,zero",
+          "us_corporates[].coupon|number",
+          "us_corporates[].cusip|string",
+          "us_corporates[].dated_date|string",
+          "us_corporates[].day_count|string|enum=30/360,30/365,30E/360,A/360,A/364,A/365,A/A,B/252",
+          "us_corporates[].description_short|string",
+          "us_corporates[].description|string",
+          "us_corporates[].first_coupon_date|string",
+          "us_corporates[].isin|string",
+          "us_corporates[].issue_date|string",
+          "us_corporates[].issue_minimum_denomination|number",
+          "us_corporates[].issue_price|number",
+          "us_corporates[].issue_size|number",
+          "us_corporates[].issuer|string",
+          "us_corporates[].last_coupon_date|string",
+          "us_corporates[].liquidity_institutional_aggregate|number",
+          "us_corporates[].liquidity_institutional_buy|number",
+          "us_corporates[].liquidity_institutional_sell|number",
+          "us_corporates[].liquidity_micro_aggregate|number",
+          "us_corporates[].liquidity_micro_buy|number",
+          "us_corporates[].liquidity_micro_sell|number",
+          "us_corporates[].liquidity_retail_aggregate|number",
+          "us_corporates[].liquidity_retail_buy|number",
+          "us_corporates[].liquidity_retail_sell|number",
+          "us_corporates[].marginable|boolean",
+          "us_corporates[].maturity_date|string",
+          "us_corporates[].next_call_date|string",
+          "us_corporates[].next_call_price|number",
+          "us_corporates[].next_coupon_date|string",
+          "us_corporates[].par_value|number",
+          "us_corporates[].perpetual|boolean",
+          "us_corporates[].puttable|boolean",
+          "us_corporates[].reg_s|boolean",
+          "us_corporates[].reissue_date|string",
+          "us_corporates[].reissue_price|number",
+          "us_corporates[].reissue_size|number",
+          "us_corporates[].sector|string",
+          "us_corporates[].seniority|string",
+          "us_corporates[].sp_creditwatch_date|string",
+          "us_corporates[].sp_creditwatch|string",
+          "us_corporates[].sp_outlook_date|string",
+          "us_corporates[].sp_outlook|string|enum=developing,negative,not_meaningful,not_rated,positive,stable",
+          "us_corporates[].sp_rating_date|string",
+          "us_corporates[].sp_rating|string",
+          "us_corporates[].ticker|string",
+          "us_corporates[].tradable|boolean",
+          "us_corporates[]|object",
+          "us_corporates|array"
+        ]
+      }
     },
     {
       "tag": "Assets",
@@ -1698,9 +1766,44 @@
       "path": "/v2/assets/fixed_income/us_treasuries",
       "local_resource": "assets",
       "mirror_method": "fixed_income_us_treasuries",
-      "status": "planned_gap"
+      "parameter_contract": {
+        "signatures": [
+          "bond_status|query|optional|string|enum=matured,outstanding,pre_issuance",
+          "cusips|query|optional|string",
+          "isins|query|optional|string",
+          "subtype|query|optional|string|enum=bill,bond,floating,note,strips,tips"
+        ]
+      },
+      "response_contract": {
+        "status": "200",
+        "field_signatures": [
+          "us_treasuries[].bond_status|string|enum=matured,outstanding,pre_issuance",
+          "us_treasuries[].close_price_date|string",
+          "us_treasuries[].close_price|number",
+          "us_treasuries[].close_yield_to_maturity|number",
+          "us_treasuries[].close_yield_to_worst|number",
+          "us_treasuries[].coupon_frequency|string|enum=annual,monthly,quarterly,semi_annual,zero",
+          "us_treasuries[].coupon_type|string|enum=fixed,floating,zero",
+          "us_treasuries[].coupon|number",
+          "us_treasuries[].cusip|string",
+          "us_treasuries[].description_short|string",
+          "us_treasuries[].description|string",
+          "us_treasuries[].first_coupon_date|string",
+          "us_treasuries[].isin|string",
+          "us_treasuries[].issue_date|string",
+          "us_treasuries[].last_coupon_date|string",
+          "us_treasuries[].maturity_date|string",
+          "us_treasuries[].next_coupon_date|string",
+          "us_treasuries[].subtype|string|enum=bill,bond,floating,note,strips,tips",
+          "us_treasuries[].tradable|boolean",
+          "us_treasuries[]|object",
+          "us_treasuries|array"
+        ]
+      }
     }
   ],
+  "convenience_layer": [],
+  "planned_gaps": [],
   "excluded_families": [
     {
       "tag": "Corporate Actions",
