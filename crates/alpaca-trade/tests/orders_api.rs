@@ -4,6 +4,8 @@ mod live_support;
 mod order_support;
 #[path = "support/targets.rs"]
 mod target_support;
+#[path = "support/trade_state.rs"]
+mod trade_state_support;
 
 use std::{
     sync::OnceLock,
@@ -12,18 +14,19 @@ use std::{
 use alpaca_trade::{
     orders::{
         CreateRequest, ListRequest, OrderClass, OrderSide, OrderStatus, OrderType,
-        QueryOrderStatus, ReplaceRequest, TimeInForce,
+        QueryOrderStatus, ReplaceRequest, StopLoss, TakeProfit, TimeInForce,
     },
     Error,
 };
 use live_support::can_submit_live_paper_orders;
 use order_support::{
-    clear_option_universe_cache, discover_mleg_call_spread, non_marketable_buy_limit_price,
-    stock_order_price_context, unique_client_order_id,
+    StockOrderPriceContext, clear_option_universe_cache, discover_mleg_call_spread,
+    non_marketable_buy_limit_price, stock_order_price_context, unique_client_order_id,
 };
 use rust_decimal::Decimal;
 use serde::Serialize;
 use target_support::{TradeTestHarness, TradeTestTarget};
+use trade_state_support::{ensure_symbol_flat, wait_for_position};
 use tokio::sync::Mutex;
 
 const ORDER_TEST_SYMBOL: &str = "SPY";
@@ -107,6 +110,76 @@ async fn orders_stop_limit_live_paper() {
         return;
     };
     orders_stop_limit_scenario(&harness).await;
+}
+
+#[tokio::test]
+async fn orders_trailing_stop_live_paper() {
+    let _guard = orders_api_lock().await;
+    let Some(harness) = target_support::build_trade_test_harness(TradeTestTarget::LivePaper).await
+    else {
+        return;
+    };
+    orders_trailing_stop_scenario(&harness).await;
+}
+
+#[tokio::test]
+async fn orders_fractional_qty_live_paper() {
+    let _guard = orders_api_lock().await;
+    let Some(harness) = target_support::build_trade_test_harness(TradeTestTarget::LivePaper).await
+    else {
+        return;
+    };
+    orders_fractional_qty_scenario(&harness).await;
+}
+
+#[tokio::test]
+async fn orders_notional_live_paper() {
+    let _guard = orders_api_lock().await;
+    let Some(harness) = target_support::build_trade_test_harness(TradeTestTarget::LivePaper).await
+    else {
+        return;
+    };
+    orders_notional_scenario(&harness).await;
+}
+
+#[tokio::test]
+async fn orders_extended_hours_live_paper() {
+    let _guard = orders_api_lock().await;
+    let Some(harness) = target_support::build_trade_test_harness(TradeTestTarget::LivePaper).await
+    else {
+        return;
+    };
+    orders_extended_hours_scenario(&harness).await;
+}
+
+#[tokio::test]
+async fn orders_bracket_live_paper() {
+    let _guard = orders_api_lock().await;
+    let Some(harness) = target_support::build_trade_test_harness(TradeTestTarget::LivePaper).await
+    else {
+        return;
+    };
+    orders_bracket_scenario(&harness).await;
+}
+
+#[tokio::test]
+async fn orders_oto_live_paper() {
+    let _guard = orders_api_lock().await;
+    let Some(harness) = target_support::build_trade_test_harness(TradeTestTarget::LivePaper).await
+    else {
+        return;
+    };
+    orders_oto_scenario(&harness).await;
+}
+
+#[tokio::test]
+async fn orders_oco_live_paper() {
+    let _guard = orders_api_lock().await;
+    let Some(harness) = target_support::build_trade_test_harness(TradeTestTarget::LivePaper).await
+    else {
+        return;
+    };
+    orders_oco_scenario(&harness).await;
 }
 
 async fn orders_basic_lifecycle_scenario(harness: &TradeTestHarness) {
@@ -222,6 +295,16 @@ async fn orders_mleg_limit_replace_scenario(harness: &TradeTestHarness) {
     let spread = discover_mleg_call_spread(harness.data_client(), ORDER_TEST_SYMBOL)
         .await
         .expect("quoted multi-leg call spread should be discoverable from the live option chain");
+    let create_limit_price = if harness.is_mock() {
+        spread.more_conservative_limit_price
+    } else {
+        spread.non_marketable_limit_price
+    };
+    let replacement_limit_price = if harness.is_mock() {
+        spread.deep_resting_limit_price
+    } else {
+        spread.more_conservative_limit_price
+    };
     let client_order_id = unique_client_order_id(&format!(
         "phase20-{}-mleg",
         target_slug(harness)
@@ -236,7 +319,7 @@ async fn orders_mleg_limit_replace_scenario(harness: &TradeTestHarness) {
             side: Some(OrderSide::Buy),
             r#type: Some(OrderType::Limit),
             time_in_force: Some(TimeInForce::Day),
-            limit_price: Some(spread.non_marketable_limit_price),
+            limit_price: Some(create_limit_price),
             stop_price: None,
             trail_price: None,
             trail_percent: None,
@@ -282,7 +365,7 @@ async fn orders_mleg_limit_replace_scenario(harness: &TradeTestHarness) {
             ReplaceRequest {
                 qty: None,
                 time_in_force: Some(TimeInForce::Day),
-                limit_price: Some(spread.more_conservative_limit_price),
+                limit_price: Some(replacement_limit_price),
                 stop_price: None,
                 trail: None,
                 client_order_id: Some(replaced_client_order_id.clone()),
@@ -294,7 +377,7 @@ async fn orders_mleg_limit_replace_scenario(harness: &TradeTestHarness) {
     assert_eq!(replacement.replaces.as_deref(), Some(created.id.as_str()));
     assert_eq!(
         replacement.limit_price,
-        Some(spread.more_conservative_limit_price)
+        Some(replacement_limit_price)
     );
     assert_eq!(replacement.order_class, OrderClass::Mleg);
     maybe_record_live_json(
@@ -376,6 +459,11 @@ async fn orders_cancel_all_scenario(harness: &TradeTestHarness) {
     let spread = discover_mleg_call_spread(harness.data_client(), ORDER_TEST_SYMBOL)
         .await
         .expect("quoted multi-leg call spread should be discoverable for cancel_all");
+    let mleg_limit_price = if harness.is_mock() {
+        spread.more_conservative_limit_price
+    } else {
+        spread.non_marketable_limit_price
+    };
 
     let stock_created = client
         .orders()
@@ -408,7 +496,7 @@ async fn orders_cancel_all_scenario(harness: &TradeTestHarness) {
             side: Some(OrderSide::Buy),
             r#type: Some(OrderType::Limit),
             time_in_force: Some(TimeInForce::Day),
-            limit_price: Some(spread.non_marketable_limit_price),
+            limit_price: Some(mleg_limit_price),
             stop_price: None,
             trail_price: None,
             trail_percent: None,
@@ -620,6 +708,691 @@ async fn orders_stop_limit_scenario(harness: &TradeTestHarness) {
     );
 }
 
+async fn orders_trailing_stop_scenario(_harness: &TradeTestHarness) {
+    let harness = _harness;
+    if maybe_skip_live_market_session(harness, "trailing stop lifecycle").await {
+        return;
+    }
+
+    ensure_symbol_flat(harness, ORDER_TEST_SYMBOL).await;
+
+    let client = harness.trade_client();
+    let pricing = stock_order_price_context(harness.data_client(), ORDER_TEST_SYMBOL)
+        .await
+        .expect("trailing stop price context should be discoverable");
+    let trail_price = trailing_stop_amount(&pricing);
+    let replacement_trail_price = (trail_price + Decimal::ONE).round_dp(2);
+    let mut cleanup_order_id: Option<String> = None;
+
+    let result: Result<(), Error> = async {
+        let open_order = open_test_equity_position(
+            harness,
+            ORDER_TEST_SYMBOL,
+            &unique_client_order_id(&format!("phase21-{}-trailing-open", target_slug(harness))),
+        )
+        .await?;
+        assert_eq!(open_order.status, OrderStatus::Filled);
+        let position = wait_for_position(harness, ORDER_TEST_SYMBOL).await;
+        assert_eq!(position.symbol, ORDER_TEST_SYMBOL);
+
+        let client_order_id = unique_client_order_id(&format!(
+            "phase21-{}-trailing",
+            target_slug(harness)
+        ));
+        let replaced_client_order_id = format!("{client_order_id}-replaced");
+        let created = client
+            .orders()
+            .create(CreateRequest {
+                symbol: Some(ORDER_TEST_SYMBOL.to_owned()),
+                qty: Some(Decimal::ONE),
+                notional: None,
+                side: Some(OrderSide::Sell),
+                r#type: Some(OrderType::TrailingStop),
+                time_in_force: Some(TimeInForce::Day),
+                limit_price: None,
+                stop_price: None,
+                trail_price: Some(trail_price),
+                trail_percent: None,
+                extended_hours: Some(false),
+                client_order_id: Some(client_order_id.clone()),
+                ..CreateRequest::default()
+            })
+            .await?;
+        cleanup_order_id = Some(created.id.clone());
+        assert_eq!(created.r#type, OrderType::TrailingStop);
+        assert_eq!(created.trail_price, Some(trail_price));
+        assert_eq!(created.side, OrderSide::Sell);
+
+        let fetched = client.orders().get(&created.id).await?;
+        assert_eq!(fetched.id, created.id);
+        assert_eq!(fetched.trail_price, Some(trail_price));
+
+        let fetched_by_client_order_id = client
+            .orders()
+            .get_by_client_order_id(&client_order_id)
+            .await?;
+        assert_eq!(fetched_by_client_order_id.id, created.id);
+
+        let replacement = client
+            .orders()
+            .replace(
+                &created.id,
+                ReplaceRequest {
+                    qty: None,
+                    time_in_force: Some(TimeInForce::Day),
+                    limit_price: None,
+                    stop_price: None,
+                    trail: Some(replacement_trail_price),
+                    client_order_id: Some(replaced_client_order_id.clone()),
+                },
+            )
+            .await?;
+        cleanup_order_id = Some(replacement.id.clone());
+        assert_ne!(replacement.id, created.id);
+        assert_eq!(replacement.replaces.as_deref(), Some(created.id.as_str()));
+        assert_eq!(replacement.trail_price, Some(replacement_trail_price));
+
+        let replaced_source = wait_for_order_status(harness, &created.id, OrderStatus::Replaced)
+            .await?;
+        assert_eq!(
+            replaced_source.replaced_by.as_deref(),
+            Some(replacement.id.as_str())
+        );
+
+        let replacement_by_client_order_id = client
+            .orders()
+            .get_by_client_order_id(&replaced_client_order_id)
+            .await?;
+        assert_eq!(replacement_by_client_order_id.id, replacement.id);
+
+        let listed_open = client
+            .orders()
+            .list(ListRequest {
+                status: Some(QueryOrderStatus::Open),
+                limit: Some(50),
+                ..ListRequest::default()
+            })
+            .await?;
+        assert!(listed_open.iter().any(|order| order.id == replacement.id));
+
+        let canceled = cancel_order_and_wait(harness, &replacement.id).await?;
+        cleanup_order_id = None;
+        assert_eq!(canceled.status, OrderStatus::Canceled);
+        maybe_record_live_json(
+            harness,
+            "alpaca-trade-orders",
+            "paper-trailing-stop-canceled",
+            &canceled,
+            "trailing stop order canceled sample should record",
+        );
+
+        Ok(())
+    }
+    .await;
+
+    maybe_cancel_order(harness, cleanup_order_id.as_deref()).await;
+    let _ = wait_for_no_open_orders_for_symbol(harness, ORDER_TEST_SYMBOL).await;
+    ensure_symbol_flat(harness, ORDER_TEST_SYMBOL).await;
+
+    result.expect("trailing stop lifecycle should complete against live paper");
+}
+
+async fn orders_fractional_qty_scenario(_harness: &TradeTestHarness) {
+    let harness = _harness;
+    if maybe_skip_live_market_session(harness, "fractional qty lifecycle").await {
+        return;
+    }
+
+    let client = harness.trade_client();
+    let limit_price = non_marketable_buy_limit_price(harness.data_client(), ORDER_TEST_SYMBOL)
+        .await
+        .expect("fractional limit price should be discoverable");
+    let requested_qty = Decimal::new(25, 2);
+    let client_order_id = unique_client_order_id(&format!(
+        "phase21-{}-fractional",
+        target_slug(harness)
+    ));
+    let mut cleanup_order_id: Option<String> = None;
+
+    let result: Result<(), Error> = async {
+        let created = client
+            .orders()
+            .create(CreateRequest {
+                symbol: Some(ORDER_TEST_SYMBOL.to_owned()),
+                qty: Some(requested_qty),
+                notional: None,
+                side: Some(OrderSide::Buy),
+                r#type: Some(OrderType::Limit),
+                time_in_force: Some(TimeInForce::Day),
+                limit_price: Some(limit_price),
+                stop_price: None,
+                trail_price: None,
+                trail_percent: None,
+                extended_hours: Some(false),
+                client_order_id: Some(client_order_id.clone()),
+                ..CreateRequest::default()
+            })
+            .await?;
+        cleanup_order_id = Some(created.id.clone());
+        assert_eq!(created.qty, Some(requested_qty));
+        assert_eq!(created.notional, None);
+
+        let fetched = client.orders().get(&created.id).await?;
+        assert_eq!(fetched.id, created.id);
+        assert_eq!(fetched.qty, Some(requested_qty));
+
+        let listed = client
+            .orders()
+            .list(ListRequest {
+                status: Some(QueryOrderStatus::Open),
+                limit: Some(50),
+                ..ListRequest::default()
+            })
+            .await?;
+        assert!(listed.iter().any(|order| order.id == created.id));
+
+        let fetched_by_client_order_id = client
+            .orders()
+            .get_by_client_order_id(&client_order_id)
+            .await?;
+        assert_eq!(fetched_by_client_order_id.id, created.id);
+        assert_eq!(fetched_by_client_order_id.qty, Some(requested_qty));
+
+        let canceled = cancel_order_and_wait(harness, &created.id).await?;
+        cleanup_order_id = None;
+        assert_eq!(canceled.status, OrderStatus::Canceled);
+        assert_eq!(canceled.qty, Some(requested_qty));
+        maybe_record_live_json(
+            harness,
+            "alpaca-trade-orders",
+            "paper-fractional-canceled",
+            &canceled,
+            "fractional order canceled sample should record",
+        );
+
+        Ok(())
+    }
+    .await;
+
+    maybe_cancel_order(harness, cleanup_order_id.as_deref()).await;
+    result.expect("fractional qty lifecycle should complete against live paper");
+}
+
+async fn orders_notional_scenario(_harness: &TradeTestHarness) {
+    let harness = _harness;
+    if maybe_skip_live_market_session(harness, "notional lifecycle").await {
+        return;
+    }
+
+    let client = harness.trade_client();
+    let limit_price = non_marketable_buy_limit_price(harness.data_client(), ORDER_TEST_SYMBOL)
+        .await
+        .expect("notional limit price should be discoverable");
+    let requested_notional = Decimal::new(10000, 2);
+    let client_order_id = unique_client_order_id(&format!(
+        "phase21-{}-notional",
+        target_slug(harness)
+    ));
+    let mut cleanup_order_id: Option<String> = None;
+
+    let result: Result<(), Error> = async {
+        let created = client
+            .orders()
+            .create(CreateRequest {
+                symbol: Some(ORDER_TEST_SYMBOL.to_owned()),
+                qty: None,
+                notional: Some(requested_notional),
+                side: Some(OrderSide::Buy),
+                r#type: Some(OrderType::Limit),
+                time_in_force: Some(TimeInForce::Day),
+                limit_price: Some(limit_price),
+                stop_price: None,
+                trail_price: None,
+                trail_percent: None,
+                extended_hours: Some(false),
+                client_order_id: Some(client_order_id.clone()),
+                ..CreateRequest::default()
+            })
+            .await?;
+        cleanup_order_id = Some(created.id.clone());
+        assert_eq!(created.notional, Some(requested_notional));
+        assert!(
+            created.qty.is_none_or(|qty| qty > Decimal::ZERO),
+            "notional order qty, when present, should stay positive"
+        );
+
+        let fetched = client.orders().get(&created.id).await?;
+        assert_eq!(fetched.id, created.id);
+        assert_eq!(fetched.notional, Some(requested_notional));
+
+        let listed = client
+            .orders()
+            .list(ListRequest {
+                status: Some(QueryOrderStatus::Open),
+                limit: Some(50),
+                ..ListRequest::default()
+            })
+            .await?;
+        assert!(listed.iter().any(|order| order.id == created.id));
+
+        let fetched_by_client_order_id = client
+            .orders()
+            .get_by_client_order_id(&client_order_id)
+            .await?;
+        assert_eq!(fetched_by_client_order_id.id, created.id);
+        assert_eq!(fetched_by_client_order_id.notional, Some(requested_notional));
+
+        let canceled = cancel_order_and_wait(harness, &created.id).await?;
+        cleanup_order_id = None;
+        assert_eq!(canceled.status, OrderStatus::Canceled);
+        assert_eq!(canceled.notional, Some(requested_notional));
+        maybe_record_live_json(
+            harness,
+            "alpaca-trade-orders",
+            "paper-notional-canceled",
+            &canceled,
+            "notional order canceled sample should record",
+        );
+
+        Ok(())
+    }
+    .await;
+
+    maybe_cancel_order(harness, cleanup_order_id.as_deref()).await;
+    result.expect("notional lifecycle should complete against live paper");
+}
+
+async fn orders_extended_hours_scenario(_harness: &TradeTestHarness) {
+    let harness = _harness;
+    if maybe_skip_live_market_session(harness, "extended-hours lifecycle").await {
+        return;
+    }
+
+    let client = harness.trade_client();
+    let limit_price = non_marketable_buy_limit_price(harness.data_client(), ORDER_TEST_SYMBOL)
+        .await
+        .expect("extended-hours limit price should be discoverable");
+    let client_order_id = unique_client_order_id(&format!(
+        "phase21-{}-extended-hours",
+        target_slug(harness)
+    ));
+    let mut cleanup_order_id: Option<String> = None;
+
+    let result: Result<(), Error> = async {
+        let created = client
+            .orders()
+            .create(CreateRequest {
+                symbol: Some(ORDER_TEST_SYMBOL.to_owned()),
+                qty: Some(Decimal::ONE),
+                notional: None,
+                side: Some(OrderSide::Buy),
+                r#type: Some(OrderType::Limit),
+                time_in_force: Some(TimeInForce::Day),
+                limit_price: Some(limit_price),
+                stop_price: None,
+                trail_price: None,
+                trail_percent: None,
+                extended_hours: Some(true),
+                client_order_id: Some(client_order_id.clone()),
+                ..CreateRequest::default()
+            })
+            .await?;
+        cleanup_order_id = Some(created.id.clone());
+        assert!(created.extended_hours);
+        assert_eq!(created.limit_price, Some(limit_price));
+
+        let fetched = client.orders().get(&created.id).await?;
+        assert_eq!(fetched.id, created.id);
+        assert!(fetched.extended_hours);
+
+        let listed = client
+            .orders()
+            .list(ListRequest {
+                status: Some(QueryOrderStatus::Open),
+                limit: Some(50),
+                ..ListRequest::default()
+            })
+            .await?;
+        assert!(listed.iter().any(|order| order.id == created.id));
+
+        let fetched_by_client_order_id = client
+            .orders()
+            .get_by_client_order_id(&client_order_id)
+            .await?;
+        assert_eq!(fetched_by_client_order_id.id, created.id);
+        assert!(fetched_by_client_order_id.extended_hours);
+
+        let canceled = cancel_order_and_wait(harness, &created.id).await?;
+        cleanup_order_id = None;
+        assert_eq!(canceled.status, OrderStatus::Canceled);
+        assert!(canceled.extended_hours);
+        maybe_record_live_json(
+            harness,
+            "alpaca-trade-orders",
+            "paper-extended-hours-canceled",
+            &canceled,
+            "extended-hours order canceled sample should record",
+        );
+
+        Ok(())
+    }
+    .await;
+
+    maybe_cancel_order(harness, cleanup_order_id.as_deref()).await;
+    result.expect("extended-hours lifecycle should complete against live paper");
+}
+
+async fn orders_bracket_scenario(_harness: &TradeTestHarness) {
+    let harness = _harness;
+    if maybe_skip_live_market_session(harness, "bracket lifecycle").await {
+        return;
+    }
+
+    let client = harness.trade_client();
+    let pricing = stock_order_price_context(harness.data_client(), ORDER_TEST_SYMBOL)
+        .await
+        .expect("bracket price context should be discoverable");
+    let entry_limit_price = advanced_entry_buy_limit_price(&pricing);
+    let stop_loss_price = protective_long_stop_price(&pricing, entry_limit_price);
+    let take_profit = TakeProfit {
+        limit_price: pricing.resting_sell_limit_price,
+    };
+    let stop_loss = StopLoss {
+        stop_price: stop_loss_price,
+        limit_price: None,
+    };
+    let client_order_id = unique_client_order_id(&format!(
+        "phase21-{}-bracket",
+        target_slug(harness)
+    ));
+    let mut cleanup_order_id: Option<String> = None;
+
+    let result: Result<(), Error> = async {
+        let created = client
+            .orders()
+            .create(CreateRequest {
+                symbol: Some(ORDER_TEST_SYMBOL.to_owned()),
+                qty: Some(Decimal::ONE),
+                notional: None,
+                side: Some(OrderSide::Buy),
+                r#type: Some(OrderType::Limit),
+                time_in_force: Some(TimeInForce::Day),
+                limit_price: Some(entry_limit_price),
+                stop_price: None,
+                trail_price: None,
+                trail_percent: None,
+                extended_hours: Some(false),
+                client_order_id: Some(client_order_id.clone()),
+                order_class: Some(OrderClass::Bracket),
+                take_profit: Some(take_profit.clone()),
+                stop_loss: Some(stop_loss.clone()),
+                legs: None,
+                position_intent: None,
+            })
+            .await?;
+        cleanup_order_id = Some(created.id.clone());
+        assert_eq!(created.order_class, OrderClass::Bracket);
+        assert_eq!(created.limit_price, Some(entry_limit_price));
+        assert_eq!(created.side, OrderSide::Buy);
+
+        let fetched = client.orders().get(&created.id).await?;
+        assert_eq!(fetched.id, created.id);
+        assert_eq!(fetched.order_class, OrderClass::Bracket);
+
+        let fetched_by_client_order_id = client
+            .orders()
+            .get_by_client_order_id(&client_order_id)
+            .await?;
+        assert_eq!(fetched_by_client_order_id.id, created.id);
+
+        let nested_list = client
+            .orders()
+            .list(ListRequest {
+                status: Some(QueryOrderStatus::All),
+                limit: Some(100),
+                nested: Some(true),
+                ..ListRequest::default()
+            })
+            .await?;
+        let nested = nested_list
+            .into_iter()
+            .find(|order| order.id == created.id)
+            .expect("nested orders list should expose the bracket order");
+        let nested_legs = nested
+            .legs
+            .expect("nested bracket order should include exit legs");
+        assert_eq!(nested_legs.len(), 2);
+        assert!(nested_legs.iter().all(|leg| leg.side == OrderSide::Sell));
+
+        let canceled = cancel_order_and_wait(harness, &created.id).await?;
+        cleanup_order_id = None;
+        assert_eq!(canceled.status, OrderStatus::Canceled);
+        maybe_record_live_json(
+            harness,
+            "alpaca-trade-orders",
+            "paper-bracket-canceled",
+            &canceled,
+            "bracket order canceled sample should record",
+        );
+
+        Ok(())
+    }
+    .await;
+
+    maybe_cancel_order(harness, cleanup_order_id.as_deref()).await;
+    result.expect("bracket lifecycle should complete against live paper");
+}
+
+async fn orders_oto_scenario(_harness: &TradeTestHarness) {
+    let harness = _harness;
+    if maybe_skip_live_market_session(harness, "oto lifecycle").await {
+        return;
+    }
+
+    let client = harness.trade_client();
+    let pricing = stock_order_price_context(harness.data_client(), ORDER_TEST_SYMBOL)
+        .await
+        .expect("oto price context should be discoverable");
+    let entry_limit_price = advanced_entry_buy_limit_price(&pricing);
+    let take_profit = TakeProfit {
+        limit_price: pricing.resting_sell_limit_price,
+    };
+    let client_order_id = unique_client_order_id(&format!(
+        "phase21-{}-oto",
+        target_slug(harness)
+    ));
+    let mut cleanup_order_id: Option<String> = None;
+
+    let result: Result<(), Error> = async {
+        let created = client
+            .orders()
+            .create(CreateRequest {
+                symbol: Some(ORDER_TEST_SYMBOL.to_owned()),
+                qty: Some(Decimal::ONE),
+                notional: None,
+                side: Some(OrderSide::Buy),
+                r#type: Some(OrderType::Limit),
+                time_in_force: Some(TimeInForce::Day),
+                limit_price: Some(entry_limit_price),
+                stop_price: None,
+                trail_price: None,
+                trail_percent: None,
+                extended_hours: Some(false),
+                client_order_id: Some(client_order_id.clone()),
+                order_class: Some(OrderClass::Oto),
+                take_profit: Some(take_profit.clone()),
+                stop_loss: None,
+                legs: None,
+                position_intent: None,
+            })
+            .await?;
+        cleanup_order_id = Some(created.id.clone());
+        assert_eq!(created.order_class, OrderClass::Oto);
+        assert_eq!(created.limit_price, Some(entry_limit_price));
+        assert_eq!(created.side, OrderSide::Buy);
+        assert_eq!(created.stop_loss, None);
+
+        let fetched = client.orders().get(&created.id).await?;
+        assert_eq!(fetched.id, created.id);
+        assert_eq!(fetched.order_class, OrderClass::Oto);
+
+        let fetched_by_client_order_id = client
+            .orders()
+            .get_by_client_order_id(&client_order_id)
+            .await?;
+        assert_eq!(fetched_by_client_order_id.id, created.id);
+
+        let nested_list = client
+            .orders()
+            .list(ListRequest {
+                status: Some(QueryOrderStatus::All),
+                limit: Some(100),
+                nested: Some(true),
+                ..ListRequest::default()
+            })
+            .await?;
+        let nested = nested_list
+            .into_iter()
+            .find(|order| order.id == created.id)
+            .expect("nested orders list should expose the oto order");
+        let nested_legs = nested
+            .legs
+            .expect("nested oto order should include one exit leg");
+        assert_eq!(nested_legs.len(), 1);
+        assert_eq!(nested_legs[0].side, OrderSide::Sell);
+
+        let canceled = cancel_order_and_wait(harness, &created.id).await?;
+        cleanup_order_id = None;
+        assert_eq!(canceled.status, OrderStatus::Canceled);
+        maybe_record_live_json(
+            harness,
+            "alpaca-trade-orders",
+            "paper-oto-canceled",
+            &canceled,
+            "oto order canceled sample should record",
+        );
+
+        Ok(())
+    }
+    .await;
+
+    maybe_cancel_order(harness, cleanup_order_id.as_deref()).await;
+    result.expect("oto lifecycle should complete against live paper");
+}
+
+async fn orders_oco_scenario(_harness: &TradeTestHarness) {
+    let harness = _harness;
+    if maybe_skip_live_market_session(harness, "oco lifecycle").await {
+        return;
+    }
+
+    ensure_symbol_flat(harness, ORDER_TEST_SYMBOL).await;
+
+    let client = harness.trade_client();
+    let pricing = stock_order_price_context(harness.data_client(), ORDER_TEST_SYMBOL)
+        .await
+        .expect("oco price context should be discoverable");
+    let take_profit = TakeProfit {
+        limit_price: pricing.resting_sell_limit_price,
+    };
+    let stop_loss = StopLoss {
+        stop_price: protective_long_stop_price(&pricing, pricing.bid.round_dp(2)),
+        limit_price: None,
+    };
+    let mut cleanup_order_id: Option<String> = None;
+
+    let result: Result<(), Error> = async {
+        let open_order = open_test_equity_position(
+            harness,
+            ORDER_TEST_SYMBOL,
+            &unique_client_order_id(&format!("phase21-{}-oco-open", target_slug(harness))),
+        )
+        .await?;
+        assert_eq!(open_order.status, OrderStatus::Filled);
+        let position = wait_for_position(harness, ORDER_TEST_SYMBOL).await;
+        assert_eq!(position.symbol, ORDER_TEST_SYMBOL);
+
+        let client_order_id = unique_client_order_id(&format!(
+            "phase21-{}-oco",
+            target_slug(harness)
+        ));
+        let created = client
+            .orders()
+            .create(CreateRequest {
+                symbol: Some(ORDER_TEST_SYMBOL.to_owned()),
+                qty: Some(Decimal::ONE),
+                notional: None,
+                side: Some(OrderSide::Sell),
+                r#type: Some(OrderType::Limit),
+                time_in_force: Some(TimeInForce::Day),
+                limit_price: None,
+                stop_price: None,
+                trail_price: None,
+                trail_percent: None,
+                extended_hours: Some(false),
+                client_order_id: Some(client_order_id.clone()),
+                order_class: Some(OrderClass::Oco),
+                take_profit: Some(take_profit.clone()),
+                stop_loss: Some(stop_loss.clone()),
+                legs: None,
+                position_intent: None,
+            })
+            .await?;
+        cleanup_order_id = Some(created.id.clone());
+        assert_eq!(created.order_class, OrderClass::Oco);
+        assert_eq!(created.side, OrderSide::Sell);
+
+        let fetched = client.orders().get(&created.id).await?;
+        assert_eq!(fetched.id, created.id);
+        assert_eq!(fetched.order_class, OrderClass::Oco);
+
+        let fetched_by_client_order_id = client
+            .orders()
+            .get_by_client_order_id(&client_order_id)
+            .await?;
+        assert_eq!(fetched_by_client_order_id.id, created.id);
+
+        let nested_list = client
+            .orders()
+            .list(ListRequest {
+                status: Some(QueryOrderStatus::Open),
+                limit: Some(50),
+                nested: Some(true),
+                ..ListRequest::default()
+            })
+            .await?;
+        let nested = nested_list
+            .into_iter()
+            .find(|order| order.id == created.id)
+            .expect("nested orders list should expose the oco order");
+        let nested_legs = nested
+            .legs
+            .expect("nested oco order should include a stop-loss child leg");
+        assert_eq!(nested_legs.len(), 1);
+        assert_eq!(nested_legs[0].side, OrderSide::Sell);
+
+        let canceled = cancel_order_and_wait(harness, &created.id).await?;
+        cleanup_order_id = None;
+        assert_eq!(canceled.status, OrderStatus::Canceled);
+        maybe_record_live_json(
+            harness,
+            "alpaca-trade-orders",
+            "paper-oco-canceled",
+            &canceled,
+            "oco order canceled sample should record",
+        );
+
+        Ok(())
+    }
+    .await;
+
+    maybe_cancel_order(harness, cleanup_order_id.as_deref()).await;
+    let _ = wait_for_no_open_orders_for_symbol(harness, ORDER_TEST_SYMBOL).await;
+    ensure_symbol_flat(harness, ORDER_TEST_SYMBOL).await;
+
+    result.expect("oco lifecycle should complete against live paper");
+}
+
 async fn maybe_skip_live_market_session(harness: &TradeTestHarness, scenario: &str) -> bool {
     let Some(paper_state) = harness.live_paper_session_state().await else {
         return false;
@@ -657,6 +1430,120 @@ fn target_slug(harness: &TradeTestHarness) -> &'static str {
         "mock"
     } else {
         "paper"
+    }
+}
+
+fn advanced_entry_buy_limit_price(pricing: &StockOrderPriceContext) -> Decimal {
+    let minimum_tick = Decimal::new(1, 2);
+    let candidate = (pricing.bid * Decimal::new(95, 2)).round_dp(2);
+    if candidate > minimum_tick {
+        candidate
+    } else {
+        minimum_tick
+    }
+}
+
+fn protective_long_stop_price(
+    pricing: &StockOrderPriceContext,
+    entry_limit_price: Decimal,
+) -> Decimal {
+    let minimum_tick = Decimal::new(1, 2);
+    let market_candidate = (pricing.bid * Decimal::new(95, 2)).round_dp(2);
+    let entry_guard = (entry_limit_price - Decimal::new(50, 2)).round_dp(2);
+    let bounded = market_candidate.min(entry_guard);
+    if bounded > minimum_tick {
+        bounded
+    } else {
+        minimum_tick
+    }
+}
+
+fn trailing_stop_amount(pricing: &StockOrderPriceContext) -> Decimal {
+    let minimum = Decimal::new(500, 2);
+    let candidate = (pricing.ask * Decimal::new(2, 2)).round_dp(2);
+    candidate.max(minimum)
+}
+
+async fn open_test_equity_position(
+    harness: &TradeTestHarness,
+    symbol: &str,
+    client_order_id: &str,
+) -> Result<alpaca_trade::orders::Order, Error> {
+    let opened = harness
+        .trade_client()
+        .orders()
+        .create(CreateRequest {
+            symbol: Some(symbol.to_owned()),
+            qty: Some(Decimal::ONE),
+            notional: None,
+            side: Some(OrderSide::Buy),
+            r#type: Some(OrderType::Market),
+            time_in_force: Some(TimeInForce::Day),
+            limit_price: None,
+            stop_price: None,
+            trail_price: None,
+            trail_percent: None,
+            extended_hours: Some(false),
+            client_order_id: Some(client_order_id.to_owned()),
+            ..CreateRequest::default()
+        })
+        .await?;
+
+    wait_for_order_status(harness, &opened.id, OrderStatus::Filled).await
+}
+
+async fn cancel_order_and_wait(
+    harness: &TradeTestHarness,
+    order_id: &str,
+) -> Result<alpaca_trade::orders::Order, Error> {
+    harness.trade_client().orders().cancel(order_id).await?;
+    wait_for_order_status(harness, order_id, OrderStatus::Canceled).await
+}
+
+async fn maybe_cancel_order(harness: &TradeTestHarness, order_id: Option<&str>) {
+    if let Some(order_id) = order_id {
+        let _ = harness.trade_client().orders().cancel(order_id).await;
+        let _ = wait_for_order_status(harness, order_id, OrderStatus::Canceled).await;
+    }
+}
+
+async fn wait_for_no_open_orders_for_symbol(
+    harness: &TradeTestHarness,
+    symbol: &str,
+) -> Result<(), Error> {
+    for _attempt in 0..harness.poll_attempts() {
+        let open_orders = harness
+            .trade_client()
+            .orders()
+            .list(ListRequest {
+                status: Some(QueryOrderStatus::Open),
+                limit: Some(100),
+                symbols: Some(vec![symbol.to_owned()]),
+                ..ListRequest::default()
+            })
+            .await?;
+        if open_orders.is_empty() {
+            return Ok(());
+        }
+        tokio::time::sleep(harness.poll_interval()).await;
+    }
+
+    let open_orders = harness
+        .trade_client()
+        .orders()
+        .list(ListRequest {
+            status: Some(QueryOrderStatus::Open),
+            limit: Some(100),
+            symbols: Some(vec![symbol.to_owned()]),
+            ..ListRequest::default()
+        })
+        .await?;
+    if open_orders.is_empty() {
+        Ok(())
+    } else {
+        Err(Error::InvalidRequest(format!(
+            "open orders still remain for {symbol}"
+        )))
     }
 }
 

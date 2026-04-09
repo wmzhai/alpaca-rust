@@ -37,6 +37,7 @@ pub(crate) struct MultiLegOrderContext {
     pub(crate) legs: Vec<OptionLegRequest>,
     pub(crate) non_marketable_limit_price: Decimal,
     pub(crate) more_conservative_limit_price: Decimal,
+    pub(crate) deep_resting_limit_price: Decimal,
     pub(crate) marketable_limit_price: Decimal,
 }
 
@@ -53,7 +54,9 @@ pub(crate) struct SingleLegOptionOrderContext {
 pub(crate) struct StockOrderPriceContext {
     pub(crate) bid: Decimal,
     pub(crate) ask: Decimal,
+    pub(crate) resting_buy_limit_price: Decimal,
     pub(crate) non_marketable_buy_limit_price: Decimal,
+    pub(crate) resting_sell_limit_price: Decimal,
     pub(crate) resting_buy_stop_price: Decimal,
     pub(crate) resting_buy_stop_limit_price: Decimal,
 }
@@ -132,7 +135,9 @@ pub(crate) async fn stock_order_price_context(
     Ok(StockOrderPriceContext {
         bid,
         ask,
+        resting_buy_limit_price: resting_buy_limit_price(bid, ask),
         non_marketable_buy_limit_price: conservative_price_below_market(bid.max(Decimal::new(1, 2))),
+        resting_sell_limit_price: conservative_price_above_market(ask.max(Decimal::new(1, 2))),
         resting_buy_stop_price,
         resting_buy_stop_limit_price,
     })
@@ -571,6 +576,10 @@ fn build_debit_mleg_context(
         non_marketable_limit_price,
         &format!("multi-leg strategy for {underlying_symbol}"),
     )?;
+    let deep_resting_limit_price = distinct_more_conservative_limit_price(
+        more_conservative_limit_price,
+        &format!("multi-leg strategy for {underlying_symbol}"),
+    )?;
     let marketable_limit_price = (worst_debit + Decimal::new(10, 2)).round_dp(2);
 
     Ok(MultiLegOrderContext {
@@ -586,6 +595,7 @@ fn build_debit_mleg_context(
             .collect(),
         non_marketable_limit_price,
         more_conservative_limit_price,
+        deep_resting_limit_price,
         marketable_limit_price,
     })
 }
@@ -620,6 +630,19 @@ fn conservative_price_below_market(price: Decimal) -> Decimal {
 
 fn conservative_price_above_market(price: Decimal) -> Decimal {
     (price * Decimal::new(105, 2)).round_dp(2) + Decimal::new(1, 2)
+}
+
+fn resting_buy_limit_price(bid: Decimal, ask: Decimal) -> Decimal {
+    let minimum_tick = Decimal::new(1, 2);
+    let near_ask = (ask - minimum_tick).round_dp(2);
+    if near_ask > MIN_PRICE && near_ask < ask {
+        return near_ask;
+    }
+    if bid > MIN_PRICE && bid < ask {
+        return bid.round_dp(2);
+    }
+
+    conservative_price_below_market(ask.max(minimum_tick))
 }
 
 fn distinct_more_conservative_limit_price(
@@ -852,6 +875,45 @@ mod tests {
         assert_eq!(context.legs[0].symbol, "SPY250620C00095000");
         assert_eq!(context.legs[1].symbol, "SPY250620C00100000");
         assert!(context.more_conservative_limit_price < context.non_marketable_limit_price);
+        assert!(context.deep_resting_limit_price < context.more_conservative_limit_price);
+    }
+
+    #[test]
+    fn find_call_spread_skips_pairs_without_strict_non_marketable_gap() {
+        let context = find_call_spread(
+            "SPY",
+            Decimal::new(94, 0),
+            vec![
+                quoted(
+                    "SPY250620C00090000",
+                    "2025-06-20",
+                    OptionContractType::Call,
+                    90,
+                    10,
+                    11,
+                ),
+                quoted(
+                    "SPY250620C00095000",
+                    "2025-06-20",
+                    OptionContractType::Call,
+                    95,
+                    9,
+                    10,
+                ),
+                quoted(
+                    "SPY250620C00100000",
+                    "2025-06-20",
+                    OptionContractType::Call,
+                    100,
+                    5,
+                    6,
+                ),
+            ],
+        )
+        .expect("the helper should skip pairs whose mock midpoint collides with the floor");
+
+        assert_eq!(context.legs[0].symbol, "SPY250620C00095000");
+        assert_eq!(context.legs[1].symbol, "SPY250620C00100000");
     }
 
     #[test]
