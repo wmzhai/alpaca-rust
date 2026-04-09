@@ -50,6 +50,15 @@ pub(crate) struct SingleLegOptionOrderContext {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+pub(crate) struct StockOrderPriceContext {
+    pub(crate) bid: Decimal,
+    pub(crate) ask: Decimal,
+    pub(crate) non_marketable_buy_limit_price: Decimal,
+    pub(crate) resting_buy_stop_price: Decimal,
+    pub(crate) resting_buy_stop_limit_price: Decimal,
+}
+
+#[derive(Debug, Clone, PartialEq)]
 struct QuotedOptionContract {
     contract: ObservedOptionContract,
     bid: Decimal,
@@ -80,12 +89,53 @@ pub(crate) fn unique_client_order_id(prefix: &str) -> String {
     )
 }
 
+pub(crate) async fn clear_option_universe_cache() {
+    option_universe_cache().lock().await.clear();
+}
+
 pub(crate) async fn non_marketable_buy_limit_price(
     data_client: &DataClient,
     underlying_symbol: &str,
 ) -> Result<Decimal, String> {
-    let reference_bid = latest_stock_bid(data_client, underlying_symbol).await?;
-    Ok(conservative_price_below_market(reference_bid.max(Decimal::new(1, 2))))
+    Ok(stock_order_price_context(data_client, underlying_symbol)
+        .await?
+        .non_marketable_buy_limit_price)
+}
+
+pub(crate) async fn stock_order_price_context(
+    data_client: &DataClient,
+    underlying_symbol: &str,
+) -> Result<StockOrderPriceContext, String> {
+    let snapshot = data_client
+        .stocks()
+        .snapshot(SnapshotRequest {
+            symbol: underlying_symbol.to_owned(),
+            feed: Some(DataFeed::Iex),
+            currency: None,
+        })
+        .await
+        .map_err(|error| format!("stock snapshot request failed: {error}"))?;
+    let quote = snapshot.latest_quote.ok_or_else(|| {
+        format!("stock snapshot for {underlying_symbol} did not include latest_quote")
+    })?;
+
+    let bid = quote.bp.or(quote.ap).ok_or_else(|| {
+        format!("stock snapshot for {underlying_symbol} did not include bid or ask price")
+    })?;
+    let ask = quote.ap.or(quote.bp).ok_or_else(|| {
+        format!("stock snapshot for {underlying_symbol} did not include ask or bid price")
+    })?;
+    let resting_buy_stop_price = conservative_price_above_market(ask.max(Decimal::new(1, 2)));
+    let resting_buy_stop_limit_price =
+        conservative_price_above_market(resting_buy_stop_price.max(Decimal::new(1, 2)));
+
+    Ok(StockOrderPriceContext {
+        bid,
+        ask,
+        non_marketable_buy_limit_price: conservative_price_below_market(bid.max(Decimal::new(1, 2))),
+        resting_buy_stop_price,
+        resting_buy_stop_limit_price,
+    })
 }
 
 pub(crate) async fn discover_mleg_call_spread(
@@ -124,10 +174,18 @@ pub(crate) async fn discover_single_leg_call(
     underlying_symbol: &str,
 ) -> Result<SingleLegOptionOrderContext, String> {
     let universe = discover_option_universe(data_client, underlying_symbol).await?;
-    let calls = contracts_for_type(&universe.quoted_contracts, OptionContractType::Call);
+    let mut calls = contracts_for_type(&universe.quoted_contracts, OptionContractType::Call);
+    calls.sort_by(|left, right| single_leg_sort_key(left, universe.spot).cmp(&single_leg_sort_key(right, universe.spot)));
 
-    let contract = select_single_leg_contract(universe.spot, calls)?;
-    build_single_leg_context(underlying_symbol, contract)
+    for contract in calls {
+        if let Ok(context) = build_single_leg_context(underlying_symbol, contract) {
+            return Ok(context);
+        }
+    }
+
+    Err(format!(
+        "failed to discover a quoted single-leg call for {underlying_symbol} with a distinct replace price"
+    ))
 }
 
 fn option_universe_cache() -> &'static Mutex<HashMap<String, CachedOptionUniverse>> {
@@ -211,28 +269,6 @@ async fn latest_stock_ask(
 
     quote.ap.or(quote.bp).ok_or_else(|| {
         format!("stock snapshot for {underlying_symbol} did not include ask or bid price")
-    })
-}
-
-async fn latest_stock_bid(
-    data_client: &DataClient,
-    underlying_symbol: &str,
-) -> Result<Decimal, String> {
-    let snapshot = data_client
-        .stocks()
-        .snapshot(SnapshotRequest {
-            symbol: underlying_symbol.to_owned(),
-            feed: Some(DataFeed::Iex),
-            currency: None,
-        })
-        .await
-        .map_err(|error| format!("stock snapshot request failed: {error}"))?;
-    let quote = snapshot.latest_quote.ok_or_else(|| {
-        format!("stock snapshot for {underlying_symbol} did not include latest_quote")
-    })?;
-
-    quote.bp.or(quote.ap).ok_or_else(|| {
-        format!("stock snapshot for {underlying_symbol} did not include bid or ask price")
     })
 }
 
@@ -458,18 +494,6 @@ fn find_iron_condor(
     ))
 }
 
-fn select_single_leg_contract(
-    spot: Decimal,
-    contracts: Vec<QuotedOptionContract>,
-) -> Result<QuotedOptionContract, String> {
-    contracts
-        .into_iter()
-        .min_by(|left, right| {
-            single_leg_sort_key(left, spot).cmp(&single_leg_sort_key(right, spot))
-        })
-        .ok_or_else(|| "no quoted contracts were available for single-leg discovery".to_owned())
-}
-
 fn strategy_leg(
     contract: QuotedOptionContract,
     ratio_qty: u32,
@@ -496,8 +520,12 @@ fn build_single_leg_context(
     underlying_symbol: &str,
     contract: QuotedOptionContract,
 ) -> Result<SingleLegOptionOrderContext, String> {
-    let non_marketable_limit_price = conservative_price_below_market(contract.bid.max(Decimal::new(1, 2)));
-    let more_conservative_limit_price = conservative_price_below_market(non_marketable_limit_price);
+    let non_marketable_limit_price =
+        conservative_price_below_market(contract.bid.max(Decimal::new(1, 2)));
+    let more_conservative_limit_price = distinct_more_conservative_limit_price(
+        non_marketable_limit_price,
+        &format!("single-leg option contract {}", contract.contract.symbol),
+    )?;
     let marketable_limit_price = contract.ask.max(Decimal::new(1, 2)).round_dp(2);
 
     if marketable_limit_price <= MIN_PRICE {
@@ -539,7 +567,10 @@ fn build_debit_mleg_context(
 
     let non_marketable_limit_price =
         conservative_price_below_market(best_debit.max(Decimal::new(1, 2)));
-    let more_conservative_limit_price = conservative_price_below_market(non_marketable_limit_price);
+    let more_conservative_limit_price = distinct_more_conservative_limit_price(
+        non_marketable_limit_price,
+        &format!("multi-leg strategy for {underlying_symbol}"),
+    )?;
     let marketable_limit_price = (worst_debit + Decimal::new(10, 2)).round_dp(2);
 
     Ok(MultiLegOrderContext {
@@ -584,6 +615,24 @@ fn conservative_price_below_market(price: Decimal) -> Decimal {
         floor
     } else {
         scaled.round_dp(2)
+    }
+}
+
+fn conservative_price_above_market(price: Decimal) -> Decimal {
+    (price * Decimal::new(105, 2)).round_dp(2) + Decimal::new(1, 2)
+}
+
+fn distinct_more_conservative_limit_price(
+    non_marketable_limit_price: Decimal,
+    subject: &str,
+) -> Result<Decimal, String> {
+    let candidate = conservative_price_below_market(non_marketable_limit_price);
+    if candidate < non_marketable_limit_price {
+        Ok(candidate)
+    } else {
+        Err(format!(
+            "{subject} did not produce a distinct replace price"
+        ))
     }
 }
 
@@ -764,6 +813,63 @@ mod tests {
         assert_eq!(context.legs[0].side, Some(OrderSide::Buy));
         assert_eq!(context.legs[1].symbol, "SPY250620P00090000");
         assert_eq!(context.legs[1].side, Some(OrderSide::Sell));
+    }
+
+    #[test]
+    fn find_call_spread_skips_pairs_without_distinct_replace_price() {
+        let context = find_call_spread(
+            "SPY",
+            Decimal::new(94, 0),
+            vec![
+                quoted(
+                    "SPY250620C00090000",
+                    "2025-06-20",
+                    OptionContractType::Call,
+                    90,
+                    1,
+                    2,
+                ),
+                quoted(
+                    "SPY250620C00095000",
+                    "2025-06-20",
+                    OptionContractType::Call,
+                    95,
+                    1,
+                    1,
+                ),
+                quoted(
+                    "SPY250620C00100000",
+                    "2025-06-20",
+                    OptionContractType::Call,
+                    100,
+                    0,
+                    0,
+                ),
+            ],
+        )
+        .expect("the helper should skip floor-colliding pairs and find a replaceable spread");
+
+        assert_eq!(context.legs[0].symbol, "SPY250620C00095000");
+        assert_eq!(context.legs[1].symbol, "SPY250620C00100000");
+        assert!(context.more_conservative_limit_price < context.non_marketable_limit_price);
+    }
+
+    #[test]
+    fn build_single_leg_context_rejects_indistinguishable_replace_price() {
+        let error = build_single_leg_context(
+            "SPY",
+            quoted(
+                "SPY250620C00095000",
+                "2025-06-20",
+                OptionContractType::Call,
+                95,
+                0,
+                1,
+            ),
+        )
+        .expect_err("floor-colliding single-leg quotes should be rejected");
+
+        assert!(error.contains("distinct replace price"));
     }
 
     #[test]
