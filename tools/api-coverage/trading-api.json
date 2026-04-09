@@ -33,8 +33,8 @@
   "summary": {
     "official_total_operations": 64,
     "adopted_family_total_operations": 40,
-    "implemented_mirror_operations": 24,
-    "open_gaps": 16
+    "implemented_mirror_operations": 27,
+    "open_gaps": 13
   },
   "mirror_layer": [
     {
@@ -134,6 +134,103 @@
         "status": "200",
         "field_signatures": [
           "[]|unknown"
+        ]
+      }
+    },
+    {
+      "tag": "Account Configurations",
+      "method": "GET",
+      "path": "/v2/account/configurations",
+      "local_resource": "account_configurations",
+      "mirror_method": "get",
+      "parameter_contract": {
+        "signatures": []
+      },
+      "response_contract": {
+        "status": "200",
+        "field_signatures": [
+          "disable_overnight_trading|boolean",
+          "dtbp_check|string|enum=both,entry,exit",
+          "fractional_trading|boolean",
+          "max_margin_multiplier|string",
+          "max_options_trading_level|integer|enum=0,1,2,3",
+          "no_shorting|boolean",
+          "pdt_check|string",
+          "ptp_no_exception_entry|boolean",
+          "suspend_trade|boolean",
+          "trade_confirm_email|string"
+        ]
+      }
+    },
+    {
+      "tag": "Account Configurations",
+      "method": "PATCH",
+      "path": "/v2/account/configurations",
+      "local_resource": "account_configurations",
+      "mirror_method": "update",
+      "parameter_contract": {
+        "signatures": [
+          "disable_overnight_trading|body|optional|boolean",
+          "dtbp_check|body|optional|string|enum=both,entry,exit",
+          "fractional_trading|body|optional|boolean",
+          "max_margin_multiplier|body|optional|string",
+          "max_options_trading_level|body|optional|integer|enum=0,1,2,3",
+          "no_shorting|body|optional|boolean",
+          "pdt_check|body|optional|string",
+          "ptp_no_exception_entry|body|optional|boolean",
+          "suspend_trade|body|optional|boolean",
+          "trade_confirm_email|body|optional|string"
+        ]
+      },
+      "response_contract": {
+        "status": "200",
+        "field_signatures": [
+          "disable_overnight_trading|boolean",
+          "dtbp_check|string|enum=both,entry,exit",
+          "fractional_trading|boolean",
+          "max_margin_multiplier|string",
+          "max_options_trading_level|integer|enum=0,1,2,3",
+          "no_shorting|boolean",
+          "pdt_check|string",
+          "ptp_no_exception_entry|boolean",
+          "suspend_trade|boolean",
+          "trade_confirm_email|string"
+        ]
+      }
+    },
+    {
+      "tag": "Portfolio History",
+      "method": "GET",
+      "path": "/v2/account/portfolio/history",
+      "local_resource": "portfolio_history",
+      "mirror_method": "get",
+      "parameter_contract": {
+        "signatures": [
+          "cashflow_types|query|optional|string",
+          "end|query|optional|string",
+          "extended_hours|query|optional|string",
+          "intraday_reporting|query|optional|string|enum=continuous,extended_hours,market_hours|default=market_hours",
+          "period|query|optional|string",
+          "pnl_reset|query|optional|string|enum=no_reset,per_day|default=per_day",
+          "start|query|optional|string",
+          "timeframe|query|optional|string"
+        ]
+      },
+      "response_contract": {
+        "status": "200",
+        "field_signatures": [
+          "base_value_asof|string",
+          "base_value|number",
+          "cashflow|object",
+          "equity[]|number",
+          "equity|array",
+          "profit_loss[]|number",
+          "profit_loss_pct[]|number",
+          "profit_loss_pct|array",
+          "profit_loss|array",
+          "timeframe|string",
+          "timestamp[]|integer",
+          "timestamp|array"
         ]
       }
     },
@@ -480,7 +577,26 @@
       "local_resource": "orders",
       "mirror_method": "create",
       "parameter_contract": {
-        "signatures": []
+        "signatures": [
+          "advanced_instructions|body|optional|object",
+          "client_order_id|body|optional|string",
+          "extended_hours|body|optional|boolean",
+          "legs|body|optional|array|items=object",
+          "limit_price|body|optional|string",
+          "notional|body|optional|string",
+          "order_class|body|optional|string|enum=,bracket,mleg,oco,oto,simple",
+          "position_intent|body|optional|string|enum=buy_to_close,buy_to_open,sell_to_close,sell_to_open",
+          "qty|body|optional|string",
+          "side|body|optional|string|enum=buy,sell",
+          "stop_loss|body|optional|object",
+          "stop_price|body|optional|string",
+          "symbol|body|optional|string",
+          "take_profit|body|optional|object",
+          "time_in_force|body|required|string|enum=cls,day,fok,gtc,ioc,opg",
+          "trail_percent|body|optional|string",
+          "trail_price|body|optional|string",
+          "type|body|required|string|enum=limit,market,stop,stop_limit,trailing_stop"
+        ]
       },
       "response_contract": {
         "status": "200",
@@ -664,7 +780,14 @@
       "mirror_method": "replace",
       "parameter_contract": {
         "signatures": [
-          "order_id|path|required|string"
+          "advanced_instructions|body|optional|object",
+          "client_order_id|body|optional|string",
+          "limit_price|body|optional|string",
+          "order_id|path|required|string",
+          "qty|body|optional|string",
+          "stop_price|body|optional|string",
+          "time_in_force|body|optional|string|enum=cls,day,fok,gtc,ioc,opg",
+          "trail|body|optional|string"
         ]
       },
       "response_contract": {
@@ -1172,30 +1295,6 @@
   ],
   "convenience_layer": [],
   "planned_gaps": [
-    {
-      "tag": "Account Configurations",
-      "method": "GET",
-      "path": "/v2/account/configurations",
-      "local_resource": "account_configurations",
-      "mirror_method": "get",
-      "status": "planned_gap"
-    },
-    {
-      "tag": "Account Configurations",
-      "method": "PATCH",
-      "path": "/v2/account/configurations",
-      "local_resource": "account_configurations",
-      "mirror_method": "update",
-      "status": "planned_gap"
-    },
-    {
-      "tag": "Portfolio History",
-      "method": "GET",
-      "path": "/v2/account/portfolio/history",
-      "local_resource": "portfolio_history",
-      "mirror_method": "get",
-      "status": "planned_gap"
-    },
     {
       "tag": "Assets",
       "method": "GET",

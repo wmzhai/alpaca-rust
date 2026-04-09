@@ -168,6 +168,38 @@ def parameter_signatures($root; $path_item; $operation):
       | join("|")
     );
 
+def body_signatures($root; $operation):
+  ($operation.requestBody // null) as $request_body
+  | if $request_body == null then
+      []
+    else
+      ($request_body | deref($root; .)) as $resolved_body
+      | (($resolved_body.content["application/json"].schema // ($resolved_body.content | to_entries[0]? | .value.schema) // null)) as $schema
+      | if $schema == null then
+          []
+        else
+          normalized_schema($root; $schema) as $body_schema
+          | [
+              ($body_schema.properties // {})
+              | to_entries[]?
+              | .key as $name
+              | normalized_schema($root; .value) as $field_schema
+              | [
+                  $name,
+                  "body",
+                  (if (($body_schema.required // []) | index($name)) != null then "required" else "optional" end),
+                  type_label($field_schema),
+                  (if $field_schema.items? != null then "items=" + type_label(normalized_schema($root; $field_schema.items)) else empty end),
+                  (if $field_schema.enum? != null then "enum=" + ($field_schema.enum | map(scalar_string) | sort | join(",")) else empty end),
+                  (if $field_schema.default? != null then "default=" + ($field_schema.default | scalar_string) else empty end)
+                ]
+              | map(select(length > 0))
+              | join("|")
+            ]
+          | sort
+        end
+    end;
+
 def field_signatures($root; $schema; $path):
   normalized_schema($root; $schema) as $resolved
   | if (($resolved.properties? | type) == "object") or ($resolved.additionalProperties? != null) or (type_label($resolved) == "object") then
@@ -219,10 +251,10 @@ extract_parameter_signatures() {
     . as \$root
     | (\$root.paths[\$path] // empty) as \$path_item
     | (\$path_item[(\$method | ascii_downcase)] // empty) as \$operation
-    | if \$operation == null then
+      | if \$operation == null then
         empty
       else
-        parameter_signatures(\$root; \$path_item; \$operation)[]
+        (parameter_signatures(\$root; \$path_item; \$operation) + body_signatures(\$root; \$operation))[]
       end
   " "$openapi_file" | sort -u
 }

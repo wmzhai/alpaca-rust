@@ -10,9 +10,11 @@ use alpaca_http::{
 use serde::de::DeserializeOwned;
 
 use crate::{
-    Error, account::AccountClient, activities::ActivitiesClient, assets::AssetsClient,
-    calendar::CalendarClient, clock::ClockClient, options_contracts::OptionsContractsClient,
-    orders::OrdersClient, positions::PositionsClient,
+    Error, account::AccountClient,
+    account_configurations::AccountConfigurationsClient, activities::ActivitiesClient,
+    assets::AssetsClient, calendar::CalendarClient, clock::ClockClient,
+    options_contracts::OptionsContractsClient, orders::OrdersClient,
+    portfolio_history::PortfolioHistoryClient, positions::PositionsClient,
 };
 
 pub const TRADE_API_KEY_ENV: &str = "ALPACA_TRADE_API_KEY";
@@ -83,6 +85,11 @@ impl Client {
     }
 
     #[must_use]
+    pub fn account_configurations(&self) -> AccountConfigurationsClient {
+        AccountConfigurationsClient::new(self.inner.clone())
+    }
+
+    #[must_use]
     pub fn activities(&self) -> ActivitiesClient {
         ActivitiesClient::new(self.inner.clone())
     }
@@ -110,6 +117,11 @@ impl Client {
     #[must_use]
     pub fn orders(&self) -> OrdersClient {
         OrdersClient::new(self.inner.clone())
+    }
+
+    #[must_use]
+    pub fn portfolio_history(&self) -> PortfolioHistoryClient {
+        PortfolioHistoryClient::new(self.inner.clone())
     }
 
     #[must_use]

@@ -4,12 +4,14 @@ mod client;
 mod error;
 
 pub mod account;
+pub mod account_configurations;
 pub mod activities;
 pub mod assets;
 pub mod calendar;
 pub mod clock;
 pub mod options_contracts;
 pub mod orders;
+pub mod portfolio_history;
 pub mod positions;
 
 pub use client::{
