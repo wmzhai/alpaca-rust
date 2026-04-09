@@ -14,19 +14,20 @@ use std::{
 use alpaca_trade::{
     orders::{
         CreateRequest, ListRequest, OrderClass, OrderSide, OrderStatus, OrderType,
-        QueryOrderStatus, ReplaceRequest, StopLoss, TakeProfit, TimeInForce,
+        PositionIntent, QueryOrderStatus, ReplaceRequest, StopLoss, TakeProfit, TimeInForce,
     },
     Error,
 };
 use live_support::can_submit_live_paper_orders;
 use order_support::{
     StockOrderPriceContext, clear_option_universe_cache, discover_mleg_call_spread,
-    non_marketable_buy_limit_price, stock_order_price_context, unique_client_order_id,
+    discover_mleg_put_spread, discover_single_leg_call, non_marketable_buy_limit_price,
+    stock_order_price_context, unique_client_order_id,
 };
 use rust_decimal::Decimal;
 use serde::Serialize;
 use target_support::{TradeTestHarness, TradeTestTarget};
-use trade_state_support::{ensure_symbol_flat, wait_for_position};
+use trade_state_support::{ensure_symbol_flat, wait_for_position, wait_for_position_absent};
 use tokio::sync::Mutex;
 
 const ORDER_TEST_SYMBOL: &str = "SPY";
@@ -180,6 +181,36 @@ async fn orders_oco_live_paper() {
         return;
     };
     orders_oco_scenario(&harness).await;
+}
+
+#[tokio::test]
+async fn orders_option_limit_live_paper() {
+    let _guard = orders_api_lock().await;
+    let Some(harness) = target_support::build_trade_test_harness(TradeTestTarget::LivePaper).await
+    else {
+        return;
+    };
+    orders_option_limit_scenario(&harness).await;
+}
+
+#[tokio::test]
+async fn orders_option_market_live_paper() {
+    let _guard = orders_api_lock().await;
+    let Some(harness) = target_support::build_trade_test_harness(TradeTestTarget::LivePaper).await
+    else {
+        return;
+    };
+    orders_option_market_scenario(&harness).await;
+}
+
+#[tokio::test]
+async fn orders_mleg_market_live_paper() {
+    let _guard = orders_api_lock().await;
+    let Some(harness) = target_support::build_trade_test_harness(TradeTestTarget::LivePaper).await
+    else {
+        return;
+    };
+    orders_mleg_market_scenario(&harness).await;
 }
 
 async fn orders_basic_lifecycle_scenario(harness: &TradeTestHarness) {
@@ -350,6 +381,12 @@ async fn orders_mleg_limit_replace_scenario(harness: &TradeTestHarness) {
         .await
         .expect("created multi-leg order should remain readable");
     assert_eq!(fetched.id, created.id);
+    assert!(
+        fetched
+            .legs
+            .as_ref()
+            .is_some_and(|legs| legs.len() == spread.legs.len())
+    );
 
     let fetched_by_client_order_id = client
         .orders()
@@ -402,6 +439,33 @@ async fn orders_mleg_limit_replace_scenario(harness: &TradeTestHarness) {
         .await
         .expect("replacement client_order_id lookup should succeed");
     assert_eq!(replacement_by_client_order_id.id, replacement.id);
+    assert!(
+        replacement_by_client_order_id
+            .legs
+            .as_ref()
+            .is_some_and(|legs| legs.len() == spread.legs.len())
+    );
+
+    let nested_list = client
+        .orders()
+        .list(ListRequest {
+            status: Some(QueryOrderStatus::All),
+            limit: Some(100),
+            nested: Some(true),
+            ..ListRequest::default()
+        })
+        .await
+        .expect("nested order list should remain readable for multi-leg replacement");
+    let nested_replacement = nested_list
+        .into_iter()
+        .find(|order| order.id == replacement.id)
+        .expect("nested order list should include the replacement multi-leg order");
+    assert!(
+        nested_replacement
+            .legs
+            .as_ref()
+            .is_some_and(|legs| legs.len() == spread.legs.len())
+    );
 
     if harness.is_mock() {
         let created_legs = created
@@ -460,7 +524,7 @@ async fn orders_cancel_all_scenario(harness: &TradeTestHarness) {
         .await
         .expect("quoted multi-leg call spread should be discoverable for cancel_all");
     let mleg_limit_price = if harness.is_mock() {
-        spread.more_conservative_limit_price
+        spread.deep_resting_limit_price
     } else {
         spread.non_marketable_limit_price
     };
@@ -1393,6 +1457,322 @@ async fn orders_oco_scenario(_harness: &TradeTestHarness) {
     result.expect("oco lifecycle should complete against live paper");
 }
 
+async fn orders_option_limit_scenario(_harness: &TradeTestHarness) {
+    let harness = _harness;
+    if maybe_skip_live_market_session(harness, "option limit lifecycle").await {
+        return;
+    }
+
+    clear_option_universe_cache().await;
+    let contract = discover_single_leg_call(harness.data_client(), ORDER_TEST_SYMBOL)
+        .await
+        .expect("quoted single-leg option contract should be discoverable");
+    ensure_symbol_flat(harness, &contract.contract_symbol).await;
+
+    let client = harness.trade_client();
+    let client_order_id = unique_client_order_id(&format!(
+        "phase21-{}-option-limit",
+        target_slug(harness)
+    ));
+    let replaced_client_order_id = format!("{client_order_id}-replaced");
+    let mut cleanup_order_id: Option<String> = None;
+
+    let result: Result<(), Error> = async {
+        let created = client
+            .orders()
+            .create(CreateRequest {
+                symbol: Some(contract.contract_symbol.clone()),
+                qty: Some(Decimal::ONE),
+                notional: None,
+                side: Some(OrderSide::Buy),
+                r#type: Some(OrderType::Limit),
+                time_in_force: Some(TimeInForce::Day),
+                limit_price: Some(contract.non_marketable_limit_price),
+                stop_price: None,
+                trail_price: None,
+                trail_percent: None,
+                extended_hours: Some(false),
+                client_order_id: Some(client_order_id.clone()),
+                order_class: None,
+                take_profit: None,
+                stop_loss: None,
+                legs: None,
+                position_intent: Some(PositionIntent::BuyToOpen),
+            })
+            .await?;
+        cleanup_order_id = Some(created.id.clone());
+        assert_eq!(created.symbol, contract.contract_symbol);
+        assert_eq!(created.asset_class, "us_option");
+        assert_eq!(created.position_intent, Some(PositionIntent::BuyToOpen));
+        assert_eq!(created.limit_price, Some(contract.non_marketable_limit_price));
+
+        let fetched = client.orders().get(&created.id).await?;
+        assert_eq!(fetched.id, created.id);
+        assert_eq!(fetched.asset_class, "us_option");
+
+        let listed = client
+            .orders()
+            .list(ListRequest {
+                status: Some(QueryOrderStatus::Open),
+                limit: Some(50),
+                symbols: Some(vec![contract.contract_symbol.clone()]),
+                ..ListRequest::default()
+            })
+            .await?;
+        assert!(listed.iter().any(|order| order.id == created.id));
+
+        let fetched_by_client_order_id = client
+            .orders()
+            .get_by_client_order_id(&client_order_id)
+            .await?;
+        assert_eq!(fetched_by_client_order_id.id, created.id);
+
+        let replacement = client
+            .orders()
+            .replace(
+                &created.id,
+                ReplaceRequest {
+                    qty: None,
+                    time_in_force: Some(TimeInForce::Day),
+                    limit_price: Some(contract.more_conservative_limit_price),
+                    stop_price: None,
+                    trail: None,
+                    client_order_id: Some(replaced_client_order_id.clone()),
+                },
+            )
+            .await?;
+        cleanup_order_id = Some(replacement.id.clone());
+        assert_ne!(replacement.id, created.id);
+        assert_eq!(replacement.replaces.as_deref(), Some(created.id.as_str()));
+        assert_eq!(
+            replacement.limit_price,
+            Some(contract.more_conservative_limit_price)
+        );
+
+        let replaced_source = wait_for_order_status(harness, &created.id, OrderStatus::Replaced)
+            .await?;
+        assert_eq!(
+            replaced_source.replaced_by.as_deref(),
+            Some(replacement.id.as_str())
+        );
+
+        let replacement_by_client_order_id = client
+            .orders()
+            .get_by_client_order_id(&replaced_client_order_id)
+            .await?;
+        assert_eq!(replacement_by_client_order_id.id, replacement.id);
+
+        let canceled = cancel_order_and_wait(harness, &replacement.id).await?;
+        cleanup_order_id = None;
+        assert_eq!(canceled.status, OrderStatus::Canceled);
+        assert_eq!(canceled.asset_class, "us_option");
+        maybe_record_live_json(
+            harness,
+            "alpaca-trade-orders",
+            "option-limit-canceled",
+            &canceled,
+            "single-leg option limit sample should record",
+        );
+
+        Ok(())
+    }
+    .await;
+
+    maybe_cancel_order(harness, cleanup_order_id.as_deref()).await;
+    ensure_symbol_flat(harness, &contract.contract_symbol).await;
+
+    result.expect("single-leg option limit lifecycle should complete against live paper");
+}
+
+async fn orders_option_market_scenario(_harness: &TradeTestHarness) {
+    let harness = _harness;
+    if maybe_skip_live_market_session(harness, "option market lifecycle").await {
+        return;
+    }
+
+    clear_option_universe_cache().await;
+    let contract = discover_single_leg_call(harness.data_client(), ORDER_TEST_SYMBOL)
+        .await
+        .expect("quoted single-leg option contract should be discoverable");
+    ensure_symbol_flat(harness, &contract.contract_symbol).await;
+
+    let result: Result<(), Error> = async {
+        let opened = submit_option_market_order(
+            harness,
+            &contract.contract_symbol,
+            Decimal::ONE,
+            OrderSide::Buy,
+            PositionIntent::BuyToOpen,
+            &unique_client_order_id(&format!(
+                "phase21-{}-option-market-open",
+                target_slug(harness)
+            )),
+        )
+        .await?;
+        assert_eq!(opened.status, OrderStatus::Filled);
+        assert_eq!(opened.asset_class, "us_option");
+        assert_eq!(opened.position_intent, Some(PositionIntent::BuyToOpen));
+
+        let opened_position = wait_for_position(harness, &contract.contract_symbol).await;
+        assert_eq!(opened_position.symbol, contract.contract_symbol);
+        assert_eq!(opened_position.asset_class, "us_option");
+
+        let closed = submit_option_market_order(
+            harness,
+            &contract.contract_symbol,
+            Decimal::ONE,
+            OrderSide::Sell,
+            PositionIntent::SellToClose,
+            &unique_client_order_id(&format!(
+                "phase21-{}-option-market-close",
+                target_slug(harness)
+            )),
+        )
+        .await?;
+        assert_eq!(closed.status, OrderStatus::Filled);
+        assert_eq!(closed.position_intent, Some(PositionIntent::SellToClose));
+        wait_for_position_absent(harness, &contract.contract_symbol).await;
+
+        maybe_record_live_json(
+            harness,
+            "alpaca-trade-orders",
+            "option-market-roundtrip",
+            &vec![opened.clone(), closed.clone()],
+            "single-leg option market roundtrip should record",
+        );
+
+        Ok(())
+    }
+    .await;
+
+    ensure_symbol_flat(harness, &contract.contract_symbol).await;
+    result.expect("single-leg option market lifecycle should complete against live paper");
+}
+
+async fn orders_mleg_market_scenario(_harness: &TradeTestHarness) {
+    let harness = _harness;
+    if maybe_skip_live_market_session(harness, "multi-leg market lifecycle").await {
+        return;
+    }
+
+    clear_option_universe_cache().await;
+    let spread = discover_mleg_put_spread(harness.data_client(), ORDER_TEST_SYMBOL)
+        .await
+        .expect("quoted multi-leg put spread should be discoverable");
+    for leg in &spread.legs {
+        ensure_symbol_flat(harness, &leg.symbol).await;
+    }
+
+    let client = harness.trade_client();
+    let client_order_id = unique_client_order_id(&format!(
+        "phase21-{}-mleg-market",
+        target_slug(harness)
+    ));
+
+    let result: Result<(), Error> = async {
+        let created = client
+            .orders()
+            .create(CreateRequest {
+                symbol: None,
+                qty: Some(Decimal::ONE),
+                notional: None,
+                side: Some(OrderSide::Buy),
+                r#type: Some(OrderType::Market),
+                time_in_force: Some(TimeInForce::Day),
+                limit_price: None,
+                stop_price: None,
+                trail_price: None,
+                trail_percent: None,
+                extended_hours: Some(false),
+                client_order_id: Some(client_order_id.clone()),
+                order_class: Some(OrderClass::Mleg),
+                take_profit: None,
+                stop_loss: None,
+                legs: Some(spread.legs.clone()),
+                position_intent: None,
+            })
+            .await?;
+        assert_eq!(created.order_class, OrderClass::Mleg);
+        assert_eq!(created.r#type, OrderType::Market);
+        assert!(
+            created
+                .legs
+                .as_ref()
+                .is_some_and(|legs| legs.len() == spread.legs.len())
+        );
+
+        let fetched = client.orders().get(&created.id).await?;
+        assert_eq!(fetched.id, created.id);
+        assert_eq!(fetched.order_class, OrderClass::Mleg);
+        assert!(
+            fetched
+                .legs
+                .as_ref()
+                .is_some_and(|legs| legs.len() == spread.legs.len())
+        );
+
+        let listed = client
+            .orders()
+            .list(ListRequest {
+                status: Some(QueryOrderStatus::All),
+                limit: Some(100),
+                nested: Some(true),
+                ..ListRequest::default()
+            })
+            .await?;
+        assert!(listed.iter().any(|order| order.id == created.id));
+
+        let fetched_by_client_order_id = client
+            .orders()
+            .get_by_client_order_id(&client_order_id)
+            .await?;
+        assert_eq!(fetched_by_client_order_id.id, created.id);
+
+        let filled = wait_for_order_status(harness, &created.id, OrderStatus::Filled).await?;
+        assert_eq!(filled.status, OrderStatus::Filled);
+        assert_eq!(filled.order_class, OrderClass::Mleg);
+        let filled_legs = filled
+            .legs
+            .as_ref()
+            .expect("filled multi-leg order should retain nested legs");
+        assert_eq!(filled_legs.len(), spread.legs.len());
+        assert!(
+            filled_legs
+                .iter()
+                .all(|leg| leg.status == OrderStatus::Filled && leg.filled_avg_price.is_some())
+        );
+
+        for leg in filled_legs {
+            let position = wait_for_position(harness, &leg.symbol).await;
+            assert_eq!(position.symbol, leg.symbol);
+            assert_eq!(position.asset_class, "us_option");
+        }
+
+        close_filled_mleg_legs(harness, &filled, "phase21").await?;
+
+        for leg in &spread.legs {
+            wait_for_position_absent(harness, &leg.symbol).await;
+        }
+
+        maybe_record_live_json(
+            harness,
+            "alpaca-trade-orders",
+            "mleg-market-roundtrip",
+            &filled,
+            "multi-leg market roundtrip should record",
+        );
+
+        Ok(())
+    }
+    .await;
+
+    for leg in &spread.legs {
+        ensure_symbol_flat(harness, &leg.symbol).await;
+    }
+
+    result.expect("multi-leg option market lifecycle should complete against live paper");
+}
+
 async fn maybe_skip_live_market_session(harness: &TradeTestHarness, scenario: &str) -> bool {
     let Some(paper_state) = harness.live_paper_session_state().await else {
         return false;
@@ -1490,6 +1870,91 @@ async fn open_test_equity_position(
         .await?;
 
     wait_for_order_status(harness, &opened.id, OrderStatus::Filled).await
+}
+
+async fn submit_option_market_order(
+    harness: &TradeTestHarness,
+    symbol: &str,
+    qty: Decimal,
+    side: OrderSide,
+    position_intent: PositionIntent,
+    client_order_id: &str,
+) -> Result<alpaca_trade::orders::Order, Error> {
+    let created = harness
+        .trade_client()
+        .orders()
+        .create(CreateRequest {
+            symbol: Some(symbol.to_owned()),
+            qty: Some(qty),
+            notional: None,
+            side: Some(side),
+            r#type: Some(OrderType::Market),
+            time_in_force: Some(TimeInForce::Day),
+            limit_price: None,
+            stop_price: None,
+            trail_price: None,
+            trail_percent: None,
+            extended_hours: Some(false),
+            client_order_id: Some(client_order_id.to_owned()),
+            order_class: None,
+            take_profit: None,
+            stop_loss: None,
+            legs: None,
+            position_intent: Some(position_intent),
+        })
+        .await?;
+
+    wait_for_order_status(harness, &created.id, OrderStatus::Filled).await
+}
+
+async fn close_filled_mleg_legs(
+    harness: &TradeTestHarness,
+    filled_order: &alpaca_trade::orders::Order,
+    phase_slug: &str,
+) -> Result<(), Error> {
+    let legs = filled_order
+        .legs
+        .as_ref()
+        .expect("filled multi-leg order should expose nested legs");
+    for (index, leg) in legs.iter().enumerate() {
+        let (close_side, close_intent) = reverse_leg_close_shape(
+            leg.side.clone(),
+            leg.position_intent
+                .clone()
+                .expect("filled multi-leg leg should expose position intent"),
+        );
+        let close_qty = leg.ratio_qty.map(Decimal::from).unwrap_or(Decimal::ONE);
+        let closed = submit_option_market_order(
+            harness,
+            &leg.symbol,
+            close_qty,
+            close_side,
+            close_intent,
+            &unique_client_order_id(&format!(
+                "{phase_slug}-{}-mleg-close-leg-{index}",
+                target_slug(harness)
+            )),
+        )
+        .await?;
+        assert_eq!(closed.status, OrderStatus::Filled);
+    }
+
+    Ok(())
+}
+
+fn reverse_leg_close_shape(
+    open_side: OrderSide,
+    open_intent: PositionIntent,
+) -> (OrderSide, PositionIntent) {
+    match (open_side, open_intent) {
+        (OrderSide::Buy, PositionIntent::BuyToOpen) => {
+            (OrderSide::Sell, PositionIntent::SellToClose)
+        }
+        (OrderSide::Sell, PositionIntent::SellToOpen) => {
+            (OrderSide::Buy, PositionIntent::BuyToClose)
+        }
+        (side, intent) => panic!("unexpected multi-leg open shape: {side:?} / {intent:?}"),
+    }
 }
 
 async fn cancel_order_and_wait(
