@@ -76,7 +76,7 @@ async fn news_resource_reads_real_api_endpoint() {
     recorder
         .record_json("alpaca-data-news", "list-all", &all_pages)
         .expect("news list_all sample should record");
-    assert!(all_pages.news.len() > 1);
+    assert!(all_pages.news.len() >= windowed_first_page.news.len());
     assert!(all_pages.next_page_token.is_none());
     assert!(
         all_pages

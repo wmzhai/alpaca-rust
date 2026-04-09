@@ -4,8 +4,8 @@ This document is the public companion for `tools/api-coverage/market-data-api.js
 
 ## Scope
 
-- Included: non-crypto Alpaca Market Data HTTP API
-- Excluded: crypto, stream, websocket
+- Included: Alpaca Market Data HTTP API families used by the first US-equities-and-options-focused release
+- Excluded: crypto, forex, fixed income, logos, screener, stream, websocket
 
 ## Status
 

@@ -3,9 +3,13 @@
   "generated_at": "2026-04-09",
   "scope": {
     "api": "market-data-http",
-    "included_asset_scope": "non-crypto",
+    "included_asset_scope": "us-equities-and-options-focused",
     "excluded_scopes": [
       "crypto",
+      "fixed_income",
+      "forex",
+      "logos",
+      "screener",
       "stream",
       "websocket"
     ]
@@ -18,20 +22,16 @@
     "crate": "alpaca-data",
     "adopted_tags": [
       "Corporate actions",
-      "Fixed income",
-      "Forex",
-      "Logos",
       "News",
       "Option",
-      "Screener",
       "Stock"
     ]
   },
   "summary": {
     "official_total_operations": 47,
-    "adopted_family_total_operations": 34,
+    "adopted_family_total_operations": 28,
     "implemented_mirror_operations": 28,
-    "open_gaps": 6
+    "open_gaps": 0
   },
   "mirror_layer": [
     {
@@ -1331,56 +1331,7 @@
     }
   ],
   "convenience_layer": [],
-  "planned_gaps": [
-    {
-      "tag": "Forex",
-      "method": "GET",
-      "path": "/v1beta1/forex/latest/rates",
-      "local_resource": "forex",
-      "mirror_method": "latest_rates",
-      "status": "planned_gap"
-    },
-    {
-      "tag": "Forex",
-      "method": "GET",
-      "path": "/v1beta1/forex/rates",
-      "local_resource": "forex",
-      "mirror_method": "rates",
-      "status": "planned_gap"
-    },
-    {
-      "tag": "Logos",
-      "method": "GET",
-      "path": "/v1beta1/logos/{symbol}",
-      "local_resource": "logos",
-      "mirror_method": "get",
-      "status": "planned_gap"
-    },
-    {
-      "tag": "Fixed income",
-      "method": "GET",
-      "path": "/v1beta1/fixed_income/latest/prices",
-      "local_resource": "fixed_income",
-      "mirror_method": "latest_prices",
-      "status": "planned_gap"
-    },
-    {
-      "tag": "Screener",
-      "method": "GET",
-      "path": "/v1beta1/screener/stocks/most-actives",
-      "local_resource": "screener",
-      "mirror_method": "most_actives",
-      "status": "planned_gap"
-    },
-    {
-      "tag": "Screener",
-      "method": "GET",
-      "path": "/v1beta1/screener/{market_type}/movers",
-      "local_resource": "screener",
-      "mirror_method": "movers",
-      "status": "planned_gap"
-    }
-  ],
+  "planned_gaps": [],
   "excluded_families": [
     {
       "tag": "Crypto",
@@ -1389,6 +1340,26 @@
     {
       "tag": "Crypto perpetual futures",
       "status": "explicitly_excluded"
+    },
+    {
+      "tag": "Fixed income",
+      "status": "explicitly_excluded",
+      "reason": "Out of scope for the first US-equities-and-options-focused release"
+    },
+    {
+      "tag": "Forex",
+      "status": "explicitly_excluded",
+      "reason": "Out of scope for the first US-equities-and-options-focused release"
+    },
+    {
+      "tag": "Logos",
+      "status": "explicitly_excluded",
+      "reason": "Presentation-oriented asset branding is not part of the v1 trading/data core"
+    },
+    {
+      "tag": "Screener",
+      "status": "explicitly_excluded",
+      "reason": "Discovery endpoints are deferred until after the first core equities/options release"
     }
   ],
   "known_parity_gaps": []
