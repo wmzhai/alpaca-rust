@@ -5,12 +5,11 @@ mod order_support;
 
 use std::{
     sync::OnceLock,
-    time::{Duration, SystemTime, UNIX_EPOCH},
+    time::Duration,
 };
 
 use alpaca_data::{
     Client as DataClient,
-    stocks::{DataFeed, SnapshotRequest},
 };
 use alpaca_trade::{
     Client,
@@ -23,7 +22,9 @@ use live_support::{
     AlpacaService, LiveHttpProbe, LiveTestEnv, SampleRecorder, can_submit_live_paper_orders,
     paper_market_session_state,
 };
-use order_support::discover_mleg_call_spread;
+use order_support::{
+    discover_mleg_call_spread, non_marketable_buy_limit_price, unique_client_order_id,
+};
 use rust_decimal::Decimal;
 use tokio::sync::Mutex;
 
@@ -79,27 +80,10 @@ async fn orders_resource_reads_real_paper_api_and_optionally_submits_order() {
         return;
     }
 
-    let snapshot = data_client
-        .stocks()
-        .snapshot(SnapshotRequest {
-            symbol: ORDER_TEST_SYMBOL.to_owned(),
-            feed: Some(DataFeed::Iex),
-            currency: None,
-        })
+    let non_marketable_buy_price = non_marketable_buy_limit_price(&data_client, ORDER_TEST_SYMBOL)
         .await
-        .expect("stock snapshot should load for real order pricing");
-    let quote = snapshot
-        .latest_quote
-        .expect("stock snapshot should include latest quote");
-    let bid = quote.bp.expect("latest quote should include bid price");
-    let non_marketable_buy_price = (bid * Decimal::new(95, 2)).round_dp(2);
-    let client_order_id = format!(
-        "phase12-paper-{}",
-        SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .expect("system clock should be after epoch")
-            .as_millis()
-    );
+        .expect("non-marketable stock price should be discoverable from live market data");
+    let client_order_id = unique_client_order_id("phase12-paper");
 
     let created = trade_client
         .orders()
@@ -192,13 +176,7 @@ async fn orders_replace_real_paper_mleg_limit_order_and_cancel_replacement() {
     let spread = discover_mleg_call_spread(&data_client, ORDER_TEST_SYMBOL)
         .await
         .expect("quoted multi-leg call spread should be discoverable from the live option chain");
-    let client_order_id = format!(
-        "phase20-paper-mleg-{}",
-        SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .expect("system clock should be after epoch")
-            .as_millis()
-    );
+    let client_order_id = unique_client_order_id("phase20-paper-mleg");
     let replaced_client_order_id = format!("{client_order_id}-replaced");
 
     let created = trade_client
@@ -338,30 +316,13 @@ async fn orders_cancel_all_real_paper_cancels_open_limit_orders() {
         return;
     }
 
-    let snapshot = data_client
-        .stocks()
-        .snapshot(SnapshotRequest {
-            symbol: ORDER_TEST_SYMBOL.to_owned(),
-            feed: Some(DataFeed::Iex),
-            currency: None,
-        })
+    let non_marketable_buy_price = non_marketable_buy_limit_price(&data_client, ORDER_TEST_SYMBOL)
         .await
-        .expect("stock snapshot should load for real cancel_all pricing");
-    let quote = snapshot
-        .latest_quote
-        .expect("stock snapshot should include latest quote");
-    let bid = quote.bp.expect("latest quote should include bid price");
-    let non_marketable_buy_price = (bid * Decimal::new(95, 2)).round_dp(2);
+        .expect("non-marketable stock price should be discoverable for cancel_all");
 
     let mut created_ids = Vec::new();
     for index in 0..2 {
-        let client_order_id = format!(
-            "phase20-paper-cancel-all-{index}-{}",
-            SystemTime::now()
-                .duration_since(UNIX_EPOCH)
-                .expect("system clock should be after epoch")
-                .as_millis()
-        );
+        let client_order_id = unique_client_order_id(&format!("phase20-paper-cancel-all-{index}"));
         let created = trade_client
             .orders()
             .create(CreateRequest {

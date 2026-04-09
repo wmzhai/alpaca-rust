@@ -2,6 +2,7 @@
 
 use std::collections::HashMap;
 use std::sync::OnceLock;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use alpaca_data::{
     Client as DataClient,
@@ -40,6 +41,15 @@ pub(crate) struct MultiLegOrderContext {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+pub(crate) struct SingleLegOptionOrderContext {
+    pub(crate) underlying_symbol: String,
+    pub(crate) contract_symbol: String,
+    pub(crate) non_marketable_limit_price: Decimal,
+    pub(crate) more_conservative_limit_price: Decimal,
+    pub(crate) marketable_limit_price: Decimal,
+}
+
+#[derive(Debug, Clone, PartialEq)]
 struct QuotedOptionContract {
     contract: ObservedOptionContract,
     bid: Decimal,
@@ -58,6 +68,24 @@ struct StrategyLeg {
     ratio_qty: u32,
     side: OrderSide,
     position_intent: PositionIntent,
+}
+
+pub(crate) fn unique_client_order_id(prefix: &str) -> String {
+    format!(
+        "{prefix}-{}",
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("system clock should be after epoch")
+            .as_millis()
+    )
+}
+
+pub(crate) async fn non_marketable_buy_limit_price(
+    data_client: &DataClient,
+    underlying_symbol: &str,
+) -> Result<Decimal, String> {
+    let reference_bid = latest_stock_bid(data_client, underlying_symbol).await?;
+    Ok(conservative_price_below_market(reference_bid.max(Decimal::new(1, 2))))
 }
 
 pub(crate) async fn discover_mleg_call_spread(
@@ -89,6 +117,17 @@ pub(crate) async fn discover_mleg_iron_condor(
     let calls = contracts_for_type(&universe.quoted_contracts, OptionContractType::Call);
 
     find_iron_condor(underlying_symbol, universe.spot, puts, calls)
+}
+
+pub(crate) async fn discover_single_leg_call(
+    data_client: &DataClient,
+    underlying_symbol: &str,
+) -> Result<SingleLegOptionOrderContext, String> {
+    let universe = discover_option_universe(data_client, underlying_symbol).await?;
+    let calls = contracts_for_type(&universe.quoted_contracts, OptionContractType::Call);
+
+    let contract = select_single_leg_contract(universe.spot, calls)?;
+    build_single_leg_context(underlying_symbol, contract)
 }
 
 fn option_universe_cache() -> &'static Mutex<HashMap<String, CachedOptionUniverse>> {
@@ -172,6 +211,28 @@ async fn latest_stock_ask(
 
     quote.ap.or(quote.bp).ok_or_else(|| {
         format!("stock snapshot for {underlying_symbol} did not include ask or bid price")
+    })
+}
+
+async fn latest_stock_bid(
+    data_client: &DataClient,
+    underlying_symbol: &str,
+) -> Result<Decimal, String> {
+    let snapshot = data_client
+        .stocks()
+        .snapshot(SnapshotRequest {
+            symbol: underlying_symbol.to_owned(),
+            feed: Some(DataFeed::Iex),
+            currency: None,
+        })
+        .await
+        .map_err(|error| format!("stock snapshot request failed: {error}"))?;
+    let quote = snapshot.latest_quote.ok_or_else(|| {
+        format!("stock snapshot for {underlying_symbol} did not include latest_quote")
+    })?;
+
+    quote.bp.or(quote.ap).ok_or_else(|| {
+        format!("stock snapshot for {underlying_symbol} did not include bid or ask price")
     })
 }
 
@@ -397,6 +458,18 @@ fn find_iron_condor(
     ))
 }
 
+fn select_single_leg_contract(
+    spot: Decimal,
+    contracts: Vec<QuotedOptionContract>,
+) -> Result<QuotedOptionContract, String> {
+    contracts
+        .into_iter()
+        .min_by(|left, right| {
+            single_leg_sort_key(left, spot).cmp(&single_leg_sort_key(right, spot))
+        })
+        .ok_or_else(|| "no quoted contracts were available for single-leg discovery".to_owned())
+}
+
 fn strategy_leg(
     contract: QuotedOptionContract,
     ratio_qty: u32,
@@ -409,6 +482,38 @@ fn strategy_leg(
         side,
         position_intent,
     }
+}
+
+fn single_leg_sort_key(contract: &QuotedOptionContract, spot: Decimal) -> (String, Decimal, String) {
+    (
+        contract.contract.expiration_date.clone(),
+        (contract.contract.strike_price - spot).abs(),
+        contract.contract.symbol.clone(),
+    )
+}
+
+fn build_single_leg_context(
+    underlying_symbol: &str,
+    contract: QuotedOptionContract,
+) -> Result<SingleLegOptionOrderContext, String> {
+    let non_marketable_limit_price = conservative_price_below_market(contract.bid.max(Decimal::new(1, 2)));
+    let more_conservative_limit_price = conservative_price_below_market(non_marketable_limit_price);
+    let marketable_limit_price = contract.ask.max(Decimal::new(1, 2)).round_dp(2);
+
+    if marketable_limit_price <= MIN_PRICE {
+        return Err(format!(
+            "single-leg option contract {} did not have a usable marketable limit price",
+            contract.contract.symbol
+        ));
+    }
+
+    Ok(SingleLegOptionOrderContext {
+        underlying_symbol: underlying_symbol.to_owned(),
+        contract_symbol: contract.contract.symbol,
+        non_marketable_limit_price,
+        more_conservative_limit_price,
+        marketable_limit_price,
+    })
 }
 
 fn build_debit_mleg_context(
