@@ -136,7 +136,9 @@ pub(crate) async fn stock_order_price_context(
         bid,
         ask,
         resting_buy_limit_price: resting_buy_limit_price(bid, ask),
-        non_marketable_buy_limit_price: conservative_price_below_market(bid.max(Decimal::new(1, 2))),
+        non_marketable_buy_limit_price: conservative_price_below_market(
+            bid.max(Decimal::new(1, 2)),
+        ),
         resting_sell_limit_price: conservative_price_above_market(ask.max(Decimal::new(1, 2))),
         resting_buy_stop_price,
         resting_buy_stop_limit_price,
@@ -180,7 +182,9 @@ pub(crate) async fn discover_single_leg_call(
 ) -> Result<SingleLegOptionOrderContext, String> {
     let universe = discover_option_universe(data_client, underlying_symbol).await?;
     let mut calls = contracts_for_type(&universe.quoted_contracts, OptionContractType::Call);
-    calls.sort_by(|left, right| single_leg_sort_key(left, universe.spot).cmp(&single_leg_sort_key(right, universe.spot)));
+    calls.sort_by(|left, right| {
+        single_leg_sort_key(left, universe.spot).cmp(&single_leg_sort_key(right, universe.spot))
+    });
 
     for contract in calls {
         if let Ok(context) = build_single_leg_context(underlying_symbol, contract) {
@@ -513,7 +517,10 @@ fn strategy_leg(
     }
 }
 
-fn single_leg_sort_key(contract: &QuotedOptionContract, spot: Decimal) -> (String, Decimal, String) {
+fn single_leg_sort_key(
+    contract: &QuotedOptionContract,
+    spot: Decimal,
+) -> (String, Decimal, String) {
     (
         contract.contract.expiration_date.clone(),
         (contract.contract.strike_price - spot).abs(),

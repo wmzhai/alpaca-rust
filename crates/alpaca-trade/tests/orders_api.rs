@@ -7,16 +7,12 @@ mod target_support;
 #[path = "support/trade_state.rs"]
 mod trade_state_support;
 
-use std::{
-    sync::OnceLock,
-};
-
 use alpaca_trade::{
-    orders::{
-        CreateRequest, ListRequest, OrderClass, OrderSide, OrderStatus, OrderType,
-        PositionIntent, QueryOrderStatus, ReplaceRequest, StopLoss, TakeProfit, TimeInForce,
-    },
     Error,
+    orders::{
+        CreateRequest, ListRequest, OrderClass, OrderSide, OrderStatus, OrderType, PositionIntent,
+        QueryOrderStatus, ReplaceRequest, StopLoss, TakeProfit, TimeInForce,
+    },
 };
 use live_support::can_submit_live_paper_orders;
 use order_support::{
@@ -28,14 +24,12 @@ use rust_decimal::Decimal;
 use serde::Serialize;
 use target_support::{TradeTestHarness, TradeTestTarget};
 use trade_state_support::{ensure_symbol_flat, wait_for_position, wait_for_position_absent};
-use tokio::sync::Mutex;
 
 const ORDER_TEST_SYMBOL: &str = "SPY";
-static ORDERS_API_MUTEX: OnceLock<Mutex<()>> = OnceLock::new();
 
 #[tokio::test]
 async fn orders_basic_lifecycle_live_paper() {
-    let _guard = orders_api_lock().await;
+    let _guard = target_support::lock_live_paper_account().await;
     let Some(harness) = target_support::build_trade_test_harness(TradeTestTarget::LivePaper).await
     else {
         return;
@@ -45,7 +39,6 @@ async fn orders_basic_lifecycle_live_paper() {
 
 #[tokio::test]
 async fn orders_basic_lifecycle_mock() {
-    let _guard = orders_api_lock().await;
     let Some(harness) = target_support::build_trade_test_harness(TradeTestTarget::Mock).await
     else {
         return;
@@ -55,7 +48,7 @@ async fn orders_basic_lifecycle_mock() {
 
 #[tokio::test]
 async fn orders_mleg_limit_replace_live_paper() {
-    let _guard = orders_api_lock().await;
+    let _guard = target_support::lock_live_paper_account().await;
     let Some(harness) = target_support::build_trade_test_harness(TradeTestTarget::LivePaper).await
     else {
         return;
@@ -65,7 +58,6 @@ async fn orders_mleg_limit_replace_live_paper() {
 
 #[tokio::test]
 async fn orders_mleg_limit_replace_mock() {
-    let _guard = orders_api_lock().await;
     let Some(harness) = target_support::build_trade_test_harness(TradeTestTarget::Mock).await
     else {
         return;
@@ -75,7 +67,7 @@ async fn orders_mleg_limit_replace_mock() {
 
 #[tokio::test]
 async fn orders_cancel_all_live_paper() {
-    let _guard = orders_api_lock().await;
+    let _guard = target_support::lock_live_paper_account().await;
     let Some(harness) = target_support::build_trade_test_harness(TradeTestTarget::LivePaper).await
     else {
         return;
@@ -85,7 +77,6 @@ async fn orders_cancel_all_live_paper() {
 
 #[tokio::test]
 async fn orders_cancel_all_mock() {
-    let _guard = orders_api_lock().await;
     let Some(harness) = target_support::build_trade_test_harness(TradeTestTarget::Mock).await
     else {
         return;
@@ -95,7 +86,7 @@ async fn orders_cancel_all_mock() {
 
 #[tokio::test]
 async fn orders_stop_live_paper() {
-    let _guard = orders_api_lock().await;
+    let _guard = target_support::lock_live_paper_account().await;
     let Some(harness) = target_support::build_trade_test_harness(TradeTestTarget::LivePaper).await
     else {
         return;
@@ -105,7 +96,7 @@ async fn orders_stop_live_paper() {
 
 #[tokio::test]
 async fn orders_stop_limit_live_paper() {
-    let _guard = orders_api_lock().await;
+    let _guard = target_support::lock_live_paper_account().await;
     let Some(harness) = target_support::build_trade_test_harness(TradeTestTarget::LivePaper).await
     else {
         return;
@@ -115,7 +106,7 @@ async fn orders_stop_limit_live_paper() {
 
 #[tokio::test]
 async fn orders_trailing_stop_live_paper() {
-    let _guard = orders_api_lock().await;
+    let _guard = target_support::lock_live_paper_account().await;
     let Some(harness) = target_support::build_trade_test_harness(TradeTestTarget::LivePaper).await
     else {
         return;
@@ -125,7 +116,7 @@ async fn orders_trailing_stop_live_paper() {
 
 #[tokio::test]
 async fn orders_fractional_qty_live_paper() {
-    let _guard = orders_api_lock().await;
+    let _guard = target_support::lock_live_paper_account().await;
     let Some(harness) = target_support::build_trade_test_harness(TradeTestTarget::LivePaper).await
     else {
         return;
@@ -135,7 +126,7 @@ async fn orders_fractional_qty_live_paper() {
 
 #[tokio::test]
 async fn orders_notional_live_paper() {
-    let _guard = orders_api_lock().await;
+    let _guard = target_support::lock_live_paper_account().await;
     let Some(harness) = target_support::build_trade_test_harness(TradeTestTarget::LivePaper).await
     else {
         return;
@@ -145,7 +136,7 @@ async fn orders_notional_live_paper() {
 
 #[tokio::test]
 async fn orders_extended_hours_live_paper() {
-    let _guard = orders_api_lock().await;
+    let _guard = target_support::lock_live_paper_account().await;
     let Some(harness) = target_support::build_trade_test_harness(TradeTestTarget::LivePaper).await
     else {
         return;
@@ -155,7 +146,7 @@ async fn orders_extended_hours_live_paper() {
 
 #[tokio::test]
 async fn orders_bracket_live_paper() {
-    let _guard = orders_api_lock().await;
+    let _guard = target_support::lock_live_paper_account().await;
     let Some(harness) = target_support::build_trade_test_harness(TradeTestTarget::LivePaper).await
     else {
         return;
@@ -165,7 +156,7 @@ async fn orders_bracket_live_paper() {
 
 #[tokio::test]
 async fn orders_oto_live_paper() {
-    let _guard = orders_api_lock().await;
+    let _guard = target_support::lock_live_paper_account().await;
     let Some(harness) = target_support::build_trade_test_harness(TradeTestTarget::LivePaper).await
     else {
         return;
@@ -175,7 +166,7 @@ async fn orders_oto_live_paper() {
 
 #[tokio::test]
 async fn orders_oco_live_paper() {
-    let _guard = orders_api_lock().await;
+    let _guard = target_support::lock_live_paper_account().await;
     let Some(harness) = target_support::build_trade_test_harness(TradeTestTarget::LivePaper).await
     else {
         return;
@@ -185,7 +176,7 @@ async fn orders_oco_live_paper() {
 
 #[tokio::test]
 async fn orders_option_limit_live_paper() {
-    let _guard = orders_api_lock().await;
+    let _guard = target_support::lock_live_paper_account().await;
     let Some(harness) = target_support::build_trade_test_harness(TradeTestTarget::LivePaper).await
     else {
         return;
@@ -195,7 +186,7 @@ async fn orders_option_limit_live_paper() {
 
 #[tokio::test]
 async fn orders_option_market_live_paper() {
-    let _guard = orders_api_lock().await;
+    let _guard = target_support::lock_live_paper_account().await;
     let Some(harness) = target_support::build_trade_test_harness(TradeTestTarget::LivePaper).await
     else {
         return;
@@ -205,7 +196,7 @@ async fn orders_option_market_live_paper() {
 
 #[tokio::test]
 async fn orders_mleg_market_live_paper() {
-    let _guard = orders_api_lock().await;
+    let _guard = target_support::lock_live_paper_account().await;
     let Some(harness) = target_support::build_trade_test_harness(TradeTestTarget::LivePaper).await
     else {
         return;
@@ -239,10 +230,8 @@ async fn orders_basic_lifecycle_scenario(harness: &TradeTestHarness) {
     let limit_price = non_marketable_buy_limit_price(harness.data_client(), ORDER_TEST_SYMBOL)
         .await
         .expect("non-marketable stock price should be discoverable from live market data");
-    let client_order_id = unique_client_order_id(&format!(
-        "phase12-{}-basic",
-        target_slug(harness)
-    ));
+    let client_order_id =
+        unique_client_order_id(&format!("phase12-{}-basic", target_slug(harness)));
 
     let created = client
         .orders()
@@ -336,10 +325,7 @@ async fn orders_mleg_limit_replace_scenario(harness: &TradeTestHarness) {
     } else {
         spread.more_conservative_limit_price
     };
-    let client_order_id = unique_client_order_id(&format!(
-        "phase20-{}-mleg",
-        target_slug(harness)
-    ));
+    let client_order_id = unique_client_order_id(&format!("phase20-{}-mleg", target_slug(harness)));
     let replaced_client_order_id = format!("{client_order_id}-replaced");
 
     let created = client
@@ -366,7 +352,12 @@ async fn orders_mleg_limit_replace_scenario(harness: &TradeTestHarness) {
         .await
         .expect("multi-leg order create should succeed");
     assert_eq!(created.order_class, OrderClass::Mleg);
-    assert!(created.legs.as_ref().is_some_and(|legs| legs.len() == spread.legs.len()));
+    assert!(
+        created
+            .legs
+            .as_ref()
+            .is_some_and(|legs| legs.len() == spread.legs.len())
+    );
     maybe_record_live_json(
         harness,
         "alpaca-trade-orders",
@@ -412,10 +403,7 @@ async fn orders_mleg_limit_replace_scenario(harness: &TradeTestHarness) {
         .expect("multi-leg order replace should succeed");
     assert_ne!(replacement.id, created.id);
     assert_eq!(replacement.replaces.as_deref(), Some(created.id.as_str()));
-    assert_eq!(
-        replacement.limit_price,
-        Some(replacement_limit_price)
-    );
+    assert_eq!(replacement.limit_price, Some(replacement_limit_price));
     assert_eq!(replacement.order_class, OrderClass::Mleg);
     maybe_record_live_json(
         harness,
@@ -517,9 +505,10 @@ async fn orders_cancel_all_scenario(harness: &TradeTestHarness) {
 
     clear_option_universe_cache().await;
     let client = harness.trade_client();
-    let stock_limit_price = non_marketable_buy_limit_price(harness.data_client(), ORDER_TEST_SYMBOL)
-        .await
-        .expect("non-marketable stock price should be discoverable for cancel_all");
+    let stock_limit_price =
+        non_marketable_buy_limit_price(harness.data_client(), ORDER_TEST_SYMBOL)
+            .await
+            .expect("non-marketable stock price should be discoverable for cancel_all");
     let spread = discover_mleg_call_spread(harness.data_client(), ORDER_TEST_SYMBOL)
         .await
         .expect("quoted multi-leg call spread should be discoverable for cancel_all");
@@ -799,10 +788,8 @@ async fn orders_trailing_stop_scenario(_harness: &TradeTestHarness) {
         let position = wait_for_position(harness, ORDER_TEST_SYMBOL).await;
         assert_eq!(position.symbol, ORDER_TEST_SYMBOL);
 
-        let client_order_id = unique_client_order_id(&format!(
-            "phase21-{}-trailing",
-            target_slug(harness)
-        ));
+        let client_order_id =
+            unique_client_order_id(&format!("phase21-{}-trailing", target_slug(harness)));
         let replaced_client_order_id = format!("{client_order_id}-replaced");
         let created = client
             .orders()
@@ -856,8 +843,8 @@ async fn orders_trailing_stop_scenario(_harness: &TradeTestHarness) {
         assert_eq!(replacement.replaces.as_deref(), Some(created.id.as_str()));
         assert_eq!(replacement.trail_price, Some(replacement_trail_price));
 
-        let replaced_source = wait_for_order_status(harness, &created.id, OrderStatus::Replaced)
-            .await?;
+        let replaced_source =
+            wait_for_order_status(harness, &created.id, OrderStatus::Replaced).await?;
         assert_eq!(
             replaced_source.replaced_by.as_deref(),
             Some(replacement.id.as_str())
@@ -912,10 +899,8 @@ async fn orders_fractional_qty_scenario(_harness: &TradeTestHarness) {
         .await
         .expect("fractional limit price should be discoverable");
     let requested_qty = Decimal::new(25, 2);
-    let client_order_id = unique_client_order_id(&format!(
-        "phase21-{}-fractional",
-        target_slug(harness)
-    ));
+    let client_order_id =
+        unique_client_order_id(&format!("phase21-{}-fractional", target_slug(harness)));
     let mut cleanup_order_id: Option<String> = None;
 
     let result: Result<(), Error> = async {
@@ -993,10 +978,8 @@ async fn orders_notional_scenario(_harness: &TradeTestHarness) {
         .await
         .expect("notional limit price should be discoverable");
     let requested_notional = Decimal::new(10000, 2);
-    let client_order_id = unique_client_order_id(&format!(
-        "phase21-{}-notional",
-        target_slug(harness)
-    ));
+    let client_order_id =
+        unique_client_order_id(&format!("phase21-{}-notional", target_slug(harness)));
     let mut cleanup_order_id: Option<String> = None;
 
     let result: Result<(), Error> = async {
@@ -1044,7 +1027,10 @@ async fn orders_notional_scenario(_harness: &TradeTestHarness) {
             .get_by_client_order_id(&client_order_id)
             .await?;
         assert_eq!(fetched_by_client_order_id.id, created.id);
-        assert_eq!(fetched_by_client_order_id.notional, Some(requested_notional));
+        assert_eq!(
+            fetched_by_client_order_id.notional,
+            Some(requested_notional)
+        );
 
         let canceled = cancel_order_and_wait(harness, &created.id).await?;
         cleanup_order_id = None;
@@ -1076,10 +1062,8 @@ async fn orders_extended_hours_scenario(_harness: &TradeTestHarness) {
     let limit_price = non_marketable_buy_limit_price(harness.data_client(), ORDER_TEST_SYMBOL)
         .await
         .expect("extended-hours limit price should be discoverable");
-    let client_order_id = unique_client_order_id(&format!(
-        "phase21-{}-extended-hours",
-        target_slug(harness)
-    ));
+    let client_order_id =
+        unique_client_order_id(&format!("phase21-{}-extended-hours", target_slug(harness)));
     let mut cleanup_order_id: Option<String> = None;
 
     let result: Result<(), Error> = async {
@@ -1165,10 +1149,8 @@ async fn orders_bracket_scenario(_harness: &TradeTestHarness) {
         stop_price: stop_loss_price,
         limit_price: None,
     };
-    let client_order_id = unique_client_order_id(&format!(
-        "phase21-{}-bracket",
-        target_slug(harness)
-    ));
+    let client_order_id =
+        unique_client_order_id(&format!("phase21-{}-bracket", target_slug(harness)));
     let mut cleanup_order_id: Option<String> = None;
 
     let result: Result<(), Error> = async {
@@ -1261,10 +1243,7 @@ async fn orders_oto_scenario(_harness: &TradeTestHarness) {
     let take_profit = TakeProfit {
         limit_price: pricing.resting_sell_limit_price,
     };
-    let client_order_id = unique_client_order_id(&format!(
-        "phase21-{}-oto",
-        target_slug(harness)
-    ));
+    let client_order_id = unique_client_order_id(&format!("phase21-{}-oto", target_slug(harness)));
     let mut cleanup_order_id: Option<String> = None;
 
     let result: Result<(), Error> = async {
@@ -1376,10 +1355,8 @@ async fn orders_oco_scenario(_harness: &TradeTestHarness) {
         let position = wait_for_position(harness, ORDER_TEST_SYMBOL).await;
         assert_eq!(position.symbol, ORDER_TEST_SYMBOL);
 
-        let client_order_id = unique_client_order_id(&format!(
-            "phase21-{}-oco",
-            target_slug(harness)
-        ));
+        let client_order_id =
+            unique_client_order_id(&format!("phase21-{}-oco", target_slug(harness)));
         let created = client
             .orders()
             .create(CreateRequest {
@@ -1470,10 +1447,8 @@ async fn orders_option_limit_scenario(_harness: &TradeTestHarness) {
     ensure_symbol_flat(harness, &contract.contract_symbol).await;
 
     let client = harness.trade_client();
-    let client_order_id = unique_client_order_id(&format!(
-        "phase21-{}-option-limit",
-        target_slug(harness)
-    ));
+    let client_order_id =
+        unique_client_order_id(&format!("phase21-{}-option-limit", target_slug(harness)));
     let replaced_client_order_id = format!("{client_order_id}-replaced");
     let mut cleanup_order_id: Option<String> = None;
 
@@ -1504,7 +1479,10 @@ async fn orders_option_limit_scenario(_harness: &TradeTestHarness) {
         assert_eq!(created.symbol, contract.contract_symbol);
         assert_eq!(created.asset_class, "us_option");
         assert_eq!(created.position_intent, Some(PositionIntent::BuyToOpen));
-        assert_eq!(created.limit_price, Some(contract.non_marketable_limit_price));
+        assert_eq!(
+            created.limit_price,
+            Some(contract.non_marketable_limit_price)
+        );
 
         let fetched = client.orders().get(&created.id).await?;
         assert_eq!(fetched.id, created.id);
@@ -1549,8 +1527,8 @@ async fn orders_option_limit_scenario(_harness: &TradeTestHarness) {
             Some(contract.more_conservative_limit_price)
         );
 
-        let replaced_source = wait_for_order_status(harness, &created.id, OrderStatus::Replaced)
-            .await?;
+        let replaced_source =
+            wait_for_order_status(harness, &created.id, OrderStatus::Replaced).await?;
         assert_eq!(
             replaced_source.replaced_by.as_deref(),
             Some(replacement.id.as_str())
@@ -1664,10 +1642,8 @@ async fn orders_mleg_market_scenario(_harness: &TradeTestHarness) {
     }
 
     let client = harness.trade_client();
-    let client_order_id = unique_client_order_id(&format!(
-        "phase21-{}-mleg-market",
-        target_slug(harness)
-    ));
+    let client_order_id =
+        unique_client_order_id(&format!("phase21-{}-mleg-market", target_slug(harness)));
 
     let result: Result<(), Error> = async {
         let created = client
@@ -1799,18 +1775,12 @@ fn maybe_record_live_json<T>(
     T: Serialize,
 {
     if let Some(recorder) = harness.recorder() {
-        recorder
-            .record_json(suite, name, payload)
-            .expect(context);
+        recorder.record_json(suite, name, payload).expect(context);
     }
 }
 
 fn target_slug(harness: &TradeTestHarness) -> &'static str {
-    if harness.is_mock() {
-        "mock"
-    } else {
-        "paper"
-    }
+    if harness.is_mock() { "mock" } else { "paper" }
 }
 
 fn advanced_entry_buy_limit_price(pricing: &StockOrderPriceContext) -> Decimal {
@@ -2026,8 +1996,4 @@ async fn wait_for_order_status(
     }
 
     harness.trade_client().orders().get(order_id).await
-}
-
-async fn orders_api_lock() -> tokio::sync::MutexGuard<'static, ()> {
-    ORDERS_API_MUTEX.get_or_init(|| Mutex::new(())).lock().await
 }

@@ -48,13 +48,10 @@ async fn activities_fill_lifecycle_scenario(harness: &TradeTestHarness) {
     }
 
     ensure_symbol_flat(harness, ACTIVITY_TEST_SYMBOL).await;
-    let trading_day = harness
-        .live_paper_session_state()
-        .await
-        .map(|state| {
-            trading_day_from_timestamp(&state.clock.timestamp)
-                .expect("paper clock timestamp should contain a trading day")
-        });
+    let trading_day = harness.live_paper_session_state().await.map(|state| {
+        trading_day_from_timestamp(&state.clock.timestamp)
+            .expect("paper clock timestamp should contain a trading day")
+    });
 
     let opened = harness
         .trade_client()
@@ -73,8 +70,12 @@ async fn activities_fill_lifecycle_scenario(harness: &TradeTestHarness) {
         })
         .await
         .expect("open order should submit");
-    let opened =
-        wait_for_order_status(harness, &opened.id, alpaca_trade::orders::OrderStatus::Filled).await;
+    let opened = wait_for_order_status(
+        harness,
+        &opened.id,
+        alpaca_trade::orders::OrderStatus::Filled,
+    )
+    .await;
 
     let close = harness
         .trade_client()
@@ -82,8 +83,12 @@ async fn activities_fill_lifecycle_scenario(harness: &TradeTestHarness) {
         .close(ACTIVITY_TEST_SYMBOL, ClosePositionRequest::default())
         .await
         .expect("close position should submit");
-    let closed =
-        wait_for_order_status(harness, &close.id, alpaca_trade::orders::OrderStatus::Filled).await;
+    let closed = wait_for_order_status(
+        harness,
+        &close.id,
+        alpaca_trade::orders::OrderStatus::Filled,
+    )
+    .await;
 
     let fills = wait_for_fill_activities(
         harness,
@@ -108,7 +113,11 @@ async fn activities_fill_lifecycle_scenario(harness: &TradeTestHarness) {
             .iter()
             .any(|activity| activity.order_id.as_deref() == Some(&closed.id))
     );
-    assert!(fills.iter().all(|activity| activity.activity_type == "FILL"));
+    assert!(
+        fills
+            .iter()
+            .all(|activity| activity.activity_type == "FILL")
+    );
 
     let fills_by_type = harness
         .trade_client()
@@ -193,8 +202,6 @@ fn maybe_record_live_json<T>(
     T: Serialize,
 {
     if let Some(recorder) = harness.recorder() {
-        recorder
-            .record_json(suite, name, payload)
-            .expect(context);
+        recorder.record_json(suite, name, payload).expect(context);
     }
 }

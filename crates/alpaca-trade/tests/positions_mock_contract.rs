@@ -13,7 +13,9 @@ use alpaca_trade::{
     orders::{CreateRequest, OrderClass, OrderSide, OrderStatus, OrderType, TimeInForce},
     positions::CloseAllRequest,
 };
-use order_support::{clear_option_universe_cache, discover_mleg_call_spread, unique_client_order_id};
+use order_support::{
+    clear_option_universe_cache, discover_mleg_call_spread, unique_client_order_id,
+};
 use rust_decimal::Decimal;
 use target_support::TradeTestTarget;
 use trade_state_support::{wait_for_order_status, wait_for_position, wait_for_position_absent};
@@ -125,7 +127,11 @@ async fn positions_mock_projects_filled_mleg_legs_without_parent_combo_position(
         .expect("mock positions list should succeed after mleg fill");
     assert_eq!(positions.len(), spread.legs.len());
     assert!(positions.iter().all(|position| !position.symbol.is_empty()));
-    assert!(positions.iter().all(|position| position.symbol != created.symbol));
+    assert!(
+        positions
+            .iter()
+            .all(|position| position.symbol != created.symbol)
+    );
     for leg in &spread.legs {
         let position = positions
             .iter()

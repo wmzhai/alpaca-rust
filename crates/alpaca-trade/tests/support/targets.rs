@@ -1,17 +1,25 @@
 #![allow(dead_code)]
 
-use std::time::Duration;
+use std::{
+    fs::{File, OpenOptions},
+    sync::OnceLock,
+    time::Duration,
+};
 
 use alpaca_data::Client as DataClient;
 use alpaca_mock::{
     LiveMarketDataBridge, MockServerState, TestServer, spawn_test_server_with_state,
 };
 use alpaca_trade::Client as TradeClient;
+use fs2::FileExt;
+use tokio::sync::{Mutex, MutexGuard};
 
 use crate::live_support::{
     AlpacaService, LiveHttpProbe, LiveTestEnv, PaperSessionState, SampleRecorder, ServiceConfig,
     can_submit_live_paper_orders, paper_market_session_state,
 };
+
+static LIVE_PAPER_MUTATION_MUTEX: OnceLock<Mutex<()>> = OnceLock::new();
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum TradeTestTarget {
@@ -54,6 +62,17 @@ pub(crate) struct TradeTestHarness {
     _mock_server: Option<TestServer>,
 }
 
+pub(crate) struct LivePaperMutationGuard {
+    _in_process_guard: MutexGuard<'static, ()>,
+    lock_file: File,
+}
+
+impl Drop for LivePaperMutationGuard {
+    fn drop(&mut self) {
+        let _ = self.lock_file.unlock();
+    }
+}
+
 impl TradeTestHarness {
     #[must_use]
     pub(crate) fn is_live_paper(&self) -> bool {
@@ -72,11 +91,7 @@ impl TradeTestHarness {
 
     #[must_use]
     pub(crate) fn slug(&self) -> &'static str {
-        if self.is_mock() {
-            "mock"
-        } else {
-            "paper"
-        }
+        if self.is_mock() { "mock" } else { "paper" }
     }
 
     #[must_use]
@@ -142,15 +157,40 @@ impl TradeTestHarness {
     }
 }
 
-pub(crate) async fn build_trade_test_harness(
-    target: TradeTestTarget,
-) -> Option<TradeTestHarness> {
+pub(crate) async fn build_trade_test_harness(target: TradeTestTarget) -> Option<TradeTestHarness> {
     let env = LiveTestEnv::load().expect("live test environment should load");
 
     match target {
         TradeTestTarget::LivePaper => build_live_paper_harness(env),
         TradeTestTarget::Mock => build_mock_harness(env).await,
     }
+}
+
+pub(crate) async fn lock_live_paper_account() -> LivePaperMutationGuard {
+    let in_process_guard = LIVE_PAPER_MUTATION_MUTEX
+        .get_or_init(|| Mutex::new(()))
+        .lock()
+        .await;
+    let lock_file = tokio::task::spawn_blocking(open_live_paper_lock_file)
+        .await
+        .expect("live paper lock task should join")
+        .expect("live paper lock file should open and lock");
+
+    LivePaperMutationGuard {
+        _in_process_guard: in_process_guard,
+        lock_file,
+    }
+}
+
+fn open_live_paper_lock_file() -> std::io::Result<File> {
+    let path = std::env::temp_dir().join("alpaca-rust-live-paper-account.lock");
+    let file = OpenOptions::new()
+        .create(true)
+        .read(true)
+        .write(true)
+        .open(path)?;
+    file.lock_exclusive()?;
+    Ok(file)
 }
 
 fn build_live_paper_harness(env: LiveTestEnv) -> Option<TradeTestHarness> {
@@ -199,8 +239,8 @@ async fn build_mock_harness(env: LiveTestEnv) -> Option<TradeTestHarness> {
         .base_url(data_service.base_url().clone())
         .build()
         .expect("data client should build from live service config");
-    let state =
-        MockServerState::new().with_market_data_bridge(LiveMarketDataBridge::new(data_client.clone()));
+    let state = MockServerState::new()
+        .with_market_data_bridge(LiveMarketDataBridge::new(data_client.clone()));
     let server = spawn_test_server_with_state(state).await;
     let trade_client = TradeClient::builder()
         .api_key("mock-key")

@@ -16,6 +16,7 @@ thiserror.workspace = true
 alpaca-data = { path = "../alpaca-data" }
 alpaca-mock = { path = "../alpaca-mock" }
 dotenvy.workspace = true
+fs2 = "0.4"
 reqwest.workspace = true
 rust_decimal.workspace = true
 serde.workspace = true

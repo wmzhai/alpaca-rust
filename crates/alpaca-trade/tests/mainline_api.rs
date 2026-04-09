@@ -28,6 +28,7 @@ const MAINLINE_SYMBOL: &str = "SPY";
 
 #[tokio::test]
 async fn trade_mainline_lifecycle_live_paper() {
+    let _guard = target_support::lock_live_paper_account().await;
     let Some(harness) = target_support::build_trade_test_harness(TradeTestTarget::LivePaper).await
     else {
         return;
@@ -53,13 +54,10 @@ async fn trade_mainline_lifecycle_scenario(harness: &TradeTestHarness) {
     }
 
     ensure_symbol_flat(harness, MAINLINE_SYMBOL).await;
-    let trading_day = harness
-        .live_paper_session_state()
-        .await
-        .map(|state| {
-            trading_day_from_timestamp(&state.clock.timestamp)
-                .expect("paper clock timestamp should contain a trading day")
-        });
+    let trading_day = harness.live_paper_session_state().await.map(|state| {
+        trading_day_from_timestamp(&state.clock.timestamp)
+            .expect("paper clock timestamp should contain a trading day")
+    });
 
     let account_before = harness
         .trade_client()
@@ -67,6 +65,9 @@ async fn trade_mainline_lifecycle_scenario(harness: &TradeTestHarness) {
         .get()
         .await
         .expect("account should be readable before the lifecycle starts");
+    let cash_before_open = account_before
+        .cash
+        .expect("account cash should be present before the lifecycle starts");
 
     let opened = harness
         .trade_client()
@@ -85,27 +86,81 @@ async fn trade_mainline_lifecycle_scenario(harness: &TradeTestHarness) {
         })
         .await
         .expect("open order should submit");
-    let opened =
-        wait_for_order_status(harness, &opened.id, alpaca_trade::orders::OrderStatus::Filled).await;
+    let opened = wait_for_order_status(
+        harness,
+        &opened.id,
+        alpaca_trade::orders::OrderStatus::Filled,
+    )
+    .await;
+    let account_after_open = harness
+        .trade_client()
+        .account()
+        .get()
+        .await
+        .expect("account should remain readable after the open fill");
+    let cash_after_open = account_after_open
+        .cash
+        .expect("account cash should be present after the open fill");
+    assert!(cash_after_open < cash_before_open);
+    assert_cash_delta_equals_fill_value(
+        cash_before_open,
+        cash_after_open,
+        opened
+            .filled_avg_price
+            .expect("filled open order should expose filled_avg_price"),
+        opened.filled_qty,
+    );
 
     let opened_position = wait_for_position(harness, MAINLINE_SYMBOL).await;
     assert_eq!(opened_position.symbol, MAINLINE_SYMBOL);
+    assert_eq!(opened_position.qty, opened.filled_qty);
 
-    let fills_after_open = wait_for_fill_activity(harness, &opened.id, trading_day.as_deref()).await;
+    let fills_after_open =
+        wait_for_fill_activity(harness, &opened.id, trading_day.as_deref()).await;
     assert!(
         fills_after_open
             .iter()
             .any(|activity| activity.order_id.as_deref() == Some(&opened.id))
     );
 
+    let cash_before_close = harness
+        .trade_client()
+        .account()
+        .get()
+        .await
+        .expect("account should remain readable before the close fill")
+        .cash
+        .expect("account cash should be present before the close fill");
     let close = harness
         .trade_client()
         .positions()
         .close(MAINLINE_SYMBOL, ClosePositionRequest::default())
         .await
         .expect("close position should submit");
-    let closed =
-        wait_for_order_status(harness, &close.id, alpaca_trade::orders::OrderStatus::Filled).await;
+    let closed = wait_for_order_status(
+        harness,
+        &close.id,
+        alpaca_trade::orders::OrderStatus::Filled,
+    )
+    .await;
+    let account_after_close = harness
+        .trade_client()
+        .account()
+        .get()
+        .await
+        .expect("account should remain readable after the close fill");
+    let cash_after_close = account_after_close
+        .cash
+        .expect("account cash should be present after the close fill");
+    assert!(cash_after_close > cash_before_close);
+    assert_cash_delta_equals_fill_value(
+        cash_before_close,
+        cash_after_close,
+        closed
+            .filled_avg_price
+            .expect("filled close order should expose filled_avg_price"),
+        closed.filled_qty,
+    );
     wait_for_position_absent(harness, MAINLINE_SYMBOL).await;
 
     let fills_after_close =
@@ -136,8 +191,7 @@ async fn trade_mainline_lifecycle_scenario(harness: &TradeTestHarness) {
         .await
         .expect("account should remain readable after the lifecycle");
     assert_eq!(account_before.id, account_after.id);
-    assert!(account_before.cash.is_some());
-    assert!(account_after.cash.is_some());
+    assert_eq!(account_after.cash, Some(cash_after_close));
 
     if let Some(recorder) = harness.recorder() {
         recorder
@@ -155,6 +209,19 @@ async fn trade_mainline_lifecycle_scenario(harness: &TradeTestHarness) {
             )
             .expect("mainline lifecycle sample should record");
     }
+}
+
+fn assert_cash_delta_equals_fill_value(
+    before: Decimal,
+    after: Decimal,
+    fill_price: Decimal,
+    fill_qty: Decimal,
+) {
+    assert_eq!(
+        (after - before).abs(),
+        fill_price * fill_qty,
+        "cash delta should equal fill_price * fill_qty",
+    );
 }
 
 async fn wait_for_fill_activity(

@@ -5,7 +5,9 @@ mod order_support;
 #[path = "support/targets.rs"]
 mod target_support;
 
-use alpaca_trade::orders::{CreateRequest, OrderClass, OrderSide, OrderStatus, OrderType, TimeInForce};
+use alpaca_trade::orders::{
+    CreateRequest, OrderClass, OrderSide, OrderStatus, OrderType, TimeInForce,
+};
 use order_support::{
     clear_option_universe_cache, discover_mleg_iron_condor, discover_mleg_put_spread,
     unique_client_order_id,
@@ -27,7 +29,8 @@ async fn orders_mock_marketable_multi_leg_orders_fill_for_spreads_and_condors() 
         .await
         .expect("dynamic put spread should be discoverable");
     clear_option_universe_cache().await;
-    let maybe_iron_condor = discover_mleg_iron_condor(harness.data_client(), ORDER_TEST_SYMBOL).await;
+    let maybe_iron_condor =
+        discover_mleg_iron_condor(harness.data_client(), ORDER_TEST_SYMBOL).await;
     let client = harness.trade_client();
 
     let mut strategies = vec![("put-spread", put_spread)];
@@ -64,7 +67,9 @@ async fn orders_mock_marketable_multi_leg_orders_fill_for_spreads_and_condors() 
             .expect("mock marketable multi-leg order create should succeed");
         assert_eq!(filled.status, OrderStatus::Filled);
         assert!(filled.filled_avg_price.is_some());
-        let filled_legs = filled.legs.expect("filled multi-leg order should keep nested legs");
+        let filled_legs = filled
+            .legs
+            .expect("filled multi-leg order should keep nested legs");
         assert_eq!(filled_legs.len(), strategy.legs.len());
         assert!(
             filled_legs
