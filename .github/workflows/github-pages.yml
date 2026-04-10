@@ -115,42 +115,6 @@ jobs:
         with:
           path: website/build
 
-  build-macos-arm64:
-    needs: ensure-master-tag
-    runs-on: macos-14
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v5
-
-      - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
-
-      - name: Cache Rust
-        uses: Swatinem/rust-cache@v2
-
-      - name: Add Apple Silicon target
-        run: rustup target add aarch64-apple-darwin
-
-      - name: Build alpaca-mock
-        run: cargo build -p alpaca-mock --release --target aarch64-apple-darwin
-
-      - name: Package macOS artifact
-        run: |
-          archive="alpaca-mock-${GITHUB_REF_NAME}-aarch64-apple-darwin.tar.gz"
-          rm -rf dist
-          mkdir -p dist/package
-          cp target/aarch64-apple-darwin/release/alpaca-mock dist/package/
-          cp crates/alpaca-mock/README.md dist/package/README.md
-          tar -C dist/package -czf "dist/${archive}" alpaca-mock README.md
-
-      - name: Upload macOS artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: alpaca-mock-macos-arm64
-          path: dist/alpaca-mock-${{ github.ref_name }}-aarch64-apple-darwin.tar.gz
-          if-no-files-found: error
-          retention-days: 7
-
   publish:
     needs: build
     runs-on: ubuntu-latest
@@ -254,19 +218,12 @@ jobs:
     needs:
       - publish
       - deploy
-      - build-macos-arm64
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
       - name: Checkout
         uses: actions/checkout@v5
-
-      - name: Download macOS artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: alpaca-mock-macos-arm64
-          path: release-assets
 
       - name: Extract release notes from CHANGELOG.md
         env:
@@ -309,4 +266,3 @@ jobs:
           tag_name: ${{ github.ref_name }}
           name: ${{ github.ref_name }}
           body_path: release-notes.md
-          files: release-assets/alpaca-mock-${{ github.ref_name }}-aarch64-apple-darwin.tar.gz
