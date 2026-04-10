@@ -33,3 +33,10 @@ Coverage companion documents:
 - [Market Data API Coverage](../api-coverage/market-data.md)
 - [Trading API Coverage](../api-coverage/trading.md)
 - [Trade Mainline](../trade-mainline.md)
+
+Operational companion documents:
+
+- [Installation](../installation.md)
+- [Mock Server](../mock-server.md)
+- [Testing Guide](../testing.md)
+- [Troubleshooting](../troubleshooting.md)

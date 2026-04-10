@@ -23,6 +23,16 @@ Supporting crates:
 
 Maintainer: Weiming Zhai <wmzhai@gmail.com>
 
+## Documentation Map
+
+- [Installation](./installation.md)
+- [Getting Started](./getting-started.md)
+- [Authentication](./authentication.md)
+- [Project Structure](./project-structure.md)
+- [Mock Server](./mock-server.md)
+- [Testing Guide](./testing.md)
+- [Troubleshooting](./troubleshooting.md)
+
 ## Coverage Snapshot
 
 - `alpaca-data` adopts 28 market-data mirror operations across stocks, options, news, and corporate actions, with zero open mirror gaps in the current adopted scope

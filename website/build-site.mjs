@@ -12,9 +12,13 @@ const docFiles = [
   "index.md",
   "getting-started.md",
   "authentication.md",
+  "installation.md",
+  "mock-server.md",
   "project-structure.md",
   "release-checklist.md",
+  "testing.md",
   "trade-mainline.md",
+  "troubleshooting.md",
   "api-coverage/market-data.md",
   "api-coverage/trading.md",
   "reference/index.md",
@@ -71,6 +75,7 @@ function shell(title, content) {
     <nav>
       <a href="/alpaca-rust/index.html">Home</a>
       <a href="/alpaca-rust/getting-started.html">Getting Started</a>
+      <a href="/alpaca-rust/installation.html">Installation</a>
       <a href="/alpaca-rust/project-structure.html">Project Structure</a>
       <a href="/alpaca-rust/reference/index.html">Reference</a>
       <a href="https://docs.rs/alpaca-data">docs.rs</a>
@@ -109,8 +114,12 @@ async function buildLandingPage() {
     <p>Rust workspace for Alpaca HTTP APIs.</p>
     <ul>
       <li><a href="./getting-started.html">Getting Started</a></li>
+      <li><a href="./installation.html">Installation</a></li>
       <li><a href="./authentication.html">Authentication</a></li>
       <li><a href="./project-structure.html">Project Structure</a></li>
+      <li><a href="./mock-server.html">Mock Server</a></li>
+      <li><a href="./testing.html">Testing Guide</a></li>
+      <li><a href="./troubleshooting.html">Troubleshooting</a></li>
       <li><a href="./reference/index.html">Reference</a></li>
       <li><a href="./release-checklist.html">Release Checklist</a></li>
     </ul>

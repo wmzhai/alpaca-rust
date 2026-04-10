@@ -50,8 +50,11 @@ let client = Client::builder()
 
 ## Next Steps
 
+- Read [Installation](./installation.md)
 - Read [Authentication](./authentication.md)
 - Review [Project Structure](./project-structure.md)
+- Read [Mock Server](./mock-server.md)
+- Read [Testing Guide](./testing.md)
 - Read [Market Data API Coverage](./api-coverage/market-data.md)
 - Read [Trading API Coverage](./api-coverage/trading.md)
 - Read [Release Checklist](./release-checklist.md)

@@ -5,7 +5,7 @@
 //!
 //! Runtime configuration:
 //!
-//! - `ALPACA_MOCK_LISTEN_ADDR` defaults to `127.0.0.1:18080`
+//! - `ALPACA_MOCK_LISTEN_ADDR` defaults to `127.0.0.1:3847`
 //! - market-data-backed flows use `ALPACA_DATA_API_KEY` and
 //!   `ALPACA_DATA_SECRET_KEY`
 //!
