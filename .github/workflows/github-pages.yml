@@ -32,6 +32,24 @@ jobs:
           git fetch origin master
           git merge-base --is-ancestor "$GITHUB_SHA" origin/master
 
+      - name: Verify tag matches workspace version
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          expected_tag="v$(python3 - <<'PY'
+          import tomllib
+
+          with open('Cargo.toml', 'rb') as fh:
+              data = tomllib.load(fh)
+          print(data['workspace']['package']['version'])
+          PY
+          )"
+
+          if [ "$RELEASE_TAG" != "$expected_tag" ]; then
+            echo "tag ${RELEASE_TAG} does not match workspace version ${expected_tag}" >&2
+            exit 1
+          fi
+
   build:
     needs: ensure-master-tag
     runs-on: ubuntu-latest
