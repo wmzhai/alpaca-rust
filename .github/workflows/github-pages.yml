@@ -36,14 +36,7 @@ jobs:
         env:
           RELEASE_TAG: ${{ github.ref_name }}
         run: |
-          expected_tag="v$(python3 - <<'PY'
-          import tomllib
-
-          with open('Cargo.toml', 'rb') as fh:
-              data = tomllib.load(fh)
-          print(data['workspace']['package']['version'])
-          PY
-          )"
+          expected_tag="v$(python3 -c 'import tomllib; print(tomllib.load(open("Cargo.toml", "rb"))["workspace"]["package"]["version"])')"
 
           if [ "$RELEASE_TAG" != "$expected_tag" ]; then
             echo "tag ${RELEASE_TAG} does not match workspace version ${expected_tag}" >&2
@@ -134,19 +127,7 @@ jobs:
           cargo metadata --no-deps --format-version 1 > /tmp/cargo-metadata.json
 
           version_for() {
-            python3 -c '
-import json
-import sys
-
-crate = sys.argv[1]
-with open("/tmp/cargo-metadata.json", "r", encoding="utf-8") as fh:
-    meta = json.load(fh)
-for pkg in meta["packages"]:
-    if pkg["name"] == crate:
-        print(pkg["version"])
-        raise SystemExit(0)
-raise SystemExit(f"missing package metadata for {crate}")
-' "$1"
+            python3 -c 'import json, sys; crate = sys.argv[1]; meta = json.load(open("/tmp/cargo-metadata.json", encoding="utf-8")); matches = [pkg["version"] for pkg in meta["packages"] if pkg["name"] == crate]; matches or (_ for _ in ()).throw(SystemExit(f"missing package metadata for {crate}")); print(matches[0])' "$1"
           }
 
           crate_exists() {

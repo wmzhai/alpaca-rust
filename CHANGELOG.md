@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.24.2
+
+- Fixed the release workflow YAML so GitHub Actions can load the tag-only pipeline and publish crates from a valid workflow definition.
+
 ## v0.24.1
 
 - Fixed the tag-release publish workflow so the crates.io publish step can resolve crate versions without a shell heredoc parsing failure.
