@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.24.3
+
+- Fixed the tag release workflow so GitHub Release notes are extracted without the shell heredoc parsing failure seen in prior tags.
+- Added a concrete patch-release runbook that captures version bumps, preflight checks, verification commands, and recovery steps for future `alpaca-rust` releases.
+
 ## v0.24.2
 
 - Fixed the release workflow YAML so GitHub Actions can load the tag-only pipeline and publish crates from a valid workflow definition.
