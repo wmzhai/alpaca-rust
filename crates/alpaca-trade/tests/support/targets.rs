@@ -15,7 +15,7 @@ use fs2::FileExt;
 use tokio::sync::{Mutex, MutexGuard};
 
 use crate::live_support::{
-    AlpacaService, LiveHttpProbe, LiveTestEnv, PaperSessionState, SampleRecorder, ServiceConfig,
+    AlpacaService, LiveHttpProbe, LiveTestEnv, PaperSessionState, SampleRecorder,
     can_submit_live_paper_orders, paper_market_session_state,
 };
 
@@ -58,7 +58,7 @@ pub(crate) struct TradeTestHarness {
     trade_client: TradeClient,
     data_client: DataClient,
     recorder: SampleRecorder,
-    live_trade_service: Option<ServiceConfig>,
+    live_paper_session_state: Option<PaperSessionState>,
     _mock_server: Option<TestServer>,
 }
 
@@ -124,20 +124,7 @@ impl TradeTestHarness {
     }
 
     pub(crate) async fn live_paper_session_state(&self) -> Option<PaperSessionState> {
-        if !self.is_live_paper() {
-            return None;
-        }
-
-        let probe = LiveHttpProbe::new().expect("live probe should build");
-        let trade_service = self
-            .live_trade_service
-            .as_ref()
-            .expect("live paper harness should retain the trade service");
-        Some(
-            paper_market_session_state(&probe, trade_service, self.recorder())
-                .await
-                .expect("paper clock and calendar should be readable"),
-        )
+        self.live_paper_session_state.clone()
     }
 
     pub(crate) async fn should_skip_live_market_session(&self, scenario: &str) -> bool {
@@ -161,7 +148,7 @@ pub(crate) async fn build_trade_test_harness(target: TradeTestTarget) -> Option<
     let env = LiveTestEnv::load().expect("live test environment should load");
 
     match target {
-        TradeTestTarget::LivePaper => build_live_paper_harness(env),
+        TradeTestTarget::LivePaper => build_live_paper_harness(env).await,
         TradeTestTarget::Mock => build_mock_harness(env).await,
     }
 }
@@ -193,7 +180,7 @@ fn open_live_paper_lock_file() -> std::io::Result<File> {
     Ok(file)
 }
 
-fn build_live_paper_harness(env: LiveTestEnv) -> Option<TradeTestHarness> {
+async fn build_live_paper_harness(env: LiveTestEnv) -> Option<TradeTestHarness> {
     if let Some(reason) = env.skip_reason_for_service(AlpacaService::Trade) {
         eprintln!("skipping live paper test: {reason}");
         return None;
@@ -205,6 +192,21 @@ fn build_live_paper_harness(env: LiveTestEnv) -> Option<TradeTestHarness> {
 
     let trade_service = env.trade().expect("trade config should exist").clone();
     let data_service = env.data().expect("data config should exist").clone();
+    let recorder = SampleRecorder::from_live_env(&env);
+    let probe = LiveHttpProbe::new().expect("live probe should build");
+    let session_state =
+        match paper_market_session_state(&probe, &trade_service, Some(&recorder)).await {
+            Ok(session_state) => session_state,
+            Err(error) => {
+                eprintln!("skipping live paper test: market session probe failed: {error}");
+                return None;
+            }
+        };
+    if !can_submit_live_paper_orders(&session_state) {
+        eprintln!("skipping live paper test: market session is unavailable");
+        return None;
+    }
+
     let trade_client = TradeClient::builder()
         .credentials(trade_service.credentials().clone())
         .base_url(trade_service.base_url().clone())
@@ -215,14 +217,13 @@ fn build_live_paper_harness(env: LiveTestEnv) -> Option<TradeTestHarness> {
         .base_url(data_service.base_url().clone())
         .build()
         .expect("data client should build from live service config");
-    let recorder = SampleRecorder::from_live_env(&env);
 
     Some(TradeTestHarness {
         target: TradeTestTarget::LivePaper,
         trade_client,
         data_client,
         recorder,
-        live_trade_service: Some(trade_service),
+        live_paper_session_state: Some(session_state),
         _mock_server: None,
     })
 }
@@ -256,7 +257,7 @@ async fn build_mock_harness(env: LiveTestEnv) -> Option<TradeTestHarness> {
         trade_client,
         data_client,
         recorder,
-        live_trade_service: None,
+        live_paper_session_state: None,
         _mock_server: Some(server),
     })
 }
