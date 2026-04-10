@@ -12,7 +12,10 @@ use std::{
 use alpaca_data::Client as DataClient;
 use alpaca_trade::Client as TradeClient;
 use fs2::FileExt;
-use tokio::{process::{Child, Command}, sync::{Mutex, MutexGuard}};
+use tokio::{
+    process::{Child, Command},
+    sync::{Mutex, MutexGuard},
+};
 
 use crate::live_support::{
     AlpacaService, LiveHttpProbe, LiveTestEnv, PaperSessionState, SampleRecorder,
