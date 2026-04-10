@@ -66,6 +66,25 @@ async fn options_contracts_resource_reads_real_contract_list_and_single_contract
         .record_json("alpaca-trade-options-contracts", "list", &listed)
         .expect("options contracts list sample should record");
 
+    let paginated_first_page = trade_client
+        .options_contracts()
+        .list(ListRequest {
+            underlying_symbols: Some(vec![observed.underlying_symbol.clone()]),
+            show_deliverables: Some(true),
+            status: Some(ContractStatus::Active),
+            expiration_date: Some(observed.expiration_date.clone()),
+            r#type: Some(contract_type.clone()),
+            limit: Some(1),
+            ..ListRequest::default()
+        })
+        .await
+        .expect("first options contracts page should succeed against real paper API");
+    assert!(
+        !paginated_first_page.option_contracts.is_empty(),
+        "paginated first page should contain at least one contract"
+    );
+    let paginated_first_symbol = paginated_first_page.option_contracts[0].symbol.clone();
+
     let listed_all = trade_client
         .options_contracts()
         .list_all(ListRequest {
@@ -87,9 +106,11 @@ async fn options_contracts_resource_reads_real_contract_list_and_single_contract
         listed_all
             .option_contracts
             .iter()
-            .any(|contract| contract.symbol == observed.symbol)
+            .any(|contract| contract.symbol == paginated_first_symbol)
     );
-    assert!(listed_all.option_contracts.len() >= listed.option_contracts.len());
+    assert!(
+        listed_all.option_contracts.len() >= paginated_first_page.option_contracts.len()
+    );
 
     let matched = listed
         .option_contracts
