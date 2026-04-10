@@ -80,14 +80,6 @@ jobs:
       - name: Build rustdoc
         run: cargo doc --workspace --no-deps
 
-      - name: Package crates
-        run: |
-          cargo package -p alpaca-core
-          cargo package -p alpaca-rest-http
-          cargo package -p alpaca-data
-          cargo package -p alpaca-trade
-          cargo package -p alpaca-mock
-
       - name: Setup Node
         uses: actions/setup-node@v6
         with:
