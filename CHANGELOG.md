@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.24.1
+
+- Fixed the tag-release publish workflow so the crates.io publish step can resolve crate versions without a shell heredoc parsing failure.
+
 ## v0.24.0
 
 - Migrated the public documentation site to the Docusaurus workspace layout with unified `alpaca-rust` branding and multi-crate docs.rs navigation.

@@ -13,8 +13,8 @@ keywords = ["alpaca", "trading", "paper-trading", "stocks"]
 categories = ["api-bindings", "asynchronous"]
 
 [dependencies]
-alpaca-core = { path = "../alpaca-core", version = "0.24.0" }
-alpaca-http = { package = "alpaca-rest-http", path = "../alpaca-http", version = "0.24.0" }
+alpaca-core = { path = "../alpaca-core", version = "0.24.1" }
+alpaca-http = { package = "alpaca-rest-http", path = "../alpaca-http", version = "0.24.1" }
 reqwest.workspace = true
 rust_decimal.workspace = true
 serde.workspace = true
@@ -24,7 +24,7 @@ thiserror.workspace = true
 [dev-dependencies]
 axum.workspace = true
 chrono.workspace = true
-alpaca-data = { path = "../alpaca-data", version = "0.24.0" }
+alpaca-data = { path = "../alpaca-data", version = "0.24.1" }
 dotenvy.workspace = true
 fs2 = "0.4"
 reqwest.workspace = true

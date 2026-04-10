@@ -6,7 +6,7 @@ For market data:
 
 ```toml
 [dependencies]
-alpaca-data = "0.24.0"
+alpaca-data = "0.24.1"
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
 ```
 
@@ -14,7 +14,7 @@ For trading:
 
 ```toml
 [dependencies]
-alpaca-trade = "0.24.0"
+alpaca-trade = "0.24.1"
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
 ```
 

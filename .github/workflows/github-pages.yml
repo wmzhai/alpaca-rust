@@ -134,19 +134,19 @@ jobs:
           cargo metadata --no-deps --format-version 1 > /tmp/cargo-metadata.json
 
           version_for() {
-            python3 - "$1" <<'PY'
-            import json
-            import sys
+            python3 -c '
+import json
+import sys
 
-            crate = sys.argv[1]
-            with open('/tmp/cargo-metadata.json', 'r', encoding='utf-8') as fh:
-                meta = json.load(fh)
-            for pkg in meta['packages']:
-                if pkg['name'] == crate:
-                    print(pkg['version'])
-                    raise SystemExit(0)
-            raise SystemExit(f'missing package metadata for {crate}')
-            PY
+crate = sys.argv[1]
+with open("/tmp/cargo-metadata.json", "r", encoding="utf-8") as fh:
+    meta = json.load(fh)
+for pkg in meta["packages"]:
+    if pkg["name"] == crate:
+        print(pkg["version"])
+        raise SystemExit(0)
+raise SystemExit(f"missing package metadata for {crate}")
+' "$1"
           }
 
           crate_exists() {
