@@ -1,0 +1,79 @@
+#!/usr/bin/env python3
+from __future__ import annotations
+
+import json
+import subprocess
+from pathlib import Path
+
+
+ROOT = Path(__file__).resolve().parents[2]
+DOCS_GENERATED = ROOT / "docs" / "generated"
+
+
+def main() -> int:
+    DOCS_GENERATED.mkdir(parents=True, exist_ok=True)
+    metadata = json.loads(
+        subprocess.run(
+            ["cargo", "metadata", "--format-version", "1", "--no-deps"],
+            cwd=ROOT,
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout
+    )
+
+    packages = [
+        {
+            "name": pkg["name"],
+            "version": pkg["version"],
+            "authors": pkg.get("authors", []),
+            "description": pkg.get("description"),
+            "documentation": pkg.get("documentation"),
+            "homepage": pkg.get("homepage"),
+        }
+        for pkg in metadata["packages"]
+    ]
+
+    (DOCS_GENERATED / "api-index.json").write_text(
+        json.dumps({"workspace": "alpaca-rust", "packages": packages}, indent=2) + "\n"
+    )
+    (DOCS_GENERATED / "project-structure.json").write_text(
+        json.dumps(
+            {
+                "packages": {
+                    pkg["name"]: pkg.get("description") for pkg in packages
+                }
+            },
+            indent=2,
+        )
+        + "\n"
+    )
+    (DOCS_GENERATED / "sidebar-schema.json").write_text(
+        json.dumps(
+            {
+                "docs": [
+                    "index",
+                    "getting-started",
+                    "authentication",
+                    "project-structure",
+                    "reference/index",
+                    "reference/alpaca-core",
+                    "reference/alpaca-http",
+                    "reference/alpaca-data",
+                    "reference/alpaca-trade",
+                    "reference/alpaca-mock",
+                    "api-coverage/market-data",
+                    "api-coverage/trading",
+                    "trade-mainline",
+                    "release-checklist",
+                ]
+            },
+            indent=2,
+        )
+        + "\n"
+    )
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

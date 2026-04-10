@@ -2,6 +2,15 @@
 name = "alpaca-core"
 version.workspace = true
 edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+documentation = "https://docs.rs/alpaca-core"
+readme = "README.md"
+description = "Shared primitives for the alpaca-rust workspace"
+keywords = ["alpaca", "sdk", "trading", "market-data"]
+categories = ["api-bindings", "asynchronous"]
 
 [dependencies]
 rust_decimal.workspace = true

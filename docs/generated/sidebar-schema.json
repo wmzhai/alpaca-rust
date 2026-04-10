@@ -1,0 +1,18 @@
+{
+  "docs": [
+    "index",
+    "getting-started",
+    "authentication",
+    "project-structure",
+    "reference/index",
+    "reference/alpaca-core",
+    "reference/alpaca-http",
+    "reference/alpaca-data",
+    "reference/alpaca-trade",
+    "reference/alpaca-mock",
+    "api-coverage/market-data",
+    "api-coverage/trading",
+    "trade-mainline",
+    "release-checklist"
+  ]
+}

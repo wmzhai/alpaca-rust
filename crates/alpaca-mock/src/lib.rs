@@ -1,3 +1,22 @@
+//! Mock server support for `alpaca-rust` trade mainline flows.
+//!
+//! The crate exposes a runnable binary, `alpaca-mock`, and a thin library
+//! surface for integration tests that need to boot the mock server in-process.
+//!
+//! Runtime configuration:
+//!
+//! - `ALPACA_MOCK_LISTEN_ADDR` defaults to `127.0.0.1:18080`
+//! - market-data-backed flows use `ALPACA_DATA_API_KEY` and
+//!   `ALPACA_DATA_SECRET_KEY`
+//!
+//! ```no_run
+//! # async fn demo() -> Result<(), Box<dyn std::error::Error>> {
+//! let server = alpaca_mock::spawn_test_server().await;
+//! assert!(server.base_url.starts_with("http://"));
+//! # Ok(())
+//! # }
+//! ```
+//!
 #![forbid(unsafe_code)]
 
 mod auth;

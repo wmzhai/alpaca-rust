@@ -1,0 +1,12 @@
+{
+  "name": "alpaca-rust-docs",
+  "private": true,
+  "scripts": {
+    "build": "node build-site.mjs",
+    "start": "python3 -m http.server 4173 --directory build",
+    "serve": "python3 -m http.server 4173 --directory build"
+  },
+  "dependencies": {
+    "marked": "15.0.12"
+  }
+}

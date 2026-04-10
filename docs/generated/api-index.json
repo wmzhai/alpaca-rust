@@ -1,0 +1,55 @@
+{
+  "workspace": "alpaca-rust",
+  "packages": [
+    {
+      "name": "alpaca-core",
+      "version": "0.23.2",
+      "authors": [
+        "Weiming Zhai <wmzhai@gmail.com>"
+      ],
+      "description": "Shared primitives for the alpaca-rust workspace",
+      "documentation": "https://docs.rs/alpaca-core",
+      "homepage": "https://wmzhai.github.io/alpaca-rust/"
+    },
+    {
+      "name": "alpaca-http",
+      "version": "0.23.2",
+      "authors": [
+        "Weiming Zhai <wmzhai@gmail.com>"
+      ],
+      "description": "Shared HTTP transport layer for the alpaca-rust workspace",
+      "documentation": "https://docs.rs/alpaca-http",
+      "homepage": "https://wmzhai.github.io/alpaca-rust/"
+    },
+    {
+      "name": "alpaca-data",
+      "version": "0.23.2",
+      "authors": [
+        "Weiming Zhai <wmzhai@gmail.com>"
+      ],
+      "description": "Rust client for the Alpaca Market Data HTTP API",
+      "documentation": "https://docs.rs/alpaca-data",
+      "homepage": "https://wmzhai.github.io/alpaca-rust/"
+    },
+    {
+      "name": "alpaca-trade",
+      "version": "0.23.2",
+      "authors": [
+        "Weiming Zhai <wmzhai@gmail.com>"
+      ],
+      "description": "Rust client for the Alpaca Trading HTTP API",
+      "documentation": "https://docs.rs/alpaca-trade",
+      "homepage": "https://wmzhai.github.io/alpaca-rust/"
+    },
+    {
+      "name": "alpaca-mock",
+      "version": "0.23.2",
+      "authors": [
+        "Weiming Zhai <wmzhai@gmail.com>"
+      ],
+      "description": "Executable mock server for alpaca-rust trading and market-data flows",
+      "documentation": "https://docs.rs/alpaca-mock",
+      "homepage": "https://wmzhai.github.io/alpaca-rust/"
+    }
+  ]
+}

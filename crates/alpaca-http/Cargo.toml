@@ -2,9 +2,18 @@
 name = "alpaca-http"
 version.workspace = true
 edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+documentation = "https://docs.rs/alpaca-http"
+readme = "README.md"
+description = "Shared HTTP transport layer for the alpaca-rust workspace"
+keywords = ["alpaca", "http", "sdk", "transport"]
+categories = ["api-bindings", "asynchronous"]
 
 [dependencies]
-alpaca-core = { path = "../alpaca-core" }
+alpaca-core = { path = "../alpaca-core", version = "0.23.2" }
 reqwest.workspace = true
 serde.workspace = true
 serde_json.workspace = true

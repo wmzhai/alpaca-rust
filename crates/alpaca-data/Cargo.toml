@@ -2,10 +2,19 @@
 name = "alpaca-data"
 version.workspace = true
 edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+documentation = "https://docs.rs/alpaca-data"
+readme = "README.md"
+description = "Rust client for the Alpaca Market Data HTTP API"
+keywords = ["alpaca", "market-data", "stocks", "options"]
+categories = ["api-bindings", "asynchronous"]
 
 [dependencies]
-alpaca-core = { path = "../alpaca-core" }
-alpaca-http = { path = "../alpaca-http" }
+alpaca-core = { path = "../alpaca-core", version = "0.23.2" }
+alpaca-http = { path = "../alpaca-http", version = "0.23.2" }
 reqwest.workspace = true
 rust_decimal.workspace = true
 serde.workspace = true

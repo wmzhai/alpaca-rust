@@ -108,9 +108,7 @@ async fn options_contracts_resource_reads_real_contract_list_and_single_contract
             .iter()
             .any(|contract| contract.symbol == paginated_first_symbol)
     );
-    assert!(
-        listed_all.option_contracts.len() >= paginated_first_page.option_contracts.len()
-    );
+    assert!(listed_all.option_contracts.len() >= paginated_first_page.option_contracts.len());
 
     let matched = listed
         .option_contracts

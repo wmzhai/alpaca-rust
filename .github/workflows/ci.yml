@@ -1,0 +1,38 @@
+name: ci
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+jobs:
+  rust:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Format
+        run: cargo fmt --check
+      - name: Check workspace
+        run: cargo check --workspace
+      - name: Test doctests
+        run: cargo test --doc
+      - name: Build rustdoc
+        run: cargo doc --workspace --no-deps
+
+  docs-site:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: website/package-lock.json
+      - name: Install docs dependencies
+        run: npm ci --prefix website
+      - name: Generate docs metadata
+        run: python3 tools/docs/generate-doc-site
+      - name: Build docs site
+        run: npm run build --prefix website

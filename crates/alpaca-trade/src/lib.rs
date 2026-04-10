@@ -1,3 +1,28 @@
+//! Async Rust client for the Alpaca Trading HTTP API.
+//!
+//! The default builder targets Alpaca paper trading. Use `Client::builder().live()`
+//! to select the live base URL, or `base_url_str(...)` for a custom endpoint.
+//!
+//! Environment variables:
+//!
+//! - `ALPACA_TRADE_API_KEY`
+//! - `ALPACA_TRADE_SECRET_KEY`
+//! - `ALPACA_TRADE_BASE_URL`
+//!
+//! ```no_run
+//! use alpaca_trade::Client;
+//!
+//! let client = Client::builder()
+//!     .credentials_from_env()?
+//!     .base_url_from_env()?
+//!     .build()?;
+//! let _account = client.account();
+//! # Ok::<(), alpaca_trade::Error>(())
+//! ```
+//!
+//! For mock-backed lifecycle validation, see `alpaca-mock` and the workspace
+//! docs site at <https://wmzhai.github.io/alpaca-rust/>.
+//!
 #![forbid(unsafe_code)]
 
 mod client;

@@ -9,8 +9,12 @@ members = [
 resolver = "2"
 
 [workspace.package]
-version = "0.23.1"
+version = "0.23.2"
 edition = "2024"
+authors = ["Weiming Zhai <wmzhai@gmail.com>"]
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/wmzhai/alpaca-rust"
+homepage = "https://wmzhai.github.io/alpaca-rust/"
 
 [workspace.dependencies]
 axum = "0.8"

@@ -1,0 +1,63 @@
+name: github-pages
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  id-token: write
+  pages: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: website/package-lock.json
+      - name: Rust verification
+        run: |
+          cargo fmt --check
+          cargo check --workspace
+          cargo test --doc
+          cargo doc --workspace --no-deps
+      - name: Package verification
+        run: |
+          cargo package -p alpaca-core
+          cargo package -p alpaca-http
+          cargo package -p alpaca-data
+          cargo package -p alpaca-trade
+          cargo package -p alpaca-mock
+      - name: Publish crates
+        run: |
+          cargo publish -p alpaca-core
+          cargo publish -p alpaca-http
+          cargo publish -p alpaca-data
+          cargo publish -p alpaca-trade
+          cargo publish -p alpaca-mock
+      - name: Install docs dependencies
+        run: npm ci --prefix website
+      - name: Generate docs metadata
+        run: python3 tools/docs/generate-doc-site
+      - name: Build docs site
+        run: npm run build --prefix website
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: website/build
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

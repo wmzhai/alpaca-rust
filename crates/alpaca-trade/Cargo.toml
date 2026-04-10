@@ -2,10 +2,19 @@
 name = "alpaca-trade"
 version.workspace = true
 edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+documentation = "https://docs.rs/alpaca-trade"
+readme = "README.md"
+description = "Rust client for the Alpaca Trading HTTP API"
+keywords = ["alpaca", "trading", "paper-trading", "stocks"]
+categories = ["api-bindings", "asynchronous"]
 
 [dependencies]
-alpaca-core = { path = "../alpaca-core" }
-alpaca-http = { path = "../alpaca-http" }
+alpaca-core = { path = "../alpaca-core", version = "0.23.2" }
+alpaca-http = { path = "../alpaca-http", version = "0.23.2" }
 reqwest.workspace = true
 rust_decimal.workspace = true
 serde.workspace = true
@@ -13,8 +22,8 @@ serde_json.workspace = true
 thiserror.workspace = true
 
 [dev-dependencies]
-alpaca-data = { path = "../alpaca-data" }
-alpaca-mock = { path = "../alpaca-mock" }
+alpaca-data = { path = "../alpaca-data", version = "0.23.2" }
+alpaca-mock = { path = "../alpaca-mock", version = "0.23.2" }
 dotenvy.workspace = true
 fs2 = "0.4"
 reqwest.workspace = true

@@ -1,0 +1,55 @@
+# Getting Started
+
+## Install
+
+For market data:
+
+```toml
+[dependencies]
+alpaca-data = "0.23.2"
+tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
+```
+
+For trading:
+
+```toml
+[dependencies]
+alpaca-trade = "0.23.2"
+tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
+```
+
+For the mock server:
+
+```bash
+cargo install alpaca-mock
+```
+
+## First Client
+
+```rust
+use alpaca_data::Client;
+
+let client = Client::builder()
+    .credentials_from_env()?
+    .base_url_from_env()?
+    .build()?;
+# let _ = client;
+# Ok::<(), alpaca_data::Error>(())
+```
+
+```rust
+use alpaca_trade::Client;
+
+let client = Client::builder()
+    .credentials_from_env()?
+    .base_url_from_env()?
+    .build()?;
+# let _ = client;
+# Ok::<(), alpaca_trade::Error>(())
+```
+
+## Next Steps
+
+- Read [Authentication](./authentication.md)
+- Review [Project Structure](./project-structure.md)
+- Use the coverage docs to see current API scope

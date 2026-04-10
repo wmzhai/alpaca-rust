@@ -1,3 +1,29 @@
+//! Async Rust client for the Alpaca Market Data HTTP API.
+//!
+//! The crate follows a mirror layer plus thin convenience layer design:
+//! resource methods track the official Alpaca HTTP API closely, while stable
+//! helpers such as pagination aggregators remain opt-in.
+//!
+//! Environment variables:
+//!
+//! - `ALPACA_DATA_API_KEY`
+//! - `ALPACA_DATA_SECRET_KEY`
+//! - `ALPACA_DATA_BASE_URL`
+//! - legacy fallback: `APCA_API_DATA_URL`
+//!
+//! ```no_run
+//! use alpaca_data::Client;
+//!
+//! let client = Client::builder()
+//!     .credentials_from_env()?
+//!     .base_url_from_env()?
+//!     .build()?;
+//! let _stocks = client.stocks();
+//! # Ok::<(), alpaca_data::Error>(())
+//! ```
+//!
+//! See the workspace docs site at <https://wmzhai.github.io/alpaca-rust/>.
+//!
 #![forbid(unsafe_code)]
 
 mod client;
