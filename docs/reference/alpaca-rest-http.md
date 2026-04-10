@@ -15,6 +15,6 @@ Key exports:
 
 docs.rs:
 
-- <https://docs.rs/alpaca-rest-http>
+- [docs.rs/alpaca-rest-http](https://docs.rs/alpaca-rest-http)
 
 This crate intentionally does not expose Alpaca resource models or endpoint-specific clients.

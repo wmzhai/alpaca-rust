@@ -24,7 +24,7 @@ Library helpers:
 
 docs.rs:
 
-- <https://docs.rs/alpaca-mock>
+- [docs.rs/alpaca-mock](https://docs.rs/alpaca-mock)
 
 Current public mock focus:
 

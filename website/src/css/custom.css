@@ -1,0 +1,55 @@
+:root {
+  --ifm-color-primary: #0369a1;
+  --ifm-color-primary-dark: #025880;
+  --ifm-color-primary-darker: #024a6d;
+  --ifm-color-primary-darkest: #013b57;
+  --ifm-color-primary-light: #0a7fbe;
+  --ifm-color-primary-lighter: #138bcf;
+  --ifm-color-primary-lightest: #38bdf8;
+  --ifm-background-color: #f8fafc;
+  --ifm-font-family-base: 'IBM Plex Sans', 'Segoe UI', sans-serif;
+  --ifm-heading-font-family: 'IBM Plex Sans', 'Segoe UI', sans-serif;
+  --ifm-code-font-size: 95%;
+}
+
+html[data-theme='dark'] {
+  --ifm-color-primary: #38bdf8;
+  --ifm-color-primary-dark: #1fb3f6;
+  --ifm-color-primary-darker: #0fa8f2;
+  --ifm-color-primary-darkest: #0890cf;
+  --ifm-color-primary-light: #51c7fa;
+  --ifm-color-primary-lighter: #5dcbfa;
+  --ifm-color-primary-lightest: #7bd6fb;
+  --ifm-background-color: #020617;
+}
+
+.navbar {
+  background: rgba(248, 250, 252, 0.9);
+  border-bottom: 1px solid rgba(148, 163, 184, 0.18);
+  backdrop-filter: blur(16px);
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.06);
+}
+
+.navbar__brand {
+  gap: 0.72rem;
+}
+
+.navbar__title {
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.navbar__logo img {
+  width: 2rem;
+  height: 2rem;
+  min-width: 2rem;
+}
+
+html[data-theme='dark'] .navbar {
+  background: rgba(2, 6, 23, 0.88);
+  border-bottom-color: rgba(148, 163, 184, 0.14);
+}
+
+.footer {
+  background: #0f172a;
+}

@@ -11,6 +11,6 @@ Key exports:
 
 docs.rs:
 
-- <https://docs.rs/alpaca-core>
+- [docs.rs/alpaca-core](https://docs.rs/alpaca-core)
 
 This crate intentionally does not expose Alpaca market-data or trading resources.

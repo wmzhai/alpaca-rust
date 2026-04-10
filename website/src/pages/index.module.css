@@ -1,0 +1,170 @@
+.hero {
+  padding: 5rem 0 4rem;
+  background:
+    radial-gradient(circle at top left, rgba(14, 165, 233, 0.18), transparent 38%),
+    linear-gradient(180deg, rgba(15, 23, 42, 0.96), rgba(30, 41, 59, 0.94));
+  color: #f8fafc;
+}
+
+.heroGrid {
+  display: grid;
+  gap: 2rem;
+  align-items: start;
+}
+
+.kicker {
+  display: inline-flex;
+  margin: 0 0 1rem;
+  padding: 0.35rem 0.7rem;
+  border-radius: 999px;
+  background: rgba(125, 211, 252, 0.15);
+  color: #bae6fd;
+  font-size: 0.85rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.title {
+  margin: 0;
+  max-width: 17ch;
+  font-size: clamp(2.45rem, 5.35vw, 4.1rem);
+  line-height: 1.02;
+  letter-spacing: -0.035em;
+}
+
+.subtitle {
+  max-width: 42rem;
+  margin: 1.5rem 0 0;
+  font-size: 1.08rem;
+  line-height: 1.7;
+  color: rgba(248, 250, 252, 0.86);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.9rem;
+  margin-top: 2rem;
+}
+
+.heroPanel {
+  padding: 1.4rem;
+  border: 1px solid rgba(186, 230, 253, 0.22);
+  border-radius: 1.25rem;
+  background: rgba(15, 23, 42, 0.54);
+  box-shadow: 0 24px 70px rgba(2, 6, 23, 0.35);
+}
+
+.panelLabel {
+  margin-bottom: 0.9rem;
+  color: #7dd3fc;
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+.panelList {
+  margin: 0;
+  padding-left: 1.1rem;
+  display: grid;
+  gap: 0.75rem;
+  line-height: 1.6;
+}
+
+.section {
+  padding: 4rem 0;
+}
+
+.resourceSection {
+  background: linear-gradient(180deg, rgba(241, 245, 249, 0.82), rgba(226, 232, 240, 0.44));
+}
+
+.sectionHeader {
+  max-width: 44rem;
+  margin-bottom: 1.8rem;
+}
+
+.sectionHeader h2 {
+  margin-bottom: 0.55rem;
+}
+
+.sectionHeader p {
+  margin: 0;
+  color: var(--ifm-color-emphasis-700);
+  line-height: 1.7;
+}
+
+.cardGrid {
+  display: grid;
+  gap: 1rem;
+}
+
+.card {
+  display: block;
+  padding: 1.35rem;
+  border: 1px solid rgba(148, 163, 184, 0.32);
+  border-radius: 1.15rem;
+  background: rgba(255, 255, 255, 0.9);
+  color: inherit;
+  text-decoration: none;
+  box-shadow: 0 20px 50px rgba(15, 23, 42, 0.08);
+  transition: transform 0.16s ease, box-shadow 0.16s ease, border-color 0.16s ease;
+}
+
+.card:hover {
+  color: inherit;
+  text-decoration: none;
+  transform: translateY(-2px);
+  border-color: rgba(14, 165, 233, 0.45);
+  box-shadow: 0 28px 60px rgba(14, 165, 233, 0.14);
+}
+
+.card h3 {
+  margin-bottom: 0.55rem;
+}
+
+.card p {
+  margin: 0;
+  color: var(--ifm-color-emphasis-700);
+  line-height: 1.65;
+}
+
+html[data-theme='dark'] .resourceSection {
+  background:
+    radial-gradient(circle at top right, rgba(14, 165, 233, 0.12), transparent 32%),
+    linear-gradient(180deg, rgba(15, 23, 42, 0.98), rgba(15, 23, 42, 0.9));
+}
+
+html[data-theme='dark'] .sectionHeader p {
+  color: rgba(226, 232, 240, 0.78);
+}
+
+html[data-theme='dark'] .card {
+  background: rgba(15, 23, 42, 0.82);
+  border-color: rgba(148, 163, 184, 0.22);
+  box-shadow: 0 24px 60px rgba(2, 6, 23, 0.32);
+}
+
+html[data-theme='dark'] .card:hover {
+  border-color: rgba(56, 189, 248, 0.46);
+  box-shadow: 0 30px 68px rgba(14, 165, 233, 0.18);
+}
+
+html[data-theme='dark'] .card h3 {
+  color: #f8fafc;
+}
+
+html[data-theme='dark'] .card p {
+  color: rgba(226, 232, 240, 0.82);
+}
+
+@media (min-width: 996px) {
+  .heroGrid {
+    grid-template-columns: minmax(0, 1.7fr) minmax(280px, 0.95fr);
+  }
+
+  .cardGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}

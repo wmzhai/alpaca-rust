@@ -10,7 +10,7 @@ This checklist defines the public release bar for `alpaca-rust`.
 - docs.rs is the primary API-reference host
 - GitHub Pages hosts narrative docs for the whole workspace
 - `CHANGELOG.md` contains a non-empty section for the release tag
-- author metadata uses `Weiming Zhai <wmzhai@gmail.com>`
+- author metadata uses `Weiming Zhai (wmzhai@gmail.com)`
 
 ## Verification
 

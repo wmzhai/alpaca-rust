@@ -55,7 +55,7 @@ See also:
 - [Watchlists](./watchlists.md)
 - [Trading API Coverage](../api-coverage/trading.md)
 - [Trade Mainline](../trade-mainline.md)
-- <https://docs.rs/alpaca-trade>
+- [docs.rs/alpaca-trade](https://docs.rs/alpaca-trade)
 
 Not implemented:
 

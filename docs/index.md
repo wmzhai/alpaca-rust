@@ -21,7 +21,7 @@ Supporting crates:
 - `alpaca-rest-http` for transport behavior
 - `alpaca-mock` for executable mock-server flows
 
-Maintainer: Weiming Zhai <wmzhai@gmail.com>
+Maintainer: Weiming Zhai (wmzhai@gmail.com)
 
 ## Documentation Map
 

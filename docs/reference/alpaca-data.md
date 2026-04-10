@@ -33,7 +33,7 @@ See also:
 - [News](./news.md)
 - [Corporate Actions](./corporate-actions.md)
 - [Market Data API Coverage](../api-coverage/market-data.md)
-- <https://docs.rs/alpaca-data>
+- [docs.rs/alpaca-data](https://docs.rs/alpaca-data)
 
 Not implemented:
 
