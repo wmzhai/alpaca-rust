@@ -25,3 +25,15 @@ Library helpers:
 docs.rs:
 
 - <https://docs.rs/alpaca-mock>
+
+Current public mock focus:
+
+- account
+- orders
+- positions
+- activities
+
+Not implemented:
+
+- generic fake market-data generation
+- a full broker or exchange simulator

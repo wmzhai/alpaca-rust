@@ -6,7 +6,49 @@ This document is the public companion for `tools/api-coverage/trading-api.json`.
 
 - Included: non-crypto Alpaca Trading HTTP REST API
 - Excluded: crypto, fixed income, stream, websocket, broker, FIX
-- Explicitly deferred from current coverage scope: `POST /v2/positions/{symbol_or_contract_id}/exercise`, `POST /v2/positions/{symbol_or_contract_id}/do-not-exercise`
+
+## Adopted Families
+
+- Accounts
+- Account Activities
+- Account Configurations
+- Assets
+- Calendar
+- Orders
+- Portfolio History
+- Positions
+- Watchlists
+
+## Implemented Mirror Coverage
+
+Summary from `tools/api-coverage/trading-api.json`:
+
+- official total operations: `64`
+- adopted-family total operations: `36`
+- implemented mirror operations: `36`
+- open adopted-scope mirror gaps: `0`
+
+Implemented resource groups:
+
+- account: `GET /v2/account`
+- account activities: list and list-by-type
+- account configurations: get and update
+- portfolio history: get
+- assets: list and get
+- calendar and clock: current v2 and adopted v3 routes
+- options contracts: list, list-all convenience, get
+- orders: list, create, cancel-all, get, replace, cancel, get-by-client-order-id
+- positions: list, get, close-all, close, exercise, do-not-exercise
+- watchlists: list, create, get/update/delete by id or name, add/delete assets
+
+## Explicitly Not Implemented
+
+- broker API
+- FIX
+- websocket and stream APIs
+- crypto trading surfaces
+- fixed-income trading surfaces
+- high-level order orchestration or state-machine helpers
 
 ## Status
 

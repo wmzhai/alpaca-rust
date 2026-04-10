@@ -22,3 +22,16 @@ Supporting crates:
 - `alpaca-mock` for executable mock-server flows
 
 Maintainer: Weiming Zhai <wmzhai@gmail.com>
+
+## Coverage Snapshot
+
+- `alpaca-data` adopts 28 market-data mirror operations across stocks, options, news, and corporate actions, with zero open mirror gaps in the current adopted scope
+- `alpaca-trade` adopts 36 trading mirror operations across account, activities, assets, calendar/clock, options contracts, orders, portfolio history, positions, and watchlists, with zero open mirror gaps in the current adopted scope
+
+## Explicitly Out Of Scope
+
+The current public release line does not implement:
+
+- market-data crypto, forex, fixed income, logos, or screener APIs
+- trading crypto, fixed income, broker, FIX, websocket, or stream APIs
+- order orchestration, strategy logic, provider fallback, caching, or application state management

@@ -6,7 +6,7 @@ For market data:
 
 ```toml
 [dependencies]
-alpaca-data = "0.23.2"
+alpaca-data = "0.23.3"
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
 ```
 
@@ -14,7 +14,7 @@ For trading:
 
 ```toml
 [dependencies]
-alpaca-trade = "0.23.2"
+alpaca-trade = "0.23.3"
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
 ```
 
@@ -52,4 +52,6 @@ let client = Client::builder()
 
 - Read [Authentication](./authentication.md)
 - Review [Project Structure](./project-structure.md)
-- Use the coverage docs to see current API scope
+- Read [Market Data API Coverage](./api-coverage/market-data.md)
+- Read [Trading API Coverage](./api-coverage/trading.md)
+- Read [Release Checklist](./release-checklist.md)

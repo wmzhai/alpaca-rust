@@ -3,7 +3,7 @@
   "packages": [
     {
       "name": "alpaca-core",
-      "version": "0.23.2",
+      "version": "0.23.3",
       "authors": [
         "Weiming Zhai <wmzhai@gmail.com>"
       ],
@@ -13,7 +13,7 @@
     },
     {
       "name": "alpaca-http",
-      "version": "0.23.2",
+      "version": "0.23.3",
       "authors": [
         "Weiming Zhai <wmzhai@gmail.com>"
       ],
@@ -23,7 +23,7 @@
     },
     {
       "name": "alpaca-data",
-      "version": "0.23.2",
+      "version": "0.23.3",
       "authors": [
         "Weiming Zhai <wmzhai@gmail.com>"
       ],
@@ -33,7 +33,7 @@
     },
     {
       "name": "alpaca-trade",
-      "version": "0.23.2",
+      "version": "0.23.3",
       "authors": [
         "Weiming Zhai <wmzhai@gmail.com>"
       ],
@@ -43,7 +43,7 @@
     },
     {
       "name": "alpaca-mock",
-      "version": "0.23.2",
+      "version": "0.23.3",
       "authors": [
         "Weiming Zhai <wmzhai@gmail.com>"
       ],

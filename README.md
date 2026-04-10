@@ -21,6 +21,31 @@ Quick links:
 
 Maintainer: Weiming Zhai <wmzhai@gmail.com>
 
+## What Is Included
+
+- Market Data HTTP support for stocks, options, news, and corporate actions
+- Trading HTTP support for account, account configurations, activities, assets, calendar, clock, options contracts, orders, portfolio history, positions, and watchlists
+- Shared low-level crates for transport and shared primitives
+- A mock server executable for trade-mainline and contract-style validation
+
+## What Is Not Included
+
+The current public release line does not implement:
+
+- WebSocket or stream APIs
+- Crypto
+- Broker API
+- FIX
+- Third-party provider clients
+- Strategy logic, order orchestration, cache layers, fallback providers, or stateful application workflows
+
+Additional market-data families intentionally not covered in the current release line:
+
+- forex
+- fixed income
+- logos
+- screener
+
 ## Credentials
 
 The workspace uses separate environment variables for market data and trading:
@@ -42,7 +67,7 @@ Use `alpaca-data` for market data:
 
 ```toml
 [dependencies]
-alpaca-data = "0.23.2"
+alpaca-data = "0.23.3"
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
 ```
 
@@ -60,7 +85,7 @@ Use `alpaca-trade` for trading resources:
 
 ```toml
 [dependencies]
-alpaca-trade = "0.23.2"
+alpaca-trade = "0.23.3"
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
 ```
 
@@ -96,3 +121,71 @@ Explicitly out of scope for the current release line:
 - Broker API
 - FIX
 - Third-party provider clients
+
+## Crate Guide
+
+### `alpaca-data`
+
+Use this crate when you need the Alpaca Market Data HTTP API.
+
+Implemented mirror coverage:
+
+- stocks: bars, quotes, trades, latest bars/quotes/trades, snapshots, auctions, condition codes, exchange codes
+- options: bars, trades, latest quotes/trades, snapshots, chain, condition codes, exchange codes
+- news: list
+- corporate actions: list
+
+Thin convenience helpers currently included:
+
+- `*_all` pagination aggregators for supported paginated endpoints
+
+Not implemented in `alpaca-data`:
+
+- crypto
+- websocket
+- stream APIs
+- forex
+- fixed income
+- logos
+- screener
+
+### `alpaca-trade`
+
+Use this crate when you need the Alpaca Trading HTTP API.
+
+Implemented mirror coverage:
+
+- account
+- account configurations
+- activities
+- assets
+- calendar and clock, including current v3 calendar/clock coverage
+- options contracts
+- orders
+- portfolio history
+- positions
+- watchlists
+
+Thin convenience helpers currently included:
+
+- `list_all` / pagination collection for activities and options contracts where supported
+
+Not implemented in `alpaca-trade`:
+
+- websocket or stream APIs
+- broker APIs
+- FIX
+- crypto and fixed income trading surfaces
+- high-level order orchestration or application state machines
+
+### `alpaca-core`
+
+Use this crate only if you explicitly want shared low-level primitives. It is not intended to be the primary application entry point.
+
+### `alpaca-http`
+
+Use this crate only if you explicitly want the low-level transport layer. Most SDK users should stay on `alpaca-data` or `alpaca-trade`.
+
+### `alpaca-mock`
+
+Use this crate when you need an executable mock server for integration tests or trade-mainline flows. It is a real public binary crate, but it remains purpose-built for SDK testing and development flows.

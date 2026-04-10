@@ -12,3 +12,10 @@ Included building blocks:
 - pagination helpers
 - decimal and integer serde helpers
 - lightweight validation utilities
+
+What this crate does not include:
+
+- Alpaca resource models such as `Order`, `Position`, `Account`, or `Activity`
+- HTTP transport behavior
+- resource clients such as `stocks()` or `orders()`
+- application-level strategy, orchestration, caching, or state machines

@@ -20,3 +20,16 @@ Runtime configuration:
 - market-data-backed flows require `ALPACA_DATA_API_KEY` and `ALPACA_DATA_SECRET_KEY`
 
 The crate also exposes a thin library surface for test-server bootstrapping and mock state wiring.
+
+Current mock coverage is intentionally focused on the trade mainline:
+
+- account
+- orders
+- positions
+- activities
+
+What `alpaca-mock` is not:
+
+- a generic Alpaca simulator
+- a replacement for live API verification
+- a fake market-data generator with invented prices
