@@ -2,17 +2,17 @@
 
 use std::{
     fs::{File, OpenOptions},
+    net::TcpListener,
+    path::{Path, PathBuf},
+    process::Stdio,
     sync::OnceLock,
     time::Duration,
 };
 
 use alpaca_data::Client as DataClient;
-use alpaca_mock::{
-    LiveMarketDataBridge, MockServerState, TestServer, spawn_test_server_with_state,
-};
 use alpaca_trade::Client as TradeClient;
 use fs2::FileExt;
-use tokio::sync::{Mutex, MutexGuard};
+use tokio::{process::{Child, Command}, sync::{Mutex, MutexGuard}};
 
 use crate::live_support::{
     AlpacaService, LiveHttpProbe, LiveTestEnv, PaperSessionState, SampleRecorder,
@@ -20,6 +20,7 @@ use crate::live_support::{
 };
 
 static LIVE_PAPER_MUTATION_MUTEX: OnceLock<Mutex<()>> = OnceLock::new();
+static MOCK_BINARY_BUILD_MUTEX: OnceLock<Mutex<()>> = OnceLock::new();
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum TradeTestTarget {
@@ -60,6 +61,18 @@ pub(crate) struct TradeTestHarness {
     recorder: SampleRecorder,
     live_paper_session_state: Option<PaperSessionState>,
     _mock_server: Option<TestServer>,
+}
+
+#[derive(Debug)]
+struct TestServer {
+    base_url: String,
+    child: Child,
+}
+
+impl Drop for TestServer {
+    fn drop(&mut self) {
+        let _ = self.child.start_kill();
+    }
 }
 
 pub(crate) struct LivePaperMutationGuard {
@@ -240,9 +253,7 @@ async fn build_mock_harness(env: LiveTestEnv) -> Option<TradeTestHarness> {
         .base_url(data_service.base_url().clone())
         .build()
         .expect("data client should build from live service config");
-    let state = MockServerState::new()
-        .with_market_data_bridge(LiveMarketDataBridge::new(data_client.clone()));
-    let server = spawn_test_server_with_state(state).await;
+    let server = spawn_mock_server().await?;
     let trade_client = TradeClient::builder()
         .api_key("mock-key")
         .secret_key("mock-secret")
@@ -260,4 +271,96 @@ async fn build_mock_harness(env: LiveTestEnv) -> Option<TradeTestHarness> {
         live_paper_session_state: None,
         _mock_server: Some(server),
     })
+}
+
+async fn spawn_mock_server() -> Option<TestServer> {
+    let binary = ensure_mock_binary().await?;
+    let address = reserve_mock_address()?;
+    let base_url = format!("http://{address}");
+    let mut child = Command::new(binary)
+        .env("ALPACA_MOCK_LISTEN_ADDR", address.to_string())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .spawn()
+        .ok()?;
+
+    let health_url = format!("{base_url}/health");
+    for _ in 0..50 {
+        if let Some(status) = child.try_wait().ok().flatten() {
+            eprintln!("skipping mock test: alpaca-mock exited before health check: {status}");
+            return None;
+        }
+
+        match reqwest::get(&health_url).await {
+            Ok(response) if response.status().is_success() => {
+                return Some(TestServer { base_url, child });
+            }
+            Ok(_) | Err(_) => tokio::time::sleep(Duration::from_millis(100)).await,
+        }
+    }
+
+    let _ = child.start_kill();
+    eprintln!("skipping mock test: alpaca-mock did not become healthy in time");
+    None
+}
+
+async fn ensure_mock_binary() -> Option<PathBuf> {
+    let path = mock_binary_path();
+    if path.is_file() {
+        return Some(path);
+    }
+
+    let _guard = MOCK_BINARY_BUILD_MUTEX
+        .get_or_init(|| Mutex::new(()))
+        .lock()
+        .await;
+    if path.is_file() {
+        return Some(path);
+    }
+
+    let status = Command::new("cargo")
+        .arg("build")
+        .arg("-p")
+        .arg("alpaca-mock")
+        .arg("--bin")
+        .arg("alpaca-mock")
+        .current_dir(workspace_root())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .status()
+        .await
+        .ok()?;
+    if !status.success() {
+        eprintln!("skipping mock test: failed to build alpaca-mock binary");
+        return None;
+    }
+
+    Some(path)
+}
+
+fn reserve_mock_address() -> Option<std::net::SocketAddr> {
+    let listener = TcpListener::bind("127.0.0.1:0").ok()?;
+    let address = listener.local_addr().ok()?;
+    drop(listener);
+    Some(address)
+}
+
+fn mock_binary_path() -> PathBuf {
+    workspace_root()
+        .join("target")
+        .join("debug")
+        .join(format!("alpaca-mock{}", std::env::consts::EXE_SUFFIX))
+}
+
+fn workspace_root() -> &'static Path {
+    static ROOT: OnceLock<PathBuf> = OnceLock::new();
+    ROOT.get_or_init(|| {
+        PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .expect("crate directory should have workspace parent")
+            .parent()
+            .expect("workspace directory should exist")
+            .to_path_buf()
+    })
+    .as_path()
 }

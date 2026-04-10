@@ -67,7 +67,7 @@ Use `alpaca-data` for market data:
 
 ```toml
 [dependencies]
-alpaca-data = "0.23.7"
+alpaca-data = "0.23.8"
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
 ```
 
@@ -85,7 +85,7 @@ Use `alpaca-trade` for trading resources:
 
 ```toml
 [dependencies]
-alpaca-trade = "0.23.7"
+alpaca-trade = "0.23.8"
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
 ```
 

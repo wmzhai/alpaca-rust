@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.23.7
+## v0.23.8
 
 - Prepared the initial public `alpaca-rust` workspace release line.
 - Added publish-ready package metadata for `alpaca-core`, `alpaca-rest-http`, `alpaca-data`, `alpaca-trade`, and `alpaca-mock`.
