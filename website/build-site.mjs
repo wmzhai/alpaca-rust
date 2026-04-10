@@ -23,6 +23,20 @@ const docFiles = [
   "reference/alpaca-data.md",
   "reference/alpaca-trade.md",
   "reference/alpaca-mock.md",
+  "reference/stocks.md",
+  "reference/options-data.md",
+  "reference/news.md",
+  "reference/corporate-actions.md",
+  "reference/account.md",
+  "reference/account-configurations.md",
+  "reference/activities.md",
+  "reference/assets.md",
+  "reference/calendar-clock.md",
+  "reference/options-contracts.md",
+  "reference/orders.md",
+  "reference/portfolio-history.md",
+  "reference/positions.md",
+  "reference/watchlists.md",
 ];
 
 marked.setOptions({
