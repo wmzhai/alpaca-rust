@@ -1,58 +1,294 @@
-name: github-pages
+name: release
 
 on:
   push:
-    branches:
-      - master
     tags:
-      - "v*"
-  workflow_dispatch:
+      - 'v*.*.*'
+
+env:
+  CARGO_TERM_COLOR: always
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
 
 permissions:
   contents: read
   id-token: write
   pages: write
 
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
-  deploy-docs:
+  ensure-master-tag:
     runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2
-      - uses: actions/setup-node@v4
+      - name: Checkout
+        uses: actions/checkout@v5
         with:
-          node-version: "22"
-          cache: "npm"
-          cache-dependency-path: website/package-lock.json
-      - name: Rust verification
+          fetch-depth: 0
+
+      - name: Verify tagged commit is reachable from master
         run: |
-          cargo fmt --check
-          cargo check --workspace
-          cargo test --doc
-          cargo doc --workspace --no-deps
-      - name: Package verification
+          git fetch origin master
+          git merge-base --is-ancestor "$GITHUB_SHA" origin/master
+
+  build:
+    needs: ensure-master-tag
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v6
+        with:
+          enablement: true
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Rust
+        uses: Swatinem/rust-cache@v2
+
+      - name: Format check
+        run: cargo fmt --check
+
+      - name: Check workspace
+        run: cargo check --workspace
+
+      - name: Test doctests
+        run: cargo test --doc
+
+      - name: Build rustdoc
+        run: cargo doc --workspace --no-deps
+
+      - name: Package crates
         run: |
           cargo package -p alpaca-core
           cargo package -p alpaca-rest-http
           cargo package -p alpaca-data
           cargo package -p alpaca-trade
           cargo package -p alpaca-mock
-      - name: Install docs dependencies
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: website/package-lock.json
+
+      - name: Install website dependencies
         run: npm ci --prefix website
+
       - name: Generate docs metadata
         run: python3 tools/docs/generate-doc-site
+
+      - name: Copy rustdoc bundle into site static assets
+        run: |
+          rm -rf website/static/api
+          mkdir -p website/static/api
+          cp -R target/doc/. website/static/api/
+
       - name: Build docs site
         run: npm run build --prefix website
-      - name: Configure Pages
-        uses: actions/configure-pages@v5
+
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:
           path: website/build
+
+  build-macos-arm64:
+    needs: ensure-master-tag
+    runs-on: macos-14
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Rust
+        uses: Swatinem/rust-cache@v2
+
+      - name: Add Apple Silicon target
+        run: rustup target add aarch64-apple-darwin
+
+      - name: Build alpaca-mock
+        run: cargo build -p alpaca-mock --release --target aarch64-apple-darwin
+
+      - name: Package macOS artifact
+        run: |
+          archive="alpaca-mock-${GITHUB_REF_NAME}-aarch64-apple-darwin.tar.gz"
+          rm -rf dist
+          mkdir -p dist/package
+          cp target/aarch64-apple-darwin/release/alpaca-mock dist/package/
+          cp crates/alpaca-mock/README.md dist/package/README.md
+          tar -C dist/package -czf "dist/${archive}" alpaca-mock README.md
+
+      - name: Upload macOS artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: alpaca-mock-macos-arm64
+          path: dist/alpaca-mock-${{ github.ref_name }}-aarch64-apple-darwin.tar.gz
+          if-no-files-found: error
+          retention-days: 7
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      CRATES_IO_USER_AGENT: alpaca-rust-release-check (+https://github.com/${{ github.repository }})
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Authenticate with crates.io
+        id: auth
+        uses: rust-lang/crates-io-auth-action@v1
+
+      - name: Publish crates in dependency order
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ steps.auth.outputs.token }}
+        run: |
+          set -euo pipefail
+          cargo metadata --no-deps --format-version 1 > /tmp/cargo-metadata.json
+
+          version_for() {
+            python3 - "$1" <<'PY'
+            import json
+            import sys
+
+            crate = sys.argv[1]
+            with open('/tmp/cargo-metadata.json', 'r', encoding='utf-8') as fh:
+                meta = json.load(fh)
+            for pkg in meta['packages']:
+                if pkg['name'] == crate:
+                    print(pkg['version'])
+                    raise SystemExit(0)
+            raise SystemExit(f'missing package metadata for {crate}')
+            PY
+          }
+
+          crate_exists() {
+            local crate="$1"
+            local version="$2"
+            curl -sS \
+              -A "$CRATES_IO_USER_AGENT" \
+              -H 'Accept: application/json' \
+              -o /tmp/crates-io-version.json \
+              -w '%{http_code}' \
+              "https://crates.io/api/v1/crates/${crate}/${version}"
+          }
+
+          for crate in alpaca-core alpaca-rest-http alpaca-data alpaca-trade alpaca-mock; do
+            version="$(version_for "$crate")"
+            status="$(crate_exists "$crate" "$version")"
+            case "$status" in
+              200)
+                echo "${crate} ${version} already exists on crates.io, skipping publish."
+                continue
+                ;;
+              404)
+                ;;
+              *)
+                echo "unexpected crates.io status for ${crate} ${version}: ${status}" >&2
+                cat /tmp/crates-io-version.json >&2 || true
+                exit 1
+                ;;
+            esac
+
+            cargo publish -p "$crate" --locked
+
+            for attempt in $(seq 1 30); do
+              status="$(crate_exists "$crate" "$version")"
+              if [ "$status" = '200' ]; then
+                echo "${crate} ${version} is visible on crates.io."
+                break
+              fi
+              if [ "$attempt" -eq 30 ]; then
+                echo "timed out waiting for ${crate} ${version} to appear on crates.io" >&2
+                exit 1
+              fi
+              sleep 10
+            done
+          done
+
+  deploy:
+    needs:
+      - build
+      - publish
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
       - name: Deploy to GitHub Pages
         id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5
+
+  release:
+    needs:
+      - publish
+      - deploy
+      - build-macos-arm64
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Download macOS artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: alpaca-mock-macos-arm64
+          path: release-assets
+
+      - name: Extract release notes from CHANGELOG.md
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          python3 - <<'PY'
+            import os
+            from pathlib import Path
+
+            tag = os.environ['RELEASE_TAG']
+            changelog = Path('CHANGELOG.md')
+            lines = changelog.read_text(encoding='utf-8').splitlines()
+            heading = f'## {tag}'
+
+            start = None
+            for index, line in enumerate(lines):
+                if line.strip() == heading:
+                    start = index
+                    break
+
+            if start is None:
+                raise SystemExit(f'missing changelog section for {tag}')
+
+            end = len(lines)
+            for index in range(start + 1, len(lines)):
+                if lines[index].startswith('## '):
+                    end = index
+                    break
+
+            section = '\n'.join(lines[start + 1:end]).strip()
+            if not section:
+                raise SystemExit(f'empty changelog section for {tag}')
+
+            Path('release-notes.md').write_text(section + '\n', encoding='utf-8')
+            PY
+
+      - name: Create or update GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: ${{ github.ref_name }}
+          body_path: release-notes.md
+          files: release-assets/alpaca-mock-${{ github.ref_name }}-aarch64-apple-darwin.tar.gz
