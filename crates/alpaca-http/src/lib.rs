@@ -1,6 +1,6 @@
 //! Shared HTTP transport for the `alpaca-rust` workspace.
 //!
-//! `alpaca-http` provides the reusable request pipeline used by the higher-level
+//! `alpaca-rest-http` provides the reusable request pipeline used by the higher-level
 //! SDK crates. It includes request construction, retry policy, response and
 //! error metadata, observer hooks, and concurrency limiting.
 //!

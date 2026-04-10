@@ -23,7 +23,7 @@ const docFiles = [
   "api-coverage/trading.md",
   "reference/index.md",
   "reference/alpaca-core.md",
-  "reference/alpaca-http.md",
+  "reference/alpaca-rest-http.md",
   "reference/alpaca-data.md",
   "reference/alpaca-trade.md",
   "reference/alpaca-mock.md",

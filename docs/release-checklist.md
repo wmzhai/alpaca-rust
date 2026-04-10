@@ -23,12 +23,12 @@ cargo test --doc
 cargo doc --workspace --no-deps
 npm run build --prefix website
 cargo package --list -p alpaca-core
-cargo package --list -p alpaca-http
+cargo package --list -p alpaca-rest-http
 cargo package --list -p alpaca-data
 cargo package --list -p alpaca-trade
 cargo package --list -p alpaca-mock
 cargo publish --dry-run -p alpaca-core
-cargo publish --dry-run -p alpaca-http
+cargo publish --dry-run -p alpaca-rest-http
 cargo publish --dry-run -p alpaca-data
 cargo publish --dry-run -p alpaca-trade
 cargo publish --dry-run -p alpaca-mock
@@ -51,7 +51,7 @@ Run the release-confidence live suite appropriate for the current market state:
 Publish in dependency order:
 
 1. `alpaca-core`
-2. `alpaca-http`
+2. `alpaca-rest-http`
 3. `alpaca-data`
 4. `alpaca-trade`
 5. `alpaca-mock`

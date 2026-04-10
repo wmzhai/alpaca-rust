@@ -13,9 +13,9 @@ keywords = ["alpaca", "mock-server", "trading", "testing"]
 categories = ["api-bindings", "development-tools"]
 
 [dependencies]
-alpaca-core = { path = "../alpaca-core", version = "0.23.6" }
-alpaca-data = { path = "../alpaca-data", version = "0.23.6" }
-alpaca-trade = { path = "../alpaca-trade", version = "0.23.6" }
+alpaca-core = { path = "../alpaca-core", version = "0.23.7" }
+alpaca-data = { path = "../alpaca-data", version = "0.23.7" }
+alpaca-trade = { path = "../alpaca-trade", version = "0.23.7" }
 axum.workspace = true
 chrono.workspace = true
 dotenvy.workspace = true
@@ -26,7 +26,7 @@ thiserror.workspace = true
 tokio.workspace = true
 
 [dev-dependencies]
-alpaca-http = { path = "../alpaca-http", version = "0.23.6" }
+alpaca-http = { package = "alpaca-rest-http", path = "../alpaca-http", version = "0.23.7" }
 dotenvy.workspace = true
 reqwest.workspace = true
 rust_decimal.workspace = true

@@ -54,7 +54,7 @@ Before the first real crates.io publication, dependent workspace crates can fail
 Expected publish order:
 
 1. `alpaca-core`
-2. `alpaca-http`
+2. `alpaca-rest-http`
 3. `alpaca-data`
 4. `alpaca-trade`
 5. `alpaca-mock`

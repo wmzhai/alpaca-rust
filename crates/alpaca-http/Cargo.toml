@@ -1,19 +1,19 @@
 [package]
-name = "alpaca-http"
+name = "alpaca-rest-http"
 version.workspace = true
 edition.workspace = true
 authors.workspace = true
 license.workspace = true
 repository.workspace = true
 homepage.workspace = true
-documentation = "https://docs.rs/alpaca-http"
+documentation = "https://docs.rs/alpaca-rest-http"
 readme = "README.md"
 description = "Shared HTTP transport layer for the alpaca-rust workspace"
 keywords = ["alpaca", "http", "sdk", "transport"]
 categories = ["api-bindings", "asynchronous"]
 
 [dependencies]
-alpaca-core = { path = "../alpaca-core", version = "0.23.6" }
+alpaca-core = { path = "../alpaca-core", version = "0.23.7" }
 reqwest.workspace = true
 serde.workspace = true
 serde_json.workspace = true
@@ -28,3 +28,6 @@ rust_decimal.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 tokio.workspace = true
+
+[lib]
+name = "alpaca_http"

@@ -18,7 +18,7 @@ Not here:
 - Alpaca resource models
 - transport execution
 
-## `alpaca-http`
+## `alpaca-rest-http`
 
 Shared transport:
 

@@ -58,7 +58,7 @@ def main() -> int:
                     "project-structure",
                     "reference/index",
                     "reference/alpaca-core",
-                    "reference/alpaca-http",
+                    "reference/alpaca-rest-http",
                     "reference/alpaca-data",
                     "reference/alpaca-trade",
                     "reference/alpaca-mock",

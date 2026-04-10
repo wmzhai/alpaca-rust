@@ -3,7 +3,7 @@
 `alpaca-rust` is the public documentation home for the workspace that publishes:
 
 - `alpaca-core`
-- `alpaca-http`
+- `alpaca-rest-http`
 - `alpaca-data`
 - `alpaca-trade`
 - `alpaca-mock`
@@ -18,7 +18,7 @@ Primary application entry points:
 Supporting crates:
 
 - `alpaca-core` for shared primitives
-- `alpaca-http` for transport behavior
+- `alpaca-rest-http` for transport behavior
 - `alpaca-mock` for executable mock-server flows
 
 Maintainer: Weiming Zhai <wmzhai@gmail.com>

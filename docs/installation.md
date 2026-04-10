@@ -8,7 +8,7 @@ Market data:
 
 ```toml
 [dependencies]
-alpaca-data = "0.23.6"
+alpaca-data = "0.23.7"
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
 ```
 
@@ -16,14 +16,14 @@ Trading:
 
 ```toml
 [dependencies]
-alpaca-trade = "0.23.6"
+alpaca-trade = "0.23.7"
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
 ```
 
 Low-level crates are also published:
 
 - `alpaca-core`
-- `alpaca-http`
+- `alpaca-rest-http`
 
 Most users should not start from those low-level crates.
 

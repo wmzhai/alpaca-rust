@@ -7,7 +7,7 @@ The workspace is organized around five crates:
 - `alpaca-data`: market data client for stocks, options, news, and corporate actions
 - `alpaca-trade`: trading client for paper/live trading resources
 - `alpaca-core`: shared primitives such as credentials, base URLs, query helpers, and serde helpers
-- `alpaca-http`: shared transport, retry, observer, and response metadata layer
+- `alpaca-rest-http`: shared transport, retry, observer, and response metadata layer
 - `alpaca-mock`: executable mock server for trade mainline and contract-style testing
 
 Primary entry points for application code are `alpaca-data` and `alpaca-trade`.
@@ -67,7 +67,7 @@ Use `alpaca-data` for market data:
 
 ```toml
 [dependencies]
-alpaca-data = "0.23.6"
+alpaca-data = "0.23.7"
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
 ```
 
@@ -85,7 +85,7 @@ Use `alpaca-trade` for trading resources:
 
 ```toml
 [dependencies]
-alpaca-trade = "0.23.6"
+alpaca-trade = "0.23.7"
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
 ```
 
@@ -182,7 +182,7 @@ Not implemented in `alpaca-trade`:
 
 Use this crate only if you explicitly want shared low-level primitives. It is not intended to be the primary application entry point.
 
-### `alpaca-http`
+### `alpaca-rest-http`
 
 Use this crate only if you explicitly want the low-level transport layer. Most SDK users should stay on `alpaca-data` or `alpaca-trade`.
 

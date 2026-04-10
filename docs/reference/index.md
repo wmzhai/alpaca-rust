@@ -3,7 +3,7 @@
 Workspace crate reference:
 
 - [alpaca-core](./alpaca-core.md)
-- [alpaca-http](./alpaca-http.md)
+- [alpaca-rest-http](./alpaca-rest-http.md)
 - [alpaca-data](./alpaca-data.md)
 - [alpaca-trade](./alpaca-trade.md)
 - [alpaca-mock](./alpaca-mock.md)
