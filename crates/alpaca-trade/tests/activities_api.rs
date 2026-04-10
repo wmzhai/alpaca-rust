@@ -148,6 +148,59 @@ async fn activities_fill_lifecycle_scenario(harness: &TradeTestHarness) {
             .iter()
             .any(|activity| activity.order_id.as_deref() == Some(&closed.id))
     );
+
+    let fills_all = harness
+        .trade_client()
+        .activities()
+        .list_all(ListRequest {
+            activity_types: Some(vec!["FILL".to_owned()]),
+            date: trading_day.clone(),
+            direction: Some(SortDirection::Desc),
+            page_size: Some(1),
+            ..ListRequest::default()
+        })
+        .await
+        .expect("list_all should paginate activity pages");
+    assert!(
+        fills_all
+            .iter()
+            .any(|activity| activity.order_id.as_deref() == Some(&opened.id))
+    );
+    assert!(
+        fills_all
+            .iter()
+            .any(|activity| activity.order_id.as_deref() == Some(&closed.id))
+    );
+
+    let fills_by_type_all = harness
+        .trade_client()
+        .activities()
+        .list_by_type_all(
+            "FILL",
+            ListByTypeRequest {
+                date: trading_day,
+                direction: Some(SortDirection::Desc),
+                page_size: Some(1),
+                ..ListByTypeRequest::default()
+            },
+        )
+        .await
+        .expect("list_by_type_all should paginate typed activity pages");
+    assert!(
+        fills_by_type_all
+            .iter()
+            .all(|activity| activity.activity_type == "FILL")
+    );
+    assert!(
+        fills_by_type_all
+            .iter()
+            .any(|activity| activity.order_id.as_deref() == Some(&opened.id))
+    );
+    assert!(
+        fills_by_type_all
+            .iter()
+            .any(|activity| activity.order_id.as_deref() == Some(&closed.id))
+    );
 }
 
 async fn wait_for_fill_activities(

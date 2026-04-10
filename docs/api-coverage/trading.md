@@ -5,7 +5,7 @@ This document is the public companion for `tools/api-coverage/trading-api.json`.
 ## Scope
 
 - Included: non-crypto Alpaca Trading HTTP REST API
-- Excluded: crypto, stream, websocket, broker, FIX
+- Excluded: crypto, fixed income, stream, websocket, broker, FIX
 - Explicitly deferred from current coverage scope: `POST /v2/positions/{symbol_or_contract_id}/exercise`, `POST /v2/positions/{symbol_or_contract_id}/do-not-exercise`
 
 ## Status

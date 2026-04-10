@@ -8,6 +8,7 @@ use crate::client::ClientInner;
 use crate::{
     Error,
     options_contracts::{ListRequest, ListResponse, OptionContract},
+    pagination,
 };
 
 #[derive(Clone)]
@@ -29,6 +30,10 @@ impl OptionsContractsClient {
             .send_json::<ListResponse>(request)
             .await
             .map(|response| response.into_body())
+    }
+
+    pub async fn list_all(&self, request: ListRequest) -> Result<ListResponse, Error> {
+        pagination::collect_all(request, move |request| self.list(request)).await
     }
 
     pub async fn get(&self, symbol_or_id: &str) -> Result<OptionContract, Error> {

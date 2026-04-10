@@ -2,6 +2,7 @@
 
 mod client;
 mod error;
+mod pagination;
 
 pub mod account;
 pub mod account_configurations;
