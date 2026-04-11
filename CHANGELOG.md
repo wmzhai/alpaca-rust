@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.24.4
+
+- Added a workspace installer script for running `alpaca-mock` as a local user service on macOS and Ubuntu.
+- Documented the service installer in the root README, installation guide, mock server guide, and crate README.
+
 ## v0.24.3
 
 - Fixed the tag release workflow so GitHub Release notes are extracted without the shell heredoc parsing failure seen in prior tags.

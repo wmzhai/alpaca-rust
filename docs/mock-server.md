@@ -16,6 +16,19 @@ From the workspace:
 cargo run -p alpaca-mock
 ```
 
+Install it as a local user service on macOS or Ubuntu:
+
+```bash
+./scripts/install-alpaca-mock-service.sh
+```
+
+The service installer:
+
+- builds `alpaca-mock` in release mode
+- reads the root `.env`
+- registers and starts a user service
+- verifies `GET /health` before reporting success
+
 Default listen address:
 
 - `127.0.0.1:3847`
@@ -23,6 +36,9 @@ Default listen address:
 Override it with:
 
 - `ALPACA_MOCK_LISTEN_ADDR`
+
+On macOS the installer writes a launchd plist under `~/Library/LaunchAgents`.
+On Ubuntu it writes a user systemd unit under `~/.config/systemd/user`.
 
 ## Authentication
 

@@ -8,7 +8,7 @@ Market data:
 
 ```toml
 [dependencies]
-alpaca-data = "0.24.3"
+alpaca-data = "0.24.4"
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
 ```
 
@@ -16,7 +16,7 @@ Trading:
 
 ```toml
 [dependencies]
-alpaca-trade = "0.24.3"
+alpaca-trade = "0.24.4"
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
 ```
 
@@ -40,6 +40,15 @@ Run from the workspace:
 ```bash
 cargo run -p alpaca-mock
 ```
+
+Install and start it as a local user service on macOS or Ubuntu:
+
+```bash
+./scripts/install-alpaca-mock-service.sh
+```
+
+The service installer builds the release binary, registers the user service,
+starts it, and checks `GET /health`.
 
 ## Credentials
 

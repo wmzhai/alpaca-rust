@@ -67,7 +67,7 @@ Use `alpaca-data` for market data:
 
 ```toml
 [dependencies]
-alpaca-data = "0.23.8"
+alpaca-data = "0.24.4"
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
 ```
 
@@ -85,7 +85,7 @@ Use `alpaca-trade` for trading resources:
 
 ```toml
 [dependencies]
-alpaca-trade = "0.23.8"
+alpaca-trade = "0.24.4"
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
 ```
 
@@ -103,6 +103,19 @@ Run the mock server:
 
 ```bash
 cargo run -p alpaca-mock
+```
+
+Build `alpaca-mock` in release mode and run it as a local user service on macOS or Ubuntu:
+
+```bash
+./scripts/install-alpaca-mock-service.sh
+```
+
+The installer reads the root `.env`, registers the service, starts it, and verifies `GET /health`.
+After it starts, point trading clients at:
+
+```bash
+ALPACA_TRADE_BASE_URL=http://127.0.0.1:3847
 ```
 
 ## Project Status

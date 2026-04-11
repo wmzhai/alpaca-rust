@@ -4,8 +4,8 @@ This checklist defines the public release bar for `alpaca-rust`.
 
 ## Current Release Baseline
 
-- The current published release line is `v0.24.3`
-- The next minimal patch release should be `v0.24.4`
+- The current published release line is `v0.24.4`
+- The next minimal patch release should be `v0.24.5`
 - `.github/workflows/github-pages.yml` is the only release workflow
 - The release workflow triggers only on semantic version tags matching `v*.*.*`
 - crates.io Trusted Publishing must remain configured for `alpaca-core`, `alpaca-rest-http`, `alpaca-data`, `alpaca-trade`, and `alpaca-mock`
@@ -47,14 +47,14 @@ Before the first real release, downstream `cargo publish --dry-run` commands are
 
 ## Minimal Patch Release Flow
 
-Use this flow for the next patch release, for example `v0.24.4`.
+Use this flow for the next patch release, for example `v0.24.5`.
 
 1. Update the release metadata on `master`
    - bump `[workspace.package].version` in `Cargo.toml`
    - bump all in-workspace dependency version pins in crate `Cargo.toml` files
    - bump the website package version in `website/package.json`
    - update versioned install snippets in `docs/getting-started.md` and `docs/installation.md`
-   - add a non-empty `## v0.24.4` section to `CHANGELOG.md`
+   - add a non-empty `## v0.24.5` section to `CHANGELOG.md`
    - regenerate docs metadata with `python3 tools/docs/generate-doc-site`
 
 2. Run the local preflight
@@ -73,15 +73,15 @@ npm run build --prefix website
 
 ```bash
 git add Cargo.toml crates docs website CHANGELOG.md .github/workflows/github-pages.yml
-git commit -m "chore: prepare v0.24.4 release (v0.24.4)"
+git commit -m "chore: prepare v0.24.5 release (v0.24.5)"
 git push origin master
 ```
 
 4. Create and push the tag
 
 ```bash
-git tag v0.24.4
-git push origin v0.24.4
+git tag v0.24.5
+git push origin v0.24.5
 ```
 
 5. Watch the release workflow
@@ -94,12 +94,12 @@ gh run watch <run-id> --interval 10 --exit-status
 6. Verify the published artifacts
 
 ```bash
-gh release view v0.24.4 --json name,tagName,url --jq '.'
-curl -fsS https://crates.io/api/v1/crates/alpaca-core/0.24.4 >/dev/null
-curl -fsS https://crates.io/api/v1/crates/alpaca-rest-http/0.24.4 >/dev/null
-curl -fsS https://crates.io/api/v1/crates/alpaca-data/0.24.4 >/dev/null
-curl -fsS https://crates.io/api/v1/crates/alpaca-trade/0.24.4 >/dev/null
-curl -fsS https://crates.io/api/v1/crates/alpaca-mock/0.24.4 >/dev/null
+gh release view v0.24.5 --json name,tagName,url --jq '.'
+curl -fsS https://crates.io/api/v1/crates/alpaca-core/0.24.5 >/dev/null
+curl -fsS https://crates.io/api/v1/crates/alpaca-rest-http/0.24.5 >/dev/null
+curl -fsS https://crates.io/api/v1/crates/alpaca-data/0.24.5 >/dev/null
+curl -fsS https://crates.io/api/v1/crates/alpaca-trade/0.24.5 >/dev/null
+curl -fsS https://crates.io/api/v1/crates/alpaca-mock/0.24.5 >/dev/null
 curl -I -L https://wmzhai.github.io/alpaca-rust/
 ```
 

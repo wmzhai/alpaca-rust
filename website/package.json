@@ -1,7 +1,7 @@
 {
   "name": "alpaca-rust-docs",
   "private": true,
-  "version": "0.24.3",
+  "version": "0.24.4",
   "scripts": {
     "start": "docusaurus start --host 0.0.0.0 --port 3000",
     "build": "docusaurus build",

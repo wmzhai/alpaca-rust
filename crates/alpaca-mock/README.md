@@ -14,6 +14,12 @@ Run locally:
 cargo run -p alpaca-mock
 ```
 
+From the workspace repository root, install and start it as a local user service on macOS or Ubuntu:
+
+```bash
+./scripts/install-alpaca-mock-service.sh
+```
+
 Runtime configuration:
 
 - `ALPACA_MOCK_LISTEN_ADDR` defaults to `127.0.0.1:3847`
