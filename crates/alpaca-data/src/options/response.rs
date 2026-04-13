@@ -121,7 +121,7 @@ fn merge_batch_page<Item>(
     }
 }
 
-fn merge_snapshot_page(
+pub(crate) fn merge_snapshot_page(
     operation: &str,
     current: &mut HashMap<String, Snapshot>,
     next: HashMap<String, Snapshot>,

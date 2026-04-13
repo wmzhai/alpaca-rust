@@ -29,6 +29,7 @@
 mod client;
 mod error;
 mod pagination;
+mod symbols;
 
 pub mod corporate_actions;
 pub mod news;

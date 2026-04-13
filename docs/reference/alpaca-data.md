@@ -19,6 +19,11 @@ Mirror coverage in the current release line:
 Convenience coverage:
 
 - `*_all` pagination aggregators for all currently paginated adopted endpoints
+- `options.snapshots_all(...)` also absorbs Alpaca's 100-contract batch limit internally
+- `alpaca_data::options::underlying_symbol(...)` canonicalizes option underlying / OCC-root input such as `BRK.B -> BRKB`
+- `alpaca_data::stocks::display_symbol(...)` restores supported dotted stock display symbols such as `BRKB -> BRK.B`
+- `alpaca_data::options::Snapshot::{timestamp,bid_price,ask_price,last_price,mark_price}` exposes provider-safe snapshot value selection
+- `alpaca_data::options::{SnapshotsResponse,ChainResponse}::ordered()` returns stable contract ordering
 
 Environment variables:
 

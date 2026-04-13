@@ -7,12 +7,15 @@ use serde::de::DeserializeOwned;
 
 use crate::{Error, client::ClientInner, pagination};
 
+use super::response::merge_snapshot_page;
 use super::{
     BarsRequest, BarsResponse, ChainRequest, ChainResponse, ConditionCodesRequest,
     ConditionCodesResponse, ExchangeCodesResponse, LatestQuotesRequest, LatestQuotesResponse,
     LatestTradesRequest, LatestTradesResponse, SnapshotsRequest, SnapshotsResponse, TradesRequest,
     TradesResponse,
 };
+
+const MAX_SNAPSHOT_SYMBOLS_PER_REQUEST: usize = 100;
 
 #[derive(Clone)]
 pub struct OptionsClient {
@@ -102,20 +105,30 @@ impl OptionsClient {
         &self,
         request: SnapshotsRequest,
     ) -> Result<SnapshotsResponse, Error> {
-        let client = self.clone();
-        pagination::collect_all(request, move |request| {
-            let client = client.clone();
-            async move { client.snapshots(request).await }
-        })
-        .await
+        request.validate_all()?;
+
+        let mut combined = SnapshotsResponse::default();
+        for batch in request.batches(MAX_SNAPSHOT_SYMBOLS_PER_REQUEST) {
+            let client = self.clone();
+            let next = pagination::collect_all(batch, move |request| {
+                let client = client.clone();
+                async move { client.snapshots(request).await }
+            })
+            .await?;
+
+            merge_snapshot_page(
+                "options.snapshots_all",
+                &mut combined.snapshots,
+                next.snapshots,
+            )?;
+        }
+
+        Ok(combined)
     }
 
     pub async fn chain(&self, request: ChainRequest) -> Result<ChainResponse, Error> {
         request.validate()?;
-        let path = format!(
-            "/v1beta1/options/snapshots/{}",
-            request.underlying_symbol.as_str()
-        );
+        let path = format!("/v1beta1/options/snapshots/{}", request.path_symbol());
         self.get_json("options.chain", path, request.into_query())
             .await
     }

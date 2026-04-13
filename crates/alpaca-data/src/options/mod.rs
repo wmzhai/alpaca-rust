@@ -1,9 +1,11 @@
 mod client;
+mod convenience;
 mod enums;
 mod model;
 mod request;
 mod response;
 
+pub use crate::symbols::options_underlying_symbol as underlying_symbol;
 pub use client::OptionsClient;
 pub use enums::{ContractType, OptionsFeed, Sort, TickType, TimeFrame};
 pub use model::{Bar, Greeks, Quote, Snapshot, Trade};
