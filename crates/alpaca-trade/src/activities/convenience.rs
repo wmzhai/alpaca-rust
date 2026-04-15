@@ -1,4 +1,4 @@
-use rust_decimal::{Decimal, prelude::ToPrimitive};
+use rust_decimal::{prelude::ToPrimitive, Decimal};
 
 use super::Activity;
 
@@ -6,6 +6,11 @@ impl Activity {
     #[must_use]
     pub fn date(&self) -> Option<&str> {
         self.extra_text("date")
+    }
+
+    #[must_use]
+    pub fn occurred_at(&self) -> Option<&str> {
+        self.date().or_else(|| self.sort_timestamp())
     }
 
     #[must_use]
@@ -31,6 +36,11 @@ impl Activity {
     #[must_use]
     pub fn per_share_amount(&self) -> Option<Decimal> {
         self.extra_decimal("per_share_amount")
+    }
+
+    #[must_use]
+    pub fn execution_id(&self) -> Option<&str> {
+        self.extra_text("execution_id")
     }
 
     #[must_use]
@@ -73,15 +83,18 @@ mod tests {
             "created_at": "2026-04-14T11:30:00Z",
             "description": "Cash Dividend",
             "activity_sub_type": "OCC",
+            "execution_id": "exec-1",
             "net_amount": "12.34",
             "per_share_amount": "2.468"
         }))
         .expect("activity should deserialize");
 
         assert_eq!(activity.date(), Some("2026-04-14"));
+        assert_eq!(activity.occurred_at(), Some("2026-04-14"));
         assert_eq!(activity.created_at(), Some("2026-04-14T11:30:00Z"));
         assert_eq!(activity.description(), Some("Cash Dividend"));
         assert_eq!(activity.activity_sub_type(), Some("OCC"));
+        assert_eq!(activity.execution_id(), Some("exec-1"));
         assert_eq!(activity.net_amount(), Some(Decimal::new(1234, 2)));
         assert_eq!(activity.per_share_amount(), Some(Decimal::new(2468, 3)));
         assert_eq!(activity.qty_i32(), Some(5));
@@ -99,5 +112,6 @@ mod tests {
         .expect("activity should deserialize");
 
         assert_eq!(activity.sort_timestamp(), Some("2026-04-14T13:00:00Z"));
+        assert_eq!(activity.occurred_at(), Some("2026-04-14T13:00:00Z"));
     }
 }
