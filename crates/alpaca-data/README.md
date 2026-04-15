@@ -19,6 +19,8 @@ Implemented mirror operations:
 Convenience helpers:
 
 - stocks: `bars_all`, `bars_single_all`, `quotes_all`, `quotes_single_all`, `trades_all`, `trades_single_all`, `auctions_all`, `auctions_single_all`
+- stocks snapshots: canonical `timestamp()` / `price()` readers plus `ordered_snapshots(...)`
+- stocks requests: provider-safe stock symbol normalization for batch and single-symbol reads
 - options: `bars_all`, `trades_all`, `snapshots_all`, `chain_all`
 - news: `list_all`
 - corporate actions: `list_all`

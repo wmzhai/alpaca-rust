@@ -1,6 +1,7 @@
 use alpaca_core::{QueryWriter, pagination::PaginatedRequest};
 
 use crate::Error;
+use crate::symbols::display_stock_symbol;
 
 use super::{Adjustment, AuctionFeed, Currency, DataFeed, Sort, Tape, TickType, TimeFrame};
 
@@ -182,7 +183,7 @@ impl BarsRequest {
 
     pub(crate) fn into_query(self) -> Vec<(String, String)> {
         let mut query = QueryWriter::default();
-        query.push_csv("symbols", self.symbols);
+        query.push_csv("symbols", normalized_stock_symbols(&self.symbols));
         query.push_opt("timeframe", Some(self.timeframe));
         query.push_opt("start", self.start);
         query.push_opt("end", self.end);
@@ -227,7 +228,7 @@ impl AuctionsRequest {
 
     pub(crate) fn into_query(self) -> Vec<(String, String)> {
         let mut query = QueryWriter::default();
-        query.push_csv("symbols", self.symbols);
+        query.push_csv("symbols", normalized_stock_symbols(&self.symbols));
         query.push_opt("start", self.start);
         query.push_opt("end", self.end);
         query.push_opt("limit", self.limit);
@@ -268,7 +269,7 @@ impl QuotesRequest {
 
     pub(crate) fn into_query(self) -> Vec<(String, String)> {
         let mut query = QueryWriter::default();
-        query.push_csv("symbols", self.symbols);
+        query.push_csv("symbols", normalized_stock_symbols(&self.symbols));
         query.push_opt("start", self.start);
         query.push_opt("end", self.end);
         query.push_opt("limit", self.limit);
@@ -309,7 +310,7 @@ impl TradesRequest {
 
     pub(crate) fn into_query(self) -> Vec<(String, String)> {
         let mut query = QueryWriter::default();
-        query.push_csv("symbols", self.symbols);
+        query.push_csv("symbols", normalized_stock_symbols(&self.symbols));
         query.push_opt("start", self.start);
         query.push_opt("end", self.end);
         query.push_opt("limit", self.limit);
@@ -500,7 +501,7 @@ fn latest_batch_query(
     currency: Option<Currency>,
 ) -> Vec<(String, String)> {
     let mut query = QueryWriter::default();
-    query.push_csv("symbols", symbols);
+    query.push_csv("symbols", normalized_stock_symbols(&symbols));
     query.push_opt("feed", feed);
     query.push_opt("currency", currency);
     query.finish()
@@ -517,7 +518,7 @@ fn latest_single_query(
 }
 
 fn validate_required_symbol(symbol: &str, field_name: &str) -> Result<(), Error> {
-    if symbol.trim().is_empty() {
+    if normalized_stock_symbol(symbol).is_empty() {
         return Err(Error::InvalidRequest(format!(
             "{field_name} is invalid: must not be empty or whitespace-only"
         )));
@@ -533,13 +534,27 @@ fn validate_required_symbols(symbols: &[String]) -> Result<(), Error> {
         ));
     }
 
-    if symbols.iter().any(|symbol| symbol.trim().is_empty()) {
+    if symbols
+        .iter()
+        .any(|symbol| normalized_stock_symbol(symbol).is_empty())
+    {
         return Err(Error::InvalidRequest(
             "symbols are invalid: must not contain empty or whitespace-only entries".to_owned(),
         ));
     }
 
     Ok(())
+}
+
+fn normalized_stock_symbol(symbol: &str) -> String {
+    display_stock_symbol(symbol)
+}
+
+fn normalized_stock_symbols(symbols: &[String]) -> Vec<String> {
+    symbols
+        .iter()
+        .map(|symbol| normalized_stock_symbol(symbol))
+        .collect()
 }
 
 fn validate_limit(limit: Option<u32>, min: u32, max: u32) -> Result<(), Error> {

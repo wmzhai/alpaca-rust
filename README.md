@@ -151,6 +151,8 @@ Implemented mirror coverage:
 Thin convenience helpers currently included:
 
 - `*_all` pagination aggregators for supported paginated endpoints
+- stock snapshot convenience readers and stable ordering helpers
+- provider-safe stock symbol normalization on stock request paths and batch query symbols
 
 Not implemented in `alpaca-data`:
 

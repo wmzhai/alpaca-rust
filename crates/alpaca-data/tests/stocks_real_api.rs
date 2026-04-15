@@ -5,7 +5,8 @@ use alpaca_data::{
     Client,
     stocks::{
         BarsRequest, ConditionCodesRequest, DataFeed, LatestBarsRequest, LatestQuoteRequest,
-        LatestTradeRequest, SnapshotRequest, Tape, TickType, TimeFrame,
+        LatestTradeRequest, SnapshotRequest, SnapshotsRequest, Tape, TickType, TimeFrame,
+        display_symbol, ordered_snapshots,
     },
 };
 use live_support::{AlpacaService, LiveTestEnv, SampleRecorder};
@@ -82,6 +83,44 @@ async fn stocks_resource_reads_real_api_endpoints() {
         .expect("snapshot sample should record");
     assert_eq!(snapshot.symbol, "AAPL");
     assert!(snapshot.latest_trade.is_some() || snapshot.latest_quote.is_some());
+    assert!(snapshot.timestamp().is_some());
+    assert!(snapshot.price().is_some());
+
+    let batch_snapshots = stocks
+        .snapshots(SnapshotsRequest {
+            symbols: vec!["AAPL".to_owned(), "brk/b".to_owned()],
+            feed: Some(DataFeed::Iex),
+            currency: None,
+        })
+        .await
+        .expect("batch snapshots should absorb stock symbol normalization");
+    recorder
+        .record_json("alpaca-data-stocks", "snapshots", &batch_snapshots)
+        .expect("snapshots sample should record");
+    assert!(batch_snapshots.contains_key("AAPL"));
+    assert!(batch_snapshots.contains_key("BRK.B"));
+    assert_eq!(display_symbol("brk/b"), "BRK.B");
+    let ordered = ordered_snapshots(&batch_snapshots);
+    assert_eq!(ordered.len(), batch_snapshots.len());
+    assert!(ordered.windows(2).all(|pair| pair[0].0 <= pair[1].0));
+    assert!(
+        ordered
+            .iter()
+            .all(|(_, snapshot)| snapshot.timestamp().is_some() && snapshot.price().is_some()),
+        "ordered stock snapshots should expose canonical timestamp and price helpers"
+    );
+
+    let brk_snapshot = stocks
+        .snapshot(SnapshotRequest {
+            symbol: "brk/b".to_owned(),
+            feed: Some(DataFeed::Iex),
+            currency: None,
+        })
+        .await
+        .expect("BRK.B snapshot request should succeed through canonical stock symbol normalization");
+    assert_eq!(brk_snapshot.symbol, "BRK.B");
+    assert!(brk_snapshot.timestamp().is_some());
+    assert!(brk_snapshot.price().is_some());
 
     let bars = stocks
         .bars_all(BarsRequest {

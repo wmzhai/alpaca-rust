@@ -6,6 +6,7 @@ use reqwest::Method;
 use serde::de::DeserializeOwned;
 
 use crate::{Error, client::ClientInner, pagination};
+use crate::stocks::display_symbol;
 
 use super::{
     AuctionsRequest, AuctionsResponse, AuctionsSingleRequest, AuctionsSingleResponse, BarsRequest,
@@ -48,7 +49,7 @@ impl StocksClient {
         request: BarsSingleRequest,
     ) -> Result<BarsSingleResponse, Error> {
         request.validate()?;
-        let path = format!("/v2/stocks/{}/bars", request.symbol);
+        let path = format!("/v2/stocks/{}/bars", display_symbol(&request.symbol));
         self.get_json("stocks.bars_single", path, request.into_query())
             .await
     }
@@ -89,7 +90,7 @@ impl StocksClient {
         request: AuctionsSingleRequest,
     ) -> Result<AuctionsSingleResponse, Error> {
         request.validate()?;
-        let path = format!("/v2/stocks/{}/auctions", request.symbol);
+        let path = format!("/v2/stocks/{}/auctions", display_symbol(&request.symbol));
         self.get_json("stocks.auctions_single", path, request.into_query())
             .await
     }
@@ -126,7 +127,7 @@ impl StocksClient {
         request: QuotesSingleRequest,
     ) -> Result<QuotesSingleResponse, Error> {
         request.validate()?;
-        let path = format!("/v2/stocks/{}/quotes", request.symbol);
+        let path = format!("/v2/stocks/{}/quotes", display_symbol(&request.symbol));
         self.get_json("stocks.quotes_single", path, request.into_query())
             .await
     }
@@ -163,7 +164,7 @@ impl StocksClient {
         request: TradesSingleRequest,
     ) -> Result<TradesSingleResponse, Error> {
         request.validate()?;
-        let path = format!("/v2/stocks/{}/trades", request.symbol);
+        let path = format!("/v2/stocks/{}/trades", display_symbol(&request.symbol));
         self.get_json("stocks.trades_single", path, request.into_query())
             .await
     }
@@ -195,7 +196,7 @@ impl StocksClient {
 
     pub async fn latest_bar(&self, request: LatestBarRequest) -> Result<LatestBarResponse, Error> {
         request.validate()?;
-        let path = format!("/v2/stocks/{}/bars/latest", request.symbol);
+        let path = format!("/v2/stocks/{}/bars/latest", display_symbol(&request.symbol));
         self.get_json("stocks.latest_bar", path, request.into_query())
             .await
     }
@@ -218,7 +219,10 @@ impl StocksClient {
         request: LatestQuoteRequest,
     ) -> Result<LatestQuoteResponse, Error> {
         request.validate()?;
-        let path = format!("/v2/stocks/{}/quotes/latest", request.symbol);
+        let path = format!(
+            "/v2/stocks/{}/quotes/latest",
+            display_symbol(&request.symbol)
+        );
         self.get_json("stocks.latest_quote", path, request.into_query())
             .await
     }
@@ -241,7 +245,10 @@ impl StocksClient {
         request: LatestTradeRequest,
     ) -> Result<LatestTradeResponse, Error> {
         request.validate()?;
-        let path = format!("/v2/stocks/{}/trades/latest", request.symbol);
+        let path = format!(
+            "/v2/stocks/{}/trades/latest",
+            display_symbol(&request.symbol)
+        );
         self.get_json("stocks.latest_trade", path, request.into_query())
             .await
     }
@@ -258,7 +265,7 @@ impl StocksClient {
 
     pub async fn snapshot(&self, request: SnapshotRequest) -> Result<SnapshotResponse, Error> {
         request.validate()?;
-        let path = format!("/v2/stocks/{}/snapshot", request.symbol);
+        let path = format!("/v2/stocks/{}/snapshot", display_symbol(&request.symbol));
         self.get_json("stocks.snapshot", path, request.into_query())
             .await
     }
