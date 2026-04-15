@@ -1,4 +1,5 @@
 mod client;
+mod convenience;
 mod model;
 mod request;
 
