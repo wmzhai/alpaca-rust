@@ -322,26 +322,26 @@ pub(crate) struct ProjectedPosition {
     pub(crate) exchange: String,
     pub(crate) asset_class: String,
     pub(crate) asset_marginable: bool,
-    #[serde(serialize_with = "serialize_decimal_string")]
+    #[serde(serialize_with = "alpaca_core::decimal::string_contract::serialize_decimal")]
     pub(crate) qty: Decimal,
-    #[serde(serialize_with = "serialize_decimal_string")]
+    #[serde(serialize_with = "alpaca_core::decimal::string_contract::serialize_decimal")]
     pub(crate) avg_entry_price: Decimal,
     pub(crate) side: String,
-    #[serde(serialize_with = "serialize_decimal_string")]
+    #[serde(serialize_with = "alpaca_core::decimal::string_contract::serialize_decimal")]
     pub(crate) market_value: Decimal,
-    #[serde(serialize_with = "serialize_decimal_string")]
+    #[serde(serialize_with = "alpaca_core::decimal::string_contract::serialize_decimal")]
     pub(crate) cost_basis: Decimal,
-    #[serde(serialize_with = "serialize_decimal_string")]
+    #[serde(serialize_with = "alpaca_core::decimal::string_contract::serialize_decimal")]
     pub(crate) unrealized_pl: Decimal,
-    #[serde(serialize_with = "serialize_decimal_string")]
+    #[serde(serialize_with = "alpaca_core::decimal::string_contract::serialize_decimal")]
     pub(crate) unrealized_plpc: Decimal,
-    #[serde(serialize_with = "serialize_decimal_string")]
+    #[serde(serialize_with = "alpaca_core::decimal::string_contract::serialize_decimal")]
     pub(crate) current_price: Decimal,
-    #[serde(serialize_with = "serialize_decimal_string")]
+    #[serde(serialize_with = "alpaca_core::decimal::string_contract::serialize_decimal")]
     pub(crate) lastday_price: Decimal,
-    #[serde(serialize_with = "serialize_decimal_string")]
+    #[serde(serialize_with = "alpaca_core::decimal::string_contract::serialize_decimal")]
     pub(crate) change_today: Decimal,
-    #[serde(serialize_with = "serialize_decimal_string")]
+    #[serde(serialize_with = "alpaca_core::decimal::string_contract::serialize_decimal")]
     pub(crate) qty_available: Decimal,
 }
 
@@ -390,13 +390,6 @@ fn ratio_or_zero(numerator: Decimal, denominator: Decimal) -> Decimal {
     } else {
         (numerator / denominator).round_dp(8)
     }
-}
-
-fn serialize_decimal_string<S>(value: &Decimal, serializer: S) -> Result<S::Ok, S::Error>
-where
-    S: serde::Serializer,
-{
-    serializer.serialize_str(&value.to_string())
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

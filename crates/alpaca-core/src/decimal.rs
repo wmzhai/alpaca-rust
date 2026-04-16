@@ -2,6 +2,7 @@ use std::str::FromStr;
 
 use rust_decimal::Decimal;
 use serde::{Deserialize, Deserializer, Serialize, Serializer, de};
+use serde_json::Value;
 
 #[derive(Debug, Deserialize)]
 #[serde(untagged)]
@@ -23,8 +24,26 @@ where
         .map_err(|error| E::custom(format!("invalid decimal value `{raw}`: {error}")))
 }
 
-fn round(value: &Decimal, scale: u32) -> Decimal {
+fn rounded(value: &Decimal, scale: u32) -> Decimal {
     value.round_dp(scale)
+}
+
+pub fn from_f64(value: f64, scale: u32) -> Decimal {
+    if !value.is_finite() {
+        return Decimal::ZERO;
+    }
+
+    Decimal::from_f64_retain(value)
+        .unwrap_or_default()
+        .round_dp(scale)
+}
+
+pub fn round(value: Decimal, scale: u32) -> Decimal {
+    value.round_dp(scale)
+}
+
+pub fn format(value: Decimal, scale: u32) -> String {
+    round(value, scale).to_string()
 }
 
 pub fn deserialize_decimal_from_string_or_number<'de, D>(
@@ -45,6 +64,58 @@ where
     Option::<StringOrNumber>::deserialize(deserializer)?
         .map(parse_decimal)
         .transpose()
+}
+
+pub fn deserialize_scaled_decimal_from_string_or_number<'de, D>(
+    deserializer: D,
+    scale: u32,
+) -> Result<Decimal, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    deserialize_decimal_from_string_or_number(deserializer).map(|value| round(value, scale))
+}
+
+pub fn deserialize_decimal_vec_from_string_or_number<'de, D>(
+    deserializer: D,
+) -> Result<Vec<Decimal>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    Vec::<StringOrNumber>::deserialize(deserializer)?
+        .into_iter()
+        .map(parse_decimal)
+        .collect()
+}
+
+pub fn serialize_decimal_vec_as_numbers<S>(
+    values: &[Decimal],
+    serializer: S,
+) -> Result<S::Ok, S::Error>
+where
+    S: Serializer,
+{
+    let json_values = values
+        .iter()
+        .map(|value| {
+            serde_json::Number::from_str(&value.to_string()).map(serde_json::Value::Number)
+        })
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|error| {
+            serde::ser::Error::custom(format!(
+                "decimal vector cannot be serialized as JSON numbers: {error}"
+            ))
+        })?;
+
+    json_values.serialize(serializer)
+}
+
+pub fn parse_json_decimal(value: Option<&Value>) -> Option<Decimal> {
+    value.and_then(|value| match value {
+        Value::String(raw) => Decimal::from_str(raw).ok(),
+        Value::Number(raw) => Decimal::from_str(&raw.to_string()).ok(),
+        _ => None,
+    })
 }
 
 pub mod string_contract {
@@ -80,7 +151,7 @@ pub mod price_string_contract {
     where
         S: Serializer,
     {
-        string_contract::serialize_decimal(&round(value, PRICE_SCALE), serializer)
+        string_contract::serialize_decimal(&rounded(value, PRICE_SCALE), serializer)
     }
 
     pub fn serialize_option_decimal<S>(
@@ -129,5 +200,43 @@ pub mod number_contract {
                 "decimal cannot be serialized as JSON number: {error}"
             ))
         })
+    }
+}
+
+pub mod option_float_contract {
+    use super::*;
+
+    pub fn serialize<S>(value: &Option<Decimal>, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        number_contract::serialize_option_decimal(value, serializer)
+    }
+
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<Option<Decimal>, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        deserialize_option_decimal_from_string_or_number(deserializer)
+    }
+}
+
+pub mod string_2 {
+    use super::*;
+
+    const SCALE: u32 = 2;
+
+    pub fn serialize<S>(value: &Decimal, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.serialize_str(&format(*value, SCALE))
+    }
+
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<Decimal, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        deserialize_scaled_decimal_from_string_or_number(deserializer, SCALE)
     }
 }
