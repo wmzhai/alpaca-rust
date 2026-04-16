@@ -11,16 +11,16 @@ Covered resource families in the current release line:
 
 Implemented mirror operations:
 
-- stocks: `bars`, `bars_single`, `quotes`, `quotes_single`, `trades`, `trades_single`, `latest_bars`, `latest_bar`, `latest_quotes`, `latest_quote`, `latest_trades`, `latest_trade`, `snapshots`, `snapshot`, `auctions`, `auctions_single`, `condition_codes`, `exchange_codes`
+- stocks: `bars`, `quotes`, `trades`, `latest_bars`, `latest_quotes`, `latest_trades`, `snapshots`, `auctions`, `condition_codes`, `exchange_codes`
 - options: `bars`, `trades`, `latest_quotes`, `latest_trades`, `snapshots`, `chain`, `condition_codes`, `exchange_codes`
 - news: `list`
 - corporate actions: `list`
 
 Convenience helpers:
 
-- stocks: `bars_all`, `bars_single_all`, `quotes_all`, `quotes_single_all`, `trades_all`, `trades_single_all`, `auctions_all`, `auctions_single_all`
+- stocks: `bars_all`, `quotes_all`, `trades_all`, `auctions_all`
 - stocks snapshots: canonical `timestamp()` / `price()` readers plus `ordered_snapshots(...)`
-- stocks requests: provider-safe stock symbol normalization for batch and single-symbol reads
+- stocks requests: provider-safe stock symbol normalization is absorbed by the canonical batch request types
 - options: `bars_all`, `trades_all`, `snapshots_all`, `chain_all`
 - news: `list_all`
 - corporate actions: `list_all`

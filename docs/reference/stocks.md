@@ -5,34 +5,22 @@
 ## Implemented Mirror Methods
 
 - `bars`
-- `bars_single`
 - `quotes`
-- `quotes_single`
 - `trades`
-- `trades_single`
 - `latest_bars`
-- `latest_bar`
 - `latest_quotes`
-- `latest_quote`
 - `latest_trades`
-- `latest_trade`
 - `snapshots`
-- `snapshot`
 - `auctions`
-- `auctions_single`
 - `condition_codes`
 - `exchange_codes`
 
 ## Convenience Methods
 
 - `bars_all`
-- `bars_single_all`
 - `quotes_all`
-- `quotes_single_all`
 - `trades_all`
-- `trades_single_all`
 - `auctions_all`
-- `auctions_single_all`
 
 ## Typical Requests
 
@@ -56,7 +44,7 @@ let response = client
 # Ok::<(), alpaca_data::Error>(())
 ```
 
-Use `LatestQuoteRequest` or `LatestTradeRequest` for single-symbol latest endpoints:
+Use batch latest endpoints directly, even for a single symbol:
 
 ```rust
 use alpaca_data::{Client, stocks};
@@ -64,9 +52,9 @@ use alpaca_data::{Client, stocks};
 let client = Client::from_env()?;
 let latest = client
     .stocks()
-    .latest_quote(stocks::LatestQuoteRequest {
-        symbol: "AAPL".into(),
-        ..stocks::LatestQuoteRequest::default()
+    .latest_quotes(stocks::LatestQuotesRequest {
+        symbols: vec!["AAPL".into()],
+        ..stocks::LatestQuotesRequest::default()
     })
     .await?;
 # let _ = latest;
@@ -76,7 +64,7 @@ let latest = client
 ## Request Notes
 
 - historical multi-symbol endpoints require a non-empty `symbols` list
-- single-symbol endpoints require a non-empty `symbol`
+- latest and snapshot reads also use the canonical batch request types, including single-symbol calls
 - historical endpoints support `feed`, `sort`, `asof`, `currency`, and pagination where the official route supports them
 - `limit` validation follows the official endpoint contract instead of silently auto-chunking requests
 

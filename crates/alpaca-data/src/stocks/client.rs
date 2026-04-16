@@ -6,17 +6,13 @@ use reqwest::Method;
 use serde::de::DeserializeOwned;
 
 use crate::{Error, client::ClientInner, pagination};
-use crate::stocks::display_symbol;
 
 use super::{
-    AuctionsRequest, AuctionsResponse, AuctionsSingleRequest, AuctionsSingleResponse, BarsRequest,
-    BarsResponse, BarsSingleRequest, BarsSingleResponse, ConditionCodesRequest,
-    ConditionCodesResponse, ExchangeCodesResponse, LatestBarRequest, LatestBarResponse,
-    LatestBarsRequest, LatestBarsResponse, LatestQuoteRequest, LatestQuoteResponse,
-    LatestQuotesRequest, LatestQuotesResponse, LatestTradeRequest, LatestTradeResponse,
-    LatestTradesRequest, LatestTradesResponse, QuotesRequest, QuotesResponse, QuotesSingleRequest,
-    QuotesSingleResponse, SnapshotRequest, SnapshotResponse, SnapshotsRequest, SnapshotsResponse,
-    TradesRequest, TradesResponse, TradesSingleRequest, TradesSingleResponse,
+    AuctionsRequest, AuctionsResponse, BarsRequest, BarsResponse, ConditionCodesRequest,
+    ConditionCodesResponse, ExchangeCodesResponse, LatestBarsRequest, LatestBarsResponse,
+    LatestQuotesRequest, LatestQuotesResponse, LatestTradesRequest, LatestTradesResponse,
+    QuotesRequest, QuotesResponse, SnapshotsRequest, SnapshotsResponse, TradesRequest,
+    TradesResponse,
 };
 
 #[derive(Clone)]
@@ -44,28 +40,6 @@ impl StocksClient {
         .await
     }
 
-    pub async fn bars_single(
-        &self,
-        request: BarsSingleRequest,
-    ) -> Result<BarsSingleResponse, Error> {
-        request.validate()?;
-        let path = format!("/v2/stocks/{}/bars", display_symbol(&request.symbol));
-        self.get_json("stocks.bars_single", path, request.into_query())
-            .await
-    }
-
-    pub async fn bars_single_all(
-        &self,
-        request: BarsSingleRequest,
-    ) -> Result<BarsSingleResponse, Error> {
-        let client = self.clone();
-        pagination::collect_all(request, move |request| {
-            let client = client.clone();
-            async move { client.bars_single(request).await }
-        })
-        .await
-    }
-
     pub async fn auctions(&self, request: AuctionsRequest) -> Result<AuctionsResponse, Error> {
         request.validate()?;
         self.get_json(
@@ -85,28 +59,6 @@ impl StocksClient {
         .await
     }
 
-    pub async fn auctions_single(
-        &self,
-        request: AuctionsSingleRequest,
-    ) -> Result<AuctionsSingleResponse, Error> {
-        request.validate()?;
-        let path = format!("/v2/stocks/{}/auctions", display_symbol(&request.symbol));
-        self.get_json("stocks.auctions_single", path, request.into_query())
-            .await
-    }
-
-    pub async fn auctions_single_all(
-        &self,
-        request: AuctionsSingleRequest,
-    ) -> Result<AuctionsSingleResponse, Error> {
-        let client = self.clone();
-        pagination::collect_all(request, move |request| {
-            let client = client.clone();
-            async move { client.auctions_single(request).await }
-        })
-        .await
-    }
-
     pub async fn quotes(&self, request: QuotesRequest) -> Result<QuotesResponse, Error> {
         request.validate()?;
         self.get_json("stocks.quotes", "/v2/stocks/quotes", request.into_query())
@@ -118,28 +70,6 @@ impl StocksClient {
         pagination::collect_all(request, move |request| {
             let client = client.clone();
             async move { client.quotes(request).await }
-        })
-        .await
-    }
-
-    pub async fn quotes_single(
-        &self,
-        request: QuotesSingleRequest,
-    ) -> Result<QuotesSingleResponse, Error> {
-        request.validate()?;
-        let path = format!("/v2/stocks/{}/quotes", display_symbol(&request.symbol));
-        self.get_json("stocks.quotes_single", path, request.into_query())
-            .await
-    }
-
-    pub async fn quotes_single_all(
-        &self,
-        request: QuotesSingleRequest,
-    ) -> Result<QuotesSingleResponse, Error> {
-        let client = self.clone();
-        pagination::collect_all(request, move |request| {
-            let client = client.clone();
-            async move { client.quotes_single(request).await }
         })
         .await
     }
@@ -159,28 +89,6 @@ impl StocksClient {
         .await
     }
 
-    pub async fn trades_single(
-        &self,
-        request: TradesSingleRequest,
-    ) -> Result<TradesSingleResponse, Error> {
-        request.validate()?;
-        let path = format!("/v2/stocks/{}/trades", display_symbol(&request.symbol));
-        self.get_json("stocks.trades_single", path, request.into_query())
-            .await
-    }
-
-    pub async fn trades_single_all(
-        &self,
-        request: TradesSingleRequest,
-    ) -> Result<TradesSingleResponse, Error> {
-        let client = self.clone();
-        pagination::collect_all(request, move |request| {
-            let client = client.clone();
-            async move { client.trades_single(request).await }
-        })
-        .await
-    }
-
     pub async fn latest_bars(
         &self,
         request: LatestBarsRequest,
@@ -192,13 +100,6 @@ impl StocksClient {
             request.into_query(),
         )
         .await
-    }
-
-    pub async fn latest_bar(&self, request: LatestBarRequest) -> Result<LatestBarResponse, Error> {
-        request.validate()?;
-        let path = format!("/v2/stocks/{}/bars/latest", display_symbol(&request.symbol));
-        self.get_json("stocks.latest_bar", path, request.into_query())
-            .await
     }
 
     pub async fn latest_quotes(
@@ -214,19 +115,6 @@ impl StocksClient {
         .await
     }
 
-    pub async fn latest_quote(
-        &self,
-        request: LatestQuoteRequest,
-    ) -> Result<LatestQuoteResponse, Error> {
-        request.validate()?;
-        let path = format!(
-            "/v2/stocks/{}/quotes/latest",
-            display_symbol(&request.symbol)
-        );
-        self.get_json("stocks.latest_quote", path, request.into_query())
-            .await
-    }
-
     pub async fn latest_trades(
         &self,
         request: LatestTradesRequest,
@@ -240,19 +128,6 @@ impl StocksClient {
         .await
     }
 
-    pub async fn latest_trade(
-        &self,
-        request: LatestTradeRequest,
-    ) -> Result<LatestTradeResponse, Error> {
-        request.validate()?;
-        let path = format!(
-            "/v2/stocks/{}/trades/latest",
-            display_symbol(&request.symbol)
-        );
-        self.get_json("stocks.latest_trade", path, request.into_query())
-            .await
-    }
-
     pub async fn snapshots(&self, request: SnapshotsRequest) -> Result<SnapshotsResponse, Error> {
         request.validate()?;
         self.get_json(
@@ -261,13 +136,6 @@ impl StocksClient {
             request.into_query(),
         )
         .await
-    }
-
-    pub async fn snapshot(&self, request: SnapshotRequest) -> Result<SnapshotResponse, Error> {
-        request.validate()?;
-        let path = format!("/v2/stocks/{}/snapshot", display_symbol(&request.symbol));
-        self.get_json("stocks.snapshot", path, request.into_query())
-            .await
     }
 
     pub async fn condition_codes(

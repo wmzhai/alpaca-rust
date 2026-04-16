@@ -79,49 +79,6 @@
     },
     {
       "tag": "Stock",
-      "operation_id": "StockBarSingle",
-      "path": "/v2/stocks/{symbol}/bars",
-      "local_resource": "stocks",
-      "mirror_method": "bars_single",
-      "request_type": "stocks::BarsSingleRequest",
-      "response_type": "stocks::BarsSingleResponse",
-      "parameter_contract": {
-        "signatures": [
-          "symbol|path|required|string",
-          "adjustment|query|optional|string|default=raw",
-          "asof|query|optional|string",
-          "currency|query|optional|string",
-          "end|query|optional|string",
-          "feed|query|optional|string|enum=boats,iex,otc,sip|default=sip",
-          "limit|query|optional|integer|default=1000",
-          "page_token|query|optional|string",
-          "sort|query|optional|string|enum=asc,desc|default=asc",
-          "start|query|optional|string",
-          "timeframe|query|required|string"
-        ]
-      },
-      "response_contract": {
-        "status": "200",
-        "field_signatures": [
-          "bars[].c|number",
-          "bars[].h|number",
-          "bars[].l|number",
-          "bars[].n|integer",
-          "bars[].o|number",
-          "bars[].t|string",
-          "bars[].vw|number",
-          "bars[].v|integer",
-          "bars[]|object",
-          "bars|array",
-          "currency|string",
-          "next_page_token|string",
-          "symbol|string"
-        ]
-      },
-      "method": "GET"
-    },
-    {
-      "tag": "Stock",
       "operation_id": "StockQuotes",
       "path": "/v2/stocks/quotes",
       "local_resource": "stocks",
@@ -159,49 +116,6 @@
           "quotes.*[]|object",
           "quotes.*|array",
           "quotes|object"
-        ]
-      },
-      "method": "GET"
-    },
-    {
-      "tag": "Stock",
-      "operation_id": "StockQuoteSingle",
-      "path": "/v2/stocks/{symbol}/quotes",
-      "local_resource": "stocks",
-      "mirror_method": "quotes_single",
-      "request_type": "stocks::QuotesSingleRequest",
-      "response_type": "stocks::QuotesSingleResponse",
-      "parameter_contract": {
-        "signatures": [
-          "symbol|path|required|string",
-          "asof|query|optional|string",
-          "currency|query|optional|string",
-          "end|query|optional|string",
-          "feed|query|optional|string|enum=boats,iex,otc,sip|default=sip",
-          "limit|query|optional|integer|default=1000",
-          "page_token|query|optional|string",
-          "sort|query|optional|string|enum=asc,desc|default=asc",
-          "start|query|optional|string"
-        ]
-      },
-      "response_contract": {
-        "status": "200",
-        "field_signatures": [
-          "currency|string",
-          "next_page_token|string",
-          "quotes[].ap|number",
-          "quotes[].as|integer",
-          "quotes[].ax|string",
-          "quotes[].bp|number",
-          "quotes[].bs|integer",
-          "quotes[].bx|string",
-          "quotes[].c[]|string",
-          "quotes[].c|array",
-          "quotes[].t|string",
-          "quotes[].z|string|enum=A,B,C,N,O",
-          "quotes[]|object",
-          "quotes|array",
-          "symbol|string"
         ]
       },
       "method": "GET"
@@ -250,48 +164,6 @@
     },
     {
       "tag": "Stock",
-      "operation_id": "StockTradeSingle",
-      "path": "/v2/stocks/{symbol}/trades",
-      "local_resource": "stocks",
-      "mirror_method": "trades_single",
-      "request_type": "stocks::TradesSingleRequest",
-      "response_type": "stocks::TradesSingleResponse",
-      "parameter_contract": {
-        "signatures": [
-          "symbol|path|required|string",
-          "asof|query|optional|string",
-          "currency|query|optional|string",
-          "end|query|optional|string",
-          "feed|query|optional|string|enum=boats,iex,otc,sip|default=sip",
-          "limit|query|optional|integer|default=1000",
-          "page_token|query|optional|string",
-          "sort|query|optional|string|enum=asc,desc|default=asc",
-          "start|query|optional|string"
-        ]
-      },
-      "response_contract": {
-        "status": "200",
-        "field_signatures": [
-          "currency|string",
-          "next_page_token|string",
-          "symbol|string",
-          "trades[].c[]|string",
-          "trades[].c|array",
-          "trades[].i|integer",
-          "trades[].p|number",
-          "trades[].s|integer",
-          "trades[].t|string",
-          "trades[].u|string",
-          "trades[].x|string",
-          "trades[].z|string|enum=A,B,C,N,O",
-          "trades[]|object",
-          "trades|array"
-        ]
-      },
-      "method": "GET"
-    },
-    {
-      "tag": "Stock",
       "operation_id": "StockLatestBars",
       "path": "/v2/stocks/bars/latest",
       "local_resource": "stocks",
@@ -319,39 +191,6 @@
           "bars.*|object",
           "bars|object",
           "currency|string"
-        ]
-      },
-      "method": "GET"
-    },
-    {
-      "tag": "Stock",
-      "operation_id": "StockLatestBarSingle",
-      "path": "/v2/stocks/{symbol}/bars/latest",
-      "local_resource": "stocks",
-      "mirror_method": "latest_bar",
-      "request_type": "stocks::LatestBarRequest",
-      "response_type": "stocks::LatestBarResponse",
-      "parameter_contract": {
-        "signatures": [
-          "symbol|path|required|string",
-          "currency|query|optional|string",
-          "feed|query|optional|string|enum=boats,delayed_sip,iex,otc,overnight,sip"
-        ]
-      },
-      "response_contract": {
-        "status": "200",
-        "field_signatures": [
-          "bar.c|number",
-          "bar.h|number",
-          "bar.l|number",
-          "bar.n|integer",
-          "bar.o|number",
-          "bar.t|string",
-          "bar.vw|number",
-          "bar.v|integer",
-          "bar|object",
-          "currency|string",
-          "symbol|string"
         ]
       },
       "method": "GET"
@@ -393,41 +232,6 @@
     },
     {
       "tag": "Stock",
-      "operation_id": "StockLatestQuoteSingle",
-      "path": "/v2/stocks/{symbol}/quotes/latest",
-      "local_resource": "stocks",
-      "mirror_method": "latest_quote",
-      "request_type": "stocks::LatestQuoteRequest",
-      "response_type": "stocks::LatestQuoteResponse",
-      "parameter_contract": {
-        "signatures": [
-          "symbol|path|required|string",
-          "currency|query|optional|string",
-          "feed|query|optional|string|enum=boats,delayed_sip,iex,otc,overnight,sip"
-        ]
-      },
-      "response_contract": {
-        "status": "200",
-        "field_signatures": [
-          "currency|string",
-          "quote.ap|number",
-          "quote.as|integer",
-          "quote.ax|string",
-          "quote.bp|number",
-          "quote.bs|integer",
-          "quote.bx|string",
-          "quote.c[]|string",
-          "quote.c|array",
-          "quote.t|string",
-          "quote.z|string|enum=A,B,C,N,O",
-          "quote|object",
-          "symbol|string"
-        ]
-      },
-      "method": "GET"
-    },
-    {
-      "tag": "Stock",
       "operation_id": "StockLatestTrades",
       "path": "/v2/stocks/trades/latest",
       "local_resource": "stocks",
@@ -456,40 +260,6 @@
           "trades.*.z|string|enum=A,B,C,N,O",
           "trades.*|object",
           "trades|object"
-        ]
-      },
-      "method": "GET"
-    },
-    {
-      "tag": "Stock",
-      "operation_id": "StockLatestTradeSingle",
-      "path": "/v2/stocks/{symbol}/trades/latest",
-      "local_resource": "stocks",
-      "mirror_method": "latest_trade",
-      "request_type": "stocks::LatestTradeRequest",
-      "response_type": "stocks::LatestTradeResponse",
-      "parameter_contract": {
-        "signatures": [
-          "symbol|path|required|string",
-          "currency|query|optional|string",
-          "feed|query|optional|string|enum=boats,delayed_sip,iex,otc,overnight,sip"
-        ]
-      },
-      "response_contract": {
-        "status": "200",
-        "field_signatures": [
-          "currency|string",
-          "symbol|string",
-          "trade.c[]|string",
-          "trade.c|array",
-          "trade.i|integer",
-          "trade.p|number",
-          "trade.s|integer",
-          "trade.t|string",
-          "trade.u|string",
-          "trade.x|string",
-          "trade.z|string|enum=A,B,C,N,O",
-          "trade|object"
         ]
       },
       "method": "GET"
@@ -567,78 +337,6 @@
     },
     {
       "tag": "Stock",
-      "operation_id": "StockSnapshotSingle",
-      "path": "/v2/stocks/{symbol}/snapshot",
-      "local_resource": "stocks",
-      "mirror_method": "snapshot",
-      "request_type": "stocks::SnapshotRequest",
-      "response_type": "stocks::SnapshotResponse",
-      "parameter_contract": {
-        "signatures": [
-          "symbol|path|required|string",
-          "currency|query|optional|string",
-          "feed|query|optional|string|enum=boats,delayed_sip,iex,otc,overnight,sip"
-        ]
-      },
-      "response_contract": {
-        "status": "200",
-        "field_signatures": [
-          "currency|string",
-          "dailyBar.c|number",
-          "dailyBar.h|number",
-          "dailyBar.l|number",
-          "dailyBar.n|integer",
-          "dailyBar.o|number",
-          "dailyBar.t|string",
-          "dailyBar.vw|number",
-          "dailyBar.v|integer",
-          "dailyBar|object",
-          "latestQuote.ap|number",
-          "latestQuote.as|integer",
-          "latestQuote.ax|string",
-          "latestQuote.bp|number",
-          "latestQuote.bs|integer",
-          "latestQuote.bx|string",
-          "latestQuote.c[]|string",
-          "latestQuote.c|array",
-          "latestQuote.t|string",
-          "latestQuote.z|string|enum=A,B,C,N,O",
-          "latestQuote|object",
-          "latestTrade.c[]|string",
-          "latestTrade.c|array",
-          "latestTrade.i|integer",
-          "latestTrade.p|number",
-          "latestTrade.s|integer",
-          "latestTrade.t|string",
-          "latestTrade.u|string",
-          "latestTrade.x|string",
-          "latestTrade.z|string|enum=A,B,C,N,O",
-          "latestTrade|object",
-          "minuteBar.c|number",
-          "minuteBar.h|number",
-          "minuteBar.l|number",
-          "minuteBar.n|integer",
-          "minuteBar.o|number",
-          "minuteBar.t|string",
-          "minuteBar.vw|number",
-          "minuteBar.v|integer",
-          "minuteBar|object",
-          "prevDailyBar.c|number",
-          "prevDailyBar.h|number",
-          "prevDailyBar.l|number",
-          "prevDailyBar.n|integer",
-          "prevDailyBar.o|number",
-          "prevDailyBar.t|string",
-          "prevDailyBar.vw|number",
-          "prevDailyBar.v|integer",
-          "prevDailyBar|object",
-          "symbol|string"
-        ]
-      },
-      "method": "GET"
-    },
-    {
-      "tag": "Stock",
       "operation_id": "StockAuctions",
       "path": "/v2/stocks/auctions",
       "local_resource": "stocks",
@@ -681,54 +379,6 @@
           "auctions|object",
           "currency|string",
           "next_page_token|string"
-        ]
-      },
-      "method": "GET"
-    },
-    {
-      "tag": "Stock",
-      "operation_id": "StockAuctionSingle",
-      "path": "/v2/stocks/{symbol}/auctions",
-      "local_resource": "stocks",
-      "mirror_method": "auctions_single",
-      "request_type": "stocks::AuctionsSingleRequest",
-      "response_type": "stocks::AuctionsSingleResponse",
-      "parameter_contract": {
-        "signatures": [
-          "symbol|path|required|string",
-          "asof|query|optional|string",
-          "currency|query|optional|string",
-          "end|query|optional|string",
-          "feed|query|optional|string|default=sip",
-          "limit|query|optional|integer|default=1000",
-          "page_token|query|optional|string",
-          "sort|query|optional|string|enum=asc,desc|default=asc",
-          "start|query|optional|string"
-        ]
-      },
-      "response_contract": {
-        "status": "200",
-        "field_signatures": [
-          "auctions[].c[].c|string",
-          "auctions[].c[].p|number",
-          "auctions[].c[].s|integer",
-          "auctions[].c[].t|string",
-          "auctions[].c[].x|string",
-          "auctions[].c[]|object",
-          "auctions[].c|array",
-          "auctions[].d|string",
-          "auctions[].o[].c|string",
-          "auctions[].o[].p|number",
-          "auctions[].o[].s|integer",
-          "auctions[].o[].t|string",
-          "auctions[].o[].x|string",
-          "auctions[].o[]|object",
-          "auctions[].o|array",
-          "auctions[]|object",
-          "auctions|array",
-          "currency|string",
-          "next_page_token|string",
-          "symbol|string"
         ]
       },
       "method": "GET"

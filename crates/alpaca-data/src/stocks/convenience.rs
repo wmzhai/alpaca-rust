@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use rust_decimal::Decimal;
 
-use super::{Snapshot, SnapshotResponse};
+use super::Snapshot;
 
 fn timestamp_parts<'a>(
     latest_trade: Option<&'a str>,
@@ -45,33 +45,6 @@ fn price_parts(
 }
 
 impl Snapshot {
-    #[must_use]
-    pub fn timestamp(&self) -> Option<&str> {
-        timestamp_parts(
-            self.latest_trade.as_ref().and_then(|trade| trade.t.as_deref()),
-            self.latest_quote.as_ref().and_then(|quote| quote.t.as_deref()),
-            self.minute_bar.as_ref().and_then(|bar| bar.t.as_deref()),
-            self.daily_bar.as_ref().and_then(|bar| bar.t.as_deref()),
-            self.prev_daily_bar
-                .as_ref()
-                .and_then(|bar| bar.t.as_deref()),
-        )
-    }
-
-    #[must_use]
-    pub fn price(&self) -> Option<Decimal> {
-        price_parts(
-            self.latest_trade.as_ref().and_then(|trade| trade.p),
-            self.latest_quote.as_ref().and_then(|quote| quote.bp),
-            self.latest_quote.as_ref().and_then(|quote| quote.ap),
-            self.minute_bar.as_ref().and_then(|bar| bar.c),
-            self.daily_bar.as_ref().and_then(|bar| bar.c),
-            self.prev_daily_bar.as_ref().and_then(|bar| bar.c),
-        )
-    }
-}
-
-impl SnapshotResponse {
     #[must_use]
     pub fn timestamp(&self) -> Option<&str> {
         timestamp_parts(

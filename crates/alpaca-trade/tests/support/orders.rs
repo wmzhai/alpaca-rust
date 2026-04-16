@@ -7,7 +7,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use alpaca_data::{
     Client as DataClient,
     options::{ChainRequest, OptionsFeed, Snapshot, SnapshotsRequest},
-    stocks::{DataFeed, SnapshotRequest},
+    stocks::{DataFeed, SnapshotsRequest as StockSnapshotsRequest},
 };
 use alpaca_trade::orders::{OptionLegRequest, OrderSide, PositionIntent};
 use rust_decimal::Decimal;
@@ -111,13 +111,17 @@ pub(crate) async fn stock_order_price_context(
 ) -> Result<StockOrderPriceContext, String> {
     let snapshot = data_client
         .stocks()
-        .snapshot(SnapshotRequest {
-            symbol: underlying_symbol.to_owned(),
+        .snapshots(StockSnapshotsRequest {
+            symbols: vec![underlying_symbol.to_owned()],
             feed: Some(DataFeed::Iex),
             currency: None,
         })
         .await
         .map_err(|error| format!("stock snapshot request failed: {error}"))?;
+    let snapshot = snapshot
+        .get(&alpaca_data::stocks::display_symbol(underlying_symbol))
+        .cloned()
+        .ok_or_else(|| format!("stock snapshots response did not include {underlying_symbol}"))?;
     let quote = snapshot.latest_quote.ok_or_else(|| {
         format!("stock snapshot for {underlying_symbol} did not include latest_quote")
     })?;
@@ -298,13 +302,17 @@ async fn latest_stock_ask(
 ) -> Result<Decimal, String> {
     let snapshot = data_client
         .stocks()
-        .snapshot(SnapshotRequest {
-            symbol: underlying_symbol.to_owned(),
+        .snapshots(StockSnapshotsRequest {
+            symbols: vec![underlying_symbol.to_owned()],
             feed: Some(DataFeed::Iex),
             currency: None,
         })
         .await
         .map_err(|error| format!("stock snapshot request failed: {error}"))?;
+    let snapshot = snapshot
+        .get(&alpaca_data::stocks::display_symbol(underlying_symbol))
+        .cloned()
+        .ok_or_else(|| format!("stock snapshots response did not include {underlying_symbol}"))?;
     let quote = snapshot.latest_quote.ok_or_else(|| {
         format!("stock snapshot for {underlying_symbol} did not include latest_quote")
     })?;

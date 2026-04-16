@@ -11,15 +11,11 @@ pub use convenience::ordered_snapshots;
 pub use enums::{Adjustment, AuctionFeed, Currency, DataFeed, Sort, Tape, TickType, TimeFrame};
 pub use model::{Auction, Bar, DailyAuction, Quote, Snapshot, Trade};
 pub use request::{
-    AuctionsRequest, AuctionsSingleRequest, BarsRequest, BarsSingleRequest, ConditionCodesRequest,
-    LatestBarRequest, LatestBarsRequest, LatestQuoteRequest, LatestQuotesRequest,
-    LatestTradeRequest, LatestTradesRequest, QuotesRequest, QuotesSingleRequest, SnapshotRequest,
-    SnapshotsRequest, TradesRequest, TradesSingleRequest,
+    AuctionsRequest, BarsRequest, ConditionCodesRequest, LatestBarsRequest, LatestQuotesRequest,
+    LatestTradesRequest, QuotesRequest, SnapshotsRequest, TradesRequest,
 };
 pub use response::{
-    AuctionsResponse, AuctionsSingleResponse, BarsResponse, BarsSingleResponse,
-    ConditionCodesResponse, ExchangeCodesResponse, LatestBarResponse, LatestBarsResponse,
-    LatestQuoteResponse, LatestQuotesResponse, LatestTradeResponse, LatestTradesResponse,
-    QuotesResponse, QuotesSingleResponse, SnapshotResponse, SnapshotsResponse, TradesResponse,
-    TradesSingleResponse,
+    AuctionsResponse, BarsResponse, ConditionCodesResponse, ExchangeCodesResponse,
+    LatestBarsResponse, LatestQuotesResponse, LatestTradesResponse, QuotesResponse,
+    SnapshotsResponse, TradesResponse,
 };

@@ -4,8 +4,8 @@ mod live_support;
 use alpaca_data::{
     Client,
     stocks::{
-        BarsRequest, ConditionCodesRequest, DataFeed, LatestBarsRequest, LatestQuoteRequest,
-        LatestTradeRequest, SnapshotRequest, SnapshotsRequest, Tape, TickType, TimeFrame,
+        BarsRequest, ConditionCodesRequest, DataFeed, LatestBarsRequest, LatestQuotesRequest,
+        LatestTradesRequest, SnapshotsRequest, Tape, TickType, TimeFrame,
         display_symbol, ordered_snapshots,
     },
 };
@@ -42,46 +42,46 @@ async fn stocks_resource_reads_real_api_endpoints() {
     assert!(latest_bars.bars.contains_key("AAPL"));
     assert!(latest_bars.bars.contains_key("MSFT"));
 
-    let latest_quote = stocks
-        .latest_quote(LatestQuoteRequest {
-            symbol: "AAPL".to_owned(),
+    let latest_quotes = stocks
+        .latest_quotes(LatestQuotesRequest {
+            symbols: vec!["AAPL".to_owned()],
             feed: Some(DataFeed::Iex),
             currency: None,
         })
         .await
-        .expect("latest quote should read from real API");
+        .expect("latest quotes should read from real API");
     recorder
-        .record_json("alpaca-data-stocks", "latest-quote", &latest_quote)
-        .expect("latest quote sample should record");
-    assert_eq!(latest_quote.symbol, "AAPL");
-    assert!(latest_quote.quote.t.is_some());
+        .record_json("alpaca-data-stocks", "latest-quotes", &latest_quotes)
+        .expect("latest quotes sample should record");
+    assert!(latest_quotes.quotes.contains_key("AAPL"));
+    assert!(latest_quotes.quotes["AAPL"].t.is_some());
 
-    let latest_trade = stocks
-        .latest_trade(LatestTradeRequest {
-            symbol: "AAPL".to_owned(),
+    let latest_trades = stocks
+        .latest_trades(LatestTradesRequest {
+            symbols: vec!["AAPL".to_owned()],
             feed: Some(DataFeed::Iex),
             currency: None,
         })
         .await
-        .expect("latest trade should read from real API");
+        .expect("latest trades should read from real API");
     recorder
-        .record_json("alpaca-data-stocks", "latest-trade", &latest_trade)
-        .expect("latest trade sample should record");
-    assert_eq!(latest_trade.symbol, "AAPL");
-    assert!(latest_trade.trade.t.is_some());
+        .record_json("alpaca-data-stocks", "latest-trades", &latest_trades)
+        .expect("latest trades sample should record");
+    assert!(latest_trades.trades.contains_key("AAPL"));
+    assert!(latest_trades.trades["AAPL"].t.is_some());
 
-    let snapshot = stocks
-        .snapshot(SnapshotRequest {
-            symbol: "AAPL".to_owned(),
+    let snapshots = stocks
+        .snapshots(SnapshotsRequest {
+            symbols: vec!["AAPL".to_owned()],
             feed: Some(DataFeed::Iex),
             currency: None,
         })
         .await
-        .expect("snapshot should read from real API");
+        .expect("snapshots should read from real API");
     recorder
-        .record_json("alpaca-data-stocks", "snapshot", &snapshot)
-        .expect("snapshot sample should record");
-    assert_eq!(snapshot.symbol, "AAPL");
+        .record_json("alpaca-data-stocks", "snapshots-single", &snapshots)
+        .expect("snapshots sample should record");
+    let snapshot = snapshots.get("AAPL").expect("single-symbol snapshots should contain AAPL");
     assert!(snapshot.latest_trade.is_some() || snapshot.latest_quote.is_some());
     assert!(snapshot.timestamp().is_some());
     assert!(snapshot.price().is_some());
@@ -110,15 +110,15 @@ async fn stocks_resource_reads_real_api_endpoints() {
         "ordered stock snapshots should expose canonical timestamp and price helpers"
     );
 
-    let brk_snapshot = stocks
-        .snapshot(SnapshotRequest {
-            symbol: "brk/b".to_owned(),
+    let brk_snapshots = stocks
+        .snapshots(SnapshotsRequest {
+            symbols: vec!["brk/b".to_owned()],
             feed: Some(DataFeed::Iex),
             currency: None,
         })
         .await
-        .expect("BRK.B snapshot request should succeed through canonical stock symbol normalization");
-    assert_eq!(brk_snapshot.symbol, "BRK.B");
+        .expect("BRK.B snapshots request should succeed through canonical stock symbol normalization");
+    let brk_snapshot = brk_snapshots.get("BRK.B").expect("BRK.B snapshots should contain BRK.B");
     assert!(brk_snapshot.timestamp().is_some());
     assert!(brk_snapshot.price().is_some());
 
