@@ -119,7 +119,7 @@
       "method": "GET",
       "path": "/v2/account/activities/{activity_type}",
       "local_resource": "activities",
-      "mirror_method": "list_by_type",
+      "mirror_method": "list",
       "parameter_contract": {
         "signatures": [
           "activity_type|path|required|string",

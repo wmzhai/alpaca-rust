@@ -9,7 +9,7 @@ use reqwest::Method;
 use crate::client::ClientInner;
 use crate::{
     Error,
-    activities::{Activity, ListByTypeRequest, ListRequest},
+    activities::{Activity, ListRequest},
 };
 
 #[derive(Clone)]
@@ -37,40 +37,6 @@ impl ActivitiesClient {
         collect_all_activity_pages(request, move |request| self.list(request)).await
     }
 
-    pub async fn list_by_type(
-        &self,
-        activity_type: &str,
-        request: ListByTypeRequest,
-    ) -> Result<Vec<Activity>, Error> {
-        let request = RequestParts::new(
-            Method::GET,
-            format!(
-                "/v2/account/activities/{}",
-                super::request::validate_activity_type(activity_type)?
-            ),
-        )
-        .with_operation("activities.list_by_type")
-        .with_query(request.into_query()?);
-
-        self.inner
-            .send_json::<Vec<Activity>>(request)
-            .await
-            .map(|response| response.into_body())
-    }
-
-    pub async fn list_by_type_all(
-        &self,
-        activity_type: &str,
-        request: ListByTypeRequest,
-    ) -> Result<Vec<Activity>, Error> {
-        let activity_type = super::request::validate_activity_type(activity_type)?;
-        collect_all_activity_pages(request, move |request| {
-            let activity_type = activity_type.clone();
-            async move { self.list_by_type(&activity_type, request).await }
-        })
-        .await
-    }
-
     #[allow(dead_code)]
     #[must_use]
     pub(crate) fn inner(&self) -> &Arc<ClientInner> {
@@ -86,51 +52,18 @@ impl fmt::Debug for ActivitiesClient {
     }
 }
 
-trait ActivityPageRequest: Clone {
-    fn with_page_token(&self, page_token: Option<String>) -> Self;
-    fn page_size(&self) -> Option<u32>;
-    fn date(&self) -> Option<&str>;
+fn with_page_token(request: &ListRequest, page_token: Option<String>) -> ListRequest {
+    let mut next = request.clone();
+    next.page_token = page_token;
+    next
 }
 
-impl ActivityPageRequest for ListRequest {
-    fn with_page_token(&self, page_token: Option<String>) -> Self {
-        let mut next = self.clone();
-        next.page_token = page_token;
-        next
-    }
-
-    fn page_size(&self) -> Option<u32> {
-        self.page_size
-    }
-
-    fn date(&self) -> Option<&str> {
-        self.date.as_deref()
-    }
-}
-
-impl ActivityPageRequest for ListByTypeRequest {
-    fn with_page_token(&self, page_token: Option<String>) -> Self {
-        let mut next = self.clone();
-        next.page_token = page_token;
-        next
-    }
-
-    fn page_size(&self) -> Option<u32> {
-        self.page_size
-    }
-
-    fn date(&self) -> Option<&str> {
-        self.date.as_deref()
-    }
-}
-
-async fn collect_all_activity_pages<Request, Fetch, FutureOutput>(
-    initial_request: Request,
+async fn collect_all_activity_pages<Fetch, FutureOutput>(
+    initial_request: ListRequest,
     mut fetch_page: Fetch,
 ) -> Result<Vec<Activity>, Error>
 where
-    Request: ActivityPageRequest,
-    Fetch: FnMut(Request) -> FutureOutput,
+    Fetch: FnMut(ListRequest) -> FutureOutput,
     FutureOutput: Future<Output = Result<Vec<Activity>, Error>>,
 {
     let page_size = effective_activity_page_size(&initial_request);
@@ -157,7 +90,7 @@ where
             )));
         }
 
-        let next_page = fetch_page(initial_request.with_page_token(Some(page_token))).await?;
+        let next_page = fetch_page(with_page_token(&initial_request, Some(page_token))).await?;
         if let Some(next_page_token) = next_page
             .last()
             .map(|activity| activity.id.as_str())
@@ -183,12 +116,12 @@ where
     Ok(combined)
 }
 
-fn effective_activity_page_size<Request: ActivityPageRequest>(request: &Request) -> Option<usize> {
+fn effective_activity_page_size(request: &ListRequest) -> Option<usize> {
     request
-        .page_size()
+        .page_size
         .map(|page_size| page_size as usize)
         .or_else(|| {
             // Alpaca documents a default/maximum page size of 100 when `date` is absent.
-            request.date().is_none().then_some(100)
+            request.date.is_none().then_some(100)
         })
 }

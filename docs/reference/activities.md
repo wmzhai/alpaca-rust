@@ -5,12 +5,10 @@
 ## Implemented Mirror Methods
 
 - `list`
-- `list_by_type`
 
 ## Convenience Methods
 
 - `list_all`
-- `list_by_type_all`
 
 ## Typical Request
 

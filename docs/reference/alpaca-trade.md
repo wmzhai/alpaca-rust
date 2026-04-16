@@ -32,7 +32,6 @@ Mirror coverage in the current release line:
 Convenience coverage:
 
 - `activities().list_all(...)`
-- `activities().list_by_type_all(...)`
 - `options_contracts().list_all(...)`
 
 Environment variables:

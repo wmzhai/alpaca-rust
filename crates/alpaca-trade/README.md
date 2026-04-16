@@ -20,7 +20,7 @@ Implemented mirror operations:
 
 - account: `get`
 - account configurations: `get`, `update`
-- activities: `list`, `list_by_type`
+- activities: `list`
 - assets: `list`, `get`
 - calendar and clock: `list`, `list_v3`, `get`, `get_v3`
 - options contracts: `list`, `get`
@@ -31,7 +31,7 @@ Implemented mirror operations:
 
 Convenience helpers:
 
-- activities: `list_all`, `list_by_type_all`
+- activities: `list_all`
 - options contracts: `list_all`
 
 Not implemented in the current release line:

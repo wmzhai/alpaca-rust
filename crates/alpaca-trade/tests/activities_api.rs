@@ -8,7 +8,7 @@ mod target_support;
 mod trade_state_support;
 
 use alpaca_trade::{
-    activities::{ListByTypeRequest, ListRequest},
+    activities::ListRequest,
     orders::{CreateRequest, OrderSide, OrderType, SortDirection, TimeInForce},
     positions::ClosePositionRequest,
 };
@@ -119,32 +119,30 @@ async fn activities_fill_lifecycle_scenario(harness: &TradeTestHarness) {
             .all(|activity| activity.activity_type == "FILL")
     );
 
-    let fills_by_type = harness
+    let fills_filtered = harness
         .trade_client()
         .activities()
-        .list_by_type(
-            "FILL",
-            ListByTypeRequest {
-                date: trading_day.clone(),
-                direction: Some(SortDirection::Desc),
-                page_size: Some(100),
-                ..ListByTypeRequest::default()
-            },
-        )
+        .list(ListRequest {
+            activity_types: Some(vec!["FILL".to_owned()]),
+            date: trading_day.clone(),
+            direction: Some(SortDirection::Desc),
+            page_size: Some(100),
+            ..ListRequest::default()
+        })
         .await
-        .expect("typed activities endpoint should succeed");
+        .expect("filtered activities request should succeed");
     assert!(
-        fills_by_type
+        fills_filtered
             .iter()
             .all(|activity| activity.activity_type == "FILL")
     );
     assert!(
-        fills_by_type
+        fills_filtered
             .iter()
             .any(|activity| activity.order_id.as_deref() == Some(&opened.id))
     );
     assert!(
-        fills_by_type
+        fills_filtered
             .iter()
             .any(|activity| activity.order_id.as_deref() == Some(&closed.id))
     );
@@ -172,32 +170,30 @@ async fn activities_fill_lifecycle_scenario(harness: &TradeTestHarness) {
             .any(|activity| activity.order_id.as_deref() == Some(&closed.id))
     );
 
-    let fills_by_type_all = harness
+    let fills_filtered_all = harness
         .trade_client()
         .activities()
-        .list_by_type_all(
-            "FILL",
-            ListByTypeRequest {
-                date: trading_day,
-                direction: Some(SortDirection::Desc),
-                page_size: Some(1),
-                ..ListByTypeRequest::default()
-            },
-        )
+        .list_all(ListRequest {
+            activity_types: Some(vec!["FILL".to_owned()]),
+            date: trading_day,
+            direction: Some(SortDirection::Desc),
+            page_size: Some(1),
+            ..ListRequest::default()
+        })
         .await
-        .expect("list_by_type_all should paginate typed activity pages");
+        .expect("list_all should paginate filtered activity pages");
     assert!(
-        fills_by_type_all
+        fills_filtered_all
             .iter()
             .all(|activity| activity.activity_type == "FILL")
     );
     assert!(
-        fills_by_type_all
+        fills_filtered_all
             .iter()
             .any(|activity| activity.order_id.as_deref() == Some(&opened.id))
     );
     assert!(
-        fills_by_type_all
+        fills_filtered_all
             .iter()
             .any(|activity| activity.order_id.as_deref() == Some(&closed.id))
     );
