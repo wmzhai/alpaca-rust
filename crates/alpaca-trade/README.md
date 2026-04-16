@@ -2,7 +2,7 @@
 
 `alpaca-trade` is an async Rust client for the Alpaca Trading HTTP API.
 
-Covered resource families in the current release line:
+## Current Coverage
 
 - account
 - account configurations
@@ -16,39 +16,7 @@ Covered resource families in the current release line:
 - positions
 - watchlists
 
-Implemented mirror operations:
-
-- account: `get`
-- account configurations: `get`, `update`
-- activities: `list`
-- assets: `list`, `get`
-- calendar and clock: `list`, `list_v3`, `get`, `get_v3`
-- options contracts: `list`, `get`
-- orders: `list`, `create`, `cancel_all`, `get`, `replace`, `cancel`, `get_by_client_order_id`
-- portfolio history: `get`
-- positions: `list`, `get`, `close_all`, `close`, `exercise`, `do_not_exercise`
-- watchlists: `list`, `create`, `get_by_id`, `update_by_id`, `delete_by_id`, `add_asset_by_id`, `delete_symbol_by_id`, `get_by_name`, `update_by_name`, `add_asset_by_name`, `delete_by_name`
-
-Convenience helpers:
-
-- activities: `list_all`
-- options contracts: `list_all`
-
-Not implemented in the current release line:
-
-- websocket or stream APIs
-- broker APIs
-- FIX
-- crypto or fixed-income trading surfaces
-- high-level order workflows, strategy logic, or portfolio orchestration
-
-Environment variables:
-
-- `ALPACA_TRADE_API_KEY`
-- `ALPACA_TRADE_SECRET_KEY`
-- `ALPACA_TRADE_BASE_URL`
-
-By default the client targets Alpaca paper trading. Use `Client::builder().live()` for the live base URL or `base_url_str(...)` for a custom endpoint.
+## Client Entry
 
 ```rust
 use alpaca_trade::Client;
@@ -61,4 +29,93 @@ let client = Client::builder()
 # Ok::<(), alpaca_trade::Error>(())
 ```
 
-For mock-backed end-to-end flows, see `alpaca-mock` and `docs/trade-mainline.md` in the repository.
+The default builder targets Alpaca paper trading. Use `Client::builder().live()` for the live environment.
+
+### Resource Accessors
+
+- `client.account()`
+- `client.account_configurations()`
+- `client.activities()`
+- `client.assets()`
+- `client.calendar()`
+- `client.clock()`
+- `client.options_contracts()`
+- `client.orders()`
+- `client.portfolio_history()`
+- `client.positions()`
+- `client.watchlists()`
+
+## Main API Surface
+
+### Account / Configurations
+
+- `account().get()`
+- `account_configurations().get()`
+- `account_configurations().update(...)`
+
+### Activities / Assets
+
+- `activities().list(...)`
+- `activities().list_all(...)`
+- `assets().list(...)`
+- `assets().get(...)`
+
+### Calendar / Clock
+
+- `calendar().list(...)`
+- `calendar().list_v3(...)`
+- `clock().get()`
+- `clock().get_v3(...)`
+
+### Options Contracts
+
+- `options_contracts().list(...)`
+- `options_contracts().list_all(...)`
+- `options_contracts().get(...)`
+
+### Orders
+
+- `orders().list(...)`
+- `orders().create(...)`
+- `orders().cancel_all()`
+- `orders().get(...)`
+- `orders().replace(...)`
+- `orders().cancel(...)`
+- `orders().get_by_client_order_id(...)`
+
+### Portfolio / Positions / Watchlists
+
+- `portfolio_history().get(...)`
+- `positions().list()`
+- `positions().get(...)`
+- `positions().close_all(...)`
+- `positions().close(...)`
+- `positions().exercise(...)`
+- `positions().do_not_exercise(...)`
+- `watchlists().list()`
+- `watchlists().create(...)`
+- `watchlists().get_by_id(...)`
+- `watchlists().update_by_id(...)`
+- `watchlists().delete_by_id(...)`
+- `watchlists().add_asset_by_id(...)`
+- `watchlists().delete_symbol_by_id(...)`
+- `watchlists().get_by_name(...)`
+- `watchlists().update_by_name(...)`
+- `watchlists().add_asset_by_name(...)`
+- `watchlists().delete_by_name(...)`
+
+## Not Implemented
+
+- websocket / stream APIs
+- broker APIs
+- FIX
+- crypto / fixed-income trading surfaces
+- high-level order orchestration
+
+## Environment Variables
+
+- `ALPACA_TRADE_API_KEY`
+- `ALPACA_TRADE_SECRET_KEY`
+- `ALPACA_TRADE_BASE_URL`
+
+See `docs/reference/alpaca-trade.md` and <https://docs.rs/alpaca-trade> for the full reference.

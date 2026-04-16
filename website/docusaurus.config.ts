@@ -29,7 +29,6 @@ const config: Config = {
           routeBasePath: 'docs',
           sidebarPath: './sidebars.ts',
           editUrl: 'https://github.com/wmzhai/alpaca-rust/tree/main/',
-          exclude: ['**/superpowers/**'],
         },
         blog: false,
         theme: {

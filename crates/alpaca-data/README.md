@@ -2,48 +2,14 @@
 
 `alpaca-data` is an async Rust client for the Alpaca Market Data HTTP API.
 
-Covered resource families in the current release line:
+## Current Coverage
 
 - stocks
 - options
 - news
 - corporate actions
 
-Implemented mirror operations:
-
-- stocks: `bars`, `quotes`, `trades`, `latest_bars`, `latest_quotes`, `latest_trades`, `snapshots`, `auctions`, `condition_codes`, `exchange_codes`
-- options: `bars`, `trades`, `latest_quotes`, `latest_trades`, `snapshots`, `chain`, `condition_codes`, `exchange_codes`
-- news: `list`
-- corporate actions: `list`
-
-Convenience helpers:
-
-- stocks: `bars_all`, `quotes_all`, `trades_all`, `auctions_all`
-- stocks snapshots: canonical `timestamp()` / `price()` / `bid_price()` / `ask_price()` / `session_open()` / `session_high()` / `session_low()` / `session_close()` / `previous_close()` / `session_volume()` readers plus `ordered_snapshots(...)`
-- stocks requests: provider-safe stock symbol normalization is absorbed by the canonical batch request types
-- options: `bars_all`, `trades_all`, `snapshots_all`, `chain_all`
-- options snapshots: canonical `timestamp()` / `bid_price()` / `ask_price()` / `last_price()` / `mark_price()` readers plus `ordered_snapshots(...)`
-- news: `list_all`
-- corporate actions: `list_all`
-- corporate actions requests: stock symbol normalization is absorbed by `ListRequest`
-
-Not implemented in the current release line:
-
-- crypto
-- forex
-- fixed income
-- logos
-- screener
-- websocket
-- stream APIs
-
-Environment variables:
-
-- `ALPACA_DATA_API_KEY`
-- `ALPACA_DATA_SECRET_KEY`
-- `ALPACA_DATA_BASE_URL`
-
-Quick start:
+## Client Entry
 
 ```rust
 use alpaca_data::Client;
@@ -56,4 +22,71 @@ let client = Client::builder()
 # Ok::<(), alpaca_data::Error>(())
 ```
 
-The public docs site for the workspace lives at <https://wmzhai.github.io/alpaca-rust/>.
+### Resource Accessors
+
+- `client.stocks()`
+- `client.options()`
+- `client.news()`
+- `client.corporate_actions()`
+
+## Main API Surface
+
+### Stocks
+
+- `bars` / `bars_all`
+- `auctions` / `auctions_all`
+- `quotes` / `quotes_all`
+- `trades` / `trades_all`
+- `latest_bars`
+- `latest_quotes`
+- `latest_trades`
+- `snapshots`
+- `condition_codes`
+- `exchange_codes`
+
+### Options
+
+- `bars` / `bars_all`
+- `trades` / `trades_all`
+- `latest_quotes`
+- `latest_trades`
+- `snapshots` / `snapshots_all`
+- `chain` / `chain_all`
+- `condition_codes`
+- `exchange_codes`
+
+### News
+
+- `list`
+- `list_all`
+
+### Corporate Actions
+
+- `list`
+- `list_all`
+
+## Built-in Convenience Helpers
+
+- `stocks::ordered_snapshots(...)`
+- `options::ordered_snapshots(...)`
+- `stocks::Snapshot::{timestamp, price, bid_price, ask_price, session_open, session_high, session_low, session_close, previous_close, session_volume}`
+- `options::Snapshot::{timestamp, bid_price, ask_price, last_price, mark_price}`
+- `options::underlying_symbol(...)`
+- `symbols::display_stock_symbol(...)`
+
+## Not Implemented
+
+- crypto
+- forex
+- fixed income
+- logos
+- screener
+- websocket / stream APIs
+
+## Environment Variables
+
+- `ALPACA_DATA_API_KEY`
+- `ALPACA_DATA_SECRET_KEY`
+- `ALPACA_DATA_BASE_URL`
+
+See `docs/reference/alpaca-data.md` and <https://docs.rs/alpaca-data> for the full reference.

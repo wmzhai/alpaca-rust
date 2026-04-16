@@ -1,21 +1,28 @@
 # Reference Index
 
-Workspace crate reference:
+This reference section covers the currently implemented workspace crates and the main API resource surfaces in `alpaca-rust`.
+
+## Workspace Crates
+
+### Foundation
 
 - [alpaca-core](./alpaca-core.md)
 - [alpaca-rest-http](./alpaca-rest-http.md)
+
+### Product Crates
+
 - [alpaca-data](./alpaca-data.md)
 - [alpaca-trade](./alpaca-trade.md)
 - [alpaca-mock](./alpaca-mock.md)
 
-Market-data resource reference:
+## Market Data Resource Reference
 
 - [stocks](./stocks.md)
 - [options market data](./options-data.md)
 - [news](./news.md)
 - [corporate actions](./corporate-actions.md)
 
-Trading resource reference:
+## Trading Resource Reference
 
 - [account](./account.md)
 - [account configurations](./account-configurations.md)
@@ -28,15 +35,19 @@ Trading resource reference:
 - [positions](./positions.md)
 - [watchlists](./watchlists.md)
 
-Coverage companion documents:
+## Companion Documents
+
+### Coverage
 
 - [Market Data API Coverage](../api-coverage/market-data.md)
 - [Trading API Coverage](../api-coverage/trading.md)
-- [Trade Mainline](../trade-mainline.md)
 
-Operational companion documents:
+### Usage and Operations
 
 - [Installation](../installation.md)
+- [Getting Started](../getting-started.md)
+- [Examples](../examples.md)
 - [Mock Server](../mock-server.md)
 - [Testing Guide](../testing.md)
+- [Trade Mainline](../trade-mainline.md)
 - [Troubleshooting](../troubleshooting.md)
