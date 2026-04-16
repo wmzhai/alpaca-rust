@@ -22,6 +22,7 @@ Convenience helpers:
 - stocks snapshots: canonical `timestamp()` / `price()` readers plus `ordered_snapshots(...)`
 - stocks requests: provider-safe stock symbol normalization is absorbed by the canonical batch request types
 - options: `bars_all`, `trades_all`, `snapshots_all`, `chain_all`
+- options snapshots: canonical `timestamp()` / `bid_price()` / `ask_price()` / `last_price()` / `mark_price()` readers plus `ordered_snapshots(...)`
 - news: `list_all`
 - corporate actions: `list_all`
 

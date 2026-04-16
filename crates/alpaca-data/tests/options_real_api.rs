@@ -110,10 +110,12 @@ async fn options_resource_reads_real_api_endpoints() {
         .record_json("alpaca-data-options", "snapshots-all", &snapshots)
         .expect("snapshots sample should record");
     assert!(snapshots.snapshots.contains_key(&contract.symbol));
-    assert_eq!(snapshots.ordered().len(), snapshots.snapshots.len());
+    assert_eq!(
+        alpaca_data::options::ordered_snapshots(&snapshots.snapshots).len(),
+        snapshots.snapshots.len()
+    );
     assert!(
-        snapshots
-            .ordered()
+        alpaca_data::options::ordered_snapshots(&snapshots.snapshots)
             .iter()
             .all(|(_, snapshot)| snapshot.timestamp().is_some()),
         "ordered snapshots should expose a usable timestamp helper"
@@ -184,7 +186,10 @@ async fn options_resource_reads_real_api_endpoints() {
         .record_json("alpaca-data-options", "chain-all", &chain)
         .expect("chain sample should record");
     assert!(chain.snapshots.contains_key(&contract.symbol));
-    assert_eq!(chain.ordered().len(), chain.snapshots.len());
+    assert_eq!(
+        alpaca_data::options::ordered_snapshots(&chain.snapshots).len(),
+        chain.snapshots.len()
+    );
 
     let condition_codes = options
         .condition_codes(ConditionCodesRequest {
@@ -285,8 +290,7 @@ async fn options_chain_absorbs_brk_b_provider_symbol_rules() {
 
     assert!(!chain.snapshots.is_empty());
     assert!(
-        chain
-            .ordered()
+        alpaca_data::options::ordered_snapshots(&chain.snapshots)
             .iter()
             .all(|(symbol, _)| symbol.starts_with("BRKB")),
         "BRK.B chain contracts should use the BRKB OCC root"

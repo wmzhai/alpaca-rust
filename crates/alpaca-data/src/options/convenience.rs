@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use rust_decimal::Decimal;
 
-use super::{ChainResponse, Snapshot, SnapshotsResponse};
+use super::Snapshot;
 
 impl Snapshot {
     #[must_use]
@@ -49,20 +49,6 @@ impl Snapshot {
             (None, Some(ask)) => Some(ask),
             (None, None) => None,
         }
-    }
-}
-
-impl SnapshotsResponse {
-    #[must_use]
-    pub fn ordered(&self) -> Vec<(&str, &Snapshot)> {
-        ordered_snapshots(&self.snapshots)
-    }
-}
-
-impl ChainResponse {
-    #[must_use]
-    pub fn ordered(&self) -> Vec<(&str, &Snapshot)> {
-        ordered_snapshots(&self.snapshots)
     }
 }
 
