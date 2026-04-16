@@ -25,6 +25,7 @@ Convenience helpers:
 - options snapshots: canonical `timestamp()` / `bid_price()` / `ask_price()` / `last_price()` / `mark_price()` readers plus `ordered_snapshots(...)`
 - news: `list_all`
 - corporate actions: `list_all`
+- corporate actions requests: stock symbol normalization is absorbed by `ListRequest`
 
 Not implemented in the current release line:
 

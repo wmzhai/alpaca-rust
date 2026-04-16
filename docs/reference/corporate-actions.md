@@ -30,6 +30,7 @@ let actions = client
 
 - `ids` cannot be combined with the other official filter fields
 - `symbols`, `cusips`, and `ids` must be non-empty when provided
+- `symbols` are normalized through the stock display-symbol rules before the SDK sends the request
 - `list_all` only expands pagination; it does not reinterpret the official payload
 
 ## Not Implemented Here

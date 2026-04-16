@@ -24,7 +24,8 @@ Convenience coverage:
 - `alpaca_data::stocks::display_symbol(...)` restores supported dotted stock display symbols such as `BRKB -> BRK.B`
 - stock latest/snapshot reads also stay on canonical batch request types, even for single symbols
 - `alpaca_data::options::Snapshot::{timestamp,bid_price,ask_price,last_price,mark_price}` exposes provider-safe snapshot value selection
-- `alpaca_data::options::{SnapshotsResponse,ChainResponse}::ordered()` returns stable contract ordering
+- `alpaca_data::options::ordered_snapshots(...)` returns stable contract ordering
+- `alpaca_data::corporate_actions::ListRequest` absorbs provider-safe stock symbol normalization such as `brk/b -> BRK.B`
 
 Environment variables:
 

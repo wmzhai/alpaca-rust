@@ -1,6 +1,7 @@
 use alpaca_core::{QueryWriter, pagination::PaginatedRequest};
 
 use crate::Error;
+use crate::symbols::display_stock_symbol;
 
 use super::{CorporateActionType, Sort};
 
@@ -50,7 +51,13 @@ impl ListRequest {
     pub(crate) fn into_query(self) -> Vec<(String, String)> {
         let mut query = QueryWriter::default();
         if let Some(symbols) = self.symbols {
-            query.push_csv("symbols", symbols);
+            query.push_csv(
+                "symbols",
+                symbols
+                    .into_iter()
+                    .map(|symbol| display_stock_symbol(&symbol))
+                    .collect::<Vec<_>>(),
+            );
         }
         if let Some(cusips) = self.cusips {
             query.push_csv("cusips", cusips);
@@ -108,4 +115,32 @@ fn validate_limit(limit: Option<u32>, min: u32, max: u32) -> Result<(), Error> {
     }
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{CorporateActionType, ListRequest};
+
+    #[test]
+    fn list_request_normalizes_stock_symbols_in_query() {
+        let query = ListRequest {
+            symbols: Some(vec![" brk/b ".to_owned(), "aapl".to_owned()]),
+            cusips: None,
+            types: Some(vec![CorporateActionType::CashDividend]),
+            start: Some("2025-01-01".to_owned()),
+            end: Some("2025-01-31".to_owned()),
+            ids: None,
+            limit: Some(100),
+            sort: None,
+            page_token: None,
+        }
+        .into_query();
+
+        assert!(
+            query
+                .iter()
+                .any(|(key, value)| key == "symbols" && value == "BRK.B,AAPL"),
+            "corporate actions query should normalize stock symbols: {query:?}"
+        );
+    }
 }
