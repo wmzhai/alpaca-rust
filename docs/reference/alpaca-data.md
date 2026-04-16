@@ -23,6 +23,7 @@ Convenience coverage:
 - `alpaca_data::options::underlying_symbol(...)` canonicalizes option underlying / OCC-root input such as `BRK.B -> BRKB`
 - `alpaca_data::stocks::display_symbol(...)` restores supported dotted stock display symbols such as `BRKB -> BRK.B`
 - stock latest/snapshot reads also stay on canonical batch request types, even for single symbols
+- `alpaca_data::stocks::Snapshot::{timestamp,price,bid_price,ask_price,session_open,session_high,session_low,session_close,previous_close,session_volume}` exposes provider-safe quote/session value selection
 - `alpaca_data::options::Snapshot::{timestamp,bid_price,ask_price,last_price,mark_price}` exposes provider-safe snapshot value selection
 - `alpaca_data::options::ordered_snapshots(...)` returns stable contract ordering
 - `alpaca_data::corporate_actions::ListRequest` absorbs provider-safe stock symbol normalization such as `brk/b -> BRK.B`

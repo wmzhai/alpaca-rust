@@ -85,6 +85,8 @@ async fn stocks_resource_reads_real_api_endpoints() {
     assert!(snapshot.latest_trade.is_some() || snapshot.latest_quote.is_some());
     assert!(snapshot.timestamp().is_some());
     assert!(snapshot.price().is_some());
+    assert!(snapshot.bid_price().is_some() || snapshot.ask_price().is_some());
+    assert!(snapshot.session_close().is_some() || snapshot.previous_close().is_some());
 
     let batch_snapshots = stocks
         .snapshots(SnapshotsRequest {
@@ -106,8 +108,13 @@ async fn stocks_resource_reads_real_api_endpoints() {
     assert!(
         ordered
             .iter()
-            .all(|(_, snapshot)| snapshot.timestamp().is_some() && snapshot.price().is_some()),
-        "ordered stock snapshots should expose canonical timestamp and price helpers"
+            .all(|(_, snapshot)| {
+                snapshot.timestamp().is_some()
+                    && snapshot.price().is_some()
+                    && (snapshot.bid_price().is_some() || snapshot.ask_price().is_some())
+                    && (snapshot.session_close().is_some() || snapshot.previous_close().is_some())
+            }),
+        "ordered stock snapshots should expose canonical quote/session readers"
     );
 
     let brk_snapshots = stocks
@@ -121,6 +128,7 @@ async fn stocks_resource_reads_real_api_endpoints() {
     let brk_snapshot = brk_snapshots.get("BRK.B").expect("BRK.B snapshots should contain BRK.B");
     assert!(brk_snapshot.timestamp().is_some());
     assert!(brk_snapshot.price().is_some());
+    assert!(brk_snapshot.bid_price().is_some() || brk_snapshot.ask_price().is_some());
 
     let bars = stocks
         .bars_all(BarsRequest {
