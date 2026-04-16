@@ -23,6 +23,10 @@ where
         .map_err(|error| E::custom(format!("invalid decimal value `{raw}`: {error}")))
 }
 
+fn round(value: &Decimal, scale: u32) -> Decimal {
+    value.round_dp(scale)
+}
+
 pub fn deserialize_decimal_from_string_or_number<'de, D>(
     deserializer: D,
 ) -> Result<Decimal, D::Error>
@@ -51,6 +55,32 @@ pub mod string_contract {
         S: Serializer,
     {
         serializer.serialize_str(&value.to_string())
+    }
+
+    pub fn serialize_option_decimal<S>(
+        value: &Option<Decimal>,
+        serializer: S,
+    ) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        match value {
+            Some(value) => serialize_decimal(value, serializer),
+            None => serializer.serialize_none(),
+        }
+    }
+}
+
+pub mod price_string_contract {
+    use super::*;
+
+    const PRICE_SCALE: u32 = 2;
+
+    pub fn serialize_decimal<S>(value: &Decimal, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        string_contract::serialize_decimal(&round(value, PRICE_SCALE), serializer)
     }
 
     pub fn serialize_option_decimal<S>(

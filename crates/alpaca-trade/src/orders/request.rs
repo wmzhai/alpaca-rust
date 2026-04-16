@@ -68,17 +68,17 @@ pub struct CreateRequest {
     pub time_in_force: Option<TimeInForce>,
     #[serde(
         skip_serializing_if = "Option::is_none",
-        serialize_with = "alpaca_core::decimal::string_contract::serialize_option_decimal"
+        serialize_with = "alpaca_core::decimal::price_string_contract::serialize_option_decimal"
     )]
     pub limit_price: Option<Decimal>,
     #[serde(
         skip_serializing_if = "Option::is_none",
-        serialize_with = "alpaca_core::decimal::string_contract::serialize_option_decimal"
+        serialize_with = "alpaca_core::decimal::price_string_contract::serialize_option_decimal"
     )]
     pub stop_price: Option<Decimal>,
     #[serde(
         skip_serializing_if = "Option::is_none",
-        serialize_with = "alpaca_core::decimal::string_contract::serialize_option_decimal"
+        serialize_with = "alpaca_core::decimal::price_string_contract::serialize_option_decimal"
     )]
     pub trail_price: Option<Decimal>,
     #[serde(
@@ -139,17 +139,17 @@ pub struct ReplaceRequest {
     pub time_in_force: Option<TimeInForce>,
     #[serde(
         skip_serializing_if = "Option::is_none",
-        serialize_with = "alpaca_core::decimal::string_contract::serialize_option_decimal"
+        serialize_with = "alpaca_core::decimal::price_string_contract::serialize_option_decimal"
     )]
     pub limit_price: Option<Decimal>,
     #[serde(
         skip_serializing_if = "Option::is_none",
-        serialize_with = "alpaca_core::decimal::string_contract::serialize_option_decimal"
+        serialize_with = "alpaca_core::decimal::price_string_contract::serialize_option_decimal"
     )]
     pub stop_price: Option<Decimal>,
     #[serde(
         skip_serializing_if = "Option::is_none",
-        serialize_with = "alpaca_core::decimal::string_contract::serialize_option_decimal"
+        serialize_with = "alpaca_core::decimal::price_string_contract::serialize_option_decimal"
     )]
     pub trail: Option<Decimal>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -327,5 +327,86 @@ impl fmt::Display for OrderSide {
             Self::Sell => "sell",
             Self::Unspecified => "",
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use rust_decimal::Decimal;
+    use serde_json::json;
+
+    use super::{CreateRequest, ReplaceRequest};
+    use crate::orders::{OrderClass, OrderSide, OrderType, StopLoss, TakeProfit, TimeInForce};
+
+    #[test]
+    fn create_request_into_json_rounds_price_fields_to_two_decimals() {
+        let request = CreateRequest {
+            symbol: Some("SPY".to_owned()),
+            qty: Some(Decimal::ONE),
+            side: Some(OrderSide::Buy),
+            r#type: Some(OrderType::Limit),
+            time_in_force: Some(TimeInForce::Day),
+            limit_price: Some(Decimal::new(1239, 3)),
+            stop_price: Some(Decimal::new(2345, 3)),
+            trail_price: Some(Decimal::new(3456, 3)),
+            trail_percent: Some(Decimal::new(3456, 3)),
+            order_class: Some(OrderClass::Bracket),
+            take_profit: Some(TakeProfit {
+                limit_price: Decimal::new(4567, 3),
+            }),
+            stop_loss: Some(StopLoss {
+                stop_price: Decimal::new(5678, 3),
+                limit_price: Some(Decimal::new(6789, 3)),
+            }),
+            ..CreateRequest::default()
+        };
+
+        let json = request.into_json().expect("request should serialize");
+
+        assert_eq!(
+            json,
+            json!({
+                "symbol": "SPY",
+                "qty": "1",
+                "side": "buy",
+                "type": "limit",
+                "time_in_force": "day",
+                "limit_price": "1.24",
+                "stop_price": "2.34",
+                "trail_price": "3.46",
+                "trail_percent": "3.456",
+                "order_class": "bracket",
+                "take_profit": {
+                    "limit_price": "4.57",
+                },
+                "stop_loss": {
+                    "stop_price": "5.68",
+                    "limit_price": "6.79",
+                }
+            })
+        );
+    }
+
+    #[test]
+    fn replace_request_into_json_rounds_price_fields_to_two_decimals() {
+        let request = ReplaceRequest {
+            time_in_force: Some(TimeInForce::Day),
+            limit_price: Some(Decimal::new(1239, 3)),
+            stop_price: Some(Decimal::new(2345, 3)),
+            trail: Some(Decimal::new(3456, 3)),
+            ..ReplaceRequest::default()
+        };
+
+        let json = request.into_json().expect("request should serialize");
+
+        assert_eq!(
+            json,
+            json!({
+                "time_in_force": "day",
+                "limit_price": "1.24",
+                "stop_price": "2.34",
+                "trail": "3.46"
+            })
+        );
     }
 }

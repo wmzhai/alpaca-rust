@@ -106,7 +106,7 @@ pub enum OrderStatus {
 pub struct TakeProfit {
     #[serde(
         deserialize_with = "alpaca_core::decimal::deserialize_decimal_from_string_or_number",
-        serialize_with = "alpaca_core::decimal::string_contract::serialize_decimal"
+        serialize_with = "alpaca_core::decimal::price_string_contract::serialize_decimal"
     )]
     pub limit_price: Decimal,
 }
@@ -115,13 +115,13 @@ pub struct TakeProfit {
 pub struct StopLoss {
     #[serde(
         deserialize_with = "alpaca_core::decimal::deserialize_decimal_from_string_or_number",
-        serialize_with = "alpaca_core::decimal::string_contract::serialize_decimal"
+        serialize_with = "alpaca_core::decimal::price_string_contract::serialize_decimal"
     )]
     pub stop_price: Decimal,
     #[serde(
         default,
         deserialize_with = "alpaca_core::decimal::deserialize_option_decimal_from_string_or_number",
-        serialize_with = "alpaca_core::decimal::string_contract::serialize_option_decimal"
+        serialize_with = "alpaca_core::decimal::price_string_contract::serialize_option_decimal"
     )]
     pub limit_price: Option<Decimal>,
 }
