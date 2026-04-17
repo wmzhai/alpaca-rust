@@ -10,8 +10,8 @@ mod trade_state_support;
 use alpaca_trade::{
     orders::{
         CreateRequest, ListRequest, OptionLegRequest, OrderClass, OrderSide, OrderStatus,
-        OrderType, PositionIntent, QueryOrderStatus, ReplaceRequest, StopLoss, TakeProfit,
-        TimeInForce,
+        OrderType, PositionIntent, QueryOrderStatus, ReplaceRequest, ReplaceResolution, StopLoss,
+        TakeProfit, TimeInForce, WaitFor,
     },
     Error,
 };
@@ -533,9 +533,9 @@ async fn orders_mleg_limit_replace_scenario(harness: &TradeTestHarness) {
         .expect("multi-leg client_order_id lookup should succeed");
     assert_eq!(fetched_by_client_order_id.id, created.id);
 
-    let replacement = client
+    let replacement = match client
         .orders()
-        .replace(
+        .replace_resolved(
             &created.id,
             ReplaceRequest {
                 qty: None,
@@ -547,7 +547,14 @@ async fn orders_mleg_limit_replace_scenario(harness: &TradeTestHarness) {
             },
         )
         .await
-        .expect("multi-leg order replace should succeed");
+        .expect("multi-leg order replace should succeed")
+    {
+        ReplaceResolution::NewOrder(resolved) => resolved.order,
+        ReplaceResolution::OriginalOrderTerminal(resolved) => panic!(
+            "multi-leg replace should produce a new order, got terminal original order: {:?}",
+            resolved.order.status
+        ),
+    };
     assert_ne!(replacement.id, created.id);
     assert_eq!(replacement.replaces.as_deref(), Some(created.id.as_str()));
     assert_eq!(replacement.qty, Some(structure_qty));
@@ -1645,9 +1652,9 @@ async fn orders_option_limit_scenario(_harness: &TradeTestHarness) {
             .await?;
         assert_eq!(fetched_by_client_order_id.id, created.id);
 
-        let replacement = client
+        let replacement = match client
             .orders()
-            .replace(
+            .replace_resolved(
                 &created.id,
                 ReplaceRequest {
                     qty: None,
@@ -1658,7 +1665,16 @@ async fn orders_option_limit_scenario(_harness: &TradeTestHarness) {
                     client_order_id: Some(replaced_client_order_id.clone()),
                 },
             )
-            .await?;
+            .await?
+        {
+            ReplaceResolution::NewOrder(resolved) => resolved.order,
+            ReplaceResolution::OriginalOrderTerminal(resolved) => {
+                return Err(Error::InvalidRequest(format!(
+                    "option limit replace returned terminal original order: {:?}",
+                    resolved.order.status
+                )));
+            }
+        };
         cleanup_order_id = Some(replacement.id.clone());
         assert_ne!(replacement.id, created.id);
         assert_eq!(replacement.replaces.as_deref(), Some(created.id.as_str()));
@@ -2351,14 +2367,17 @@ async fn cancel_order_and_wait(
     harness: &TradeTestHarness,
     order_id: &str,
 ) -> Result<alpaca_trade::orders::Order, Error> {
-    harness.trade_client().orders().cancel(order_id).await?;
-    wait_for_order_status(harness, order_id, OrderStatus::Canceled).await
+    harness
+        .trade_client()
+        .orders()
+        .cancel_resolved(order_id)
+        .await
+        .map(|resolved| resolved.order)
 }
 
 async fn maybe_cancel_order(harness: &TradeTestHarness, order_id: Option<&str>) {
     if let Some(order_id) = order_id {
-        let _ = harness.trade_client().orders().cancel(order_id).await;
-        let _ = wait_for_order_status(harness, order_id, OrderStatus::Canceled).await;
+        let _ = harness.trade_client().orders().cancel_resolved(order_id).await;
     }
 }
 
@@ -2407,13 +2426,9 @@ async fn wait_for_order_status(
     order_id: &str,
     expected_status: OrderStatus,
 ) -> Result<alpaca_trade::orders::Order, Error> {
-    for _attempt in 0..harness.poll_attempts() {
-        let order = harness.trade_client().orders().get(order_id).await?;
-        if order.status == expected_status {
-            return Ok(order);
-        }
-        tokio::time::sleep(harness.poll_interval()).await;
-    }
-
-    harness.trade_client().orders().get(order_id).await
+    harness
+        .trade_client()
+        .orders()
+        .wait_for(order_id, WaitFor::Exact(expected_status))
+        .await
 }

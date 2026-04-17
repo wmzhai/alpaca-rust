@@ -90,6 +90,43 @@ impl OrderStatus {
             Self::Held => "held",
         }
     }
+
+    #[must_use]
+    pub fn is_terminal(self) -> bool {
+        matches!(
+            self,
+            Self::Filled
+                | Self::DoneForDay
+                | Self::Canceled
+                | Self::Expired
+                | Self::Rejected
+                | Self::Suspended
+                | Self::Calculated
+        )
+    }
+
+    #[must_use]
+    pub fn is_stable(self) -> bool {
+        matches!(
+            self,
+            Self::Accepted
+                | Self::New
+                | Self::Filled
+                | Self::Canceled
+                | Self::Expired
+                | Self::Rejected
+        )
+    }
+
+    #[must_use]
+    pub fn is_cancel_complete(self) -> bool {
+        matches!(self, Self::Canceled | Self::Filled | Self::Expired | Self::Rejected)
+    }
+
+    #[must_use]
+    pub fn is_replace_recovery_terminal(self) -> bool {
+        self.is_terminal()
+    }
 }
 
 impl Order {

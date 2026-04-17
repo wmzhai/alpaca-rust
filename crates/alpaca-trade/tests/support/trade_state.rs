@@ -2,7 +2,7 @@
 
 use alpaca_trade::{
     Error,
-    orders::{ListRequest, OrderStatus, QueryOrderStatus},
+    orders::{ListRequest, OrderStatus, QueryOrderStatus, WaitFor},
     positions::ClosePositionRequest,
 };
 
@@ -13,23 +13,10 @@ pub(crate) async fn wait_for_order_status(
     order_id: &str,
     expected_status: OrderStatus,
 ) -> alpaca_trade::orders::Order {
-    for _attempt in 0..harness.poll_attempts() {
-        let order = harness
-            .trade_client()
-            .orders()
-            .get(order_id)
-            .await
-            .expect("order should remain readable");
-        if order.status == expected_status {
-            return order;
-        }
-        tokio::time::sleep(harness.poll_interval()).await;
-    }
-
     harness
         .trade_client()
         .orders()
-        .get(order_id)
+        .wait_for(order_id, WaitFor::Exact(expected_status))
         .await
         .expect("order should remain readable")
 }
@@ -125,37 +112,21 @@ async fn cancel_open_orders_for_symbol(harness: &TradeTestHarness, symbol: &str)
         .expect("preflight open orders should remain readable");
 
     for order in open_orders {
-        match harness.trade_client().orders().cancel(&order.id).await {
-            Ok(_) => {
-                let _ = wait_for_order_status(harness, &order.id, OrderStatus::Canceled).await;
-            }
-            Err(Error::Http(error)) if error.meta().map(|meta| meta.status()) == Some(422) => {
-                let terminal =
-                    harness.trade_client().orders().get(&order.id).await.expect(
-                        "preflight order should remain readable after terminal cancel race",
-                    );
-                assert!(
-                    is_terminal_status(&terminal.status),
-                    "preflight open order cancel returned 422 but order {} remained non-terminal: {:?}",
-                    order.id,
-                    terminal.status
-                );
-            }
-            Err(other) => panic!("preflight open order cancel should submit: {other:?}"),
-        }
+        let resolved = harness
+            .trade_client()
+            .orders()
+            .cancel_resolved(&order.id)
+            .await
+            .expect("preflight open order cancel should submit");
+        assert!(
+            is_terminal_status(&resolved.order.status),
+            "preflight open order cancel should end in a terminal state: order={}, status={:?}",
+            order.id,
+            resolved.order.status
+        );
     }
 }
 
 fn is_terminal_status(status: &OrderStatus) -> bool {
-    matches!(
-        status,
-        OrderStatus::Filled
-            | OrderStatus::DoneForDay
-            | OrderStatus::Canceled
-            | OrderStatus::Expired
-            | OrderStatus::Replaced
-            | OrderStatus::Rejected
-            | OrderStatus::Suspended
-            | OrderStatus::Calculated
-    )
+    status.is_terminal() || *status == OrderStatus::Replaced
 }
