@@ -349,7 +349,7 @@ pub(crate) fn project_position(
     position: &InstrumentPosition,
     market_snapshot: &InstrumentSnapshot,
 ) -> ProjectedPosition {
-    let qty = position.net_qty.abs();
+    let qty = position.net_qty;
     let avg_entry_price = position.avg_entry_price();
     let current_price = market_snapshot.mid_price();
     let lastday_price = market_snapshot.previous_close.unwrap_or(current_price);
@@ -380,7 +380,7 @@ pub(crate) fn project_position(
         current_price,
         lastday_price,
         change_today,
-        qty_available: qty,
+        qty_available: qty.abs(),
     }
 }
 

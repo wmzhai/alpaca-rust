@@ -2399,6 +2399,104 @@ mod tests {
         assert_eq!(resting_order.status, OrderStatus::New);
         assert_eq!(resting_order.filled_avg_price, None);
     }
+
+    #[test]
+    fn filled_multi_leg_short_legs_project_negative_qty() {
+        let market_quotes = HashMap::from([
+            (
+                "OPT-LONG".to_owned(),
+                InstrumentSnapshot::option(Decimal::new(300, 2), Decimal::new(340, 2)),
+            ),
+            (
+                "OPT-SHORT".to_owned(),
+                InstrumentSnapshot::option(Decimal::new(100, 2), Decimal::new(140, 2)),
+            ),
+        ]);
+        let now = "2026-04-09T12:00:00Z";
+        let mut order = Order {
+            id: "mock-parent-order".to_owned(),
+            client_order_id: "mock-parent-client-order".to_owned(),
+            created_at: now.to_owned(),
+            updated_at: now.to_owned(),
+            submitted_at: now.to_owned(),
+            filled_at: None,
+            expired_at: None,
+            expires_at: expires_at_for(&TimeInForce::Day),
+            canceled_at: None,
+            failed_at: None,
+            replaced_at: None,
+            replaced_by: None,
+            replaces: None,
+            asset_id: String::new(),
+            symbol: String::new(),
+            asset_class: String::new(),
+            notional: None,
+            qty: Some(Decimal::new(2, 0)),
+            filled_qty: Decimal::ZERO,
+            filled_avg_price: None,
+            order_class: OrderClass::Mleg,
+            order_type: OrderType::Market,
+            r#type: OrderType::Market,
+            side: OrderSide::Unspecified,
+            position_intent: None,
+            time_in_force: TimeInForce::Day,
+            limit_price: None,
+            stop_price: None,
+            status: OrderStatus::New,
+            extended_hours: false,
+            legs: Some(build_leg_orders_from_requests(
+                &[
+                    OptionLegRequest {
+                        symbol: "OPT-LONG".to_owned(),
+                        ratio_qty: 1,
+                        side: Some(OrderSide::Buy),
+                        position_intent: Some(PositionIntent::BuyToOpen),
+                    },
+                    OptionLegRequest {
+                        symbol: "OPT-SHORT".to_owned(),
+                        ratio_qty: 2,
+                        side: Some(OrderSide::Sell),
+                        position_intent: Some(PositionIntent::SellToOpen),
+                    },
+                ],
+                Decimal::new(2, 0),
+                OrderType::Market,
+                TimeInForce::Day,
+                now,
+                None,
+            )),
+            trail_percent: None,
+            trail_price: None,
+            hwm: None,
+            ratio_qty: None,
+            take_profit: None,
+            stop_loss: None,
+            subtag: None,
+            source: None,
+        };
+
+        apply_mleg_fill_rules(&mut order, &OrderSide::Buy, &market_quotes);
+        assert_eq!(order.status, OrderStatus::Filled);
+
+        let mut account = VirtualAccountState::new("mock-key");
+        apply_fill_effects(&mut account, &order, &OrderSide::Buy);
+
+        let positions = account.positions.list_open_positions();
+        let short_position = positions
+            .iter()
+            .find(|position| position.instrument_identity.symbol == "OPT-SHORT")
+            .expect("short leg position should exist");
+        let projected = project_position(
+            short_position,
+            market_quotes
+                .get("OPT-SHORT")
+                .expect("short market quote should exist"),
+        );
+
+        assert_eq!(short_position.net_qty, Decimal::new(-4, 0));
+        assert_eq!(projected.qty, Decimal::new(-4, 0));
+        assert_eq!(projected.side, "short");
+    }
 }
 
 fn now_millis() -> u128 {

@@ -14,7 +14,8 @@ use alpaca_trade::{
     positions::CloseAllRequest,
 };
 use order_support::{
-    clear_option_universe_cache, discover_mleg_call_spread, unique_client_order_id,
+    clear_option_universe_cache, discover_mleg_call_broken_wing_butterfly,
+    discover_mleg_call_spread, unique_client_order_id,
 };
 use rust_decimal::Decimal;
 use target_support::TradeTestTarget;
@@ -101,9 +102,9 @@ async fn positions_mock_projects_filled_mleg_legs_without_parent_combo_position(
             qty: Some(Decimal::ONE),
             notional: None,
             side: Some(OrderSide::Buy),
-            r#type: Some(OrderType::Limit),
+            r#type: Some(OrderType::Market),
             time_in_force: Some(TimeInForce::Day),
-            limit_price: Some(spread.marketable_limit_price),
+            limit_price: None,
             stop_price: None,
             trail_price: None,
             trail_percent: None,
@@ -116,7 +117,8 @@ async fn positions_mock_projects_filled_mleg_legs_without_parent_combo_position(
             position_intent: None,
         })
         .await
-        .expect("mock marketable multi-leg order should succeed");
+        .expect("mock market multi-leg order should succeed");
+    let created = wait_for_order_status(&harness, &created.id, OrderStatus::Filled).await;
     assert_eq!(created.status, OrderStatus::Filled);
 
     let positions = harness
@@ -138,13 +140,92 @@ async fn positions_mock_projects_filled_mleg_legs_without_parent_combo_position(
             .find(|position| position.symbol == leg.symbol)
             .expect("each spread leg should project into a position");
         assert_eq!(position.asset_class, "us_option");
-        assert_eq!(position.qty, Decimal::ONE);
+        assert_eq!(
+            position.qty,
+            match leg.side {
+                Some(OrderSide::Buy) => Decimal::ONE,
+                Some(OrderSide::Sell) => -Decimal::ONE,
+                _ => panic!("spread leg should have a side"),
+            }
+        );
         assert_eq!(
             position.side,
             match leg.side {
                 Some(OrderSide::Buy) => "long",
                 Some(OrderSide::Sell) => "short",
                 _ => panic!("spread leg should have a side"),
+            }
+        );
+    }
+}
+
+#[tokio::test]
+async fn positions_mock_projects_bwb_legs_scaled_by_parent_qty() {
+    let Some(harness) = target_support::build_trade_test_harness(TradeTestTarget::Mock).await
+    else {
+        return;
+    };
+
+    clear_option_universe_cache().await;
+    let bwb = discover_mleg_call_broken_wing_butterfly(harness.data_client(), SYMBOL_A)
+        .await
+        .expect("dynamic 1:2:1 call structure should be discoverable");
+
+    let created = harness
+        .trade_client()
+        .orders()
+        .create(CreateRequest {
+            symbol: None,
+            qty: Some(Decimal::new(2, 0)),
+            notional: None,
+            side: Some(OrderSide::Buy),
+            r#type: Some(OrderType::Market),
+            time_in_force: Some(TimeInForce::Day),
+            limit_price: None,
+            stop_price: None,
+            trail_price: None,
+            trail_percent: None,
+            extended_hours: Some(false),
+            client_order_id: Some(unique_client_order_id("phase20-mock-positions-bwb")),
+            order_class: Some(OrderClass::Mleg),
+            take_profit: None,
+            stop_loss: None,
+            legs: Some(bwb.legs.clone()),
+            position_intent: None,
+        })
+        .await
+        .expect("mock market 1:2:1 multi-leg order should succeed");
+    let created = wait_for_order_status(&harness, &created.id, OrderStatus::Filled).await;
+    assert_eq!(created.status, OrderStatus::Filled);
+
+    let positions = harness
+        .trade_client()
+        .positions()
+        .list()
+        .await
+        .expect("mock positions list should succeed after 1:2:1 fill");
+    assert_eq!(positions.len(), bwb.legs.len());
+
+    for leg in &bwb.legs {
+        let position = positions
+            .iter()
+            .find(|position| position.symbol == leg.symbol)
+            .expect("each 1:2:1 leg should project into a position");
+        assert_eq!(position.asset_class, "us_option");
+        assert_eq!(
+            position.qty,
+            match leg.side {
+                Some(OrderSide::Buy) => Decimal::from(leg.ratio_qty * 2),
+                Some(OrderSide::Sell) => -Decimal::from(leg.ratio_qty * 2),
+                _ => panic!("1:2:1 leg should have a side"),
+            }
+        );
+        assert_eq!(
+            position.side,
+            match leg.side {
+                Some(OrderSide::Buy) => "long",
+                Some(OrderSide::Sell) => "short",
+                _ => panic!("1:2:1 leg should have a side"),
             }
         );
     }

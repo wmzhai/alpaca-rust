@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::sync::OnceLock;
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -167,6 +167,26 @@ pub(crate) async fn discover_mleg_put_spread(
     let puts = contracts_for_type(&universe.quoted_contracts, OptionContractType::Put);
 
     find_put_spread(underlying_symbol, universe.spot, puts)
+}
+
+pub(crate) async fn discover_mleg_call_broken_wing_butterfly(
+    data_client: &DataClient,
+    underlying_symbol: &str,
+) -> Result<MultiLegOrderContext, String> {
+    let universe = discover_option_universe(data_client, underlying_symbol).await?;
+    let calls = contracts_for_type(&universe.quoted_contracts, OptionContractType::Call);
+
+    find_call_broken_wing_butterfly(underlying_symbol, calls)
+}
+
+pub(crate) async fn discover_distinct_mleg_call_spread_pair(
+    data_client: &DataClient,
+    underlying_symbol: &str,
+) -> Result<(MultiLegOrderContext, MultiLegOrderContext), String> {
+    let universe = discover_option_universe(data_client, underlying_symbol).await?;
+    let calls = contracts_for_type(&universe.quoted_contracts, OptionContractType::Call);
+
+    find_distinct_call_spread_pair(underlying_symbol, calls)
 }
 
 pub(crate) async fn discover_mleg_iron_condor(
@@ -539,6 +559,73 @@ fn find_put_spread(
     ))
 }
 
+fn find_call_broken_wing_butterfly(
+    underlying_symbol: &str,
+    contracts: Vec<QuotedOptionContract>,
+) -> Result<MultiLegOrderContext, String> {
+    let mut fallback_context: Option<MultiLegOrderContext> = None;
+
+    for (_, mut expiration_contracts) in group_by_expiration(contracts) {
+        sort_by_strike(&mut expiration_contracts);
+        if expiration_contracts.len() < 3 {
+            continue;
+        }
+
+        for low_index in 0..expiration_contracts.len() - 2 {
+            for short_index in low_index + 1..expiration_contracts.len() - 1 {
+                for high_index in short_index + 1..expiration_contracts.len() {
+                    let lower = expiration_contracts[low_index].clone();
+                    let short = expiration_contracts[short_index].clone();
+                    let higher = expiration_contracts[high_index].clone();
+
+                    let lower_width = short.contract.strike_price - lower.contract.strike_price;
+                    let upper_width = higher.contract.strike_price - short.contract.strike_price;
+                    if lower_width <= Decimal::ZERO || upper_width <= Decimal::ZERO {
+                        continue;
+                    }
+
+                    let Ok(context) = build_debit_mleg_context(
+                        underlying_symbol,
+                        vec![
+                            strategy_leg(
+                                lower.clone(),
+                                1,
+                                OrderSide::Buy,
+                                PositionIntent::BuyToOpen,
+                            ),
+                            strategy_leg(
+                                short.clone(),
+                                2,
+                                OrderSide::Sell,
+                                PositionIntent::SellToOpen,
+                            ),
+                            strategy_leg(
+                                higher.clone(),
+                                1,
+                                OrderSide::Buy,
+                                PositionIntent::BuyToOpen,
+                            ),
+                        ],
+                    ) else {
+                        continue;
+                    };
+
+                    if upper_width > lower_width {
+                        return Ok(context);
+                    }
+                    if fallback_context.is_none() {
+                        fallback_context = Some(context);
+                    }
+                }
+            }
+        }
+    }
+
+    fallback_context.ok_or_else(|| {
+        format!("failed to discover a quoted 1:2:1 call broken wing butterfly for {underlying_symbol}")
+    })
+}
+
 fn find_iron_condor(
     underlying_symbol: &str,
     _spot: Decimal,
@@ -613,6 +700,78 @@ fn find_iron_condor(
 
     Err(format!(
         "failed to discover a quoted debit iron condor for {underlying_symbol}"
+    ))
+}
+
+fn find_distinct_call_spread_pair(
+    underlying_symbol: &str,
+    contracts: Vec<QuotedOptionContract>,
+) -> Result<(MultiLegOrderContext, MultiLegOrderContext), String> {
+    let mut candidates = Vec::new();
+
+    for (_, mut expiration_contracts) in group_by_expiration(contracts) {
+        sort_by_strike(&mut expiration_contracts);
+
+        for window in expiration_contracts.windows(2) {
+            let lower = &window[0];
+            let higher = &window[1];
+            if higher.contract.strike_price <= lower.contract.strike_price {
+                continue;
+            }
+
+            if let Ok(context) = build_debit_mleg_context(
+                underlying_symbol,
+                vec![
+                    strategy_leg(lower.clone(), 1, OrderSide::Buy, PositionIntent::BuyToOpen),
+                    strategy_leg(
+                        higher.clone(),
+                        1,
+                        OrderSide::Sell,
+                        PositionIntent::SellToOpen,
+                    ),
+                ],
+            ) {
+                candidates.push(context);
+            }
+        }
+    }
+
+    candidates.sort_by(|left, right| {
+        right
+            .marketable_limit_price
+            .cmp(&left.marketable_limit_price)
+            .then_with(|| left.legs[0].symbol.cmp(&right.legs[0].symbol))
+    });
+
+    for left_index in 0..candidates.len() {
+        let left_symbols = candidates[left_index]
+            .legs
+            .iter()
+            .map(|leg| leg.symbol.as_str())
+            .collect::<HashSet<_>>();
+
+        for right_index in left_index + 1..candidates.len() {
+            if candidates[left_index].legs == candidates[right_index].legs {
+                continue;
+            }
+
+            let right_symbols = candidates[right_index]
+                .legs
+                .iter()
+                .map(|leg| leg.symbol.as_str())
+                .collect::<HashSet<_>>();
+
+            if left_symbols.is_disjoint(&right_symbols) {
+                return Ok((
+                    candidates[left_index].clone(),
+                    candidates[right_index].clone(),
+                ));
+            }
+        }
+    }
+
+    Err(format!(
+        "failed to discover two distinct quoted debit call spreads for {underlying_symbol}"
     ))
 }
 
@@ -1100,5 +1259,97 @@ mod tests {
 
         assert_eq!(context.legs.len(), 4);
         assert!(context.marketable_limit_price > Decimal::ZERO);
+    }
+
+    #[test]
+    fn find_call_broken_wing_butterfly_returns_121_structure() {
+        let context = find_call_broken_wing_butterfly(
+            "SPY",
+            vec![
+                quoted(
+                    "SPY250620C00095000",
+                    "2025-06-20",
+                    OptionContractType::Call,
+                    95,
+                    30,
+                    31,
+                ),
+                quoted(
+                    "SPY250620C00100000",
+                    "2025-06-20",
+                    OptionContractType::Call,
+                    100,
+                    20,
+                    21,
+                ),
+                quoted(
+                    "SPY250620C00110000",
+                    "2025-06-20",
+                    OptionContractType::Call,
+                    110,
+                    13,
+                    14,
+                ),
+            ],
+        )
+        .expect("quoted calls should produce a 1:2:1 broken wing butterfly");
+
+        assert_eq!(context.legs.len(), 3);
+        assert_eq!(context.legs[0].symbol, "SPY250620C00095000");
+        assert_eq!(context.legs[0].ratio_qty, 1);
+        assert_eq!(context.legs[0].side, Some(OrderSide::Buy));
+        assert_eq!(context.legs[1].symbol, "SPY250620C00100000");
+        assert_eq!(context.legs[1].ratio_qty, 2);
+        assert_eq!(context.legs[1].side, Some(OrderSide::Sell));
+        assert_eq!(context.legs[2].symbol, "SPY250620C00110000");
+        assert_eq!(context.legs[2].ratio_qty, 1);
+        assert_eq!(context.legs[2].side, Some(OrderSide::Buy));
+    }
+
+    #[test]
+    fn find_distinct_call_spread_pair_returns_two_disjoint_structures() {
+        let (opened, replacement) = find_distinct_call_spread_pair(
+            "SPY",
+            vec![
+                quoted(
+                    "SPY250620C00095000",
+                    "2025-06-20",
+                    OptionContractType::Call,
+                    95,
+                    30,
+                    31,
+                ),
+                quoted(
+                    "SPY250620C00100000",
+                    "2025-06-20",
+                    OptionContractType::Call,
+                    100,
+                    20,
+                    21,
+                ),
+                quoted(
+                    "SPY250620C00105000",
+                    "2025-06-20",
+                    OptionContractType::Call,
+                    105,
+                    12,
+                    13,
+                ),
+                quoted(
+                    "SPY250620C00110000",
+                    "2025-06-20",
+                    OptionContractType::Call,
+                    110,
+                    5,
+                    6,
+                ),
+            ],
+        )
+        .expect("quoted calls should produce two rollable call spreads");
+
+        assert_eq!(opened.legs.len(), 2);
+        assert_eq!(replacement.legs.len(), 2);
+        assert_ne!(opened.legs[0].symbol, replacement.legs[0].symbol);
+        assert_ne!(opened.legs[1].symbol, replacement.legs[1].symbol);
     }
 }

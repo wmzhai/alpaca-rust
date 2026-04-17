@@ -9,8 +9,8 @@ use alpaca_trade::orders::{
     CreateRequest, OrderClass, OrderSide, OrderStatus, OrderType, TimeInForce,
 };
 use order_support::{
-    clear_option_universe_cache, discover_mleg_iron_condor, discover_mleg_put_spread,
-    unique_client_order_id,
+    clear_option_universe_cache, discover_mleg_call_broken_wing_butterfly,
+    discover_mleg_iron_condor, discover_mleg_put_spread, unique_client_order_id,
 };
 use rust_decimal::Decimal;
 use target_support::TradeTestTarget;
@@ -18,7 +18,7 @@ use target_support::TradeTestTarget;
 const ORDER_TEST_SYMBOL: &str = "SPY";
 
 #[tokio::test]
-async fn orders_mock_marketable_multi_leg_orders_fill_for_spreads_and_condors() {
+async fn orders_mock_market_multi_leg_orders_fill_for_strategy_shapes() {
     let Some(harness) = target_support::build_trade_test_harness(TradeTestTarget::Mock).await
     else {
         return;
@@ -29,11 +29,15 @@ async fn orders_mock_marketable_multi_leg_orders_fill_for_spreads_and_condors() 
         .await
         .expect("dynamic put spread should be discoverable");
     clear_option_universe_cache().await;
+    let bwb = discover_mleg_call_broken_wing_butterfly(harness.data_client(), ORDER_TEST_SYMBOL)
+        .await
+        .expect("dynamic broken wing butterfly should be discoverable");
+    clear_option_universe_cache().await;
     let maybe_iron_condor =
         discover_mleg_iron_condor(harness.data_client(), ORDER_TEST_SYMBOL).await;
     let client = harness.trade_client();
 
-    let mut strategies = vec![("put-spread", put_spread)];
+    let mut strategies = vec![("put-spread", put_spread), ("bwb", bwb)];
     match maybe_iron_condor {
         Ok(iron_condor) => strategies.push(("iron-condor", iron_condor)),
         Err(reason) => eprintln!("skipping mock iron condor subcase: {reason}"),
@@ -44,12 +48,12 @@ async fn orders_mock_marketable_multi_leg_orders_fill_for_spreads_and_condors() 
             .orders()
             .create(CreateRequest {
                 symbol: None,
-                qty: Some(Decimal::ONE),
+                qty: Some(Decimal::new(2, 0)),
                 notional: None,
                 side: Some(OrderSide::Buy),
-                r#type: Some(OrderType::Limit),
+                r#type: Some(OrderType::Market),
                 time_in_force: Some(TimeInForce::Day),
-                limit_price: Some(strategy.marketable_limit_price),
+                limit_price: None,
                 stop_price: None,
                 trail_price: None,
                 trail_percent: None,
@@ -64,8 +68,11 @@ async fn orders_mock_marketable_multi_leg_orders_fill_for_spreads_and_condors() 
                 position_intent: None,
             })
             .await
-            .expect("mock marketable multi-leg order create should succeed");
+            .expect("mock market multi-leg order create should succeed");
         assert_eq!(filled.status, OrderStatus::Filled);
+        assert_eq!(filled.order_class, OrderClass::Mleg);
+        assert_eq!(filled.r#type, OrderType::Market);
+        assert_eq!(filled.qty, Some(Decimal::new(2, 0)));
         assert!(filled.filled_avg_price.is_some());
         let filled_legs = filled
             .legs
