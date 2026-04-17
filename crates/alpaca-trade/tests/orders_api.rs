@@ -13,7 +13,12 @@ use alpaca_trade::{
         OrderType, PositionIntent, QueryOrderStatus, ReplaceRequest, ReplaceResolution, StopLoss,
         TakeProfit, TimeInForce, WaitFor,
     },
-    Error,
+    Client as TradeClient, Error,
+};
+use alpaca_data::Client as DataClient;
+use alpaca_mock::{
+    InjectedHttpFault, LiveMarketDataBridge, MockServerState, TestServer,
+    spawn_test_server_with_state,
 };
 use live_support::can_submit_live_paper_orders;
 use order_support::{
@@ -312,6 +317,83 @@ async fn orders_mleg_market_mock() {
         return;
     };
     orders_mleg_market_scenario(&harness).await;
+}
+
+#[tokio::test]
+async fn orders_cancel_resolved_recovers_after_request_error_mock() {
+    let Some((_server, state, client)) = build_recovery_test_client().await else {
+        return;
+    };
+
+    let created = create_non_marketable_spy_limit_order(&client).await;
+    state
+        .cancel_order("mock-key", &created.id)
+        .expect("pre-cancel should succeed");
+    state.set_http_fault(
+        InjectedHttpFault::new(503, "injected cancel fault".to_owned())
+            .expect("fault should build"),
+    );
+
+    let resolved = client
+        .orders()
+        .cancel_resolved(&created.id)
+        .await
+        .expect("cancel_resolved should recover after request error");
+
+    assert!(resolved.recovered_after_request_error);
+    assert_eq!(resolved.order.id, created.id);
+    assert_eq!(resolved.order.status, OrderStatus::Canceled);
+}
+
+#[tokio::test]
+async fn orders_replace_resolved_recovers_after_request_error_mock() {
+    let Some((_server, state, client)) = build_recovery_test_client().await else {
+        return;
+    };
+
+    let created = create_non_marketable_spy_limit_order(&client).await;
+    let replacement = state
+        .replace_order(
+            "mock-key",
+            &created.id,
+            alpaca_mock::state::ReplaceOrderInput {
+                limit_price: Some(Decimal::from(2)),
+                ..Default::default()
+            },
+        )
+        .await
+        .expect("pre-replace should succeed");
+    state.set_http_fault(
+        InjectedHttpFault::new(503, "injected replace fault".to_owned())
+            .expect("fault should build"),
+    );
+
+    let resolution = client
+        .orders()
+        .replace_resolved(
+            &created.id,
+            ReplaceRequest {
+                limit_price: Some(Decimal::from(3)),
+                ..ReplaceRequest::default()
+            },
+        )
+        .await
+        .expect("replace_resolved should recover after request error");
+
+    match resolution {
+        ReplaceResolution::NewOrder(resolved) => {
+            assert!(resolved.recovered_after_request_error);
+            assert_eq!(resolved.order.id, replacement.id);
+            assert_eq!(resolved.order.status, OrderStatus::New);
+            assert_eq!(resolved.order.replaces.as_deref(), Some(created.id.as_str()));
+        }
+        ReplaceResolution::OriginalOrderTerminal(resolved) => {
+            panic!(
+                "expected replacement recovery, got original terminal order: {:?}",
+                resolved.order.status
+            );
+        }
+    }
 }
 
 #[tokio::test]
@@ -2431,4 +2513,56 @@ async fn wait_for_order_status(
         .orders()
         .wait_for(order_id, WaitFor::Exact(expected_status))
         .await
+}
+
+async fn build_recovery_test_client() -> Option<(TestServer, MockServerState, TradeClient)> {
+    let env = live_support::LiveTestEnv::load().expect("live test environment should load");
+    if let Some(reason) = env.skip_reason_for_service(live_support::AlpacaService::Data) {
+        eprintln!("skipping mock recovery test: {reason}");
+        return None;
+    }
+
+    let data_service = env.data().expect("data service should exist");
+    let data_client = DataClient::builder()
+        .credentials(data_service.credentials().clone())
+        .base_url(data_service.base_url().clone())
+        .build()
+        .expect("alpaca-data client should build");
+    let state = MockServerState::new().with_market_data_bridge(LiveMarketDataBridge::new(data_client));
+    let server = spawn_test_server_with_state(state.clone()).await;
+    let client = TradeClient::builder()
+        .api_key("mock-key")
+        .secret_key("mock-secret")
+        .base_url_str(&server.base_url)
+        .expect("mock base url should parse")
+        .build()
+        .expect("mock trade client should build");
+
+    Some((server, state, client))
+}
+
+async fn create_non_marketable_spy_limit_order(client: &TradeClient) -> alpaca_trade::orders::Order {
+    client
+        .orders()
+        .create(CreateRequest {
+            symbol: Some(ORDER_TEST_SYMBOL.to_owned()),
+            qty: Some(Decimal::ONE),
+            notional: None,
+            side: Some(OrderSide::Buy),
+            r#type: Some(OrderType::Limit),
+            time_in_force: Some(TimeInForce::Day),
+            limit_price: Some(Decimal::ONE),
+            stop_price: None,
+            trail_price: None,
+            trail_percent: None,
+            extended_hours: Some(false),
+            client_order_id: Some(unique_client_order_id("recovery-open")),
+            order_class: None,
+            take_profit: None,
+            stop_loss: None,
+            legs: None,
+            position_intent: None,
+        })
+        .await
+        .expect("non-marketable recovery order should submit")
 }

@@ -1224,6 +1224,15 @@ impl MockServerState {
     }
 
     #[must_use]
+    pub fn take_http_fault(&self) -> Option<InjectedHttpFault> {
+        self.inner
+            .http_fault
+            .write()
+            .expect("fault lock should not poison")
+            .take()
+    }
+
+    #[must_use]
     pub fn account_count(&self) -> usize {
         self.inner
             .accounts

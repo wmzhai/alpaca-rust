@@ -84,7 +84,7 @@ async fn require_trading_auth(
     let _secret_key = auth.secret_key;
     state.ensure_account(&auth.api_key);
 
-    if let Some(fault) = state.http_fault() {
+    if let Some(fault) = state.take_http_fault() {
         let status = fault.status_code().map_err(MockHttpError::bad_request)?;
         return Err(MockHttpError::with_status(status, fault.message));
     }
