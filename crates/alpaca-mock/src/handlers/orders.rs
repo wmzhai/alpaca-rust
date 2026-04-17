@@ -1,6 +1,6 @@
 use axum::{
-    Json,
     extract::{Extension, Path, Query, State},
+    Json,
 };
 use rust_decimal::Decimal;
 use serde::Deserialize;
@@ -48,21 +48,39 @@ pub(crate) struct ListOrdersQuery {
 #[derive(Debug, Deserialize)]
 pub(crate) struct CreateOrderBody {
     symbol: Option<String>,
-    #[serde(default, deserialize_with = "alpaca_core::decimal::deserialize_option_decimal_from_string_or_number")]
+    #[serde(
+        default,
+        deserialize_with = "alpaca_core::decimal::deserialize_option_decimal_from_string_or_number"
+    )]
     qty: Option<Decimal>,
-    #[serde(default, deserialize_with = "alpaca_core::decimal::deserialize_option_decimal_from_string_or_number")]
+    #[serde(
+        default,
+        deserialize_with = "alpaca_core::decimal::deserialize_option_decimal_from_string_or_number"
+    )]
     notional: Option<Decimal>,
     side: Option<OrderSide>,
     #[serde(rename = "type")]
     r#type: Option<OrderType>,
     time_in_force: Option<TimeInForce>,
-    #[serde(default, deserialize_with = "alpaca_core::decimal::deserialize_option_decimal_from_string_or_number")]
+    #[serde(
+        default,
+        deserialize_with = "alpaca_core::decimal::deserialize_option_decimal_from_string_or_number"
+    )]
     limit_price: Option<Decimal>,
-    #[serde(default, deserialize_with = "alpaca_core::decimal::deserialize_option_decimal_from_string_or_number")]
+    #[serde(
+        default,
+        deserialize_with = "alpaca_core::decimal::deserialize_option_decimal_from_string_or_number"
+    )]
     stop_price: Option<Decimal>,
-    #[serde(default, deserialize_with = "alpaca_core::decimal::deserialize_option_decimal_from_string_or_number")]
+    #[serde(
+        default,
+        deserialize_with = "alpaca_core::decimal::deserialize_option_decimal_from_string_or_number"
+    )]
     trail_price: Option<Decimal>,
-    #[serde(default, deserialize_with = "alpaca_core::decimal::deserialize_option_decimal_from_string_or_number")]
+    #[serde(
+        default,
+        deserialize_with = "alpaca_core::decimal::deserialize_option_decimal_from_string_or_number"
+    )]
     trail_percent: Option<Decimal>,
     extended_hours: Option<bool>,
     client_order_id: Option<String>,
@@ -75,14 +93,26 @@ pub(crate) struct CreateOrderBody {
 
 #[derive(Debug, Deserialize, Default)]
 pub(crate) struct ReplaceOrderBody {
-    #[serde(default, deserialize_with = "alpaca_core::decimal::deserialize_option_decimal_from_string_or_number")]
+    #[serde(
+        default,
+        deserialize_with = "alpaca_core::decimal::deserialize_option_decimal_from_string_or_number"
+    )]
     qty: Option<Decimal>,
     time_in_force: Option<TimeInForce>,
-    #[serde(default, deserialize_with = "alpaca_core::decimal::deserialize_option_decimal_from_string_or_number")]
+    #[serde(
+        default,
+        deserialize_with = "alpaca_core::decimal::deserialize_option_decimal_from_string_or_number"
+    )]
     limit_price: Option<Decimal>,
-    #[serde(default, deserialize_with = "alpaca_core::decimal::deserialize_option_decimal_from_string_or_number")]
+    #[serde(
+        default,
+        deserialize_with = "alpaca_core::decimal::deserialize_option_decimal_from_string_or_number"
+    )]
     stop_price: Option<Decimal>,
-    #[serde(default, deserialize_with = "alpaca_core::decimal::deserialize_option_decimal_from_string_or_number")]
+    #[serde(
+        default,
+        deserialize_with = "alpaca_core::decimal::deserialize_option_decimal_from_string_or_number"
+    )]
     trail: Option<Decimal>,
     client_order_id: Option<String>,
 }
@@ -146,6 +176,7 @@ pub(crate) async fn orders_list(
             symbols,
             side: query.side,
             asset_class: query.asset_class,
+            nested: query.nested,
         },
     )))
 }

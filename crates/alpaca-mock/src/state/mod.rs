@@ -22,11 +22,11 @@ use alpaca_trade::positions::{
 };
 
 use activities::{
-    ActivityEvent, ActivityEventKind, is_public_activity, matches_activity_type, project_activity,
+    is_public_activity, matches_activity_type, project_activity, ActivityEvent, ActivityEventKind,
 };
 use executions::ExecutionFact;
-pub use market_data::{DEFAULT_STOCK_SYMBOL, InstrumentSnapshot, LiveMarketDataBridge};
-use positions::{OptionContractType, PositionBook, parse_option_symbol, project_position};
+pub use market_data::{InstrumentSnapshot, LiveMarketDataBridge, DEFAULT_STOCK_SYMBOL};
+use positions::{parse_option_symbol, project_position, OptionContractType, PositionBook};
 
 #[derive(Debug, Clone)]
 pub struct MockServerState {
@@ -102,6 +102,7 @@ pub struct ListOrdersFilter {
     pub symbols: Option<Vec<String>>,
     pub side: Option<OrderSide>,
     pub asset_class: Option<String>,
+    pub nested: Option<bool>,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -223,6 +224,10 @@ impl MockServerState {
             .symbol
             .clone()
             .unwrap_or_else(|| DEFAULT_STOCK_SYMBOL.to_owned());
+        let requested_legs = input.legs.clone();
+        let requested_position_intent = input.position_intent.clone();
+        let requested_take_profit = input.take_profit.clone();
+        let requested_stop_loss = input.stop_loss.clone();
         let client_order_id = input
             .client_order_id
             .unwrap_or_else(|| format!("mock-client-order-{}", now_millis()));
@@ -314,31 +319,34 @@ impl MockServerState {
             position_intent: if order_class == OrderClass::Mleg {
                 None
             } else {
-                input.position_intent.clone()
+                requested_position_intent.clone()
             },
             time_in_force: order_time_in_force,
             limit_price: input.limit_price,
             stop_price: input.stop_price,
             status: OrderStatus::New,
             extended_hours: input.extended_hours.unwrap_or(false),
-            legs: if order_class == OrderClass::Mleg {
-                Some(build_leg_orders_from_requests(
-                    input.legs.as_deref().unwrap_or(&[]),
-                    qty,
-                    order_type_for_legs,
-                    time_in_force.clone(),
-                    &now,
-                    None,
-                ))
-            } else {
-                None
-            },
+            legs: build_order_legs(
+                &order_class,
+                qty,
+                order_type_for_legs,
+                time_in_force.clone(),
+                &now,
+                &requested_symbol,
+                &market_quotes,
+                &request_side,
+                requested_position_intent.clone(),
+                requested_take_profit.clone(),
+                requested_stop_loss.clone(),
+                requested_legs.as_deref(),
+                None,
+            )?,
             trail_percent: input.trail_percent,
             trail_price: input.trail_price,
             hwm: None,
             ratio_qty: None,
-            take_profit: input.take_profit,
-            stop_loss: input.stop_loss,
+            take_profit: requested_take_profit,
+            stop_loss: requested_stop_loss,
             subtag: None,
             source: None,
         };
@@ -413,7 +421,7 @@ impl MockServerState {
                         .as_deref()
                         .is_none_or(|asset_class| order.asset_class == asset_class)
             })
-            .map(|stored| stored.order.clone())
+            .map(|stored| order_for_list(&stored.order, filter.nested.unwrap_or(false)))
             .collect::<Vec<_>>();
         orders.sort_by(|left, right| right.created_at.cmp(&left.created_at));
         orders
@@ -650,18 +658,25 @@ impl MockServerState {
             stop_price: input.stop_price.or(current.order.stop_price),
             status: OrderStatus::New,
             extended_hours: current.order.extended_hours,
-            legs: if current.order.order_class == OrderClass::Mleg {
-                Some(build_leg_orders_from_requests(
-                    &leg_requests,
-                    qty,
-                    current.order.r#type.clone(),
-                    replacement_time_in_force_for_legs,
-                    &now,
-                    current.order.legs.as_deref(),
-                ))
-            } else {
-                current.order.legs.clone()
-            },
+            legs: build_order_legs(
+                &current.order.order_class,
+                qty,
+                current.order.r#type.clone(),
+                replacement_time_in_force_for_legs,
+                &now,
+                &current.order.symbol,
+                &market_quotes,
+                &request_side,
+                current.order.position_intent.clone(),
+                current.order.take_profit.clone(),
+                current.order.stop_loss.clone(),
+                if leg_requests.is_empty() {
+                    None
+                } else {
+                    Some(leg_requests.as_slice())
+                },
+                current.order.legs.as_deref(),
+            )?,
             trail_percent: current.order.trail_percent,
             trail_price: input.trail.or(current.order.trail_price),
             hwm: current.order.hwm,
@@ -1628,6 +1643,21 @@ fn matches_status_filter(order: &Order, status: Option<&str>) -> bool {
     }
 }
 
+fn order_for_list(order: &Order, nested: bool) -> Order {
+    if nested || order.order_class == OrderClass::Mleg {
+        return order.clone();
+    }
+
+    let mut projected = order.clone();
+    if matches!(
+        projected.order_class,
+        OrderClass::Bracket | OrderClass::Oco | OrderClass::Oto
+    ) {
+        projected.legs = None;
+    }
+    projected
+}
+
 fn event_matches_date(event: &ActivityEvent, date: &str) -> bool {
     event
         .occurred_at
@@ -1653,10 +1683,14 @@ fn mleg_mid_price(
     request_side: &OrderSide,
     market_quotes: &HashMap<String, InstrumentSnapshot>,
 ) -> Option<Decimal> {
-    let raw_total = mleg_price_total(order, market_quotes, |instrument, leg_side| match leg_side {
-        OrderSide::Buy | OrderSide::Sell => Some(instrument.mid_price()),
-        OrderSide::Unspecified => None,
-    })?;
+    let raw_total = mleg_price_total(
+        order,
+        market_quotes,
+        |instrument, leg_side| match leg_side {
+            OrderSide::Buy | OrderSide::Sell => Some(instrument.mid_price()),
+            OrderSide::Unspecified => None,
+        },
+    )?;
 
     let normalized_total = match request_side {
         OrderSide::Buy | OrderSide::Unspecified => raw_total,
@@ -1671,11 +1705,15 @@ fn mleg_marketable_reference(
     request_side: &OrderSide,
     market_quotes: &HashMap<String, InstrumentSnapshot>,
 ) -> Option<Decimal> {
-    let raw_total = mleg_price_total(order, market_quotes, |instrument, leg_side| match leg_side {
-        OrderSide::Buy => Some(instrument.ask),
-        OrderSide::Sell => Some(instrument.bid),
-        OrderSide::Unspecified => None,
-    })?;
+    let raw_total = mleg_price_total(
+        order,
+        market_quotes,
+        |instrument, leg_side| match leg_side {
+            OrderSide::Buy => Some(instrument.ask),
+            OrderSide::Sell => Some(instrument.bid),
+            OrderSide::Unspecified => None,
+        },
+    )?;
 
     let normalized_total = match request_side {
         OrderSide::Buy | OrderSide::Unspecified => raw_total,
@@ -1693,17 +1731,21 @@ fn mleg_price_total<F>(
 where
     F: FnMut(&InstrumentSnapshot, &OrderSide) -> Option<Decimal>,
 {
-    order.legs.as_ref()?.iter().try_fold(Decimal::ZERO, |total, leg| {
-        let instrument = market_quotes.get(&leg.symbol)?;
-        let leg_price = price_for_leg(instrument, &leg.side)?;
-        let ratio_qty = Decimal::from(leg.ratio_qty.unwrap_or(1));
-        let contribution = match leg.side {
-            OrderSide::Buy => leg_price * ratio_qty,
-            OrderSide::Sell => -(leg_price * ratio_qty),
-            OrderSide::Unspecified => return None,
-        };
-        Some(total + contribution)
-    })
+    order
+        .legs
+        .as_ref()?
+        .iter()
+        .try_fold(Decimal::ZERO, |total, leg| {
+            let instrument = market_quotes.get(&leg.symbol)?;
+            let leg_price = price_for_leg(instrument, &leg.side)?;
+            let ratio_qty = Decimal::from(leg.ratio_qty.unwrap_or(1));
+            let contribution = match leg.side {
+                OrderSide::Buy => leg_price * ratio_qty,
+                OrderSide::Sell => -(leg_price * ratio_qty),
+                OrderSide::Unspecified => return None,
+            };
+            Some(total + contribution)
+        })
 }
 
 fn sync_nested_legs(
@@ -1798,6 +1840,267 @@ fn option_leg_requests_from_orders(legs: &[Order]) -> Vec<OptionLegRequest> {
             position_intent: leg.position_intent.clone(),
         })
         .collect()
+}
+
+fn build_order_legs(
+    order_class: &OrderClass,
+    parent_qty: Decimal,
+    order_type: OrderType,
+    time_in_force: TimeInForce,
+    now: &str,
+    symbol: &str,
+    market_quotes: &HashMap<String, InstrumentSnapshot>,
+    request_side: &OrderSide,
+    position_intent: Option<PositionIntent>,
+    take_profit: Option<TakeProfit>,
+    stop_loss: Option<StopLoss>,
+    mleg_legs: Option<&[OptionLegRequest]>,
+    previous_legs: Option<&[Order]>,
+) -> Result<Option<Vec<Order>>, MockStateError> {
+    match order_class {
+        OrderClass::Simple => Ok(None),
+        OrderClass::Mleg => Ok(Some(build_leg_orders_from_requests(
+            mleg_legs.unwrap_or(&[]),
+            parent_qty,
+            order_type,
+            time_in_force,
+            now,
+            previous_legs,
+        ))),
+        OrderClass::Bracket | OrderClass::Oco | OrderClass::Oto => {
+            Ok(Some(build_advanced_order_legs(
+                order_class,
+                parent_qty,
+                time_in_force,
+                now,
+                symbol,
+                market_quotes,
+                request_side,
+                position_intent,
+                take_profit,
+                stop_loss,
+                previous_legs,
+            )?))
+        }
+    }
+}
+
+fn build_advanced_order_legs(
+    order_class: &OrderClass,
+    parent_qty: Decimal,
+    time_in_force: TimeInForce,
+    now: &str,
+    symbol: &str,
+    market_quotes: &HashMap<String, InstrumentSnapshot>,
+    request_side: &OrderSide,
+    position_intent: Option<PositionIntent>,
+    take_profit: Option<TakeProfit>,
+    stop_loss: Option<StopLoss>,
+    previous_legs: Option<&[Order]>,
+) -> Result<Vec<Order>, MockStateError> {
+    let instrument = market_quotes.get(symbol).ok_or_else(|| {
+        MockStateError::MarketDataUnavailable(format!(
+            "mock advanced order for {symbol} requires live market data"
+        ))
+    })?;
+    let child_side = advanced_child_side(order_class, request_side);
+    let child_position_intent = advanced_child_position_intent(&position_intent, &child_side);
+    let mut children = Vec::new();
+
+    match order_class {
+        OrderClass::Bracket => {
+            let take_profit = take_profit.ok_or_else(|| {
+                MockStateError::Conflict(
+                    "bracket orders require a take_profit configuration".to_owned(),
+                )
+            })?;
+            let stop_loss = stop_loss.ok_or_else(|| {
+                MockStateError::Conflict(
+                    "bracket orders require a stop_loss configuration".to_owned(),
+                )
+            })?;
+            children.push(build_advanced_child_order(
+                symbol,
+                &instrument.asset_class,
+                child_side.clone(),
+                child_position_intent.clone(),
+                parent_qty,
+                OrderType::Limit,
+                time_in_force.clone(),
+                now,
+                Some(take_profit.limit_price),
+                None,
+                previous_legs.and_then(|legs| legs.first()),
+            ));
+            children.push(build_advanced_child_order(
+                symbol,
+                &instrument.asset_class,
+                child_side,
+                child_position_intent,
+                parent_qty,
+                stop_order_type(&stop_loss),
+                time_in_force,
+                now,
+                stop_loss.limit_price,
+                Some(stop_loss.stop_price),
+                previous_legs.and_then(|legs| legs.get(1)),
+            ));
+        }
+        OrderClass::Oto => {
+            if let Some(take_profit) = take_profit {
+                children.push(build_advanced_child_order(
+                    symbol,
+                    &instrument.asset_class,
+                    child_side.clone(),
+                    child_position_intent.clone(),
+                    parent_qty,
+                    OrderType::Limit,
+                    time_in_force.clone(),
+                    now,
+                    Some(take_profit.limit_price),
+                    None,
+                    previous_legs.and_then(|legs| legs.first()),
+                ));
+            } else if let Some(stop_loss) = stop_loss {
+                children.push(build_advanced_child_order(
+                    symbol,
+                    &instrument.asset_class,
+                    child_side,
+                    child_position_intent,
+                    parent_qty,
+                    stop_order_type(&stop_loss),
+                    time_in_force,
+                    now,
+                    stop_loss.limit_price,
+                    Some(stop_loss.stop_price),
+                    previous_legs.and_then(|legs| legs.first()),
+                ));
+            } else {
+                return Err(MockStateError::Conflict(
+                    "oto orders require a take_profit or stop_loss configuration".to_owned(),
+                ));
+            }
+        }
+        OrderClass::Oco => {
+            let stop_loss = stop_loss.ok_or_else(|| {
+                MockStateError::Conflict("oco orders require a stop_loss configuration".to_owned())
+            })?;
+            let _ = take_profit.ok_or_else(|| {
+                MockStateError::Conflict(
+                    "oco orders require a take_profit configuration".to_owned(),
+                )
+            })?;
+            children.push(build_advanced_child_order(
+                symbol,
+                &instrument.asset_class,
+                child_side,
+                child_position_intent,
+                parent_qty,
+                stop_order_type(&stop_loss),
+                time_in_force,
+                now,
+                stop_loss.limit_price,
+                Some(stop_loss.stop_price),
+                previous_legs.and_then(|legs| legs.first()),
+            ));
+        }
+        OrderClass::Simple | OrderClass::Mleg => {}
+    }
+
+    Ok(children)
+}
+
+fn build_advanced_child_order(
+    symbol: &str,
+    asset_class: &str,
+    side: OrderSide,
+    position_intent: Option<PositionIntent>,
+    qty: Decimal,
+    order_type: OrderType,
+    time_in_force: TimeInForce,
+    now: &str,
+    limit_price: Option<Decimal>,
+    stop_price: Option<Decimal>,
+    previous_leg: Option<&Order>,
+) -> Order {
+    Order {
+        id: format!("mock-child-order-{}-{}", now_millis(), symbol),
+        client_order_id: format!("mock-child-client-order-{}-{}", now_millis(), symbol),
+        created_at: now.to_owned(),
+        updated_at: now.to_owned(),
+        submitted_at: now.to_owned(),
+        filled_at: None,
+        expired_at: None,
+        expires_at: expires_at_for(&time_in_force),
+        canceled_at: None,
+        failed_at: None,
+        replaced_at: None,
+        replaced_by: None,
+        replaces: previous_leg.map(|leg| leg.id.clone()),
+        asset_id: previous_leg
+            .map(|leg| leg.asset_id.clone())
+            .unwrap_or_else(|| mock_asset_id(symbol)),
+        symbol: symbol.to_owned(),
+        asset_class: asset_class.to_owned(),
+        notional: None,
+        qty: Some(qty),
+        filled_qty: Decimal::ZERO,
+        filled_avg_price: None,
+        order_class: OrderClass::Simple,
+        order_type: order_type.clone(),
+        r#type: order_type,
+        side,
+        position_intent,
+        time_in_force,
+        limit_price,
+        stop_price,
+        status: OrderStatus::New,
+        extended_hours: false,
+        legs: None,
+        trail_percent: None,
+        trail_price: None,
+        hwm: None,
+        ratio_qty: None,
+        take_profit: None,
+        stop_loss: None,
+        subtag: None,
+        source: None,
+    }
+}
+
+fn advanced_child_side(order_class: &OrderClass, request_side: &OrderSide) -> OrderSide {
+    match order_class {
+        OrderClass::Oco => request_side.clone(),
+        OrderClass::Bracket | OrderClass::Oto => match request_side {
+            OrderSide::Buy => OrderSide::Sell,
+            OrderSide::Sell => OrderSide::Buy,
+            OrderSide::Unspecified => OrderSide::Unspecified,
+        },
+        OrderClass::Simple | OrderClass::Mleg => request_side.clone(),
+    }
+}
+
+fn advanced_child_position_intent(
+    parent_position_intent: &Option<PositionIntent>,
+    child_side: &OrderSide,
+) -> Option<PositionIntent> {
+    match (parent_position_intent.as_ref(), child_side) {
+        (Some(PositionIntent::BuyToOpen | PositionIntent::SellToOpen), OrderSide::Buy) => {
+            Some(PositionIntent::BuyToClose)
+        }
+        (Some(PositionIntent::BuyToOpen | PositionIntent::SellToOpen), OrderSide::Sell) => {
+            Some(PositionIntent::SellToClose)
+        }
+        _ => None,
+    }
+}
+
+fn stop_order_type(stop_loss: &StopLoss) -> OrderType {
+    if stop_loss.limit_price.is_some() {
+        OrderType::StopLimit
+    } else {
+        OrderType::Stop
+    }
 }
 
 fn build_leg_orders_from_requests(
