@@ -2,6 +2,7 @@
 name = "alpaca-trade"
 version.workspace = true
 edition.workspace = true
+rust-version.workspace = true
 authors.workspace = true
 license.workspace = true
 repository.workspace = true
@@ -25,6 +26,7 @@ thiserror.workspace = true
 axum.workspace = true
 chrono.workspace = true
 alpaca-data = { path = "../alpaca-data", version = "0.24.5" }
+alpaca-mock = { path = "../alpaca-mock", version = "0.24.5" }
 dotenvy.workspace = true
 fs2 = "0.4"
 reqwest.workspace = true

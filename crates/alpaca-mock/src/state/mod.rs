@@ -38,6 +38,7 @@ struct SharedState {
     accounts: RwLock<HashMap<String, VirtualAccountState>>,
     http_fault: RwLock<Option<InjectedHttpFault>>,
     market_data_bridge: Option<LiveMarketDataBridge>,
+    market_data_cache: RwLock<HashMap<String, InstrumentSnapshot>>,
 }
 
 #[derive(Debug, Clone)]
@@ -153,6 +154,7 @@ impl MockServerState {
                 accounts: RwLock::new(HashMap::new()),
                 http_fault: RwLock::new(None),
                 market_data_bridge: None,
+                market_data_cache: RwLock::new(HashMap::new()),
             }),
         }
     }
@@ -1173,6 +1175,11 @@ impl MockServerState {
             .write()
             .expect("accounts lock should not poison")
             .clear();
+        self.inner
+            .market_data_cache
+            .write()
+            .expect("market data cache lock should not poison")
+            .clear();
         self.clear_http_fault();
     }
 
@@ -1223,15 +1230,34 @@ impl MockServerState {
         &self,
         symbol: &str,
     ) -> Result<InstrumentSnapshot, MockStateError> {
+        if let Some(snapshot) = self
+            .inner
+            .market_data_cache
+            .read()
+            .expect("market data cache lock should not poison")
+            .get(symbol)
+            .cloned()
+        {
+            return Ok(snapshot);
+        }
+
         let bridge = self.market_data_bridge().cloned().ok_or_else(|| {
             MockStateError::MarketDataUnavailable(
                 "mock order simulation requires ALPACA_DATA_* credentials and a configured market data bridge".to_owned(),
             )
         })?;
-        bridge
+        let snapshot = bridge
             .instrument_snapshot(symbol)
             .await
-            .map_err(|error| MockStateError::MarketDataUnavailable(error.to_string()))
+            .map_err(|error| MockStateError::MarketDataUnavailable(error.to_string()))?;
+
+        self.inner
+            .market_data_cache
+            .write()
+            .expect("market data cache lock should not poison")
+            .insert(symbol.to_owned(), snapshot.clone());
+
+        Ok(snapshot)
     }
 
     async fn resolve_market_quotes(
@@ -1395,24 +1421,27 @@ fn apply_mleg_fill_rules(
     request_side: &OrderSide,
     market_quotes: &HashMap<String, InstrumentSnapshot>,
 ) {
-    let fill_price =
-        mleg_mid_price(order, request_side, market_quotes).and_then(|mid| match order.r#type {
-            OrderType::Market => Some(mid),
-            OrderType::Limit => match request_side {
-                OrderSide::Buy | OrderSide::Unspecified => order
-                    .limit_price
-                    .filter(|limit_price| *limit_price >= mid)
-                    .map(|_| mid),
-                OrderSide::Sell => order
-                    .limit_price
-                    .filter(|limit_price| *limit_price <= mid)
-                    .map(|_| mid),
-            },
-            OrderType::Stop
-            | OrderType::StopLimit
-            | OrderType::TrailingStop
-            | OrderType::Unspecified => None,
-        });
+    let mid = mleg_mid_price(order, request_side, market_quotes);
+    let marketable_reference = mleg_marketable_reference(order, request_side, market_quotes);
+    let fill_price = mid.and_then(|mid| match order.r#type {
+        OrderType::Market => Some(mid),
+        OrderType::Limit => match request_side {
+            OrderSide::Buy | OrderSide::Unspecified => order
+                .limit_price
+                .zip(marketable_reference)
+                .filter(|(limit_price, reference)| *limit_price >= *reference)
+                .map(|_| mid),
+            OrderSide::Sell => order
+                .limit_price
+                .zip(marketable_reference)
+                .filter(|(limit_price, reference)| *limit_price <= *reference)
+                .map(|_| mid),
+        },
+        OrderType::Stop
+        | OrderType::StopLimit
+        | OrderType::TrailingStop
+        | OrderType::Unspecified => None,
+    });
 
     if let Some(fill_price) = fill_price {
         let now = now_string();
@@ -1624,21 +1653,10 @@ fn mleg_mid_price(
     request_side: &OrderSide,
     market_quotes: &HashMap<String, InstrumentSnapshot>,
 ) -> Option<Decimal> {
-    let raw_total = order
-        .legs
-        .as_ref()?
-        .iter()
-        .try_fold(Decimal::ZERO, |total, leg| {
-            let instrument = market_quotes.get(&leg.symbol)?;
-            let leg_mid = instrument.mid_price();
-            let ratio_qty = Decimal::from(leg.ratio_qty.unwrap_or(1));
-            let contribution = match leg.side {
-                OrderSide::Buy => leg_mid * ratio_qty,
-                OrderSide::Sell => -(leg_mid * ratio_qty),
-                OrderSide::Unspecified => return None,
-            };
-            Some(total + contribution)
-        })?;
+    let raw_total = mleg_price_total(order, market_quotes, |instrument, leg_side| match leg_side {
+        OrderSide::Buy | OrderSide::Sell => Some(instrument.mid_price()),
+        OrderSide::Unspecified => None,
+    })?;
 
     let normalized_total = match request_side {
         OrderSide::Buy | OrderSide::Unspecified => raw_total,
@@ -1646,6 +1664,46 @@ fn mleg_mid_price(
     };
 
     Some(normalized_total.round_dp(2))
+}
+
+fn mleg_marketable_reference(
+    order: &Order,
+    request_side: &OrderSide,
+    market_quotes: &HashMap<String, InstrumentSnapshot>,
+) -> Option<Decimal> {
+    let raw_total = mleg_price_total(order, market_quotes, |instrument, leg_side| match leg_side {
+        OrderSide::Buy => Some(instrument.ask),
+        OrderSide::Sell => Some(instrument.bid),
+        OrderSide::Unspecified => None,
+    })?;
+
+    let normalized_total = match request_side {
+        OrderSide::Buy | OrderSide::Unspecified => raw_total,
+        OrderSide::Sell => -raw_total,
+    };
+
+    Some(normalized_total.round_dp(2))
+}
+
+fn mleg_price_total<F>(
+    order: &Order,
+    market_quotes: &HashMap<String, InstrumentSnapshot>,
+    mut price_for_leg: F,
+) -> Option<Decimal>
+where
+    F: FnMut(&InstrumentSnapshot, &OrderSide) -> Option<Decimal>,
+{
+    order.legs.as_ref()?.iter().try_fold(Decimal::ZERO, |total, leg| {
+        let instrument = market_quotes.get(&leg.symbol)?;
+        let leg_price = price_for_leg(instrument, &leg.side)?;
+        let ratio_qty = Decimal::from(leg.ratio_qty.unwrap_or(1));
+        let contribution = match leg.side {
+            OrderSide::Buy => leg_price * ratio_qty,
+            OrderSide::Sell => -(leg_price * ratio_qty),
+            OrderSide::Unspecified => return None,
+        };
+        Some(total + contribution)
+    })
 }
 
 fn sync_nested_legs(
@@ -2013,6 +2071,7 @@ mod tests {
             ),
         ]);
         let expected_mid = Decimal::new(200, 2);
+        let expected_marketable_reference = Decimal::new(240, 2);
 
         let mut market_order = build_test_mleg_order(OrderType::Market, None);
         apply_mleg_fill_rules(&mut market_order, &OrderSide::Buy, &market_quotes);
@@ -2026,13 +2085,13 @@ mod tests {
         assert_eq!(filled_legs[0].filled_avg_price, Some(Decimal::new(320, 2)));
         assert_eq!(filled_legs[1].filled_avg_price, Some(Decimal::new(120, 2)));
 
-        let mut limit_order = build_test_mleg_order(OrderType::Limit, Some(expected_mid));
+        let mut limit_order =
+            build_test_mleg_order(OrderType::Limit, Some(expected_marketable_reference));
         apply_mleg_fill_rules(&mut limit_order, &OrderSide::Buy, &market_quotes);
         assert_eq!(limit_order.status, OrderStatus::Filled);
         assert_eq!(limit_order.filled_avg_price, Some(expected_mid));
 
-        let mut resting_order =
-            build_test_mleg_order(OrderType::Limit, Some(expected_mid - Decimal::new(1, 2)));
+        let mut resting_order = build_test_mleg_order(OrderType::Limit, Some(expected_mid));
         apply_mleg_fill_rules(&mut resting_order, &OrderSide::Buy, &market_quotes);
         assert_eq!(resting_order.status, OrderStatus::New);
         assert_eq!(resting_order.filled_avg_price, None);

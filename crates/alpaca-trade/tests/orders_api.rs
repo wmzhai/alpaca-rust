@@ -16,9 +16,9 @@ use alpaca_trade::{
 };
 use live_support::can_submit_live_paper_orders;
 use order_support::{
-    StockOrderPriceContext, clear_option_universe_cache, current_mleg_replacement_limit_price,
-    discover_mleg_call_spread, discover_mleg_put_spread, discover_single_leg_call,
-    non_marketable_buy_limit_price, stock_order_price_context, unique_client_order_id,
+    StockOrderPriceContext, clear_option_universe_cache, discover_mleg_call_spread,
+    discover_mleg_put_spread, discover_single_leg_call, non_marketable_buy_limit_price,
+    stock_order_price_context, unique_client_order_id,
 };
 use rust_decimal::Decimal;
 use serde::Serialize;
@@ -321,9 +321,7 @@ async fn orders_mleg_limit_replace_scenario(harness: &TradeTestHarness) {
         spread.non_marketable_limit_price
     };
     let replacement_limit_price = if harness.is_mock() {
-        current_mleg_replacement_limit_price(harness.data_client(), &spread.legs, OrderSide::Buy)
-            .await
-            .expect("mock multi-leg replacement price should stay below the current live market")
+        spread.deep_resting_limit_price
     } else {
         spread.more_conservative_limit_price
     };

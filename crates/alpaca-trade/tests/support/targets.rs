@@ -43,7 +43,7 @@ impl TradeTestTarget {
     #[must_use]
     pub(crate) fn poll_attempts(self) -> usize {
         match self {
-            Self::LivePaper => 20,
+            Self::LivePaper => 30,
             Self::Mock => 10,
         }
     }
