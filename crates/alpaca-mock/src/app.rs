@@ -67,6 +67,7 @@ pub fn build_app_with_state(state: MockServerState) -> Router {
 
     Router::new()
         .route("/health", get(handlers::health))
+        .route("/reset", post(handlers::admin_reset))
         .route("/admin/state", get(handlers::admin_state))
         .route("/admin/reset", post(handlers::admin_reset))
         .route("/admin/faults/http", post(handlers::admin_set_http_fault))
