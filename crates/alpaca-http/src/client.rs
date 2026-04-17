@@ -2,10 +2,9 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use alpaca_core::BaseUrl;
-use reqwest::header::{CONTENT_TYPE, HeaderMap, HeaderName, HeaderValue};
+use reqwest::header::{HeaderMap, HeaderName, HeaderValue, CONTENT_TYPE};
 use serde::de::DeserializeOwned;
 
-use crate::Error;
 use crate::auth::Authenticator;
 use crate::meta::{ErrorMeta, HttpResponse, ResponseMeta};
 use crate::observer::{
@@ -14,6 +13,7 @@ use crate::observer::{
 use crate::rate_limit::ConcurrencyLimit;
 use crate::request::{NoContent, RequestBody, RequestParts};
 use crate::retry::{RetryConfig, RetryDecision};
+use crate::Error;
 
 #[derive(Clone)]
 pub struct HttpClient {
@@ -125,11 +125,35 @@ impl HttpClient {
             });
 
             let request_builder = self.build_request(&url, request, authenticator)?;
-            let response = request_builder.send().await.map_err(|error| {
-                let error = Error::from_reqwest(error, None);
-                self.observer.on_error(&ErrorEvent { meta: None });
-                error
-            })?;
+            let response = match request_builder.send().await {
+                Ok(response) => response,
+                Err(error) => {
+                    match self.retry_config.classify_transport_error(
+                        &request.method(),
+                        attempt,
+                        started_at.elapsed(),
+                    ) {
+                        RetryDecision::RetryAfter(wait) => {
+                            self.observer.on_retry(&RetryEvent {
+                                operation: request.operation().map(ToOwned::to_owned),
+                                method: request.method(),
+                                url: url.clone(),
+                                attempt: attempt + 1,
+                                status: None,
+                                wait,
+                            });
+                            tokio::time::sleep(wait).await;
+                            attempt += 1;
+                            continue;
+                        }
+                        RetryDecision::DoNotRetry => {
+                            let error = Error::from_reqwest(error, None);
+                            self.observer.on_error(&ErrorEvent { meta: None });
+                            return Err(error);
+                        }
+                    }
+                }
+            };
 
             let status = response.status();
             let headers = response.headers().clone();

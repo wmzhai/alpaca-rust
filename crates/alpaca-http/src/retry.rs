@@ -106,6 +106,33 @@ impl RetryConfig {
         RetryDecision::RetryAfter(wait)
     }
 
+    #[must_use]
+    pub fn classify_transport_error(
+        &self,
+        method: &Method,
+        attempt: u32,
+        elapsed: Duration,
+    ) -> RetryDecision {
+        if attempt >= self.max_retries || !self.retryable_methods.iter().any(|item| item == method)
+        {
+            return RetryDecision::DoNotRetry;
+        }
+
+        let wait = self.backoff(attempt + 1).min(self.max_backoff);
+
+        if let Some(total_retry_budget) = self.total_retry_budget {
+            let Some(remaining_budget) = total_retry_budget.checked_sub(elapsed) else {
+                return RetryDecision::DoNotRetry;
+            };
+            if remaining_budget.is_zero() {
+                return RetryDecision::DoNotRetry;
+            }
+            return RetryDecision::RetryAfter(wait.min(remaining_budget));
+        }
+
+        RetryDecision::RetryAfter(wait)
+    }
+
     fn backoff(&self, attempt: u32) -> Duration {
         let factor = 1u32
             .checked_shl(attempt.saturating_sub(1))
