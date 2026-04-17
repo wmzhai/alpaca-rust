@@ -118,6 +118,14 @@ pub fn parse_json_decimal(value: Option<&Value>) -> Option<Decimal> {
     })
 }
 
+pub fn parse_json_number(value: Option<&Value>) -> Option<f64> {
+    value.and_then(|value| match value {
+        Value::String(raw) => raw.parse::<f64>().ok().filter(|number| number.is_finite()),
+        Value::Number(raw) => raw.as_f64().filter(|number| number.is_finite()),
+        _ => None,
+    })
+}
+
 pub mod string_contract {
     use super::*;
 

@@ -20,6 +20,7 @@ mod auth;
 pub mod decimal;
 pub mod env;
 mod error;
+pub mod float;
 pub mod integer;
 pub mod pagination;
 mod query;
