@@ -46,9 +46,7 @@ fn validate_activity_type(activity_type: &str) -> Result<String, Error> {
     Ok(trimmed)
 }
 
-fn validate_activity_types(
-    values: Option<Vec<String>>,
-) -> Result<Option<Vec<String>>, Error> {
+fn validate_activity_types(values: Option<Vec<String>>) -> Result<Option<Vec<String>>, Error> {
     match values {
         None => Ok(None),
         Some(values) if values.is_empty() => Err(Error::InvalidRequest(format!(

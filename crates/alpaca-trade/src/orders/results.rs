@@ -1,0 +1,173 @@
+use crate::Error;
+
+use super::OrderStatus;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum OrderTerminalState {
+    Filled,
+    Canceled,
+    Expired,
+    Rejected,
+}
+
+impl OrderTerminalState {
+    pub fn from_status(status: &str) -> Option<Self> {
+        match OrderStatus::parse(status).ok()? {
+            OrderStatus::Filled => Some(Self::Filled),
+            OrderStatus::Canceled => Some(Self::Canceled),
+            OrderStatus::Expired => Some(Self::Expired),
+            OrderStatus::Rejected => Some(Self::Rejected),
+            _ => None,
+        }
+    }
+
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Self::Filled => "filled",
+            Self::Canceled => "canceled",
+            Self::Expired => "expired",
+            Self::Rejected => "rejected",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CancelOutcomeKind {
+    Canceled,
+    FilledBeforeCancelCompleted,
+    Expired,
+    Rejected,
+}
+
+impl CancelOutcomeKind {
+    pub fn from_terminal_state(state: OrderTerminalState) -> Self {
+        match state {
+            OrderTerminalState::Filled => Self::FilledBeforeCancelCompleted,
+            OrderTerminalState::Canceled => Self::Canceled,
+            OrderTerminalState::Expired => Self::Expired,
+            OrderTerminalState::Rejected => Self::Rejected,
+        }
+    }
+
+    pub fn from_status(status: &str) -> Option<Self> {
+        OrderTerminalState::from_status(status).map(Self::from_terminal_state)
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct CancelOutcome<T> {
+    pub kind: CancelOutcomeKind,
+    pub order: T,
+    pub recovered_after_request_error: bool,
+}
+
+impl<T> CancelOutcome<T> {
+    pub fn is_filled(&self) -> bool {
+        self.kind == CancelOutcomeKind::FilledBeforeCancelCompleted
+    }
+
+    pub fn terminal_state(&self) -> OrderTerminalState {
+        match self.kind {
+            CancelOutcomeKind::Canceled => OrderTerminalState::Canceled,
+            CancelOutcomeKind::FilledBeforeCancelCompleted => OrderTerminalState::Filled,
+            CancelOutcomeKind::Expired => OrderTerminalState::Expired,
+            CancelOutcomeKind::Rejected => OrderTerminalState::Rejected,
+        }
+    }
+
+    pub fn into_order(self) -> T {
+        self.order
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum UpdateOutcomeKind {
+    OldOrderFilledBeforeReplace,
+    ReplacedNewOrderPending,
+    ReplacedNewOrderFilled,
+    ReplaceFailedOldOrderTerminal(OrderTerminalState),
+    ReplaceFailedNewOrderTerminal(OrderTerminalState),
+    ReplaceFailedUnknown,
+}
+
+impl UpdateOutcomeKind {
+    pub fn from_new_order_status(status: &str) -> Option<Self> {
+        match OrderTerminalState::from_status(status) {
+            Some(OrderTerminalState::Filled) => Some(Self::ReplacedNewOrderFilled),
+            Some(state) => Some(Self::ReplaceFailedNewOrderTerminal(state)),
+            None => match OrderStatus::parse(status).ok()? {
+                OrderStatus::Accepted | OrderStatus::New => {
+                    Some(Self::ReplacedNewOrderPending)
+                }
+                _ => None,
+            },
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct UpdateOutcome<T> {
+    pub kind: UpdateOutcomeKind,
+    pub old_order: Option<T>,
+    pub new_order: Option<T>,
+    pub recovered_after_request_error: bool,
+    pub failure_reason: Option<String>,
+}
+
+impl<T> UpdateOutcome<T> {
+    pub fn effective_order(&self) -> Option<&T> {
+        self.new_order.as_ref().or(self.old_order.as_ref())
+    }
+
+    pub fn into_effective_order(self) -> Result<T, Error> {
+        let Self {
+            kind,
+            old_order,
+            new_order,
+            failure_reason,
+            ..
+        } = self;
+
+        new_order.or(old_order).ok_or_else(|| {
+            Error::InvalidRequest(format!(
+                "update outcome {:?} does not contain a usable order: {:?}",
+                kind, failure_reason
+            ))
+        })
+    }
+
+    pub fn is_filled(&self) -> bool {
+        matches!(
+            self.kind,
+            UpdateOutcomeKind::OldOrderFilledBeforeReplace | UpdateOutcomeKind::ReplacedNewOrderFilled
+        )
+    }
+}
+
+#[must_use]
+pub fn is_terminal_status(status: &str) -> bool {
+    OrderStatus::parse(status)
+        .map(OrderStatus::is_terminal)
+        .unwrap_or(false)
+}
+
+#[must_use]
+pub fn is_filled_order_status(status: &str) -> bool {
+    OrderStatus::parse(status)
+        .map(OrderStatus::is_filled)
+        .unwrap_or(false)
+}
+
+#[must_use]
+pub fn is_failed_order_status(status: &str) -> bool {
+    status == "failed" ||
+        OrderStatus::parse(status)
+            .map(OrderStatus::is_failed_terminal)
+            .unwrap_or(false)
+}
+
+#[must_use]
+pub fn is_finished_order_status(status: &str) -> bool {
+    is_filled_order_status(status) || is_failed_order_status(status)
+}
+

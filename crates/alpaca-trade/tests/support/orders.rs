@@ -622,7 +622,9 @@ fn find_call_broken_wing_butterfly(
     }
 
     fallback_context.ok_or_else(|| {
-        format!("failed to discover a quoted 1:2:1 call broken wing butterfly for {underlying_symbol}")
+        format!(
+            "failed to discover a quoted 1:2:1 call broken wing butterfly for {underlying_symbol}"
+        )
     })
 }
 

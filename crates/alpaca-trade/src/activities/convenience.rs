@@ -1,4 +1,4 @@
-use rust_decimal::{prelude::ToPrimitive, Decimal};
+use rust_decimal::{Decimal, prelude::ToPrimitive};
 
 use super::Activity;
 
