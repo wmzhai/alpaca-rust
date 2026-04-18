@@ -236,6 +236,7 @@ impl OrderStatus {
             "new" => Ok(Self::New),
             "partially_filled" => Ok(Self::PartiallyFilled),
             "filled" => Ok(Self::Filled),
+            "failed" => Ok(Self::Failed),
             "done_for_day" => Ok(Self::DoneForDay),
             "canceled" => Ok(Self::Canceled),
             "expired" => Ok(Self::Expired),
@@ -263,6 +264,7 @@ impl OrderStatus {
             Self::New => "new",
             Self::PartiallyFilled => "partially_filled",
             Self::Filled => "filled",
+            Self::Failed => "failed",
             Self::DoneForDay => "done_for_day",
             Self::Canceled => "canceled",
             Self::Expired => "expired",
@@ -285,6 +287,7 @@ impl OrderStatus {
         matches!(
             self,
             Self::Filled
+                | Self::Failed
                 | Self::DoneForDay
                 | Self::Canceled
                 | Self::Expired
@@ -301,7 +304,7 @@ impl OrderStatus {
 
     #[must_use]
     pub fn is_failed_terminal(self) -> bool {
-        matches!(self, Self::Canceled | Self::Expired | Self::Rejected)
+        matches!(self, Self::Failed | Self::Canceled | Self::Expired | Self::Rejected)
     }
 
     #[must_use]
@@ -311,6 +314,7 @@ impl OrderStatus {
             Self::Accepted
                 | Self::New
                 | Self::Filled
+                | Self::Failed
                 | Self::Canceled
                 | Self::Expired
                 | Self::Rejected
@@ -321,7 +325,7 @@ impl OrderStatus {
     pub fn is_cancel_complete(self) -> bool {
         matches!(
             self,
-            Self::Canceled | Self::Filled | Self::Expired | Self::Rejected
+            Self::Canceled | Self::Filled | Self::Failed | Self::Expired | Self::Rejected
         )
     }
 

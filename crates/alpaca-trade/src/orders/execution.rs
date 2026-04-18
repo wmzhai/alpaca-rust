@@ -6,7 +6,7 @@ use ts_rs::TS;
 
 use crate::Error;
 
-use super::{OrderTerminalState, SubmitOrderStyle};
+use super::{OrderStatus, OrderTerminalState, SubmitOrderStyle};
 
 #[derive(Debug, Clone, Serialize, PartialEq, Default, TS)]
 #[ts(export, export_to = "../../../../optworks/packages/optworks-ts/src/generated/")]
@@ -333,7 +333,7 @@ impl Execution {
         {
             *current_percentage >= 1.0
                 && matches!(
-                    OrderTerminalState::from_status(status),
+                    OrderStatus::parse(status).ok().and_then(OrderStatus::terminal_state),
                     Some(OrderTerminalState::Canceled) | Some(OrderTerminalState::Rejected)
                 )
         } else {

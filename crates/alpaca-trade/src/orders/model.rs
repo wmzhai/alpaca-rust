@@ -86,6 +86,7 @@ pub enum OrderStatus {
     New,
     PartiallyFilled,
     Filled,
+    Failed,
     DoneForDay,
     Canceled,
     Expired,

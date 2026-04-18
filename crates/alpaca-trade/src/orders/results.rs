@@ -11,10 +11,6 @@ pub enum OrderTerminalState {
 }
 
 impl OrderTerminalState {
-    pub fn from_status(status: &str) -> Option<Self> {
-        OrderStatus::terminal_state_str(status)
-    }
-
     pub fn as_str(&self) -> &'static str {
         match self {
             Self::Filled => "filled",
@@ -38,36 +34,8 @@ impl OrderStatus {
     }
 
     #[must_use]
-    pub fn terminal_state_str(status: &str) -> Option<OrderTerminalState> {
-        Self::parse(status).ok().and_then(Self::terminal_state)
-    }
-
-    #[must_use]
-    pub fn is_terminal_str(status: &str) -> bool {
-        Self::parse(status).map(Self::is_terminal).unwrap_or(false)
-    }
-
-    #[must_use]
-    pub fn is_filled_str(status: &str) -> bool {
-        Self::parse(status).map(Self::is_filled).unwrap_or(false)
-    }
-
-    #[must_use]
-    pub fn is_failed_str(status: &str) -> bool {
-        status == "failed" ||
-            Self::parse(status)
-                .map(Self::is_failed_terminal)
-                .unwrap_or(false)
-    }
-
-    #[must_use]
     pub fn is_finished(self) -> bool {
         self.is_filled() || self.is_failed_terminal()
-    }
-
-    #[must_use]
-    pub fn is_finished_str(status: &str) -> bool {
-        Self::is_filled_str(status) || Self::is_failed_str(status)
     }
 }
 
@@ -89,9 +57,6 @@ impl CancelOutcomeKind {
         }
     }
 
-    pub fn from_status(status: &str) -> Option<Self> {
-        OrderStatus::terminal_state_str(status).map(Self::from_terminal_state)
-    }
 }
 
 #[derive(Debug, Clone)]
@@ -132,7 +97,7 @@ pub enum UpdateOutcomeKind {
 
 impl UpdateOutcomeKind {
     pub fn from_new_order_status(status: &str) -> Option<Self> {
-        match OrderStatus::terminal_state_str(status) {
+        match OrderStatus::parse(status).ok().and_then(OrderStatus::terminal_state) {
             Some(OrderTerminalState::Filled) => Some(Self::ReplacedNewOrderFilled),
             Some(state) => Some(Self::ReplaceFailedNewOrderTerminal(state)),
             None => match OrderStatus::parse(status).ok()? {
