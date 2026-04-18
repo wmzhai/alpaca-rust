@@ -35,11 +35,15 @@ async fn calendar_resource_reads_real_paper_v3_calendar_window() {
         .clocks
         .first()
         .expect("v3 clock response should include at least one market clock");
-    let start = first_clock
-        .timestamp
+    let start_source = if first_clock.is_market_day {
+        first_clock.timestamp.as_str()
+    } else {
+        first_clock.next_market_open.as_str()
+    };
+    let start = start_source
         .split_once('T')
         .map(|(date, _)| date.to_owned())
-        .unwrap_or_else(|| first_clock.timestamp[..10].to_owned());
+        .unwrap_or_else(|| start_source[..10].to_owned());
 
     let calendar = client
         .calendar()

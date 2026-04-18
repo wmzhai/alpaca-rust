@@ -9,7 +9,7 @@ use reqwest::Method;
 use crate::client::ClientInner;
 use crate::{
     Error,
-    activities::{Activity, ListRequest},
+    activities::{Activity, ListRequest, OptionActivityRecords},
 };
 
 #[derive(Clone)]
@@ -35,6 +35,15 @@ impl ActivitiesClient {
 
     pub async fn list_all(&self, request: ListRequest) -> Result<Vec<Activity>, Error> {
         collect_all_activity_pages(request, move |request| self.list(request)).await
+    }
+
+    pub async fn list_option_activity_records(
+        &self,
+        request: ListRequest,
+    ) -> Result<OptionActivityRecords, Error> {
+        self.list_all(request)
+            .await
+            .map(OptionActivityRecords::from_activities)
     }
 
     #[allow(dead_code)]

@@ -2,7 +2,17 @@ use std::collections::HashMap;
 
 use rust_decimal::Decimal;
 
-use super::{DataFeed, Snapshot};
+use super::{Bar, DataFeed, Snapshot};
+
+#[derive(Clone, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct BarPoint {
+    pub timestamp: String,
+    pub open: Decimal,
+    pub high: Decimal,
+    pub low: Decimal,
+    pub close: Decimal,
+    pub volume: i64,
+}
 
 fn timestamp_parts<'a>(
     latest_trade: Option<&'a str>,
@@ -143,6 +153,33 @@ impl Snapshot {
     }
 }
 
+impl Bar {
+    #[must_use]
+    pub fn point(&self, daily: bool) -> BarPoint {
+        let raw_timestamp = self.t.clone().unwrap_or_default();
+        let timestamp = if daily {
+            raw_timestamp
+                .get(..10)
+                .unwrap_or(raw_timestamp.as_str())
+                .to_owned()
+        } else {
+            raw_timestamp
+        };
+
+        BarPoint {
+            timestamp,
+            open: self.o.unwrap_or_default(),
+            high: self.h.unwrap_or_default(),
+            low: self.l.unwrap_or_default(),
+            close: self.c.unwrap_or_default(),
+            volume: match self.v {
+                Some(value) => i64::try_from(value).unwrap_or(i64::MAX),
+                None => 0,
+            },
+        }
+    }
+}
+
 #[must_use]
 pub fn ordered_snapshots(snapshots: &HashMap<String, Snapshot>) -> Vec<(&str, &Snapshot)> {
     let mut symbols = snapshots.keys().map(String::as_str).collect::<Vec<_>>();
@@ -172,7 +209,7 @@ mod tests {
 
     use rust_decimal::Decimal;
 
-    use super::{Snapshot, ordered_snapshots, preferred_feed};
+    use super::{BarPoint, Snapshot, ordered_snapshots, preferred_feed};
     use crate::stocks::{Bar, DataFeed, Quote, Trade};
 
     #[test]
@@ -279,5 +316,26 @@ mod tests {
     fn preferred_feed_uses_premium_stock_feeds() {
         assert_eq!(preferred_feed(false), DataFeed::Sip);
         assert_eq!(preferred_feed(true), DataFeed::Boats);
+    }
+
+    #[test]
+    fn bar_point_normalizes_daily_timestamp_and_missing_fields() {
+        let bar = Bar {
+            t: Some("2026-04-17T20:00:00Z".to_owned()),
+            c: Some(Decimal::new(51234, 2)),
+            ..Bar::default()
+        };
+
+        assert_eq!(
+            bar.point(true),
+            BarPoint {
+                timestamp: "2026-04-17".to_owned(),
+                open: Decimal::ZERO,
+                high: Decimal::ZERO,
+                low: Decimal::ZERO,
+                close: Decimal::new(51234, 2),
+                volume: 0,
+            }
+        );
     }
 }
