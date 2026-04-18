@@ -7,7 +7,10 @@ mod target_support;
 #[path = "support/trade_state.rs"]
 mod trade_state_support;
 
-use alpaca_data::Client as DataClient;
+use alpaca_data::{
+    Client as DataClient,
+    options::{OptionsFeed, SnapshotsRequest},
+};
 use alpaca_mock::{
     InjectedHttpFault, LiveMarketDataBridge, MockServerState, TestServer,
     spawn_test_server_with_state,
@@ -15,9 +18,9 @@ use alpaca_mock::{
 use alpaca_trade::{
     Client as TradeClient, Error,
     orders::{
-        CreateRequest, ListRequest, OptionLegRequest, OrderClass, OrderSide, OrderStatus,
-        OrderType, PositionIntent, QueryOrderStatus, ReplaceRequest, ReplaceResolution, StopLoss,
-        SubmitOrderStyle, TakeProfit, TimeInForce, WaitFor,
+        CloseOptionLeg, CreateRequest, ListRequest, OptionLegRequest, OptionQuote, OrderClass,
+        OrderSide, OrderStatus, OrderType, PositionIntent, QueryOrderStatus, ReplaceRequest,
+        ReplaceResolution, StopLoss, SubmitOrderStyle, TakeProfit, TimeInForce, WaitFor,
     },
 };
 use live_support::can_submit_live_paper_orders;
@@ -404,6 +407,192 @@ async fn orders_create_resolved_limit_mock() {
         canceled.order.status,
         OrderStatus::Canceled | OrderStatus::Filled
     ));
+}
+
+#[tokio::test]
+async fn orders_close_option_legs_all_liquid_mock() {
+    let Some(harness) = target_support::build_trade_test_harness(TradeTestTarget::Mock).await
+    else {
+        return;
+    };
+
+    clear_option_universe_cache().await;
+    let spread = discover_mleg_call_spread(harness.data_client(), ORDER_TEST_SYMBOL)
+        .await
+        .expect("mock call spread should be discoverable");
+    let opened = submit_mleg_market_order(
+        &harness,
+        spread.legs.clone(),
+        Decimal::from(2),
+        OrderSide::Buy,
+        &unique_client_order_id("phase22-mock-close-option-legs-all-liquid-open"),
+    )
+    .await
+    .expect("mock multi-leg open should fill");
+
+    let closing_legs = build_close_option_legs(&harness, &opened).await;
+    let result = harness
+        .trade_client()
+        .orders()
+        .close_option_legs(2, closing_legs)
+        .await
+        .expect("all-liquid close_option_legs should succeed");
+
+    assert!(
+        result
+            .order
+            .as_ref()
+            .is_some_and(|order| order.status == OrderStatus::Filled)
+    );
+    assert!(result.cashflow != Decimal::ZERO);
+    assert!(
+        result
+            .legs
+            .iter()
+            .all(|leg| leg.filled_avg_price > Decimal::ZERO)
+    );
+
+    for leg in opened
+        .legs
+        .as_ref()
+        .expect("filled multi-leg order should expose nested legs")
+    {
+        wait_for_position_absent(&harness, &leg.symbol).await;
+    }
+}
+
+#[tokio::test]
+async fn orders_close_option_legs_scales_single_leg_ratio_qty_mock() {
+    let Some(harness) = target_support::build_trade_test_harness(TradeTestTarget::Mock).await
+    else {
+        return;
+    };
+
+    clear_option_universe_cache().await;
+    let bwb = discover_mleg_call_broken_wing_butterfly(harness.data_client(), ORDER_TEST_SYMBOL)
+        .await
+        .expect("mock broken wing butterfly should be discoverable");
+    let opened = submit_mleg_market_order(
+        &harness,
+        bwb.legs.clone(),
+        Decimal::ONE,
+        OrderSide::Buy,
+        &unique_client_order_id("phase22-mock-close-option-legs-ratio-open"),
+    )
+    .await
+    .expect("mock broken wing butterfly open should fill");
+
+    let mut closing_legs = build_close_option_legs(&harness, &opened).await;
+    let liquid_index = closing_legs
+        .iter()
+        .position(|leg| leg.ratio_qty == 2)
+        .expect("broken wing butterfly should include a 2x leg");
+    for (index, leg) in closing_legs.iter_mut().enumerate() {
+        if index != liquid_index {
+            leg.quote = None;
+        }
+    }
+
+    let opened_legs = opened
+        .legs
+        .as_ref()
+        .expect("filled multi-leg order should expose nested legs");
+    let liquid_symbol = opened_legs[liquid_index].symbol.clone();
+    let remaining_symbols = opened_legs
+        .iter()
+        .enumerate()
+        .filter(|(index, _)| *index != liquid_index)
+        .map(|(_, leg)| leg.symbol.clone())
+        .collect::<Vec<_>>();
+
+    let result = harness
+        .trade_client()
+        .orders()
+        .close_option_legs(1, closing_legs)
+        .await
+        .expect("single-liquid close_option_legs should succeed");
+
+    assert!(
+        result
+            .order
+            .as_ref()
+            .is_some_and(|order| order.status == OrderStatus::Filled)
+    );
+    assert_eq!(result.legs[liquid_index].ratio_qty, 2);
+    assert!(result.legs[liquid_index].filled_avg_price > Decimal::ZERO);
+    assert!(
+        result
+            .legs
+            .iter()
+            .enumerate()
+            .all(|(index, leg)| if index == liquid_index {
+                leg.filled_avg_price > Decimal::ZERO
+            } else {
+                leg.filled_avg_price == Decimal::ZERO
+            })
+    );
+
+    wait_for_position_absent(&harness, &liquid_symbol).await;
+    for symbol in remaining_symbols {
+        let position = wait_for_position(&harness, &symbol).await;
+        assert!(position.qty != Decimal::ZERO);
+    }
+}
+
+#[tokio::test]
+async fn orders_close_option_legs_returns_zero_when_all_illiquid_mock() {
+    let Some(harness) = target_support::build_trade_test_harness(TradeTestTarget::Mock).await
+    else {
+        return;
+    };
+
+    clear_option_universe_cache().await;
+    let spread = discover_mleg_put_spread(harness.data_client(), ORDER_TEST_SYMBOL)
+        .await
+        .expect("mock put spread should be discoverable");
+    let opened = submit_mleg_market_order(
+        &harness,
+        spread.legs.clone(),
+        Decimal::ONE,
+        OrderSide::Buy,
+        &unique_client_order_id("phase22-mock-close-option-legs-all-illiquid-open"),
+    )
+    .await
+    .expect("mock put spread open should fill");
+
+    let mut closing_legs = build_close_option_legs(&harness, &opened).await;
+    for leg in &mut closing_legs {
+        leg.quote = None;
+    }
+
+    let tracked_symbols = opened
+        .legs
+        .as_ref()
+        .expect("filled multi-leg order should expose nested legs")
+        .iter()
+        .map(|leg| leg.symbol.clone())
+        .collect::<Vec<_>>();
+
+    let result = harness
+        .trade_client()
+        .orders()
+        .close_option_legs(1, closing_legs)
+        .await
+        .expect("all-illiquid close_option_legs should still succeed");
+
+    assert!(result.order.is_none());
+    assert_eq!(result.cashflow, Decimal::ZERO);
+    assert!(
+        result
+            .legs
+            .iter()
+            .all(|leg| leg.filled_avg_price == Decimal::ZERO)
+    );
+
+    for symbol in tracked_symbols {
+        let position = wait_for_position(&harness, &symbol).await;
+        assert!(position.qty != Decimal::ZERO);
+    }
 }
 
 #[tokio::test]
@@ -2448,6 +2637,66 @@ async fn close_filled_mleg_legs(
     }
 
     Ok(())
+}
+
+async fn build_close_option_legs(
+    harness: &TradeTestHarness,
+    filled_order: &alpaca_trade::orders::Order,
+) -> Vec<CloseOptionLeg> {
+    let legs = filled_order
+        .legs
+        .as_ref()
+        .expect("filled multi-leg order should expose nested legs");
+    let symbols = legs
+        .iter()
+        .map(|leg| leg.symbol.clone())
+        .collect::<Vec<_>>();
+    let quotes = load_option_quotes(harness, &symbols).await;
+
+    legs.iter()
+        .map(|leg| {
+            let (close_side, close_intent) = reverse_leg_close_shape(
+                leg.side,
+                leg.position_intent
+                    .expect("filled multi-leg leg should expose position intent"),
+            );
+            CloseOptionLeg {
+                symbol: leg.symbol.clone(),
+                ratio_qty: leg.ratio_qty.unwrap_or(1),
+                side: close_side,
+                position_intent: close_intent,
+                quote: quotes.get(&leg.symbol).cloned(),
+            }
+        })
+        .collect()
+}
+
+async fn load_option_quotes(
+    harness: &TradeTestHarness,
+    symbols: &[String],
+) -> std::collections::HashMap<String, OptionQuote> {
+    let snapshots = harness
+        .data_client()
+        .options()
+        .snapshots(SnapshotsRequest {
+            symbols: symbols.to_vec(),
+            feed: Some(OptionsFeed::Indicative),
+            limit: Some(symbols.len() as u32),
+            page_token: None,
+        })
+        .await
+        .expect("option snapshots should load for close-option-legs tests");
+
+    snapshots
+        .snapshots
+        .into_iter()
+        .filter_map(|(symbol, snapshot)| {
+            let quote = snapshot.latest_quote?;
+            let bid = quote.bp.or(quote.ap)?;
+            let ask = quote.ap.or(quote.bp)?;
+            Some((symbol, OptionQuote { bid, ask }))
+        })
+        .collect()
 }
 
 fn reverse_leg_close_shape(

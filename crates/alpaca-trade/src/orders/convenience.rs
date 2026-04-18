@@ -4,13 +4,44 @@ use crate::Error;
 
 use super::{
     CreateRequest, OptionLegRequest, Order, OrderClass, OrderSide, OrderStatus, OrderType,
-    PositionIntent, ReplaceRequest, TimeInForce,
+    OrdersClient, PositionIntent, ReplaceRequest, TimeInForce, WaitFor,
 };
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum SubmitOrderStyle {
     Market,
     Limit { limit_price: Decimal },
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct OptionQuote {
+    pub bid: Decimal,
+    pub ask: Decimal,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct CloseOptionLeg {
+    pub symbol: String,
+    pub ratio_qty: u32,
+    pub side: OrderSide,
+    pub position_intent: PositionIntent,
+    pub quote: Option<OptionQuote>,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct ClosedOptionLeg {
+    pub symbol: String,
+    pub ratio_qty: u32,
+    pub side: OrderSide,
+    pub position_intent: PositionIntent,
+    pub filled_avg_price: Decimal,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct CloseOptionLegsResult {
+    pub order: Option<Order>,
+    pub legs: Vec<ClosedOptionLeg>,
+    pub cashflow: Decimal,
 }
 
 impl OrderSide {
@@ -155,6 +186,67 @@ impl Order {
     }
 }
 
+impl CloseOptionLeg {
+    #[must_use]
+    pub fn is_liquid(&self) -> bool {
+        let Some(quote) = &self.quote else {
+            return false;
+        };
+
+        match self.side {
+            OrderSide::Sell => quote.bid > Decimal::ZERO,
+            OrderSide::Buy => quote.ask > Decimal::ZERO,
+            OrderSide::Unspecified => false,
+        }
+    }
+
+    fn contract_qty(&self, structure_qty: i32) -> Result<i32, Error> {
+        if structure_qty <= 0 {
+            return Err(Error::InvalidRequest(
+                "structure qty must be greater than 0".to_owned(),
+            ));
+        }
+        if self.ratio_qty == 0 {
+            return Err(Error::InvalidRequest(
+                "ratio_qty must be greater than 0".to_owned(),
+            ));
+        }
+
+        structure_qty
+            .checked_mul(i32::try_from(self.ratio_qty).map_err(|_| {
+                Error::InvalidRequest("ratio_qty exceeds supported range".to_owned())
+            })?)
+            .ok_or_else(|| Error::InvalidRequest("contract qty exceeds supported range".to_owned()))
+    }
+
+    fn to_option_leg_request(&self) -> Result<OptionLegRequest, Error> {
+        if self.ratio_qty == 0 {
+            return Err(Error::InvalidRequest(
+                "ratio_qty must be greater than 0".to_owned(),
+            ));
+        }
+
+        Ok(OptionLegRequest {
+            symbol: self.symbol.clone(),
+            ratio_qty: self.ratio_qty,
+            side: Some(self.side),
+            position_intent: Some(self.position_intent),
+        })
+    }
+}
+
+impl ClosedOptionLeg {
+    fn zeroed(leg: &CloseOptionLeg) -> Self {
+        Self {
+            symbol: leg.symbol.clone(),
+            ratio_qty: leg.ratio_qty,
+            side: leg.side,
+            position_intent: leg.position_intent,
+            filled_avg_price: Decimal::ZERO,
+        }
+    }
+}
+
 impl SubmitOrderStyle {
     #[must_use]
     pub fn order_type(self) -> OrderType {
@@ -264,13 +356,134 @@ impl ReplaceRequest {
     }
 }
 
+impl OrdersClient {
+    pub async fn close_option_legs(
+        &self,
+        qty: i32,
+        legs: Vec<CloseOptionLeg>,
+    ) -> Result<CloseOptionLegsResult, Error> {
+        if qty <= 0 {
+            return Err(Error::InvalidRequest(
+                "structure qty must be greater than 0".to_owned(),
+            ));
+        }
+        if legs.is_empty() {
+            return Err(Error::InvalidRequest(
+                "close_option_legs requires at least one leg".to_owned(),
+            ));
+        }
+
+        let mut closed_legs = legs.iter().map(ClosedOptionLeg::zeroed).collect::<Vec<_>>();
+        let liquid_indices = legs
+            .iter()
+            .enumerate()
+            .filter_map(|(index, leg)| leg.is_liquid().then_some(index))
+            .collect::<Vec<_>>();
+
+        if liquid_indices.is_empty() {
+            return Ok(CloseOptionLegsResult {
+                order: None,
+                legs: closed_legs,
+                cashflow: Decimal::ZERO,
+            });
+        }
+
+        let order = if liquid_indices.len() == 1 {
+            let leg = &legs[liquid_indices[0]];
+            self.create_resolved(
+                CreateRequest::simple(
+                    &leg.symbol,
+                    leg.contract_qty(qty)?,
+                    leg.side,
+                    SubmitOrderStyle::Market,
+                )?,
+                WaitFor::Filled,
+            )
+            .await?
+            .order
+        } else {
+            self.create_resolved(
+                CreateRequest::mleg(
+                    qty,
+                    SubmitOrderStyle::Market,
+                    liquid_indices
+                        .iter()
+                        .map(|&index| legs[index].to_option_leg_request())
+                        .collect::<Result<Vec<_>, Error>>()?,
+                )?,
+                WaitFor::Filled,
+            )
+            .await?
+            .order
+        };
+
+        if order.status != OrderStatus::Filled {
+            return Ok(CloseOptionLegsResult {
+                order: Some(order),
+                legs: closed_legs,
+                cashflow: Decimal::ZERO,
+            });
+        }
+
+        if liquid_indices.len() == 1 {
+            if let Some(price) = order.filled_avg_price {
+                closed_legs[liquid_indices[0]].filled_avg_price = price;
+            }
+        } else if let Some(order_legs) = order.legs.as_ref() {
+            for (submitted_index, &original_index) in liquid_indices.iter().enumerate() {
+                if let Some(price) = order_legs
+                    .get(submitted_index)
+                    .and_then(|leg| leg.filled_avg_price)
+                {
+                    closed_legs[original_index].filled_avg_price = price;
+                }
+            }
+        }
+
+        let mut cashflow = closed_legs_cashflow(&closed_legs, qty);
+        if cashflow.is_zero() && liquid_indices.len() > 1 {
+            if let Some(price) = order.filled_avg_price {
+                cashflow = (-price * Decimal::from(qty) * Decimal::from(100)).round_dp(2);
+            }
+        }
+
+        Ok(CloseOptionLegsResult {
+            order: Some(order),
+            legs: closed_legs,
+            cashflow,
+        })
+    }
+}
+
+fn closed_legs_cashflow(legs: &[ClosedOptionLeg], structure_qty: i32) -> Decimal {
+    legs.iter()
+        .map(|leg| leg_cashflow(leg.filled_avg_price, leg.side, structure_qty, leg.ratio_qty))
+        .fold(Decimal::ZERO, |total, value| total + value)
+        .round_dp(2)
+}
+
+fn leg_cashflow(price: Decimal, side: OrderSide, structure_qty: i32, ratio_qty: u32) -> Decimal {
+    if price.is_zero() || structure_qty <= 0 || ratio_qty == 0 {
+        return Decimal::ZERO;
+    }
+
+    let contracts = Decimal::from(i64::from(structure_qty) * i64::from(ratio_qty));
+    let gross = match side {
+        OrderSide::Sell => price * contracts * Decimal::from(100),
+        OrderSide::Buy => -price * contracts * Decimal::from(100),
+        OrderSide::Unspecified => Decimal::ZERO,
+    };
+
+    gross.round_dp(2)
+}
+
 #[cfg(test)]
 mod tests {
     use rust_decimal::Decimal;
 
     use super::{
-        CreateRequest, OptionLegRequest, Order, OrderClass, OrderSide, OrderStatus, OrderType,
-        PositionIntent, ReplaceRequest, SubmitOrderStyle, TimeInForce,
+        CloseOptionLeg, CreateRequest, OptionLegRequest, OptionQuote, Order, OrderClass, OrderSide,
+        OrderStatus, OrderType, PositionIntent, ReplaceRequest, SubmitOrderStyle, TimeInForce,
     };
 
     #[test]
@@ -389,5 +602,32 @@ mod tests {
             limit_price: Decimal::new(333, 2),
         });
         assert_eq!(limit.limit_price, Some(Decimal::new(333, 2)));
+    }
+
+    #[test]
+    fn detects_option_leg_liquidity_from_side_specific_quote() {
+        let sell_close = CloseOptionLeg {
+            symbol: "SPY260424C00550000".to_owned(),
+            ratio_qty: 1,
+            side: OrderSide::Sell,
+            position_intent: PositionIntent::SellToClose,
+            quote: Some(OptionQuote {
+                bid: Decimal::new(15, 2),
+                ask: Decimal::new(20, 2),
+            }),
+        };
+        assert!(sell_close.is_liquid());
+
+        let buy_close = CloseOptionLeg {
+            symbol: "SPY260424C00555000".to_owned(),
+            ratio_qty: 1,
+            side: OrderSide::Buy,
+            position_intent: PositionIntent::BuyToClose,
+            quote: Some(OptionQuote {
+                bid: Decimal::ZERO,
+                ask: Decimal::new(10, 2),
+            }),
+        };
+        assert!(buy_close.is_liquid());
     }
 }
