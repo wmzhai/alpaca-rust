@@ -222,13 +222,6 @@ impl MockServerState {
         input: CreateOrderInput,
     ) -> Result<Order, MockStateError> {
         let order_class = input.order_class.clone().unwrap_or(OrderClass::Simple);
-        let request_side = input.side.clone().unwrap_or(OrderSide::Buy);
-        if request_side == OrderSide::Unspecified {
-            return Err(MockStateError::Conflict(
-                "mock orders require an explicit buy or sell side".to_owned(),
-            ));
-        }
-
         let order_type = input.order_type.clone().unwrap_or(OrderType::Market);
         let time_in_force = input.time_in_force.clone().unwrap_or(TimeInForce::Day);
         let requested_symbol = input
@@ -249,6 +242,22 @@ impl MockServerState {
                 input.legs.as_deref(),
             )
             .await?;
+        let request_side = if order_class == OrderClass::Mleg {
+            infer_request_side(
+                input.side.clone(),
+                input.limit_price.clone(),
+                requested_legs.as_deref(),
+                &market_quotes,
+            )
+        } else {
+            let side = input.side.clone().unwrap_or(OrderSide::Buy);
+            if side == OrderSide::Unspecified {
+                return Err(MockStateError::Conflict(
+                    "mock orders require an explicit buy or sell side".to_owned(),
+                ));
+            }
+            side
+        };
         let qty = if order_class == OrderClass::Mleg {
             normalize_qty(input.qty, None, Decimal::ONE)?
         } else {
@@ -1715,6 +1724,58 @@ fn mleg_mid_price(
     Some(normalized_total.round_dp(2))
 }
 
+fn infer_request_side(
+    request_side: Option<OrderSide>,
+    limit_price: Option<Decimal>,
+    request_legs: Option<&[OptionLegRequest]>,
+    market_quotes: &HashMap<String, InstrumentSnapshot>,
+) -> OrderSide {
+    if let Some(side) = request_side && side != OrderSide::Unspecified {
+        return side;
+    }
+
+    if let Some(limit_price) = limit_price {
+        if limit_price > Decimal::ZERO {
+            return OrderSide::Buy;
+        }
+        if limit_price < Decimal::ZERO {
+            return OrderSide::Sell;
+        }
+    }
+
+    let Some(legs) = request_legs else {
+        return OrderSide::Buy;
+    };
+    let Some(total) = mleg_raw_total_from_legs(legs, market_quotes) else {
+        return OrderSide::Buy;
+    };
+
+    if total > Decimal::ZERO {
+        OrderSide::Buy
+    } else if total < Decimal::ZERO {
+        OrderSide::Sell
+    } else {
+        OrderSide::Buy
+    }
+}
+
+fn mleg_raw_total_from_legs(
+    legs: &[OptionLegRequest],
+    market_quotes: &HashMap<String, InstrumentSnapshot>,
+) -> Option<Decimal> {
+    legs.iter().try_fold(Decimal::ZERO, |total, leg| {
+        let instrument = market_quotes.get(&leg.symbol)?;
+        let leg_side = leg.side.as_ref()?;
+        let ratio_qty = Decimal::from(leg.ratio_qty);
+        let contribution = match leg_side {
+            OrderSide::Buy => instrument.mid_price() * ratio_qty,
+            OrderSide::Sell => -(instrument.mid_price() * ratio_qty),
+            OrderSide::Unspecified => return None,
+        };
+        Some(total + contribution)
+    })
+}
+
 fn mleg_price_total<F>(
     order: &Order,
     market_quotes: &HashMap<String, InstrumentSnapshot>,
@@ -2402,6 +2463,63 @@ mod tests {
         apply_mleg_fill_rules(&mut sell_resting_order, &OrderSide::Sell, &market_quotes);
         assert_eq!(sell_resting_order.status, OrderStatus::New);
         assert_eq!(sell_resting_order.filled_avg_price, None);
+    }
+
+    #[test]
+    fn infer_multi_leg_direction_from_market_and_legs() {
+        let market_quotes = HashMap::from([
+            (
+                "OPT-LONG".to_owned(),
+                InstrumentSnapshot::option(Decimal::new(150, 2), Decimal::new(170, 2)),
+            ),
+            (
+                "OPT-SHORT".to_owned(),
+                InstrumentSnapshot::option(Decimal::new(300, 2), Decimal::new(340, 2)),
+            ),
+        ]);
+
+        let long_short_legs = vec![
+            OptionLegRequest {
+                symbol: "OPT-LONG".to_owned(),
+                ratio_qty: 1,
+                side: Some(OrderSide::Buy),
+                position_intent: None,
+            },
+            OptionLegRequest {
+                symbol: "OPT-SHORT".to_owned(),
+                ratio_qty: 2,
+                side: Some(OrderSide::Sell),
+                position_intent: None,
+            },
+        ];
+
+        assert_eq!(
+            infer_request_side(
+                None,
+                Some(Decimal::new(-120, 2)),
+                Some(long_short_legs.as_slice()),
+                &market_quotes
+            ),
+            OrderSide::Sell
+        );
+        assert_eq!(
+            infer_request_side(
+                None,
+                Some(Decimal::new(180, 2)),
+                Some(long_short_legs.as_slice()),
+                &market_quotes
+            ),
+            OrderSide::Buy
+        );
+        assert_eq!(
+            infer_request_side(
+                None,
+                None,
+                Some(long_short_legs.as_slice()),
+                &market_quotes
+            ),
+            OrderSide::Sell
+        );
     }
 
     #[test]
