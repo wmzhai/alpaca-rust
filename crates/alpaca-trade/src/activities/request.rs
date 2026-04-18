@@ -1,3 +1,6 @@
+use chrono::{Duration, Utc};
+use chrono_tz::America::New_York;
+
 use alpaca_core::QueryWriter;
 
 use crate::{Error, orders::SortDirection};
@@ -29,7 +32,10 @@ impl ListRequest {
 
     #[must_use]
     pub fn option_records(after_date: Option<&str>) -> Self {
-        Self::for_types(&["OPASN", "OPEXP"], after_date)
+        let after_date = after_date
+            .map(ToOwned::to_owned)
+            .unwrap_or_else(default_option_records_after_date);
+        Self::for_types(&["OPASN", "OPEXP"], Some(after_date.as_str()))
     }
 
     pub(crate) fn into_query(self) -> Result<Vec<(String, String)>, Error> {
@@ -104,9 +110,20 @@ fn validate_required_text(name: &str, value: &str) -> Result<String, Error> {
     Ok(trimmed.to_owned())
 }
 
+fn default_option_records_after_date() -> String {
+    (Utc::now().with_timezone(&New_York).date_naive() - Duration::days(30)).to_string()
+}
+
 #[cfg(test)]
 mod tests {
+    use chrono::{Duration, Utc};
+    use chrono_tz::America::New_York;
+
     use super::ListRequest;
+
+    fn expected_default_after_date() -> String {
+        (Utc::now().with_timezone(&New_York).date_naive() - Duration::days(30)).to_string()
+    }
 
     #[test]
     fn for_types_sets_filters_and_page_size() {
@@ -129,7 +146,7 @@ mod tests {
             Some(vec!["OPASN".to_string(), "OPEXP".to_string()])
         );
         assert_eq!(request.page_size, Some(100));
-        assert_eq!(request.after, None);
+        assert_eq!(request.after.as_deref(), Some(expected_default_after_date().as_str()));
     }
 
     #[test]
