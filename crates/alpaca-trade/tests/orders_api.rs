@@ -21,7 +21,8 @@ use alpaca_trade::{
         CloseOptionLeg, CloseOptionLegsStatus, CreateRequest, ListRequest, OptionLegRequest,
         OptionQuote, OrderClass, OrderSide, OrderStatus, OrderType, PositionIntent,
         QueryOrderStatus, ReplaceRequest, ReplaceResolution, StopLoss, SubmitOrderRequest,
-        SubmitOrderStyle, TakeProfit, TimeInForce, WaitFor,
+        SubmitOrderStyle, TakeProfit, TimeInForce, TransitionOrderPolicy,
+        TransitionResolution, WaitFor,
     },
 };
 use live_support::can_submit_live_paper_orders;
@@ -519,6 +520,172 @@ async fn orders_submit_resolved_mleg_market_mock() {
             .await
             .expect("mock option close should fill");
         assert_eq!(closed.order.status, OrderStatus::Filled);
+    }
+}
+
+#[tokio::test]
+async fn orders_transition_resolved_replaces_resting_limit_mock() {
+    let (_server, client) = build_fixed_mid_price_mock_client().await;
+
+    let resting = client
+        .orders()
+        .create(
+            CreateRequest::simple(
+                FIXED_STOCK_SYMBOL,
+                1,
+                OrderSide::Buy,
+                SubmitOrderStyle::Limit {
+                    limit_price: fixed_stock_mid() - Decimal::new(1, 2),
+                },
+                None,
+                Some(false),
+            )
+            .expect("fixed resting stock request should build"),
+        )
+        .await
+        .expect("fixed resting stock limit should submit");
+
+    let resolution = client
+        .orders()
+        .transition_resolved(
+            &resting.id,
+            SubmitOrderRequest::simple(
+                FIXED_STOCK_SYMBOL,
+                1,
+                OrderSide::Buy,
+                SubmitOrderStyle::Limit {
+                    limit_price: fixed_stock_mid(),
+                },
+                None,
+                Some(false),
+            ),
+            TransitionOrderPolicy::Auto,
+        )
+        .await
+        .expect("auto transition should replace resting stock limit");
+
+    match resolution {
+        TransitionResolution::NewOrder { resolved, recreated } => {
+            assert!(!recreated);
+            assert_eq!(resolved.order.status, OrderStatus::Filled);
+            assert_eq!(resolved.order.filled_avg_price, Some(fixed_stock_mid()));
+            assert_eq!(resolved.order.replaces.as_deref(), Some(resting.id.as_str()));
+        }
+        TransitionResolution::OriginalOrderTerminal(resolved) => {
+            panic!(
+                "expected replacement path, got original terminal order: {:?}",
+                resolved.order.status
+            );
+        }
+    }
+}
+
+#[tokio::test]
+async fn orders_transition_resolved_recreates_type_change_mock() {
+    let (_server, client) = build_fixed_mid_price_mock_client().await;
+
+    let resting = client
+        .orders()
+        .create(
+            CreateRequest::simple(
+                FIXED_STOCK_SYMBOL,
+                1,
+                OrderSide::Buy,
+                SubmitOrderStyle::Limit {
+                    limit_price: fixed_stock_mid() - Decimal::new(1, 2),
+                },
+                None,
+                Some(false),
+            )
+            .expect("fixed resting stock request should build"),
+        )
+        .await
+        .expect("fixed resting stock limit should submit");
+
+    let resolution = client
+        .orders()
+        .transition_resolved(
+            &resting.id,
+            SubmitOrderRequest::simple(
+                FIXED_STOCK_SYMBOL,
+                1,
+                OrderSide::Buy,
+                SubmitOrderStyle::Market,
+                None,
+                Some(false),
+            ),
+            TransitionOrderPolicy::Auto,
+        )
+        .await
+        .expect("type change should recreate through cancel and new submit");
+
+    match resolution {
+        TransitionResolution::NewOrder { resolved, recreated } => {
+            assert!(recreated);
+            assert_eq!(resolved.order.status, OrderStatus::Filled);
+            assert_eq!(resolved.order.filled_avg_price, Some(fixed_stock_mid()));
+            assert!(resolved.order.replaces.is_none());
+        }
+        TransitionResolution::OriginalOrderTerminal(resolved) => {
+            panic!(
+                "expected recreate path, got original terminal order: {:?}",
+                resolved.order.status
+            );
+        }
+    }
+
+    let original = client
+        .orders()
+        .get(&resting.id)
+        .await
+        .expect("original order should remain readable");
+    assert_eq!(original.status, OrderStatus::Canceled);
+}
+
+#[tokio::test]
+async fn orders_transition_resolved_recreate_recovers_after_cancel_request_error_mock() {
+    let Some((_server, state, client)) = build_recovery_test_client().await else {
+        return;
+    };
+
+    let created = create_non_marketable_spy_limit_order(&client).await;
+    state
+        .cancel_order("mock-key", &created.id)
+        .expect("pre-cancel should succeed");
+    state.set_http_fault(
+        InjectedHttpFault::new(503, "injected transition cancel fault".to_owned())
+            .expect("fault should build"),
+    );
+
+    let resolution = client
+        .orders()
+        .transition_resolved(
+            &created.id,
+            SubmitOrderRequest::simple(
+                ORDER_TEST_SYMBOL,
+                1,
+                OrderSide::Buy,
+                SubmitOrderStyle::Market,
+                None,
+                Some(false),
+            ),
+            TransitionOrderPolicy::Auto,
+        )
+        .await
+        .expect("recreate transition should recover after cancel request error");
+
+    match resolution {
+        TransitionResolution::NewOrder { resolved, recreated } => {
+            assert!(recreated);
+            assert!(resolved.recovered_after_request_error);
+            assert_eq!(resolved.order.status, OrderStatus::Filled);
+        }
+        TransitionResolution::OriginalOrderTerminal(resolved) => {
+            panic!(
+                "expected recreated replacement order, got original terminal order: {:?}",
+                resolved.order.status
+            );
+        }
     }
 }
 

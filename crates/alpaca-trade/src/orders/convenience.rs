@@ -4,7 +4,7 @@ use crate::Error;
 
 use super::{
     CreateRequest, OptionLegRequest, Order, OrderClass, OrderSide, OrderStatus, OrderType,
-    OrdersClient, PositionIntent, ReplaceRequest, TimeInForce, WaitFor,
+    OrdersClient, PositionIntent, ReplaceRequest, ResolvedOrder, TimeInForce, WaitFor,
 };
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -28,6 +28,21 @@ pub enum SubmitOrderRequest {
         style: SubmitOrderStyle,
         legs: Vec<OptionLegRequest>,
     },
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum TransitionOrderPolicy {
+    Auto,
+    Recreate,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub enum TransitionResolution {
+    NewOrder {
+        resolved: ResolvedOrder,
+        recreated: bool,
+    },
+    OriginalOrderTerminal(ResolvedOrder),
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -426,6 +441,68 @@ impl SubmitOrderRequest {
             Self::Mleg { qty, style, legs } => CreateRequest::mleg(qty, style, legs),
         }
     }
+
+    fn requires_recreate(&self, current_order: &Order, policy: TransitionOrderPolicy) -> bool {
+        if matches!(policy, TransitionOrderPolicy::Recreate) {
+            return true;
+        }
+
+        if self.has_close_mleg_legs() {
+            return true;
+        }
+
+        !self.is_replace_compatible(current_order)
+    }
+
+    fn is_replace_compatible(&self, current_order: &Order) -> bool {
+        let same_style = current_order.r#type == self.style().order_type();
+        match self {
+            Self::Simple { .. } => current_order.order_class != OrderClass::Mleg && same_style,
+            Self::Mleg { .. } => current_order.order_class == OrderClass::Mleg && same_style,
+        }
+    }
+
+    fn has_close_mleg_legs(&self) -> bool {
+        match self {
+            Self::Simple { .. } => false,
+            Self::Mleg { legs, .. } => legs.iter().any(|leg| {
+                leg.position_intent
+                    .is_some_and(|intent| intent == PositionIntent::BuyToClose
+                        || intent == PositionIntent::SellToClose)
+            }),
+        }
+    }
+}
+
+impl TransitionResolution {
+    #[must_use]
+    pub fn order(&self) -> &Order {
+        match self {
+            Self::NewOrder { resolved, .. } | Self::OriginalOrderTerminal(resolved) => {
+                &resolved.order
+            }
+        }
+    }
+
+    #[must_use]
+    pub fn recovered_after_request_error(&self) -> bool {
+        match self {
+            Self::NewOrder { resolved, .. } | Self::OriginalOrderTerminal(resolved) => {
+                resolved.recovered_after_request_error
+            }
+        }
+    }
+
+    #[must_use]
+    pub fn recreated(&self) -> bool {
+        matches!(
+            self,
+            Self::NewOrder {
+                recreated: true,
+                ..
+            }
+        )
+    }
 }
 
 impl CreateRequest {
@@ -622,6 +699,45 @@ impl OrdersClient {
             cashflow,
         })
     }
+
+    pub async fn transition_resolved(
+        &self,
+        order_id: &str,
+        request: SubmitOrderRequest,
+        policy: TransitionOrderPolicy,
+    ) -> Result<TransitionResolution, Error> {
+        let current_order = self.get_effective(order_id).await?;
+        if request.requires_recreate(&current_order, policy) {
+            let canceled = self.cancel_resolved(&current_order.id).await?;
+            if canceled.order.status != OrderStatus::Canceled {
+                return Ok(TransitionResolution::OriginalOrderTerminal(canceled));
+            }
+
+            let recreated = self.submit_resolved(request, None).await?;
+            return Ok(TransitionResolution::NewOrder {
+                resolved: ResolvedOrder {
+                    order: recreated.order,
+                    recovered_after_request_error: canceled.recovered_after_request_error,
+                },
+                recreated: true,
+            });
+        }
+
+        match self.replace_resolved(
+            &current_order.id,
+            ReplaceRequest::from_submit_style(request.style()),
+        )
+        .await?
+        {
+            super::ReplaceResolution::NewOrder(resolved) => Ok(TransitionResolution::NewOrder {
+                resolved,
+                recreated: false,
+            }),
+            super::ReplaceResolution::OriginalOrderTerminal(resolved) => {
+                Ok(TransitionResolution::OriginalOrderTerminal(resolved))
+            }
+        }
+    }
 }
 
 fn closed_legs_cashflow(legs: &[ClosedOptionLeg], structure_qty: i32) -> Decimal {
@@ -653,7 +769,7 @@ mod tests {
     use super::{
         CloseOptionLeg, CreateRequest, OptionLegRequest, OptionQuote, Order, OrderClass, OrderSide,
         OrderStatus, OrderType, PositionIntent, ReplaceRequest, SubmitOrderRequest,
-        SubmitOrderStyle, TimeInForce, WaitFor,
+        SubmitOrderStyle, TimeInForce, TransitionOrderPolicy, WaitFor,
     };
 
     #[test]
@@ -854,6 +970,59 @@ mod tests {
         assert_eq!(mleg.order_class, Some(OrderClass::Mleg));
         assert_eq!(mleg.qty, Some(Decimal::from(2)));
         assert_eq!(mleg.r#type, Some(OrderType::Market));
+    }
+
+    #[test]
+    fn auto_transition_recreates_market_limit_type_changes_and_close_mlegs() {
+        let simple_current = Order {
+            order_class: OrderClass::Simple,
+            r#type: OrderType::Limit,
+            ..Default::default()
+        };
+        let market_simple =
+            SubmitOrderRequest::simple("SPY", 1, OrderSide::Buy, SubmitOrderStyle::Market, None, None);
+        assert!(market_simple.requires_recreate(&simple_current, TransitionOrderPolicy::Auto));
+
+        let open_mleg_current = Order {
+            order_class: OrderClass::Mleg,
+            r#type: OrderType::Limit,
+            ..Default::default()
+        };
+        let close_mleg = SubmitOrderRequest::mleg(
+            1,
+            SubmitOrderStyle::Limit {
+                limit_price: Decimal::new(125, 2),
+            },
+            vec![
+                OptionLegRequest {
+                    symbol: "SPY260424C00550000".to_owned(),
+                    ratio_qty: 1,
+                    side: Some(OrderSide::Sell),
+                    position_intent: Some(PositionIntent::SellToClose),
+                },
+                OptionLegRequest {
+                    symbol: "SPY260424C00555000".to_owned(),
+                    ratio_qty: 1,
+                    side: Some(OrderSide::Buy),
+                    position_intent: Some(PositionIntent::BuyToClose),
+                },
+            ],
+        );
+        assert!(close_mleg.requires_recreate(&open_mleg_current, TransitionOrderPolicy::Auto));
+
+        let open_mleg = SubmitOrderRequest::mleg(
+            1,
+            SubmitOrderStyle::Limit {
+                limit_price: Decimal::new(125, 2),
+            },
+            vec![OptionLegRequest {
+                symbol: "SPY260424C00550000".to_owned(),
+                ratio_qty: 1,
+                side: Some(OrderSide::Buy),
+                position_intent: Some(PositionIntent::BuyToOpen),
+            }],
+        );
+        assert!(!open_mleg.requires_recreate(&open_mleg_current, TransitionOrderPolicy::Auto));
     }
 
     #[test]
