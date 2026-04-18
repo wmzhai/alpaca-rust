@@ -82,3 +82,65 @@ pub fn reconcile_signed_positions<T>(
     }
     positions.retain(|position| live_positions.get(symbol(position)).copied().unwrap_or(0) != 0);
 }
+
+#[cfg(test)]
+mod tests {
+    use std::collections::HashMap;
+
+    use super::{reconcile_signed_positions, structure_quantity};
+
+    #[derive(Clone, Debug, PartialEq, Eq)]
+    struct PositionRow {
+        contract: String,
+        qty: i32,
+    }
+
+    #[test]
+    fn structure_quantity_requires_consistent_signed_ratio() {
+        let mut live_positions = HashMap::new();
+        live_positions.insert("SPY260417C00550000".to_string(), 2);
+        live_positions.insert("SPY260417P00500000".to_string(), -2);
+
+        let quantity = structure_quantity(
+            [
+                ("SPY260417C00550000", 1),
+                ("SPY260417P00500000", -1),
+            ],
+            &live_positions,
+        );
+
+        assert_eq!(quantity, Some(2));
+    }
+
+    #[test]
+    fn reconcile_signed_positions_updates_qty_and_drops_missing_rows() {
+        let mut rows = vec![
+            PositionRow {
+                contract: "SPY260417C00550000".to_string(),
+                qty: 1,
+            },
+            PositionRow {
+                contract: "SPY260417P00500000".to_string(),
+                qty: -1,
+            },
+        ];
+
+        let mut live_positions = HashMap::new();
+        live_positions.insert("SPY260417C00550000".to_string(), 3);
+
+        reconcile_signed_positions(
+            &mut rows,
+            &live_positions,
+            |row| row.contract.as_str(),
+            |row, qty| row.qty = qty,
+        );
+
+        assert_eq!(
+            rows,
+            vec![PositionRow {
+                contract: "SPY260417C00550000".to_string(),
+                qty: 3,
+            }]
+        );
+    }
+}

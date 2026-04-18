@@ -14,6 +14,19 @@ pub struct ListRequest {
 }
 
 impl ListRequest {
+    #[must_use]
+    pub fn option_records(after_date: Option<&str>) -> Self {
+        Self {
+            activity_types: Some(vec!["OPASN".to_owned(), "OPEXP".to_owned()]),
+            date: None,
+            until: None,
+            after: after_date.map(ToOwned::to_owned),
+            direction: None,
+            page_size: Some(100),
+            page_token: None,
+        }
+    }
+
     pub(crate) fn into_query(self) -> Result<Vec<(String, String)>, Error> {
         let mut query = QueryWriter::default();
         if let Some(activity_types) = validate_activity_types(self.activity_types)? {
@@ -84,4 +97,28 @@ fn validate_required_text(name: &str, value: &str) -> Result<String, Error> {
     }
 
     Ok(trimmed.to_owned())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::ListRequest;
+
+    #[test]
+    fn option_records_request_sets_default_filters() {
+        let request = ListRequest::option_records(None);
+
+        assert_eq!(
+            request.activity_types,
+            Some(vec!["OPASN".to_string(), "OPEXP".to_string()])
+        );
+        assert_eq!(request.page_size, Some(100));
+        assert_eq!(request.after, None);
+    }
+
+    #[test]
+    fn option_records_request_preserves_explicit_after_date() {
+        let request = ListRequest::option_records(Some("2026-04-01"));
+
+        assert_eq!(request.after.as_deref(), Some("2026-04-01"));
+    }
 }

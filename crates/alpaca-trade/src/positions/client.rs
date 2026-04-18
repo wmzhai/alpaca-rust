@@ -7,8 +7,9 @@ use std::collections::HashMap;
 
 use crate::client::ClientInner;
 use crate::positions::{
-    option_qty_map, CloseAllRequest, ClosePositionBody, ClosePositionRequest,
-    ClosePositionResult, DoNotExerciseAccepted, ExercisePositionBody, Position,
+    option_qty_map, reconcile_signed_positions, structure_quantity, CloseAllRequest,
+    ClosePositionBody, ClosePositionRequest, ClosePositionResult, DoNotExerciseAccepted,
+    ExercisePositionBody, Position,
 };
 use crate::{Error, positions::request};
 
@@ -35,6 +36,25 @@ impl PositionsClient {
     pub async fn option_qty_map(&self) -> Result<HashMap<String, i32>, Error> {
         let positions = self.list().await?;
         Ok(option_qty_map(&positions))
+    }
+
+    pub async fn structure_quantity<'a>(
+        &self,
+        template_positions: impl IntoIterator<Item = (&'a str, i32)>,
+    ) -> Result<Option<i32>, Error> {
+        let live_positions = self.option_qty_map().await?;
+        Ok(structure_quantity(template_positions, &live_positions))
+    }
+
+    pub async fn reconcile_signed_positions<T>(
+        &self,
+        positions: &mut Vec<T>,
+        symbol: impl Fn(&T) -> &str + Copy,
+        set_signed_qty: impl FnMut(&mut T, i32),
+    ) -> Result<(), Error> {
+        let live_positions = self.option_qty_map().await?;
+        reconcile_signed_positions(positions, &live_positions, symbol, set_signed_qty);
+        Ok(())
     }
 
     pub async fn get(&self, symbol_or_asset_id: &str) -> Result<Position, Error> {
