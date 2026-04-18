@@ -14,6 +14,23 @@ pub enum SubmitOrderStyle {
 }
 
 #[derive(Clone, Debug, PartialEq)]
+pub enum SubmitOrderRequest {
+    Simple {
+        symbol: String,
+        qty: i32,
+        side: OrderSide,
+        style: SubmitOrderStyle,
+        time_in_force: Option<TimeInForce>,
+        extended_hours: Option<bool>,
+    },
+    Mleg {
+        qty: i32,
+        style: SubmitOrderStyle,
+        legs: Vec<OptionLegRequest>,
+    },
+}
+
+#[derive(Clone, Debug, PartialEq)]
 pub struct OptionQuote {
     pub bid: Decimal,
     pub ask: Decimal,
@@ -349,6 +366,68 @@ impl SubmitOrderStyle {
     }
 }
 
+impl SubmitOrderRequest {
+    #[must_use]
+    pub fn simple(
+        symbol: &str,
+        qty: i32,
+        side: OrderSide,
+        style: SubmitOrderStyle,
+        time_in_force: Option<TimeInForce>,
+        extended_hours: Option<bool>,
+    ) -> Self {
+        Self::Simple {
+            symbol: symbol.to_owned(),
+            qty,
+            side,
+            style,
+            time_in_force,
+            extended_hours,
+        }
+    }
+
+    #[must_use]
+    pub fn mleg(qty: i32, style: SubmitOrderStyle, legs: Vec<OptionLegRequest>) -> Self {
+        Self::Mleg { qty, style, legs }
+    }
+
+    #[must_use]
+    pub fn default_wait_for(&self) -> WaitFor {
+        match self.style() {
+            SubmitOrderStyle::Market => WaitFor::Filled,
+            SubmitOrderStyle::Limit { .. } => WaitFor::Stable,
+        }
+    }
+
+    #[must_use]
+    pub fn style(&self) -> SubmitOrderStyle {
+        match self {
+            Self::Simple { style, .. } | Self::Mleg { style, .. } => *style,
+        }
+    }
+
+    pub fn into_create_request(self) -> Result<CreateRequest, Error> {
+        match self {
+            Self::Simple {
+                symbol,
+                qty,
+                side,
+                style,
+                time_in_force,
+                extended_hours,
+            } => CreateRequest::simple(
+                &symbol,
+                qty,
+                side,
+                style,
+                time_in_force,
+                extended_hours,
+            ),
+            Self::Mleg { qty, style, legs } => CreateRequest::mleg(qty, style, legs),
+        }
+    }
+}
+
 impl CreateRequest {
     pub fn simple(
         symbol: &str,
@@ -433,6 +512,15 @@ impl ReplaceRequest {
 }
 
 impl OrdersClient {
+    pub async fn submit_resolved(
+        &self,
+        request: SubmitOrderRequest,
+        wait_for: Option<WaitFor>,
+    ) -> Result<crate::orders::ResolvedOrder, Error> {
+        let target = wait_for.unwrap_or_else(|| request.default_wait_for());
+        self.create_resolved(request.into_create_request()?, target).await
+    }
+
     pub async fn close_option_legs(
         &self,
         qty: i32,
@@ -564,7 +652,8 @@ mod tests {
 
     use super::{
         CloseOptionLeg, CreateRequest, OptionLegRequest, OptionQuote, Order, OrderClass, OrderSide,
-        OrderStatus, OrderType, PositionIntent, ReplaceRequest, SubmitOrderStyle, TimeInForce,
+        OrderStatus, OrderType, PositionIntent, ReplaceRequest, SubmitOrderRequest,
+        SubmitOrderStyle, TimeInForce, WaitFor,
     };
 
     #[test]
@@ -695,6 +784,76 @@ mod tests {
             limit_price: Decimal::new(333, 2),
         });
         assert_eq!(limit.limit_price, Some(Decimal::new(333, 2)));
+    }
+
+    #[test]
+    fn submit_request_defaults_wait_target_from_style() {
+        let market = SubmitOrderRequest::simple(
+            "SPY",
+            1,
+            OrderSide::Buy,
+            SubmitOrderStyle::Market,
+            None,
+            None,
+        );
+        assert_eq!(market.default_wait_for(), WaitFor::Filled);
+
+        let limit = SubmitOrderRequest::mleg(
+            1,
+            SubmitOrderStyle::Limit {
+                limit_price: Decimal::new(125, 2),
+            },
+            vec![OptionLegRequest {
+                symbol: "SPY260424C00550000".to_owned(),
+                ratio_qty: 1,
+                side: Some(OrderSide::Buy),
+                position_intent: Some(PositionIntent::BuyToOpen),
+            }],
+        );
+        assert_eq!(limit.default_wait_for(), WaitFor::Stable);
+    }
+
+    #[test]
+    fn submit_request_converts_into_create_request() {
+        let simple = SubmitOrderRequest::simple(
+            "SPY",
+            2,
+            OrderSide::Buy,
+            SubmitOrderStyle::Limit {
+                limit_price: Decimal::new(321, 2),
+            },
+            Some(TimeInForce::Day),
+            Some(true),
+        )
+        .into_create_request()
+        .expect("simple submit request should build");
+        assert_eq!(simple.symbol.as_deref(), Some("SPY"));
+        assert_eq!(simple.limit_price, Some(Decimal::new(321, 2)));
+        assert_eq!(simple.extended_hours, Some(true));
+
+        let mleg = SubmitOrderRequest::mleg(
+            2,
+            SubmitOrderStyle::Market,
+            vec![
+                OptionLegRequest {
+                    symbol: "SPY260424C00550000".to_owned(),
+                    ratio_qty: 1,
+                    side: Some(OrderSide::Buy),
+                    position_intent: Some(PositionIntent::BuyToOpen),
+                },
+                OptionLegRequest {
+                    symbol: "SPY260424C00555000".to_owned(),
+                    ratio_qty: 1,
+                    side: Some(OrderSide::Sell),
+                    position_intent: Some(PositionIntent::SellToOpen),
+                },
+            ],
+        )
+        .into_create_request()
+        .expect("mleg submit request should build");
+        assert_eq!(mleg.order_class, Some(OrderClass::Mleg));
+        assert_eq!(mleg.qty, Some(Decimal::from(2)));
+        assert_eq!(mleg.r#type, Some(OrderType::Market));
     }
 
     #[test]

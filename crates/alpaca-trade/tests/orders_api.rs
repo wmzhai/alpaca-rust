@@ -20,8 +20,8 @@ use alpaca_trade::{
     orders::{
         CloseOptionLeg, CloseOptionLegsStatus, CreateRequest, ListRequest, OptionLegRequest,
         OptionQuote, OrderClass, OrderSide, OrderStatus, OrderType, PositionIntent,
-        QueryOrderStatus, ReplaceRequest, ReplaceResolution, StopLoss, SubmitOrderStyle,
-        TakeProfit, TimeInForce, WaitFor,
+        QueryOrderStatus, ReplaceRequest, ReplaceResolution, StopLoss, SubmitOrderRequest,
+        SubmitOrderStyle, TakeProfit, TimeInForce, WaitFor,
     },
 };
 use live_support::can_submit_live_paper_orders;
@@ -381,7 +381,7 @@ async fn orders_mock_mid_price_fill_contract() {
 }
 
 #[tokio::test]
-async fn orders_create_resolved_market_mock() {
+async fn orders_submit_resolved_market_mock() {
     let Some(harness) = target_support::build_trade_test_harness(TradeTestTarget::Mock).await
     else {
         return;
@@ -392,20 +392,19 @@ async fn orders_create_resolved_market_mock() {
     let resolved = harness
         .trade_client()
         .orders()
-        .create_resolved(
-            CreateRequest::simple(
+        .submit_resolved(
+            SubmitOrderRequest::simple(
                 ORDER_TEST_SYMBOL,
                 1,
                 OrderSide::Buy,
                 SubmitOrderStyle::Market,
                 None,
                 None,
-            )
-            .expect("simple market request should build"),
-            WaitFor::Filled,
+            ),
+            None,
         )
         .await
-        .expect("create_resolved should submit and wait for fill");
+        .expect("submit_resolved should submit and wait for fill");
 
     assert_eq!(resolved.order.status, OrderStatus::Filled);
     assert!(resolved.order.filled_avg_price.is_some());
@@ -421,7 +420,7 @@ async fn orders_create_resolved_market_mock() {
 }
 
 #[tokio::test]
-async fn orders_create_resolved_limit_mock() {
+async fn orders_submit_resolved_limit_mock() {
     let Some(harness) = target_support::build_trade_test_harness(TradeTestTarget::Mock).await
     else {
         return;
@@ -435,20 +434,19 @@ async fn orders_create_resolved_limit_mock() {
     let resolved = harness
         .trade_client()
         .orders()
-        .create_resolved(
-            CreateRequest::simple(
+        .submit_resolved(
+            SubmitOrderRequest::simple(
                 ORDER_TEST_SYMBOL,
                 1,
                 OrderSide::Buy,
                 SubmitOrderStyle::Limit { limit_price },
                 None,
                 None,
-            )
-            .expect("simple limit request should build"),
-            WaitFor::Stable,
+            ),
+            None,
         )
         .await
-        .expect("create_resolved should submit and wait for stable status");
+        .expect("submit_resolved should submit and wait for stable status");
 
     assert!(
         matches!(
@@ -469,6 +467,59 @@ async fn orders_create_resolved_limit_mock() {
         canceled.order.status,
         OrderStatus::Canceled | OrderStatus::Filled
     ));
+}
+
+#[tokio::test]
+async fn orders_submit_resolved_mleg_market_mock() {
+    let Some(harness) = target_support::build_trade_test_harness(TradeTestTarget::Mock).await
+    else {
+        return;
+    };
+
+    clear_option_universe_cache().await;
+    let spread = discover_mleg_call_spread(harness.data_client(), ORDER_TEST_SYMBOL)
+        .await
+        .expect("mock call spread should be discoverable");
+
+    for leg in &spread.legs {
+        ensure_symbol_flat(&harness, &leg.symbol).await;
+    }
+
+    let resolved = harness
+        .trade_client()
+        .orders()
+        .submit_resolved(
+            SubmitOrderRequest::mleg(2, SubmitOrderStyle::Market, spread.legs.clone()),
+            None,
+        )
+        .await
+        .expect("submit_resolved should submit mleg market order and wait for fill");
+
+    assert_eq!(resolved.order.status, OrderStatus::Filled);
+    assert_eq!(resolved.order.order_class, OrderClass::Mleg);
+    assert!(
+        resolved.order.legs.as_ref().is_some_and(|legs| !legs.is_empty()),
+        "filled multi-leg order should include leg details"
+    );
+
+    for leg in spread.legs {
+        let close_request = CreateRequest::simple(
+            &leg.symbol,
+            2,
+            reverse_order_side(leg.side.expect("leg side should exist")),
+            SubmitOrderStyle::Market,
+            None,
+            None,
+        )
+        .expect("close request should build");
+        let closed = harness
+            .trade_client()
+            .orders()
+            .create_resolved(close_request, WaitFor::Filled)
+            .await
+            .expect("mock option close should fill");
+        assert_eq!(closed.order.status, OrderStatus::Filled);
+    }
 }
 
 #[tokio::test]
@@ -2666,6 +2717,14 @@ async fn submit_mleg_market_order(
         .await?;
 
     wait_for_order_status(harness, &created.id, OrderStatus::Filled).await
+}
+
+fn reverse_order_side(side: OrderSide) -> OrderSide {
+    match side {
+        OrderSide::Buy => OrderSide::Sell,
+        OrderSide::Sell => OrderSide::Buy,
+        OrderSide::Unspecified => OrderSide::Unspecified,
+    }
 }
 
 async fn close_filled_mleg_legs(
