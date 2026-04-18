@@ -155,6 +155,20 @@ pub mod price_string_contract {
 
     const PRICE_SCALE: u32 = 2;
 
+    pub fn serialize<S>(value: &Decimal, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serialize_decimal(value, serializer)
+    }
+
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<Decimal, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        deserialize_scaled_decimal_from_string_or_number(deserializer, PRICE_SCALE)
+    }
+
     pub fn serialize_decimal<S>(value: &Decimal, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
@@ -178,6 +192,13 @@ pub mod price_string_contract {
 
 pub mod number_contract {
     use super::*;
+
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<Decimal, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        deserialize_decimal_from_string_or_number(deserializer)
+    }
 
     pub fn serialize_decimal<S>(value: &Decimal, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -209,42 +230,22 @@ pub mod number_contract {
             ))
         })
     }
-}
 
-pub mod option_float_contract {
-    use super::*;
+    pub mod option_decimal {
+        use super::*;
 
-    pub fn serialize<S>(value: &Option<Decimal>, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        number_contract::serialize_option_decimal(value, serializer)
-    }
+        pub fn serialize<S>(value: &Option<Decimal>, serializer: S) -> Result<S::Ok, S::Error>
+        where
+            S: Serializer,
+        {
+            super::serialize_option_decimal(value, serializer)
+        }
 
-    pub fn deserialize<'de, D>(deserializer: D) -> Result<Option<Decimal>, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        deserialize_option_decimal_from_string_or_number(deserializer)
-    }
-}
-
-pub mod string_2 {
-    use super::*;
-
-    const SCALE: u32 = 2;
-
-    pub fn serialize<S>(value: &Decimal, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        serializer.serialize_str(&format(*value, SCALE))
-    }
-
-    pub fn deserialize<'de, D>(deserializer: D) -> Result<Decimal, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        deserialize_scaled_decimal_from_string_or_number(deserializer, SCALE)
+        pub fn deserialize<'de, D>(deserializer: D) -> Result<Option<Decimal>, D::Error>
+        where
+            D: Deserializer<'de>,
+        {
+            deserialize_option_decimal_from_string_or_number(deserializer)
+        }
     }
 }
