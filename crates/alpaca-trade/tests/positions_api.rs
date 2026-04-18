@@ -12,8 +12,8 @@ use std::collections::BTreeSet;
 use alpaca_trade::{
     orders::{CreateRequest, OrderSide, OrderType, TimeInForce},
     positions::{
-        CloseAllRequest, ClosePositionRequest, Position, SignedPositionLike, option_qty_map,
-        reconcile_signed_positions, structure_quantity,
+        CloseAllRequest, ClosePositionRequest, Position, option_qty_map, reconcile_signed_positions,
+        structure_quantity,
     },
 };
 use rust_decimal::Decimal;
@@ -31,20 +31,6 @@ const POSITION_TEST_SYMBOL: &str = "SPY";
 struct TemplatePosition {
     symbol: String,
     qty: i32,
-}
-
-impl SignedPositionLike for TemplatePosition {
-    fn symbol(&self) -> &str {
-        &self.symbol
-    }
-
-    fn signed_qty(&self) -> i32 {
-        self.qty
-    }
-
-    fn set_signed_qty(&mut self, qty: i32) {
-        self.qty = qty;
-    }
 }
 
 #[test]
@@ -81,7 +67,13 @@ fn positions_convenience_maps_resolves_and_reconciles_option_shapes() {
             qty: -1,
         },
     ];
-    assert_eq!(structure_quantity(&template, &mapped), Some(2));
+    assert_eq!(
+        structure_quantity(
+            template.iter().map(|position| (position.symbol.as_str(), position.qty)),
+            &mapped,
+        ),
+        Some(2)
+    );
 
     let mut reconciled = vec![
         TemplatePosition {
@@ -97,7 +89,12 @@ fn positions_convenience_maps_resolves_and_reconciles_option_shapes() {
             qty: 1,
         },
     ];
-    reconcile_signed_positions(&mut reconciled, &mapped);
+    reconcile_signed_positions(
+        &mut reconciled,
+        &mapped,
+        |position| position.symbol.as_str(),
+        |position, qty| position.qty = qty,
+    );
     assert_eq!(
         reconciled,
         vec![

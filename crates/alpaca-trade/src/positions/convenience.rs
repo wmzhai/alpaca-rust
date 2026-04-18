@@ -4,12 +4,6 @@ use rust_decimal::prelude::ToPrimitive;
 
 use crate::positions::Position;
 
-pub trait SignedPositionLike {
-    fn symbol(&self) -> &str;
-    fn signed_qty(&self) -> i32;
-    fn set_signed_qty(&mut self, qty: i32);
-}
-
 #[must_use]
 pub fn option_qty_map(positions: &[Position]) -> HashMap<String, i32> {
     let mut mapped = HashMap::new();
@@ -30,18 +24,17 @@ pub fn option_qty_map(positions: &[Position]) -> HashMap<String, i32> {
 }
 
 #[must_use]
-pub fn structure_quantity<T: SignedPositionLike>(
-    template_positions: &[T],
+pub fn structure_quantity<'a>(
+    template_positions: impl IntoIterator<Item = (&'a str, i32)>,
     live_positions: &HashMap<String, i32>,
 ) -> Option<i32> {
     let mut structure_qty: Option<i32> = None;
 
-    for position in template_positions
-        .iter()
-        .filter(|position| position.signed_qty() != 0)
+    for (symbol, template_qty) in template_positions
+        .into_iter()
+        .filter(|(_, signed_qty)| *signed_qty != 0)
     {
-        let template_qty = position.signed_qty();
-        let live_qty = live_positions.get(position.symbol()).copied().unwrap_or(0);
+        let live_qty = live_positions.get(symbol).copied().unwrap_or(0);
         if live_qty == 0 {
             continue;
         }
@@ -77,13 +70,15 @@ pub fn structure_quantity<T: SignedPositionLike>(
     structure_qty
 }
 
-pub fn reconcile_signed_positions<T: SignedPositionLike>(
+pub fn reconcile_signed_positions<T>(
     positions: &mut Vec<T>,
     live_positions: &HashMap<String, i32>,
+    symbol: impl Fn(&T) -> &str + Copy,
+    mut set_signed_qty: impl FnMut(&mut T, i32),
 ) {
     for position in positions.iter_mut() {
-        let live_qty = live_positions.get(position.symbol()).copied().unwrap_or(0);
-        position.set_signed_qty(live_qty);
+        let live_qty = live_positions.get(symbol(position)).copied().unwrap_or(0);
+        set_signed_qty(position, live_qty);
     }
-    positions.retain(|position| position.signed_qty() != 0);
+    positions.retain(|position| live_positions.get(symbol(position)).copied().unwrap_or(0) != 0);
 }
