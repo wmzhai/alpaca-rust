@@ -3,11 +3,12 @@ use std::sync::Arc;
 
 use alpaca_http::{NoContent, RequestParts};
 use reqwest::Method;
+use std::collections::HashMap;
 
 use crate::client::ClientInner;
 use crate::positions::{
-    CloseAllRequest, ClosePositionBody, ClosePositionRequest, ClosePositionResult,
-    DoNotExerciseAccepted, ExercisePositionBody, Position,
+    option_qty_map, CloseAllRequest, ClosePositionBody, ClosePositionRequest,
+    ClosePositionResult, DoNotExerciseAccepted, ExercisePositionBody, Position,
 };
 use crate::{Error, positions::request};
 
@@ -29,6 +30,11 @@ impl PositionsClient {
             .send_json::<Vec<Position>>(request)
             .await
             .map(|response| response.into_body())
+    }
+
+    pub async fn option_qty_map(&self) -> Result<HashMap<String, i32>, Error> {
+        let positions = self.list().await?;
+        Ok(option_qty_map(&positions))
     }
 
     pub async fn get(&self, symbol_or_asset_id: &str) -> Result<Position, Error> {

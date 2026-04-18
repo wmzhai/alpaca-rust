@@ -11,7 +11,10 @@ use std::collections::BTreeSet;
 
 use alpaca_trade::{
     orders::{CreateRequest, OrderSide, OrderType, TimeInForce},
-    positions::{CloseAllRequest, ClosePositionRequest},
+    positions::{
+        CloseAllRequest, ClosePositionRequest, Position, SignedPositionLike, option_qty_map,
+        reconcile_signed_positions, structure_quantity,
+    },
 };
 use rust_decimal::Decimal;
 use serde::Serialize;
@@ -23,6 +26,92 @@ use trade_state_support::{
 use order_support::unique_client_order_id;
 
 const POSITION_TEST_SYMBOL: &str = "SPY";
+
+#[derive(Clone, Debug, PartialEq)]
+struct TemplatePosition {
+    symbol: String,
+    qty: i32,
+}
+
+impl SignedPositionLike for TemplatePosition {
+    fn symbol(&self) -> &str {
+        &self.symbol
+    }
+
+    fn signed_qty(&self) -> i32 {
+        self.qty
+    }
+
+    fn set_signed_qty(&mut self, qty: i32) {
+        self.qty = qty;
+    }
+}
+
+#[test]
+fn positions_convenience_maps_resolves_and_reconciles_option_shapes() {
+    let live_positions = vec![
+        Position {
+            symbol: "SPY260417C00550000".to_string(),
+            qty: Decimal::from(2),
+            ..Position::default()
+        },
+        Position {
+            symbol: "SPY260417P00530000".to_string(),
+            qty: Decimal::from(-2),
+            ..Position::default()
+        },
+        Position {
+            symbol: "SPY".to_string(),
+            qty: Decimal::from(10),
+            ..Position::default()
+        },
+    ];
+    let mapped = option_qty_map(&live_positions);
+    assert_eq!(mapped.get("SPY260417C00550000"), Some(&2));
+    assert_eq!(mapped.get("SPY260417P00530000"), Some(&-2));
+    assert!(!mapped.contains_key("SPY"));
+
+    let template = vec![
+        TemplatePosition {
+            symbol: "SPY260417C00550000".to_string(),
+            qty: 1,
+        },
+        TemplatePosition {
+            symbol: "SPY260417P00530000".to_string(),
+            qty: -1,
+        },
+    ];
+    assert_eq!(structure_quantity(&template, &mapped), Some(2));
+
+    let mut reconciled = vec![
+        TemplatePosition {
+            symbol: "SPY260417C00550000".to_string(),
+            qty: 1,
+        },
+        TemplatePosition {
+            symbol: "SPY260417P00530000".to_string(),
+            qty: -1,
+        },
+        TemplatePosition {
+            symbol: "SPY260417C00999000".to_string(),
+            qty: 1,
+        },
+    ];
+    reconcile_signed_positions(&mut reconciled, &mapped);
+    assert_eq!(
+        reconciled,
+        vec![
+            TemplatePosition {
+                symbol: "SPY260417C00550000".to_string(),
+                qty: 2,
+            },
+            TemplatePosition {
+                symbol: "SPY260417P00530000".to_string(),
+                qty: -2,
+            },
+        ]
+    );
+}
 
 #[tokio::test]
 async fn positions_equity_lifecycle_live_paper() {
