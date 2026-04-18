@@ -1446,19 +1446,16 @@ fn apply_mleg_fill_rules(
     market_quotes: &HashMap<String, InstrumentSnapshot>,
 ) {
     let mid = mleg_mid_price(order, request_side, market_quotes);
-    let marketable_reference = mleg_marketable_reference(order, request_side, market_quotes);
     let fill_price = mid.and_then(|mid| match order.r#type {
         OrderType::Market => Some(mid),
         OrderType::Limit => match request_side {
             OrderSide::Buy | OrderSide::Unspecified => order
                 .limit_price
-                .zip(marketable_reference)
-                .filter(|(limit_price, reference)| *limit_price >= *reference)
+                .filter(|limit_price| *limit_price >= mid)
                 .map(|_| mid),
             OrderSide::Sell => order
                 .limit_price
-                .zip(marketable_reference)
-                .filter(|(limit_price, reference)| *limit_price <= *reference)
+                .filter(|limit_price| *limit_price <= mid)
                 .map(|_| mid),
         },
         OrderType::Stop
@@ -1697,29 +1694,6 @@ fn mleg_mid_price(
         market_quotes,
         |instrument, leg_side| match leg_side {
             OrderSide::Buy | OrderSide::Sell => Some(instrument.mid_price()),
-            OrderSide::Unspecified => None,
-        },
-    )?;
-
-    let normalized_total = match request_side {
-        OrderSide::Buy | OrderSide::Unspecified => raw_total,
-        OrderSide::Sell => -raw_total,
-    };
-
-    Some(normalized_total.round_dp(2))
-}
-
-fn mleg_marketable_reference(
-    order: &Order,
-    request_side: &OrderSide,
-    market_quotes: &HashMap<String, InstrumentSnapshot>,
-) -> Option<Decimal> {
-    let raw_total = mleg_price_total(
-        order,
-        market_quotes,
-        |instrument, leg_side| match leg_side {
-            OrderSide::Buy => Some(instrument.ask),
-            OrderSide::Sell => Some(instrument.bid),
             OrderSide::Unspecified => None,
         },
     )?;
@@ -2383,7 +2357,6 @@ mod tests {
             ),
         ]);
         let expected_mid = Decimal::new(200, 2);
-        let expected_marketable_reference = Decimal::new(240, 2);
 
         let mut market_order = build_test_mleg_order(OrderType::Market, None);
         apply_mleg_fill_rules(&mut market_order, &OrderSide::Buy, &market_quotes);
@@ -2397,16 +2370,29 @@ mod tests {
         assert_eq!(filled_legs[0].filled_avg_price, Some(Decimal::new(320, 2)));
         assert_eq!(filled_legs[1].filled_avg_price, Some(Decimal::new(120, 2)));
 
-        let mut limit_order =
-            build_test_mleg_order(OrderType::Limit, Some(expected_marketable_reference));
+        let mut limit_order = build_test_mleg_order(OrderType::Limit, Some(expected_mid));
         apply_mleg_fill_rules(&mut limit_order, &OrderSide::Buy, &market_quotes);
         assert_eq!(limit_order.status, OrderStatus::Filled);
         assert_eq!(limit_order.filled_avg_price, Some(expected_mid));
 
-        let mut resting_order = build_test_mleg_order(OrderType::Limit, Some(expected_mid));
+        let mut resting_order =
+            build_test_mleg_order(OrderType::Limit, Some(expected_mid - Decimal::new(1, 2)));
         apply_mleg_fill_rules(&mut resting_order, &OrderSide::Buy, &market_quotes);
         assert_eq!(resting_order.status, OrderStatus::New);
         assert_eq!(resting_order.filled_avg_price, None);
+
+        let mut sell_limit_order = build_test_mleg_order(OrderType::Limit, Some(-expected_mid));
+        apply_mleg_fill_rules(&mut sell_limit_order, &OrderSide::Sell, &market_quotes);
+        assert_eq!(sell_limit_order.status, OrderStatus::Filled);
+        assert_eq!(sell_limit_order.filled_avg_price, Some(-expected_mid));
+
+        let mut sell_resting_order = build_test_mleg_order(
+            OrderType::Limit,
+            Some(-expected_mid + Decimal::new(1, 2)),
+        );
+        apply_mleg_fill_rules(&mut sell_resting_order, &OrderSide::Sell, &market_quotes);
+        assert_eq!(sell_resting_order.status, OrderStatus::New);
+        assert_eq!(sell_resting_order.filled_avg_price, None);
     }
 
     #[test]
