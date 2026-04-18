@@ -5,6 +5,7 @@ use super::OrderStatus;
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum OrderTerminalState {
     Filled,
+    Failed,
     Canceled,
     Expired,
     Rejected,
@@ -14,6 +15,7 @@ impl OrderTerminalState {
     pub fn as_str(&self) -> &'static str {
         match self {
             Self::Filled => "filled",
+            Self::Failed => "failed",
             Self::Canceled => "canceled",
             Self::Expired => "expired",
             Self::Rejected => "rejected",
@@ -26,6 +28,7 @@ impl OrderStatus {
     pub fn terminal_state(self) -> Option<OrderTerminalState> {
         match self {
             Self::Filled => Some(OrderTerminalState::Filled),
+            Self::Failed => Some(OrderTerminalState::Failed),
             Self::Canceled => Some(OrderTerminalState::Canceled),
             Self::Expired => Some(OrderTerminalState::Expired),
             Self::Rejected => Some(OrderTerminalState::Rejected),
@@ -43,6 +46,7 @@ impl OrderStatus {
 pub enum CancelOutcomeKind {
     Canceled,
     FilledBeforeCancelCompleted,
+    Failed,
     Expired,
     Rejected,
 }
@@ -51,6 +55,7 @@ impl CancelOutcomeKind {
     pub fn from_terminal_state(state: OrderTerminalState) -> Self {
         match state {
             OrderTerminalState::Filled => Self::FilledBeforeCancelCompleted,
+            OrderTerminalState::Failed => Self::Failed,
             OrderTerminalState::Canceled => Self::Canceled,
             OrderTerminalState::Expired => Self::Expired,
             OrderTerminalState::Rejected => Self::Rejected,
@@ -75,6 +80,7 @@ impl<T> CancelOutcome<T> {
         match self.kind {
             CancelOutcomeKind::Canceled => OrderTerminalState::Canceled,
             CancelOutcomeKind::FilledBeforeCancelCompleted => OrderTerminalState::Filled,
+            CancelOutcomeKind::Failed => OrderTerminalState::Failed,
             CancelOutcomeKind::Expired => OrderTerminalState::Expired,
             CancelOutcomeKind::Rejected => OrderTerminalState::Rejected,
         }
@@ -146,5 +152,38 @@ impl<T> UpdateOutcome<T> {
             self.kind,
             UpdateOutcomeKind::OldOrderFilledBeforeReplace | UpdateOutcomeKind::ReplacedNewOrderFilled
         )
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{
+        CancelOutcomeKind, OrderStatus, OrderTerminalState, UpdateOutcomeKind,
+    };
+
+    #[test]
+    fn failed_status_maps_into_terminal_state() {
+        assert_eq!(
+            OrderStatus::parse("failed")
+                .ok()
+                .and_then(OrderStatus::terminal_state),
+            Some(OrderTerminalState::Failed)
+        );
+    }
+
+    #[test]
+    fn failed_terminal_state_round_trips_through_cancel_outcome() {
+        let kind = CancelOutcomeKind::from_terminal_state(OrderTerminalState::Failed);
+        assert_eq!(kind, CancelOutcomeKind::Failed);
+    }
+
+    #[test]
+    fn failed_new_order_status_maps_into_replace_failure() {
+        assert_eq!(
+            UpdateOutcomeKind::from_new_order_status("failed"),
+            Some(UpdateOutcomeKind::ReplaceFailedNewOrderTerminal(
+                OrderTerminalState::Failed
+            ))
+        );
     }
 }
