@@ -15,9 +15,9 @@ pub struct ListRequest {
 
 impl ListRequest {
     #[must_use]
-    pub fn option_records(after_date: Option<&str>) -> Self {
+    pub fn for_types(activity_types: &[&str], after_date: Option<&str>) -> Self {
         Self {
-            activity_types: Some(vec!["OPASN".to_owned(), "OPEXP".to_owned()]),
+            activity_types: Some(activity_types.iter().map(|value| (*value).to_owned()).collect()),
             date: None,
             until: None,
             after: after_date.map(ToOwned::to_owned),
@@ -25,6 +25,11 @@ impl ListRequest {
             page_size: Some(100),
             page_token: None,
         }
+    }
+
+    #[must_use]
+    pub fn option_records(after_date: Option<&str>) -> Self {
+        Self::for_types(&["OPASN", "OPEXP"], after_date)
     }
 
     pub(crate) fn into_query(self) -> Result<Vec<(String, String)>, Error> {
@@ -102,6 +107,18 @@ fn validate_required_text(name: &str, value: &str) -> Result<String, Error> {
 #[cfg(test)]
 mod tests {
     use super::ListRequest;
+
+    #[test]
+    fn for_types_sets_filters_and_page_size() {
+        let request = ListRequest::for_types(&["DIV", "DIVNRA"], Some("2026-04-01"));
+
+        assert_eq!(
+            request.activity_types,
+            Some(vec!["DIV".to_string(), "DIVNRA".to_string()])
+        );
+        assert_eq!(request.after.as_deref(), Some("2026-04-01"));
+        assert_eq!(request.page_size, Some(100));
+    }
 
     #[test]
     fn option_records_request_sets_default_filters() {
