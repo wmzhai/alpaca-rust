@@ -56,6 +56,7 @@ Current mock-focused coverage:
 - route coverage: `crates/alpaca-mock/tests/app_routes.rs`
 - market-data bridge coverage: `crates/alpaca-mock/tests/market_data_real_api.rs`
 - contract-style mock verification in `alpaca-trade`:
+  - deterministic mid-price fill contract in `crates/alpaca-trade/tests/orders_api.rs` via `orders_mock_mid_price_fill_contract`, covering stock, single-option, and multi-leg create/replace flows at mid or composite-mid
   - `crates/alpaca-trade/tests/orders_mock_contract.rs`
   - `crates/alpaca-trade/tests/positions_mock_contract.rs`
 
@@ -73,4 +74,5 @@ npm run build --prefix website
 
 - mock verification does not replace official live API verification
 - market-data-backed mock flows still depend on real `alpaca-data` calls
+- deterministic mock contract tests may seed explicit mock snapshots to lock fill semantics; they still do not replace live verification
 - tests should not silently fall back to invented market data

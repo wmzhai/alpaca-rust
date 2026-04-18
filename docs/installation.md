@@ -8,7 +8,7 @@ Market data:
 
 ```toml
 [dependencies]
-alpaca-data = "0.24.4"
+alpaca-data = "0.24.5"
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
 ```
 
@@ -16,7 +16,7 @@ Trading:
 
 ```toml
 [dependencies]
-alpaca-trade = "0.24.4"
+alpaca-trade = "0.24.5"
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
 ```
 

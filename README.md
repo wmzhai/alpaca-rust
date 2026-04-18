@@ -67,7 +67,7 @@ Use `alpaca-data` for market data:
 
 ```toml
 [dependencies]
-alpaca-data = "0.24.4"
+alpaca-data = "0.24.5"
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
 ```
 
@@ -85,7 +85,7 @@ Use `alpaca-trade` for trading resources:
 
 ```toml
 [dependencies]
-alpaca-trade = "0.24.4"
+alpaca-trade = "0.24.5"
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
 ```
 
@@ -117,6 +117,12 @@ After it starts, point trading clients at:
 ```bash
 ALPACA_TRADE_BASE_URL=http://127.0.0.1:3847
 ```
+
+Mock execution semantics are intentionally simple:
+
+- stock and single-option marketable orders fill at mid price
+- multi-leg marketable orders fill at composite mid price
+- limit orders become eligible as soon as the submitted limit reaches that mid or composite mid
 
 ## Project Status
 

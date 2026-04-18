@@ -109,6 +109,7 @@ Run the release-confidence live suite appropriate for the current market state:
 
 - `cargo test -p alpaca-data --tests -- --nocapture`
 - `cargo test -p alpaca-trade --test mainline_api -- --nocapture`
+- `cargo test -p alpaca-trade --test orders_api orders_mock_mid_price_fill_contract -- --nocapture`
 - `cargo test -p alpaca-trade --test orders_mock_contract -- --nocapture`
 - `cargo test -p alpaca-trade --test positions_mock_contract -- --nocapture`
 - `cargo test -p alpaca-mock -- --nocapture`

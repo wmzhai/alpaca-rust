@@ -84,6 +84,7 @@ Clears the current mock state and fault injections.
 ### `POST /admin/faults/http`
 
 Injects a transport-like HTTP fault for authenticated trading routes.
+The injected fault is one-shot: it is consumed by the next authenticated trading request and then cleared.
 
 Example:
 
@@ -93,6 +94,15 @@ Example:
   "message": "temporary outage"
 }
 ```
+
+## Fill Behavior
+
+The mock server keeps fill rules intentionally narrow and deterministic:
+
+- stock and single-option market orders fill at mid price
+- stock and single-option limit orders fill at mid price once the submitted limit reaches that mid price
+- multi-leg market and limit orders use the composite mid price across all legs
+- when a multi-leg limit reaches the composite mid price, the fill price is still that composite mid
 
 ## Scope
 

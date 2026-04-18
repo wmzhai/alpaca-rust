@@ -21,6 +21,7 @@ Library helpers:
 - `build_app_with_state`
 - `spawn_test_server`
 - `spawn_test_server_with_state`
+- `MockServerState::with_market_snapshot`
 
 docs.rs:
 
@@ -32,6 +33,13 @@ Current public mock focus:
 - orders
 - positions
 - activities
+
+Behavior notes:
+
+- stock and single-option marketable orders fill at mid price
+- multi-leg marketable orders fill at composite mid price
+- `/admin/faults/http` injects a one-shot authenticated-route fault
+- `/admin/reset` clears both state and injected faults
 
 Not implemented:
 

@@ -16,6 +16,7 @@ The workspace keeps two mainline test lanes:
 
 - `mainline_real_api.rs` exercises the paper trading API end to end with a real order open/close lifecycle.
 - `mainline_mock_api.rs` exercises the same resource chain against `alpaca-mock`, while market prices still come from `alpaca-data`.
+- `orders_api.rs` also keeps a deterministic mock contract lane that locks stock, single-option, and multi-leg create/replace fills at mid or composite-mid prices.
 
 The recommended commands are:
 

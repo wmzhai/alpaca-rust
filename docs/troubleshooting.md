@@ -29,6 +29,7 @@ Common causes:
 - `ALPACA_DATA_API_KEY` / `ALPACA_DATA_SECRET_KEY` are not set for market-data-backed mock flows
 - auth headers are missing on trading routes
 - an HTTP fault was injected through `/admin/faults/http`
+- the submitted limit has not yet reached the expected mid or composite-mid fill threshold
 
 Check:
 
@@ -36,6 +37,12 @@ Check:
 curl http://127.0.0.1:3847/health
 curl http://127.0.0.1:3847/admin/state
 ```
+
+Notes:
+
+- `/admin/faults/http` is one-shot and clears after the next authenticated trading request
+- stock and single-option limit orders fill at mid price once that mid is reached
+- multi-leg limit orders fill at composite mid price once that composite mid is reached
 
 ## Docs Site Build Issues
 
