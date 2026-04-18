@@ -7,25 +7,25 @@ mod target_support;
 #[path = "support/trade_state.rs"]
 mod trade_state_support;
 
-use alpaca_trade::{
-    orders::{
-        CreateRequest, ListRequest, OptionLegRequest, OrderClass, OrderSide, OrderStatus,
-        OrderType, PositionIntent, QueryOrderStatus, ReplaceRequest, ReplaceResolution, StopLoss,
-        TakeProfit, TimeInForce, WaitFor,
-    },
-    Client as TradeClient, Error,
-};
 use alpaca_data::Client as DataClient;
 use alpaca_mock::{
     InjectedHttpFault, LiveMarketDataBridge, MockServerState, TestServer,
     spawn_test_server_with_state,
 };
+use alpaca_trade::{
+    Client as TradeClient, Error,
+    orders::{
+        CreateRequest, ListRequest, OptionLegRequest, OrderClass, OrderSide, OrderStatus,
+        OrderType, PositionIntent, QueryOrderStatus, ReplaceRequest, ReplaceResolution, StopLoss,
+        SubmitOrderStyle, TakeProfit, TimeInForce, WaitFor,
+    },
+};
 use live_support::can_submit_live_paper_orders;
 use order_support::{
-    clear_option_universe_cache, discover_distinct_mleg_call_spread_pair,
-    discover_mleg_call_broken_wing_butterfly, discover_mleg_call_spread,
-    discover_mleg_put_spread, discover_single_leg_call, non_marketable_buy_limit_price,
-    stock_order_price_context, unique_client_order_id, StockOrderPriceContext,
+    StockOrderPriceContext, clear_option_universe_cache, discover_distinct_mleg_call_spread_pair,
+    discover_mleg_call_broken_wing_butterfly, discover_mleg_call_spread, discover_mleg_put_spread,
+    discover_single_leg_call, non_marketable_buy_limit_price, stock_order_price_context,
+    unique_client_order_id,
 };
 use rust_decimal::Decimal;
 use serde::Serialize;
@@ -320,6 +320,93 @@ async fn orders_mleg_market_mock() {
 }
 
 #[tokio::test]
+async fn orders_create_resolved_market_mock() {
+    let Some(harness) = target_support::build_trade_test_harness(TradeTestTarget::Mock).await
+    else {
+        return;
+    };
+
+    ensure_symbol_flat(&harness, ORDER_TEST_SYMBOL).await;
+
+    let resolved = harness
+        .trade_client()
+        .orders()
+        .create_resolved(
+            CreateRequest::simple(
+                ORDER_TEST_SYMBOL,
+                1,
+                OrderSide::Buy,
+                SubmitOrderStyle::Market,
+            )
+            .expect("simple market request should build"),
+            WaitFor::Filled,
+        )
+        .await
+        .expect("create_resolved should submit and wait for fill");
+
+    assert_eq!(resolved.order.status, OrderStatus::Filled);
+    assert!(resolved.order.filled_avg_price.is_some());
+
+    let closed = harness
+        .trade_client()
+        .positions()
+        .close(ORDER_TEST_SYMBOL, Default::default())
+        .await
+        .expect("close position should submit");
+    let _ = wait_for_order_status(&harness, &closed.id, OrderStatus::Filled).await;
+    wait_for_position_absent(&harness, ORDER_TEST_SYMBOL).await;
+}
+
+#[tokio::test]
+async fn orders_create_resolved_limit_mock() {
+    let Some(harness) = target_support::build_trade_test_harness(TradeTestTarget::Mock).await
+    else {
+        return;
+    };
+
+    ensure_symbol_flat(&harness, ORDER_TEST_SYMBOL).await;
+
+    let limit_price = non_marketable_buy_limit_price(harness.data_client(), ORDER_TEST_SYMBOL)
+        .await
+        .expect("non marketable price should build");
+    let resolved = harness
+        .trade_client()
+        .orders()
+        .create_resolved(
+            CreateRequest::simple(
+                ORDER_TEST_SYMBOL,
+                1,
+                OrderSide::Buy,
+                SubmitOrderStyle::Limit { limit_price },
+            )
+            .expect("simple limit request should build"),
+            WaitFor::Stable,
+        )
+        .await
+        .expect("create_resolved should submit and wait for stable status");
+
+    assert!(
+        matches!(
+            resolved.order.status,
+            OrderStatus::Accepted | OrderStatus::New
+        ),
+        "expected accepted/new after waiting for stable status, got {:?}",
+        resolved.order.status
+    );
+
+    let canceled = harness
+        .trade_client()
+        .orders()
+        .cancel_resolved(&resolved.order.id)
+        .await
+        .expect("cancel_resolved should cancel resting limit order");
+    assert!(matches!(
+        canceled.order.status,
+        OrderStatus::Canceled | OrderStatus::Filled
+    ));
+}
+
+#[tokio::test]
 async fn orders_cancel_resolved_recovers_after_request_error_mock() {
     let Some((_server, state, client)) = build_recovery_test_client().await else {
         return;
@@ -385,7 +472,10 @@ async fn orders_replace_resolved_recovers_after_request_error_mock() {
             assert!(resolved.recovered_after_request_error);
             assert_eq!(resolved.order.id, replacement.id);
             assert_eq!(resolved.order.status, OrderStatus::New);
-            assert_eq!(resolved.order.replaces.as_deref(), Some(created.id.as_str()));
+            assert_eq!(
+                resolved.order.replaces.as_deref(),
+                Some(created.id.as_str())
+            );
         }
         ReplaceResolution::OriginalOrderTerminal(resolved) => {
             panic!(
@@ -584,10 +674,12 @@ async fn orders_mleg_limit_replace_scenario(harness: &TradeTestHarness) {
         .expect("multi-leg order create should succeed");
     assert_eq!(created.order_class, OrderClass::Mleg);
     assert_eq!(created.qty, Some(structure_qty));
-    assert!(created
-        .legs
-        .as_ref()
-        .is_some_and(|legs| legs.len() == spread.legs.len()));
+    assert!(
+        created
+            .legs
+            .as_ref()
+            .is_some_and(|legs| legs.len() == spread.legs.len())
+    );
     maybe_record_live_json(
         harness,
         "alpaca-trade-orders",
@@ -603,10 +695,12 @@ async fn orders_mleg_limit_replace_scenario(harness: &TradeTestHarness) {
         .expect("created multi-leg order should remain readable");
     assert_eq!(fetched.id, created.id);
     assert_eq!(fetched.qty, Some(structure_qty));
-    assert!(fetched
-        .legs
-        .as_ref()
-        .is_some_and(|legs| legs.len() == spread.legs.len()));
+    assert!(
+        fetched
+            .legs
+            .as_ref()
+            .is_some_and(|legs| legs.len() == spread.legs.len())
+    );
 
     let fetched_by_client_order_id = client
         .orders()
@@ -664,10 +758,12 @@ async fn orders_mleg_limit_replace_scenario(harness: &TradeTestHarness) {
         .await
         .expect("replacement client_order_id lookup should succeed");
     assert_eq!(replacement_by_client_order_id.id, replacement.id);
-    assert!(replacement_by_client_order_id
-        .legs
-        .as_ref()
-        .is_some_and(|legs| legs.len() == spread.legs.len()));
+    assert!(
+        replacement_by_client_order_id
+            .legs
+            .as_ref()
+            .is_some_and(|legs| legs.len() == spread.legs.len())
+    );
 
     let nested_list = client
         .orders()
@@ -683,10 +779,12 @@ async fn orders_mleg_limit_replace_scenario(harness: &TradeTestHarness) {
         .into_iter()
         .find(|order| order.id == replacement.id)
         .expect("nested order list should include the replacement multi-leg order");
-    assert!(nested_replacement
-        .legs
-        .as_ref()
-        .is_some_and(|legs| legs.len() == spread.legs.len()));
+    assert!(
+        nested_replacement
+            .legs
+            .as_ref()
+            .is_some_and(|legs| legs.len() == spread.legs.len())
+    );
 
     if harness.is_mock() {
         let created_legs = created
@@ -715,10 +813,12 @@ async fn orders_mleg_limit_replace_scenario(harness: &TradeTestHarness) {
         .expect("replacement order should become canceled");
     assert_eq!(canceled.status, OrderStatus::Canceled);
     if harness.is_mock() {
-        assert!(canceled
-            .legs
-            .as_ref()
-            .is_some_and(|legs| legs.iter().all(|leg| leg.status == OrderStatus::Canceled)));
+        assert!(
+            canceled
+                .legs
+                .as_ref()
+                .is_some_and(|legs| legs.iter().all(|leg| leg.status == OrderStatus::Canceled))
+        );
     }
     maybe_record_live_json(
         harness,
@@ -820,10 +920,12 @@ async fn orders_cancel_all_scenario(harness: &TradeTestHarness) {
             .and_then(|result| result.body.as_ref())
             .expect("mock cancel_all should return the canceled multi-leg order body");
         assert_eq!(mleg_cancel_body.status, OrderStatus::Canceled);
-        assert!(mleg_cancel_body
-            .legs
-            .as_ref()
-            .is_some_and(|legs| legs.iter().all(|leg| leg.status == OrderStatus::Canceled)));
+        assert!(
+            mleg_cancel_body
+                .legs
+                .as_ref()
+                .is_some_and(|legs| legs.iter().all(|leg| leg.status == OrderStatus::Canceled))
+        );
     }
 
     for created_id in [&stock_created.id, &mleg_created.id] {
@@ -1906,22 +2008,26 @@ async fn orders_mleg_market_scenario(_harness: &TradeTestHarness) {
                 legs: Some(spread.legs.clone()),
                 position_intent: None,
             })
-        .await?;
+            .await?;
         assert_eq!(created.order_class, OrderClass::Mleg);
         assert_eq!(created.r#type, OrderType::Market);
         assert_eq!(created.qty, Some(structure_qty));
-        assert!(created
-            .legs
-            .as_ref()
-            .is_some_and(|legs| legs.len() == spread.legs.len()));
+        assert!(
+            created
+                .legs
+                .as_ref()
+                .is_some_and(|legs| legs.len() == spread.legs.len())
+        );
 
         let fetched = client.orders().get(&created.id).await?;
         assert_eq!(fetched.id, created.id);
         assert_eq!(fetched.order_class, OrderClass::Mleg);
-        assert!(fetched
-            .legs
-            .as_ref()
-            .is_some_and(|legs| legs.len() == spread.legs.len()));
+        assert!(
+            fetched
+                .legs
+                .as_ref()
+                .is_some_and(|legs| legs.len() == spread.legs.len())
+        );
 
         let listed = client
             .orders()
@@ -1949,9 +2055,11 @@ async fn orders_mleg_market_scenario(_harness: &TradeTestHarness) {
             .as_ref()
             .expect("filled multi-leg order should retain nested legs");
         assert_eq!(filled_legs.len(), spread.legs.len());
-        assert!(filled_legs
-            .iter()
-            .all(|leg| leg.status == OrderStatus::Filled && leg.filled_avg_price.is_some()));
+        assert!(
+            filled_legs
+                .iter()
+                .all(|leg| leg.status == OrderStatus::Filled && leg.filled_avg_price.is_some())
+        );
 
         assert_positions_match_mleg_open(harness, &spread.legs, 2).await;
 
@@ -2002,10 +2110,7 @@ async fn orders_mleg_bwb_market_roundtrip_scenario(_harness: &TradeTestHarness) 
             bwb.legs.clone(),
             structure_qty,
             OrderSide::Buy,
-            &unique_client_order_id(&format!(
-                "phase21-{}-bwb-market-open",
-                target_slug(harness)
-            )),
+            &unique_client_order_id(&format!("phase21-{}-bwb-market-open", target_slug(harness))),
         )
         .await?;
         let opened = wait_for_order_status(harness, &opened.id, OrderStatus::Filled).await?;
@@ -2078,10 +2183,7 @@ async fn orders_mleg_roll_market_scenario(_harness: &TradeTestHarness) {
             opened_spread.legs.clone(),
             structure_qty,
             OrderSide::Buy,
-            &unique_client_order_id(&format!(
-                "phase21-{}-mleg-roll-open",
-                target_slug(harness)
-            )),
+            &unique_client_order_id(&format!("phase21-{}-mleg-roll-open", target_slug(harness))),
         )
         .await?;
         let opened = wait_for_order_status(harness, &opened.id, OrderStatus::Filled).await?;
@@ -2101,7 +2203,10 @@ async fn orders_mleg_roll_market_scenario(_harness: &TradeTestHarness) {
         )
         .await?;
         let rolled = wait_for_order_status(harness, &rolled.id, OrderStatus::Filled).await?;
-        assert_mleg_filled(&rolled, opened_spread.legs.len() + replacement_spread.legs.len());
+        assert_mleg_filled(
+            &rolled,
+            opened_spread.legs.len() + replacement_spread.legs.len(),
+        );
 
         for leg in &opened_spread.legs {
             wait_for_position_absent(harness, &leg.symbol).await;
@@ -2113,10 +2218,7 @@ async fn orders_mleg_roll_market_scenario(_harness: &TradeTestHarness) {
             reverse_option_legs(&replacement_spread.legs),
             structure_qty,
             OrderSide::Sell,
-            &unique_client_order_id(&format!(
-                "phase21-{}-mleg-roll-close",
-                target_slug(harness)
-            )),
+            &unique_client_order_id(&format!("phase21-{}-mleg-roll-close", target_slug(harness))),
         )
         .await?;
         let closed = wait_for_order_status(harness, &closed.id, OrderStatus::Filled).await?;
@@ -2181,11 +2283,7 @@ fn maybe_record_live_json<T>(
 }
 
 fn target_slug(harness: &TradeTestHarness) -> &'static str {
-    if harness.is_mock() {
-        "mock"
-    } else {
-        "paper"
-    }
+    if harness.is_mock() { "mock" } else { "paper" }
 }
 
 fn advanced_entry_buy_limit_price(pricing: &StockOrderPriceContext) -> Decimal {
@@ -2369,7 +2467,8 @@ fn reverse_leg_close_shape(
 
 fn reverse_option_leg(leg: &OptionLegRequest) -> OptionLegRequest {
     let (close_side, close_intent) = reverse_leg_close_shape(
-        leg.side.clone()
+        leg.side
+            .clone()
             .expect("multi-leg request leg should include side"),
         leg.position_intent
             .clone()
@@ -2426,9 +2525,7 @@ async fn assert_positions_match_mleg_open(
             .expect("multi-leg request leg should include side")
         {
             OrderSide::Buy => Decimal::from(i64::from(leg.ratio_qty) * i64::from(structure_qty)),
-            OrderSide::Sell => {
-                -Decimal::from(i64::from(leg.ratio_qty) * i64::from(structure_qty))
-            }
+            OrderSide::Sell => -Decimal::from(i64::from(leg.ratio_qty) * i64::from(structure_qty)),
             OrderSide::Unspecified => panic!("multi-leg request leg used unspecified side"),
         };
         assert_eq!(position.qty, expected_qty);
@@ -2459,7 +2556,11 @@ async fn cancel_order_and_wait(
 
 async fn maybe_cancel_order(harness: &TradeTestHarness, order_id: Option<&str>) {
     if let Some(order_id) = order_id {
-        let _ = harness.trade_client().orders().cancel_resolved(order_id).await;
+        let _ = harness
+            .trade_client()
+            .orders()
+            .cancel_resolved(order_id)
+            .await;
     }
 }
 
@@ -2528,7 +2629,8 @@ async fn build_recovery_test_client() -> Option<(TestServer, MockServerState, Tr
         .base_url(data_service.base_url().clone())
         .build()
         .expect("alpaca-data client should build");
-    let state = MockServerState::new().with_market_data_bridge(LiveMarketDataBridge::new(data_client));
+    let state =
+        MockServerState::new().with_market_data_bridge(LiveMarketDataBridge::new(data_client));
     let server = spawn_test_server_with_state(state.clone()).await;
     let client = TradeClient::builder()
         .api_key("mock-key")
@@ -2541,7 +2643,9 @@ async fn build_recovery_test_client() -> Option<(TestServer, MockServerState, Tr
     Some((server, state, client))
 }
 
-async fn create_non_marketable_spy_limit_order(client: &TradeClient) -> alpaca_trade::orders::Order {
+async fn create_non_marketable_spy_limit_order(
+    client: &TradeClient,
+) -> alpaca_trade::orders::Order {
     client
         .orders()
         .create(CreateRequest {

@@ -1,6 +1,17 @@
-use rust_decimal::prelude::ToPrimitive;
+use rust_decimal::{Decimal, prelude::ToPrimitive};
 
-use super::{Order, OrderClass, OrderSide, OrderStatus, OrderType, PositionIntent, TimeInForce};
+use crate::Error;
+
+use super::{
+    CreateRequest, OptionLegRequest, Order, OrderClass, OrderSide, OrderStatus, OrderType,
+    PositionIntent, ReplaceRequest, TimeInForce,
+};
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum SubmitOrderStyle {
+    Market,
+    Limit { limit_price: Decimal },
+}
 
 impl OrderSide {
     #[must_use]
@@ -120,7 +131,10 @@ impl OrderStatus {
 
     #[must_use]
     pub fn is_cancel_complete(self) -> bool {
-        matches!(self, Self::Canceled | Self::Filled | Self::Expired | Self::Rejected)
+        matches!(
+            self,
+            Self::Canceled | Self::Filled | Self::Expired | Self::Rejected
+        )
     }
 
     #[must_use]
@@ -141,12 +155,122 @@ impl Order {
     }
 }
 
+impl SubmitOrderStyle {
+    #[must_use]
+    pub fn order_type(self) -> OrderType {
+        match self {
+            Self::Market => OrderType::Market,
+            Self::Limit { .. } => OrderType::Limit,
+        }
+    }
+
+    #[must_use]
+    pub fn limit_price(self) -> Option<Decimal> {
+        match self {
+            Self::Market => None,
+            Self::Limit { limit_price } => Some(limit_price),
+        }
+    }
+}
+
+impl CreateRequest {
+    pub fn simple(
+        symbol: &str,
+        qty: i32,
+        side: OrderSide,
+        style: SubmitOrderStyle,
+    ) -> Result<Self, Error> {
+        Self::simple_with_extended_hours(symbol, qty, side, style, None)
+    }
+
+    pub fn simple_with_extended_hours(
+        symbol: &str,
+        qty: i32,
+        side: OrderSide,
+        style: SubmitOrderStyle,
+        extended_hours: Option<bool>,
+    ) -> Result<Self, Error> {
+        if qty == 0 {
+            return Err(Error::InvalidRequest("qty must not be 0".to_owned()));
+        }
+
+        let request = Self {
+            symbol: Some(symbol.to_owned()),
+            qty: Some(Decimal::from(qty.abs())),
+            notional: None,
+            side: Some(side),
+            r#type: Some(style.order_type()),
+            time_in_force: Some(TimeInForce::Day),
+            limit_price: style.limit_price(),
+            stop_price: None,
+            trail_price: None,
+            trail_percent: None,
+            extended_hours,
+            client_order_id: None,
+            order_class: None,
+            take_profit: None,
+            stop_loss: None,
+            legs: None,
+            position_intent: None,
+        };
+        request.validate()?;
+        Ok(request)
+    }
+
+    pub fn mleg(
+        qty: i32,
+        style: SubmitOrderStyle,
+        legs: Vec<OptionLegRequest>,
+    ) -> Result<Self, Error> {
+        if qty == 0 {
+            return Err(Error::InvalidRequest("qty must not be 0".to_owned()));
+        }
+
+        let request = Self {
+            symbol: None,
+            qty: Some(Decimal::from(qty.abs())),
+            notional: None,
+            side: None,
+            r#type: Some(style.order_type()),
+            time_in_force: Some(TimeInForce::Day),
+            limit_price: style.limit_price(),
+            stop_price: None,
+            trail_price: None,
+            trail_percent: None,
+            extended_hours: None,
+            client_order_id: None,
+            order_class: Some(OrderClass::Mleg),
+            take_profit: None,
+            stop_loss: None,
+            legs: Some(legs),
+            position_intent: None,
+        };
+        request.validate()?;
+        Ok(request)
+    }
+}
+
+impl ReplaceRequest {
+    #[must_use]
+    pub fn from_submit_style(style: SubmitOrderStyle) -> Self {
+        Self {
+            qty: None,
+            time_in_force: None,
+            limit_price: style.limit_price(),
+            stop_price: None,
+            trail: None,
+            client_order_id: None,
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use rust_decimal::Decimal;
 
     use super::{
-        Order, OrderClass, OrderSide, OrderStatus, OrderType, PositionIntent, TimeInForce,
+        CreateRequest, OptionLegRequest, Order, OrderClass, OrderSide, OrderStatus, OrderType,
+        PositionIntent, ReplaceRequest, SubmitOrderStyle, TimeInForce,
     };
 
     #[test]
@@ -207,5 +331,63 @@ mod tests {
         assert_eq!(order.qty_i32(), Some(3));
         assert_eq!(order.filled_qty_i32(), 2);
         assert_eq!(order.limit_price, Some(Decimal::new(18725, 2)));
+    }
+
+    #[test]
+    fn builds_simple_market_request_with_day_time_in_force() {
+        let request = CreateRequest::simple("SPY", 2, OrderSide::Buy, SubmitOrderStyle::Market)
+            .expect("simple market request should build");
+
+        assert_eq!(request.symbol.as_deref(), Some("SPY"));
+        assert_eq!(request.qty, Some(Decimal::from(2)));
+        assert_eq!(request.side, Some(OrderSide::Buy));
+        assert_eq!(request.r#type, Some(OrderType::Market));
+        assert_eq!(request.time_in_force, Some(TimeInForce::Day));
+        assert_eq!(request.limit_price, None);
+        assert_eq!(request.order_class, None);
+    }
+
+    #[test]
+    fn builds_mleg_limit_request_with_validated_legs() {
+        let request = CreateRequest::mleg(
+            1,
+            SubmitOrderStyle::Limit {
+                limit_price: Decimal::new(125, 2),
+            },
+            vec![
+                OptionLegRequest {
+                    symbol: "SPY260424C00550000".to_owned(),
+                    ratio_qty: 1,
+                    side: Some(OrderSide::Buy),
+                    position_intent: Some(PositionIntent::BuyToOpen),
+                },
+                OptionLegRequest {
+                    symbol: "SPY260424C00555000".to_owned(),
+                    ratio_qty: 1,
+                    side: Some(OrderSide::Sell),
+                    position_intent: Some(PositionIntent::SellToOpen),
+                },
+            ],
+        )
+        .expect("mleg limit request should build");
+
+        assert_eq!(request.symbol, None);
+        assert_eq!(request.qty, Some(Decimal::ONE));
+        assert_eq!(request.side, None);
+        assert_eq!(request.r#type, Some(OrderType::Limit));
+        assert_eq!(request.limit_price, Some(Decimal::new(125, 2)));
+        assert_eq!(request.order_class, Some(OrderClass::Mleg));
+        assert_eq!(request.legs.as_ref().map(Vec::len), Some(2));
+    }
+
+    #[test]
+    fn builds_replace_request_from_submit_style() {
+        let market = ReplaceRequest::from_submit_style(SubmitOrderStyle::Market);
+        assert_eq!(market.limit_price, None);
+
+        let limit = ReplaceRequest::from_submit_style(SubmitOrderStyle::Limit {
+            limit_price: Decimal::new(333, 2),
+        });
+        assert_eq!(limit.limit_price, Some(Decimal::new(333, 2)));
     }
 }

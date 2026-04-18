@@ -4,7 +4,7 @@ use tokio::time::sleep;
 
 use crate::Error;
 
-use super::{Order, OrderStatus, OrdersClient, ReplaceRequest};
+use super::{CreateRequest, Order, OrderStatus, OrdersClient, ReplaceRequest};
 
 const DEFAULT_WAIT_ATTEMPTS: usize = 30;
 const DEFAULT_BASE_WAIT_MS: u64 = 100;
@@ -64,6 +64,18 @@ impl ReplaceResolution {
 }
 
 impl OrdersClient {
+    pub async fn create_resolved(
+        &self,
+        request: CreateRequest,
+        target: WaitFor,
+    ) -> Result<ResolvedOrder, Error> {
+        let created = self.create(request).await?;
+        Ok(ResolvedOrder {
+            order: self.wait_for(&created.id, target).await?,
+            recovered_after_request_error: false,
+        })
+    }
+
     pub async fn get_effective(&self, order_id: &str) -> Result<Order, Error> {
         let mut current = self.get(order_id).await?;
 
