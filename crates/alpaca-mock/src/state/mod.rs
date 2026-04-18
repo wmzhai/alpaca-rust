@@ -176,6 +176,17 @@ impl MockServerState {
     }
 
     #[must_use]
+    pub fn with_market_snapshot(mut self, symbol: &str, snapshot: InstrumentSnapshot) -> Self {
+        Arc::get_mut(&mut self.inner)
+            .expect("mock state should be uniquely owned during configuration")
+            .market_data_cache
+            .get_mut()
+            .expect("market data cache lock should not poison")
+            .insert(symbol.to_owned(), snapshot);
+        self
+    }
+
+    #[must_use]
     pub fn market_data_bridge(&self) -> Option<&LiveMarketDataBridge> {
         self.inner.market_data_bridge.as_ref()
     }

@@ -12,7 +12,7 @@ use alpaca_data::{
     options::{OptionsFeed, SnapshotsRequest},
 };
 use alpaca_mock::{
-    InjectedHttpFault, LiveMarketDataBridge, MockServerState, TestServer,
+    InjectedHttpFault, InstrumentSnapshot, LiveMarketDataBridge, MockServerState, TestServer,
     spawn_test_server_with_state,
 };
 use alpaca_trade::{
@@ -37,6 +37,54 @@ use target_support::{TradeTestHarness, TradeTestTarget};
 use trade_state_support::{ensure_symbol_flat, wait_for_position, wait_for_position_absent};
 
 const ORDER_TEST_SYMBOL: &str = "SPY";
+const FIXED_STOCK_SYMBOL: &str = "SPY";
+const FIXED_OPTION_SYMBOL: &str = "SPY260417P00550000";
+const FIXED_MLEG_BUY_SYMBOL: &str = "SPY260417C00550000";
+const FIXED_MLEG_SELL_SYMBOL: &str = "SPY260417C00560000";
+
+fn fixed_stock_bid() -> Decimal {
+    Decimal::new(10000, 2)
+}
+
+fn fixed_stock_ask() -> Decimal {
+    Decimal::new(10200, 2)
+}
+
+fn fixed_stock_mid() -> Decimal {
+    Decimal::new(10100, 2)
+}
+
+fn fixed_option_bid() -> Decimal {
+    Decimal::new(100, 2)
+}
+
+fn fixed_option_ask() -> Decimal {
+    Decimal::new(120, 2)
+}
+
+fn fixed_option_mid() -> Decimal {
+    Decimal::new(110, 2)
+}
+
+fn fixed_mleg_buy_bid() -> Decimal {
+    Decimal::new(300, 2)
+}
+
+fn fixed_mleg_buy_ask() -> Decimal {
+    Decimal::new(340, 2)
+}
+
+fn fixed_mleg_sell_bid() -> Decimal {
+    Decimal::new(100, 2)
+}
+
+fn fixed_mleg_sell_ask() -> Decimal {
+    Decimal::new(140, 2)
+}
+
+fn fixed_mleg_mid() -> Decimal {
+    Decimal::new(200, 2)
+}
 
 #[tokio::test]
 async fn orders_basic_lifecycle_live_paper() {
@@ -321,6 +369,15 @@ async fn orders_mleg_market_mock() {
         return;
     };
     orders_mleg_market_scenario(&harness).await;
+}
+
+#[tokio::test]
+async fn orders_mock_mid_price_fill_contract() {
+    let (_server, client) = build_fixed_mid_price_mock_client().await;
+
+    verify_stock_limit_fills_at_mid_on_create_and_replace(&client).await;
+    verify_option_limit_fills_at_mid_on_create_and_replace(&client).await;
+    verify_mleg_limit_fills_at_mid_on_create_and_replace(&client).await;
 }
 
 #[tokio::test]
@@ -2871,6 +2928,265 @@ async fn wait_for_order_status(
         .orders()
         .wait_for(order_id, WaitFor::Exact(expected_status))
         .await
+}
+
+async fn build_fixed_mid_price_mock_client() -> (TestServer, TradeClient) {
+    let state = MockServerState::new()
+        .with_market_snapshot(
+            FIXED_STOCK_SYMBOL,
+            InstrumentSnapshot::equity(fixed_stock_bid(), fixed_stock_ask()),
+        )
+        .with_market_snapshot(
+            FIXED_OPTION_SYMBOL,
+            InstrumentSnapshot::option(fixed_option_bid(), fixed_option_ask()),
+        )
+        .with_market_snapshot(
+            FIXED_MLEG_BUY_SYMBOL,
+            InstrumentSnapshot::option(fixed_mleg_buy_bid(), fixed_mleg_buy_ask()),
+        )
+        .with_market_snapshot(
+            FIXED_MLEG_SELL_SYMBOL,
+            InstrumentSnapshot::option(fixed_mleg_sell_bid(), fixed_mleg_sell_ask()),
+        );
+    let server = spawn_test_server_with_state(state).await;
+    let client = TradeClient::builder()
+        .api_key("mock-key")
+        .secret_key("mock-secret")
+        .base_url_str(&server.base_url)
+        .expect("mock base url should parse")
+        .build()
+        .expect("mock trade client should build");
+    (server, client)
+}
+
+async fn verify_stock_limit_fills_at_mid_on_create_and_replace(client: &TradeClient) {
+    let created = client
+        .orders()
+        .create_resolved(
+            CreateRequest::simple(
+                FIXED_STOCK_SYMBOL,
+                1,
+                OrderSide::Buy,
+                SubmitOrderStyle::Limit {
+                    limit_price: fixed_stock_mid(),
+                },
+                None,
+                Some(false),
+            )
+            .expect("fixed stock limit request should build"),
+            WaitFor::Filled,
+        )
+        .await
+        .expect("fixed stock mid-priced limit should fill");
+    assert_eq!(created.order.status, OrderStatus::Filled);
+    assert_eq!(created.order.filled_avg_price, Some(fixed_stock_mid()));
+
+    let resting = client
+        .orders()
+        .create(
+            CreateRequest::simple(
+                FIXED_STOCK_SYMBOL,
+                1,
+                OrderSide::Buy,
+                SubmitOrderStyle::Limit {
+                    limit_price: fixed_stock_mid() - Decimal::new(1, 2),
+                },
+                None,
+                Some(false),
+            )
+            .expect("fixed resting stock request should build"),
+        )
+        .await
+        .expect("fixed resting stock limit should submit");
+    assert!(matches!(resting.status, OrderStatus::Accepted | OrderStatus::New));
+
+    let replacement = match client
+        .orders()
+        .replace_resolved(
+            &resting.id,
+            ReplaceRequest::from_submit_style(SubmitOrderStyle::Limit {
+                limit_price: fixed_stock_mid(),
+            }),
+        )
+        .await
+        .expect("fixed stock replace should succeed")
+    {
+        ReplaceResolution::NewOrder(resolved) => resolved.order,
+        ReplaceResolution::OriginalOrderTerminal(resolved) => {
+            panic!(
+                "fixed stock replace should produce a new order, got {:?}",
+                resolved.order.status
+            );
+        }
+    };
+    assert_eq!(replacement.status, OrderStatus::Filled);
+    assert_eq!(replacement.filled_avg_price, Some(fixed_stock_mid()));
+}
+
+async fn verify_option_limit_fills_at_mid_on_create_and_replace(client: &TradeClient) {
+    let created = client
+        .orders()
+        .create_resolved(
+            CreateRequest {
+                symbol: Some(FIXED_OPTION_SYMBOL.to_owned()),
+                qty: Some(Decimal::ONE),
+                notional: None,
+                side: Some(OrderSide::Buy),
+                r#type: Some(OrderType::Limit),
+                time_in_force: Some(TimeInForce::Day),
+                limit_price: Some(fixed_option_mid()),
+                stop_price: None,
+                trail_price: None,
+                trail_percent: None,
+                extended_hours: Some(false),
+                client_order_id: Some(unique_client_order_id("fixed-option-mid-create")),
+                order_class: None,
+                take_profit: None,
+                stop_loss: None,
+                legs: None,
+                position_intent: Some(PositionIntent::BuyToOpen),
+            },
+            WaitFor::Filled,
+        )
+        .await
+        .expect("fixed option mid-priced limit should fill");
+    assert_eq!(created.order.status, OrderStatus::Filled);
+    assert_eq!(created.order.filled_avg_price, Some(fixed_option_mid()));
+
+    let resting = client
+        .orders()
+        .create(CreateRequest {
+            symbol: Some(FIXED_OPTION_SYMBOL.to_owned()),
+            qty: Some(Decimal::ONE),
+            notional: None,
+            side: Some(OrderSide::Buy),
+            r#type: Some(OrderType::Limit),
+            time_in_force: Some(TimeInForce::Day),
+            limit_price: Some(fixed_option_mid() - Decimal::new(1, 2)),
+            stop_price: None,
+            trail_price: None,
+            trail_percent: None,
+            extended_hours: Some(false),
+            client_order_id: Some(unique_client_order_id("fixed-option-mid-resting")),
+            order_class: None,
+            take_profit: None,
+            stop_loss: None,
+            legs: None,
+            position_intent: Some(PositionIntent::BuyToOpen),
+        })
+        .await
+        .expect("fixed resting option limit should submit");
+    assert!(matches!(resting.status, OrderStatus::Accepted | OrderStatus::New));
+
+    let replacement = match client
+        .orders()
+        .replace_resolved(
+            &resting.id,
+            ReplaceRequest::from_submit_style(SubmitOrderStyle::Limit {
+                limit_price: fixed_option_mid(),
+            }),
+        )
+        .await
+        .expect("fixed option replace should succeed")
+    {
+        ReplaceResolution::NewOrder(resolved) => resolved.order,
+        ReplaceResolution::OriginalOrderTerminal(resolved) => {
+            panic!(
+                "fixed option replace should produce a new order, got {:?}",
+                resolved.order.status
+            );
+        }
+    };
+    assert_eq!(replacement.status, OrderStatus::Filled);
+    assert_eq!(replacement.filled_avg_price, Some(fixed_option_mid()));
+}
+
+async fn verify_mleg_limit_fills_at_mid_on_create_and_replace(client: &TradeClient) {
+    let legs = vec![
+        OptionLegRequest {
+            symbol: FIXED_MLEG_BUY_SYMBOL.to_owned(),
+            ratio_qty: 1,
+            side: Some(OrderSide::Buy),
+            position_intent: Some(PositionIntent::BuyToOpen),
+        },
+        OptionLegRequest {
+            symbol: FIXED_MLEG_SELL_SYMBOL.to_owned(),
+            ratio_qty: 1,
+            side: Some(OrderSide::Sell),
+            position_intent: Some(PositionIntent::SellToOpen),
+        },
+    ];
+
+    let created = client
+        .orders()
+        .create_resolved(
+            CreateRequest::mleg(
+                1,
+                SubmitOrderStyle::Limit {
+                    limit_price: fixed_mleg_mid(),
+                },
+                legs.clone(),
+            )
+            .expect("fixed mleg mid request should build"),
+            WaitFor::Filled,
+        )
+        .await
+        .expect("fixed mleg mid-priced limit should fill");
+    assert_eq!(created.order.status, OrderStatus::Filled);
+    assert_eq!(created.order.filled_avg_price, Some(fixed_mleg_mid()));
+    let created_legs = created
+        .order
+        .legs
+        .as_ref()
+        .expect("fixed filled mleg should include legs");
+    assert_eq!(created_legs.len(), 2);
+    assert_eq!(created_legs[0].filled_avg_price, Some(Decimal::new(320, 2)));
+    assert_eq!(created_legs[1].filled_avg_price, Some(Decimal::new(120, 2)));
+
+    let resting = client
+        .orders()
+        .create(
+            CreateRequest::mleg(
+                1,
+                SubmitOrderStyle::Limit {
+                    limit_price: fixed_mleg_mid() - Decimal::new(1, 2),
+                },
+                legs,
+            )
+            .expect("fixed resting mleg request should build"),
+        )
+        .await
+        .expect("fixed resting mleg limit should submit");
+    assert!(matches!(resting.status, OrderStatus::Accepted | OrderStatus::New));
+
+    let replacement = match client
+        .orders()
+        .replace_resolved(
+            &resting.id,
+            ReplaceRequest::from_submit_style(SubmitOrderStyle::Limit {
+                limit_price: fixed_mleg_mid(),
+            }),
+        )
+        .await
+        .expect("fixed mleg replace should succeed")
+    {
+        ReplaceResolution::NewOrder(resolved) => resolved.order,
+        ReplaceResolution::OriginalOrderTerminal(resolved) => {
+            panic!(
+                "fixed mleg replace should produce a new order, got {:?}",
+                resolved.order.status
+            );
+        }
+    };
+    assert_eq!(replacement.status, OrderStatus::Filled);
+    assert_eq!(replacement.filled_avg_price, Some(fixed_mleg_mid()));
+    let replacement_legs = replacement
+        .legs
+        .as_ref()
+        .expect("fixed replaced mleg should include legs");
+    assert_eq!(replacement_legs.len(), 2);
+    assert_eq!(replacement_legs[0].filled_avg_price, Some(Decimal::new(320, 2)));
+    assert_eq!(replacement_legs[1].filled_avg_price, Some(Decimal::new(120, 2)));
 }
 
 async fn build_recovery_test_client() -> Option<(TestServer, MockServerState, TradeClient)> {
