@@ -222,6 +222,16 @@ impl OrderStatus {
     }
 
     #[must_use]
+    pub fn is_filled(self) -> bool {
+        matches!(self, Self::Filled)
+    }
+
+    #[must_use]
+    pub fn is_failed_terminal(self) -> bool {
+        matches!(self, Self::Canceled | Self::Expired | Self::Rejected)
+    }
+
+    #[must_use]
     pub fn is_stable(self) -> bool {
         matches!(
             self,
