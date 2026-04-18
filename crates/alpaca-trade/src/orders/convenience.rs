@@ -70,18 +70,30 @@ pub struct ClosedOptionLeg {
 }
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct CloseOptionLegsResult {
-    pub status: CloseOptionLegsStatus,
-    pub order: Option<Order>,
-    pub legs: Vec<ClosedOptionLeg>,
-    pub cashflow: Decimal,
+pub enum CloseOptionLegsResult {
+    Filled {
+        order: Order,
+        legs: Vec<ClosedOptionLeg>,
+        cashflow: Decimal,
+    },
+    Submitted {
+        order: Order,
+        legs: Vec<ClosedOptionLeg>,
+    },
+    Skipped {
+        legs: Vec<ClosedOptionLeg>,
+    },
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum CloseOptionLegsStatus {
-    Filled,
-    Submitted,
-    Skipped,
+impl CloseOptionLegsResult {
+    #[must_use]
+    pub fn legs(&self) -> &[ClosedOptionLeg] {
+        match self {
+            Self::Filled { legs, .. } | Self::Submitted { legs, .. } | Self::Skipped { legs } => {
+                legs
+            }
+        }
+    }
 }
 
 impl OrderSide {
@@ -622,12 +634,7 @@ impl OrdersClient {
             .collect::<Vec<_>>();
 
         if liquid_indices.is_empty() {
-            return Ok(CloseOptionLegsResult {
-                status: CloseOptionLegsStatus::Skipped,
-                order: None,
-                legs: closed_legs,
-                cashflow: Decimal::ZERO,
-            });
+            return Ok(CloseOptionLegsResult::Skipped { legs: closed_legs });
         }
 
         let order = if liquid_indices.len() == 1 {
@@ -662,11 +669,9 @@ impl OrdersClient {
         };
 
         if order.status != OrderStatus::Filled {
-            return Ok(CloseOptionLegsResult {
-                status: CloseOptionLegsStatus::Submitted,
-                order: Some(order),
+            return Ok(CloseOptionLegsResult::Submitted {
+                order,
                 legs: closed_legs,
-                cashflow: Decimal::ZERO,
             });
         }
 
@@ -692,9 +697,8 @@ impl OrdersClient {
             }
         }
 
-        Ok(CloseOptionLegsResult {
-            status: CloseOptionLegsStatus::Filled,
-            order: Some(order),
+        Ok(CloseOptionLegsResult::Filled {
+            order,
             legs: closed_legs,
             cashflow,
         })

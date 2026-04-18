@@ -18,11 +18,11 @@ use alpaca_mock::{
 use alpaca_trade::{
     Client as TradeClient, Error,
     orders::{
-        CloseOptionLeg, CloseOptionLegsStatus, CreateRequest, ListRequest, OptionLegRequest,
+        CloseOptionLeg, CloseOptionLegsResult, CreateRequest, ListRequest, OptionLegRequest,
         OptionQuote, OrderClass, OrderSide, OrderStatus, OrderType, PositionIntent,
         QueryOrderStatus, ReplaceRequest, ReplaceResolution, StopLoss, SubmitOrderRequest,
-        SubmitOrderStyle, TakeProfit, TimeInForce, TransitionOrderPolicy,
-        TransitionResolution, WaitFor,
+        SubmitOrderStyle, TakeProfit, TimeInForce, TransitionOrderPolicy, TransitionResolution,
+        WaitFor,
     },
 };
 use live_support::can_submit_live_paper_orders;
@@ -718,20 +718,18 @@ async fn orders_close_option_legs_all_liquid_mock() {
         .await
         .expect("all-liquid close_option_legs should succeed");
 
-    assert_eq!(result.status, CloseOptionLegsStatus::Filled);
-    assert!(
-        result
-            .order
-            .as_ref()
-            .is_some_and(|order| order.status == OrderStatus::Filled)
-    );
-    assert!(result.cashflow != Decimal::ZERO);
-    assert!(
-        result
-            .legs
-            .iter()
-            .all(|leg| leg.filled_avg_price > Decimal::ZERO)
-    );
+    match result {
+        CloseOptionLegsResult::Filled {
+            order,
+            legs,
+            cashflow,
+        } => {
+            assert_eq!(order.status, OrderStatus::Filled);
+            assert!(cashflow != Decimal::ZERO);
+            assert!(legs.iter().all(|leg| leg.filled_avg_price > Decimal::ZERO));
+        }
+        other => panic!("expected filled close result, got {other:?}"),
+    }
 
     for leg in opened
         .legs
@@ -793,26 +791,19 @@ async fn orders_close_option_legs_scales_single_leg_ratio_qty_mock() {
         .await
         .expect("single-liquid close_option_legs should succeed");
 
-    assert_eq!(result.status, CloseOptionLegsStatus::Filled);
-    assert!(
-        result
-            .order
-            .as_ref()
-            .is_some_and(|order| order.status == OrderStatus::Filled)
-    );
-    assert_eq!(result.legs[liquid_index].ratio_qty, 2);
-    assert!(result.legs[liquid_index].filled_avg_price > Decimal::ZERO);
-    assert!(
-        result
-            .legs
-            .iter()
-            .enumerate()
-            .all(|(index, leg)| if index == liquid_index {
+    match result {
+        CloseOptionLegsResult::Filled { order, legs, .. } => {
+            assert_eq!(order.status, OrderStatus::Filled);
+            assert_eq!(legs[liquid_index].ratio_qty, 2);
+            assert!(legs[liquid_index].filled_avg_price > Decimal::ZERO);
+            assert!(legs.iter().enumerate().all(|(index, leg)| if index == liquid_index {
                 leg.filled_avg_price > Decimal::ZERO
             } else {
                 leg.filled_avg_price == Decimal::ZERO
-            })
-    );
+            }));
+        }
+        other => panic!("expected filled close result, got {other:?}"),
+    }
 
     wait_for_position_absent(&harness, &liquid_symbol).await;
     for symbol in remaining_symbols {
@@ -862,15 +853,12 @@ async fn orders_close_option_legs_returns_zero_when_all_illiquid_mock() {
         .await
         .expect("all-illiquid close_option_legs should still succeed");
 
-    assert_eq!(result.status, CloseOptionLegsStatus::Skipped);
-    assert!(result.order.is_none());
-    assert_eq!(result.cashflow, Decimal::ZERO);
-    assert!(
-        result
-            .legs
-            .iter()
-            .all(|leg| leg.filled_avg_price == Decimal::ZERO)
-    );
+    match result {
+        CloseOptionLegsResult::Skipped { legs } => {
+            assert!(legs.iter().all(|leg| leg.filled_avg_price == Decimal::ZERO));
+        }
+        other => panic!("expected skipped close result, got {other:?}"),
+    }
 
     for symbol in tracked_symbols {
         let position = wait_for_position(&harness, &symbol).await;

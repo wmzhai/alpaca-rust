@@ -239,9 +239,6 @@ impl MockServerState {
         let requested_position_intent = input.position_intent.clone();
         let requested_take_profit = input.take_profit.clone();
         let requested_stop_loss = input.stop_loss.clone();
-        let client_order_id = input
-            .client_order_id
-            .unwrap_or_else(|| format!("mock-client-order-{}", now_millis()));
         let market_quotes = self
             .resolve_market_quotes(
                 if order_class == OrderClass::Mleg {
@@ -272,6 +269,13 @@ impl MockServerState {
         let account = accounts
             .entry(api_key.to_owned())
             .or_insert_with(|| VirtualAccountState::new(api_key));
+        let client_order_id = input.client_order_id.unwrap_or_else(|| {
+            format!(
+                "mock-client-order-{}-{}",
+                now_millis(),
+                account.next_sequence()
+            )
+        });
         if account.client_order_ids.contains_key(&client_order_id) {
             return Err(MockStateError::Conflict(format!(
                 "client_order_id {client_order_id} already exists"
