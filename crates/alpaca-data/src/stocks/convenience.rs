@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use rust_decimal::Decimal;
 
-use super::Snapshot;
+use super::{DataFeed, Snapshot};
 
 fn timestamp_parts<'a>(
     latest_trade: Option<&'a str>,
@@ -157,14 +157,23 @@ pub fn ordered_snapshots(snapshots: &HashMap<String, Snapshot>) -> Vec<(&str, &S
         .collect()
 }
 
+#[must_use]
+pub fn preferred_feed(extended_hours: bool) -> DataFeed {
+    if extended_hours {
+        DataFeed::Boats
+    } else {
+        DataFeed::Sip
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use std::collections::HashMap;
 
     use rust_decimal::Decimal;
 
-    use super::{Snapshot, ordered_snapshots};
-    use crate::stocks::{Bar, Quote, Trade};
+    use super::{Snapshot, ordered_snapshots, preferred_feed};
+    use crate::stocks::{Bar, DataFeed, Quote, Trade};
 
     #[test]
     fn snapshot_timestamp_prefers_the_freshest_available_value() {
@@ -264,5 +273,11 @@ mod tests {
         let ordered = ordered_snapshots(&snapshots);
         assert_eq!(ordered[0].0, "AAPL");
         assert_eq!(ordered[1].0, "QQQ");
+    }
+
+    #[test]
+    fn preferred_feed_uses_premium_stock_feeds() {
+        assert_eq!(preferred_feed(false), DataFeed::Sip);
+        assert_eq!(preferred_feed(true), DataFeed::Boats);
     }
 }

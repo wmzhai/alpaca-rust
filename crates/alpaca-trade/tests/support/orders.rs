@@ -6,8 +6,8 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use alpaca_data::{
     Client as DataClient,
-    options::{ChainRequest, OptionsFeed, Snapshot, SnapshotsRequest},
-    stocks::{DataFeed, SnapshotsRequest as StockSnapshotsRequest},
+    options::{ChainRequest, Snapshot, SnapshotsRequest, preferred_feed as preferred_option_feed},
+    stocks::{SnapshotsRequest as StockSnapshotsRequest, preferred_feed as preferred_stock_feed},
 };
 use alpaca_trade::orders::{OptionLegRequest, OrderSide, PositionIntent};
 use rust_decimal::Decimal;
@@ -113,7 +113,7 @@ pub(crate) async fn stock_order_price_context(
         .stocks()
         .snapshots(StockSnapshotsRequest {
             symbols: vec![underlying_symbol.to_owned()],
-            feed: Some(DataFeed::Iex),
+            feed: Some(preferred_stock_feed(false)),
             currency: None,
         })
         .await
@@ -234,7 +234,7 @@ pub(crate) async fn current_mleg_replacement_limit_price(
         .options()
         .snapshots(SnapshotsRequest {
             symbols,
-            feed: Some(OptionsFeed::Indicative),
+            feed: Some(preferred_option_feed()),
             limit: Some(legs.len() as u32),
             page_token: None,
         })
@@ -288,7 +288,7 @@ async fn fetch_option_universe(
         .options()
         .chain_all(ChainRequest {
             underlying_symbol: underlying_symbol.to_owned(),
-            feed: Some(OptionsFeed::Indicative),
+            feed: Some(preferred_option_feed()),
             limit: Some(1_000),
             ..ChainRequest::default()
         })
@@ -324,7 +324,7 @@ async fn latest_stock_ask(
         .stocks()
         .snapshots(StockSnapshotsRequest {
             symbols: vec![underlying_symbol.to_owned()],
-            feed: Some(DataFeed::Iex),
+            feed: Some(preferred_stock_feed(false)),
             currency: None,
         })
         .await

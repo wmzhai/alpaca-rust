@@ -2,8 +2,8 @@ use rust_decimal::Decimal;
 
 use alpaca_data::{
     Client as DataClient,
-    options::{OptionsFeed, SnapshotsRequest as OptionSnapshotsRequest},
-    stocks::{DataFeed, SnapshotsRequest as StockSnapshotsRequest},
+    options::{SnapshotsRequest as OptionSnapshotsRequest, preferred_feed as preferred_option_feed},
+    stocks::{SnapshotsRequest as StockSnapshotsRequest, preferred_feed as preferred_stock_feed},
 };
 
 use super::MarketDataBridgeError;
@@ -87,7 +87,7 @@ impl LiveMarketDataBridge {
             .stocks()
             .snapshots(StockSnapshotsRequest {
                 symbols: vec![symbol.to_owned()],
-                feed: Some(DataFeed::Iex),
+                feed: Some(preferred_stock_feed(false)),
                 currency: None,
             })
             .await?;
@@ -129,7 +129,7 @@ impl LiveMarketDataBridge {
             .options()
             .snapshots(OptionSnapshotsRequest {
                 symbols: vec![symbol.to_owned()],
-                feed: Some(OptionsFeed::Indicative),
+                feed: Some(preferred_option_feed()),
                 limit: Some(1),
                 page_token: None,
             })
@@ -178,4 +178,29 @@ fn looks_like_occ_option_symbol(symbol: &str) -> bool {
     suffix[..6].chars().all(|ch| ch.is_ascii_digit())
         && matches!(&suffix[6..7], "C" | "P")
         && suffix[7..].chars().all(|ch| ch.is_ascii_digit())
+}
+
+#[cfg(test)]
+mod tests {
+    use alpaca_data::{options::OptionsFeed, stocks::DataFeed};
+
+    use super::mid_price;
+    use alpaca_data::{options::preferred_feed as preferred_option_feed, stocks::preferred_feed};
+
+    #[test]
+    fn market_data_bridge_uses_premium_provider_feeds() {
+        assert_eq!(preferred_option_feed(), OptionsFeed::Opra);
+        assert_eq!(preferred_feed(false), DataFeed::Sip);
+    }
+
+    #[test]
+    fn mid_price_rounds_to_two_decimals() {
+        assert_eq!(
+            mid_price(
+                rust_decimal::Decimal::new(1064, 2),
+                rust_decimal::Decimal::new(1110, 2)
+            ),
+            rust_decimal::Decimal::new(1087, 2)
+        );
+    }
 }

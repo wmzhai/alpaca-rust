@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use rust_decimal::Decimal;
 
-use super::Snapshot;
+use super::{OptionsFeed, Snapshot};
 
 impl Snapshot {
     #[must_use]
@@ -66,14 +66,19 @@ pub fn ordered_snapshots(snapshots: &HashMap<String, Snapshot>) -> Vec<(&str, &S
         .collect()
 }
 
+#[must_use]
+pub fn preferred_feed() -> OptionsFeed {
+    OptionsFeed::Opra
+}
+
 #[cfg(test)]
 mod tests {
     use std::collections::HashMap;
 
     use rust_decimal::Decimal;
 
-    use super::{Snapshot, ordered_snapshots};
-    use crate::options::{Bar, Quote, Trade};
+    use super::{Snapshot, ordered_snapshots, preferred_feed};
+    use crate::options::{Bar, OptionsFeed, Quote, Trade};
 
     #[test]
     fn snapshot_timestamp_prefers_the_freshest_available_value() {
@@ -127,5 +132,10 @@ mod tests {
         let ordered = ordered_snapshots(&snapshots);
         assert_eq!(ordered[0].0, "AAPL250620C00200000");
         assert_eq!(ordered[1].0, "QQQ250620C00500000");
+    }
+
+    #[test]
+    fn preferred_feed_uses_opra() {
+        assert_eq!(preferred_feed(), OptionsFeed::Opra);
     }
 }

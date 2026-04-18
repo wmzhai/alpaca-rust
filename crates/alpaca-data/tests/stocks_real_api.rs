@@ -4,9 +4,9 @@ mod live_support;
 use alpaca_data::{
     Client,
     stocks::{
-        BarsRequest, ConditionCodesRequest, DataFeed, LatestBarsRequest, LatestQuotesRequest,
-        LatestTradesRequest, SnapshotsRequest, Tape, TickType, TimeFrame,
-        display_symbol, ordered_snapshots,
+        BarsRequest, ConditionCodesRequest, LatestBarsRequest, LatestQuotesRequest,
+        LatestTradesRequest, SnapshotsRequest, Tape, TickType, TimeFrame, display_symbol,
+        ordered_snapshots, preferred_feed as preferred_stock_feed,
     },
 };
 use live_support::{AlpacaService, LiveTestEnv, SampleRecorder};
@@ -31,7 +31,7 @@ async fn stocks_resource_reads_real_api_endpoints() {
     let latest_bars = stocks
         .latest_bars(LatestBarsRequest {
             symbols: vec!["AAPL".to_owned(), "MSFT".to_owned()],
-            feed: Some(DataFeed::Iex),
+            feed: Some(preferred_stock_feed(false)),
             currency: None,
         })
         .await
@@ -45,7 +45,7 @@ async fn stocks_resource_reads_real_api_endpoints() {
     let latest_quotes = stocks
         .latest_quotes(LatestQuotesRequest {
             symbols: vec!["AAPL".to_owned()],
-            feed: Some(DataFeed::Iex),
+            feed: Some(preferred_stock_feed(false)),
             currency: None,
         })
         .await
@@ -59,7 +59,7 @@ async fn stocks_resource_reads_real_api_endpoints() {
     let latest_trades = stocks
         .latest_trades(LatestTradesRequest {
             symbols: vec!["AAPL".to_owned()],
-            feed: Some(DataFeed::Iex),
+            feed: Some(preferred_stock_feed(false)),
             currency: None,
         })
         .await
@@ -73,7 +73,7 @@ async fn stocks_resource_reads_real_api_endpoints() {
     let snapshots = stocks
         .snapshots(SnapshotsRequest {
             symbols: vec!["AAPL".to_owned()],
-            feed: Some(DataFeed::Iex),
+            feed: Some(preferred_stock_feed(false)),
             currency: None,
         })
         .await
@@ -91,7 +91,7 @@ async fn stocks_resource_reads_real_api_endpoints() {
     let batch_snapshots = stocks
         .snapshots(SnapshotsRequest {
             symbols: vec!["AAPL".to_owned(), "brk/b".to_owned()],
-            feed: Some(DataFeed::Iex),
+            feed: Some(preferred_stock_feed(false)),
             currency: None,
         })
         .await
@@ -120,7 +120,7 @@ async fn stocks_resource_reads_real_api_endpoints() {
     let brk_snapshots = stocks
         .snapshots(SnapshotsRequest {
             symbols: vec!["brk/b".to_owned()],
-            feed: Some(DataFeed::Iex),
+            feed: Some(preferred_stock_feed(false)),
             currency: None,
         })
         .await
@@ -138,7 +138,7 @@ async fn stocks_resource_reads_real_api_endpoints() {
             end: Some("2026-04-08T00:00:00Z".to_owned()),
             limit: Some(1),
             adjustment: None,
-            feed: Some(DataFeed::Iex),
+            feed: Some(preferred_stock_feed(false)),
             sort: None,
             asof: None,
             currency: None,

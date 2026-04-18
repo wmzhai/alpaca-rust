@@ -38,7 +38,7 @@ struct SharedState {
     accounts: RwLock<HashMap<String, VirtualAccountState>>,
     http_fault: RwLock<Option<InjectedHttpFault>>,
     market_data_bridge: Option<LiveMarketDataBridge>,
-    market_data_cache: RwLock<HashMap<String, InstrumentSnapshot>>,
+    market_data_overrides: RwLock<HashMap<String, InstrumentSnapshot>>,
 }
 
 #[derive(Debug, Clone)]
@@ -155,7 +155,7 @@ impl MockServerState {
                 accounts: RwLock::new(HashMap::new()),
                 http_fault: RwLock::new(None),
                 market_data_bridge: None,
-                market_data_cache: RwLock::new(HashMap::new()),
+                market_data_overrides: RwLock::new(HashMap::new()),
             }),
         }
     }
@@ -179,9 +179,9 @@ impl MockServerState {
     pub fn with_market_snapshot(mut self, symbol: &str, snapshot: InstrumentSnapshot) -> Self {
         Arc::get_mut(&mut self.inner)
             .expect("mock state should be uniquely owned during configuration")
-            .market_data_cache
+            .market_data_overrides
             .get_mut()
-            .expect("market data cache lock should not poison")
+            .expect("market data overrides lock should not poison")
             .insert(symbol.to_owned(), snapshot);
         self
     }
@@ -1206,9 +1206,9 @@ impl MockServerState {
             .expect("accounts lock should not poison")
             .clear();
         self.inner
-            .market_data_cache
+            .market_data_overrides
             .write()
-            .expect("market data cache lock should not poison")
+            .expect("market data overrides lock should not poison")
             .clear();
         self.clear_http_fault();
     }
@@ -1271,9 +1271,9 @@ impl MockServerState {
     ) -> Result<InstrumentSnapshot, MockStateError> {
         if let Some(snapshot) = self
             .inner
-            .market_data_cache
+            .market_data_overrides
             .read()
-            .expect("market data cache lock should not poison")
+            .expect("market data overrides lock should not poison")
             .get(symbol)
             .cloned()
         {
@@ -1289,12 +1289,6 @@ impl MockServerState {
             .instrument_snapshot(symbol)
             .await
             .map_err(|error| MockStateError::MarketDataUnavailable(error.to_string()))?;
-
-        self.inner
-            .market_data_cache
-            .write()
-            .expect("market data cache lock should not poison")
-            .insert(symbol.to_owned(), snapshot.clone());
 
         Ok(snapshot)
     }

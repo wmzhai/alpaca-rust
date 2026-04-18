@@ -5,8 +5,8 @@ use alpaca_data::{
     Client,
     options::{
         BarsRequest, ChainRequest, ConditionCodesRequest, ContractType, LatestQuotesRequest,
-        LatestTradesRequest, OptionsFeed, SnapshotsRequest, TickType, TimeFrame, TradesRequest,
-        underlying_symbol,
+        LatestTradesRequest, SnapshotsRequest, TickType, TimeFrame, TradesRequest,
+        preferred_feed as preferred_option_feed, underlying_symbol,
     },
 };
 use live_support::{
@@ -64,7 +64,7 @@ async fn options_resource_reads_real_api_endpoints() {
     let latest_quotes = options
         .latest_quotes(LatestQuotesRequest {
             symbols: latest_symbols.clone(),
-            feed: Some(OptionsFeed::Indicative),
+            feed: Some(preferred_option_feed()),
         })
         .await
         .expect("latest option quotes should read from real API");
@@ -82,7 +82,7 @@ async fn options_resource_reads_real_api_endpoints() {
     let latest_trades = options
         .latest_trades(LatestTradesRequest {
             symbols: latest_symbols.clone(),
-            feed: Some(OptionsFeed::Indicative),
+            feed: Some(preferred_option_feed()),
         })
         .await
         .expect("latest option trades should read from real API");
@@ -100,7 +100,7 @@ async fn options_resource_reads_real_api_endpoints() {
     let snapshots = options
         .snapshots_all(SnapshotsRequest {
             symbols: symbols.clone(),
-            feed: Some(OptionsFeed::Indicative),
+            feed: Some(preferred_option_feed()),
             limit: Some(1),
             page_token: None,
         })
@@ -168,7 +168,7 @@ async fn options_resource_reads_real_api_endpoints() {
     let chain = options
         .chain_all(ChainRequest {
             underlying_symbol: contract.underlying_symbol.clone(),
-            feed: Some(OptionsFeed::Indicative),
+            feed: Some(preferred_option_feed()),
             r#type: Some(contract_type_for_request(contract.contract_type)),
             strike_price_gte: None,
             strike_price_lte: None,
@@ -240,7 +240,7 @@ async fn options_snapshots_all_absorbs_multi_batch_contract_lists() {
         .options()
         .snapshots_all(SnapshotsRequest {
             symbols: symbols.clone(),
-            feed: Some(OptionsFeed::Indicative),
+            feed: Some(preferred_option_feed()),
             limit: Some(1000),
             page_token: None,
         })
@@ -267,7 +267,7 @@ async fn options_chain_absorbs_brk_b_provider_symbol_rules() {
 
     let request = ChainRequest {
         underlying_symbol: "BRK.B".to_owned(),
-        feed: Some(OptionsFeed::Indicative),
+        feed: Some(preferred_option_feed()),
         r#type: None,
         strike_price_gte: None,
         strike_price_lte: None,
