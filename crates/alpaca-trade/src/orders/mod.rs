@@ -1,5 +1,6 @@
 mod client;
 mod convenience;
+mod execution;
 mod results;
 mod lifecycle;
 mod model;
@@ -11,6 +12,7 @@ pub use convenience::{
     SubmitOrderPolicy, SubmitOrderRequest, SubmitOrderStyle, TransitionOrderPolicy,
     TransitionResolution,
 };
+pub use execution::Execution;
 pub use lifecycle::{ReplaceResolution, ResolvedOrder, WaitFor};
 pub use results::{
     is_failed_order_status, is_filled_order_status, is_finished_order_status,

@@ -16,12 +16,14 @@ categories = ["api-bindings", "asynchronous"]
 [dependencies]
 alpaca-core = { path = "../alpaca-core", version = "0.24.5" }
 alpaca-http = { package = "alpaca-rest-http", path = "../alpaca-http", version = "0.24.5" }
+chrono = { workspace = true, features = ["serde"] }
 reqwest.workspace = true
 rust_decimal.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true
 tokio.workspace = true
+ts-rs = { version = "11.1", features = ["chrono-impl", "serde-json-impl", "serde-compat"] }
 
 [dev-dependencies]
 axum.workspace = true
