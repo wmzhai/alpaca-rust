@@ -18,9 +18,10 @@ use alpaca_mock::{
 use alpaca_trade::{
     Client as TradeClient, Error,
     orders::{
-        CloseOptionLeg, CreateRequest, ListRequest, OptionLegRequest, OptionQuote, OrderClass,
-        OrderSide, OrderStatus, OrderType, PositionIntent, QueryOrderStatus, ReplaceRequest,
-        ReplaceResolution, StopLoss, SubmitOrderStyle, TakeProfit, TimeInForce, WaitFor,
+        CloseOptionLeg, CloseOptionLegsStatus, CreateRequest, ListRequest, OptionLegRequest,
+        OptionQuote, OrderClass, OrderSide, OrderStatus, OrderType, PositionIntent,
+        QueryOrderStatus, ReplaceRequest, ReplaceResolution, StopLoss, SubmitOrderStyle,
+        TakeProfit, TimeInForce, WaitFor,
     },
 };
 use live_support::can_submit_live_paper_orders;
@@ -442,6 +443,7 @@ async fn orders_close_option_legs_all_liquid_mock() {
         .await
         .expect("all-liquid close_option_legs should succeed");
 
+    assert_eq!(result.status, CloseOptionLegsStatus::Filled);
     assert!(
         result
             .order
@@ -516,6 +518,7 @@ async fn orders_close_option_legs_scales_single_leg_ratio_qty_mock() {
         .await
         .expect("single-liquid close_option_legs should succeed");
 
+    assert_eq!(result.status, CloseOptionLegsStatus::Filled);
     assert!(
         result
             .order
@@ -584,6 +587,7 @@ async fn orders_close_option_legs_returns_zero_when_all_illiquid_mock() {
         .await
         .expect("all-illiquid close_option_legs should still succeed");
 
+    assert_eq!(result.status, CloseOptionLegsStatus::Skipped);
     assert!(result.order.is_none());
     assert_eq!(result.cashflow, Decimal::ZERO);
     assert!(

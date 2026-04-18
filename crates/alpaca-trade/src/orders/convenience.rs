@@ -39,9 +39,17 @@ pub struct ClosedOptionLeg {
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct CloseOptionLegsResult {
+    pub status: CloseOptionLegsStatus,
     pub order: Option<Order>,
     pub legs: Vec<ClosedOptionLeg>,
     pub cashflow: Decimal,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum CloseOptionLegsStatus {
+    Filled,
+    Submitted,
+    Skipped,
 }
 
 impl OrderSide {
@@ -414,6 +422,7 @@ impl OrdersClient {
 
         if liquid_indices.is_empty() {
             return Ok(CloseOptionLegsResult {
+                status: CloseOptionLegsStatus::Skipped,
                 order: None,
                 legs: closed_legs,
                 cashflow: Decimal::ZERO,
@@ -453,6 +462,7 @@ impl OrdersClient {
 
         if order.status != OrderStatus::Filled {
             return Ok(CloseOptionLegsResult {
+                status: CloseOptionLegsStatus::Submitted,
                 order: Some(order),
                 legs: closed_legs,
                 cashflow: Decimal::ZERO,
@@ -482,6 +492,7 @@ impl OrdersClient {
         }
 
         Ok(CloseOptionLegsResult {
+            status: CloseOptionLegsStatus::Filled,
             order: Some(order),
             legs: closed_legs,
             cashflow,

@@ -6,7 +6,8 @@ mod request;
 
 pub use client::OrdersClient;
 pub use convenience::{
-    CloseOptionLeg, CloseOptionLegsResult, ClosedOptionLeg, OptionQuote, SubmitOrderStyle,
+    CloseOptionLeg, CloseOptionLegsResult, CloseOptionLegsStatus, ClosedOptionLeg, OptionQuote,
+    SubmitOrderStyle,
 };
 pub use lifecycle::{ReplaceResolution, ResolvedOrder, WaitFor};
 pub use model::{
