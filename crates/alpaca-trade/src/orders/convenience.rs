@@ -45,6 +45,17 @@ pub struct CloseOptionLegsResult {
 }
 
 impl OrderSide {
+    pub fn parse(value: &str) -> Result<Self, Error> {
+        match value.trim() {
+            "buy" => Ok(Self::Buy),
+            "sell" => Ok(Self::Sell),
+            _ => Err(Error::InvalidRequest(format!(
+                "invalid order side: {}",
+                value
+            ))),
+        }
+    }
+
     #[must_use]
     pub fn as_str(&self) -> &'static str {
         match self {
@@ -70,6 +81,22 @@ impl OrderType {
 }
 
 impl TimeInForce {
+    pub fn parse(value: &str) -> Result<Self, Error> {
+        match value.trim() {
+            "day" => Ok(Self::Day),
+            "gtc" => Ok(Self::Gtc),
+            "opg" => Ok(Self::Opg),
+            "cls" => Ok(Self::Cls),
+            "ioc" => Ok(Self::Ioc),
+            "fok" => Ok(Self::Fok),
+            "gtd" => Ok(Self::Gtd),
+            _ => Err(Error::InvalidRequest(format!(
+                "invalid time in force: {}",
+                value
+            ))),
+        }
+    }
+
     #[must_use]
     pub fn as_str(&self) -> &'static str {
         match self {
@@ -85,6 +112,19 @@ impl TimeInForce {
 }
 
 impl PositionIntent {
+    pub fn parse(value: &str) -> Result<Self, Error> {
+        match value.trim() {
+            "buy_to_open" => Ok(Self::BuyToOpen),
+            "buy_to_close" => Ok(Self::BuyToClose),
+            "sell_to_open" => Ok(Self::SellToOpen),
+            "sell_to_close" => Ok(Self::SellToClose),
+            _ => Err(Error::InvalidRequest(format!(
+                "invalid position intent: {}",
+                value
+            ))),
+        }
+    }
+
     #[must_use]
     pub fn as_str(&self) -> &'static str {
         match self {
@@ -271,15 +311,7 @@ impl CreateRequest {
         qty: i32,
         side: OrderSide,
         style: SubmitOrderStyle,
-    ) -> Result<Self, Error> {
-        Self::simple_with_extended_hours(symbol, qty, side, style, None)
-    }
-
-    pub fn simple_with_extended_hours(
-        symbol: &str,
-        qty: i32,
-        side: OrderSide,
-        style: SubmitOrderStyle,
+        time_in_force: Option<TimeInForce>,
         extended_hours: Option<bool>,
     ) -> Result<Self, Error> {
         if qty == 0 {
@@ -292,7 +324,7 @@ impl CreateRequest {
             notional: None,
             side: Some(side),
             r#type: Some(style.order_type()),
-            time_in_force: Some(TimeInForce::Day),
+            time_in_force: Some(time_in_force.unwrap_or(TimeInForce::Day)),
             limit_price: style.limit_price(),
             stop_price: None,
             trail_price: None,
@@ -396,6 +428,8 @@ impl OrdersClient {
                     leg.contract_qty(qty)?,
                     leg.side,
                     SubmitOrderStyle::Market,
+                    None,
+                    None,
                 )?,
                 WaitFor::Filled,
             )
@@ -548,15 +582,23 @@ mod tests {
 
     #[test]
     fn builds_simple_market_request_with_day_time_in_force() {
-        let request = CreateRequest::simple("SPY", 2, OrderSide::Buy, SubmitOrderStyle::Market)
-            .expect("simple market request should build");
+        let request = CreateRequest::simple(
+            "SPY",
+            2,
+            OrderSide::parse("buy").expect("buy should parse"),
+            SubmitOrderStyle::Market,
+            Some(TimeInForce::Cls),
+            Some(true),
+        )
+        .expect("simple market request should build");
 
         assert_eq!(request.symbol.as_deref(), Some("SPY"));
         assert_eq!(request.qty, Some(Decimal::from(2)));
         assert_eq!(request.side, Some(OrderSide::Buy));
         assert_eq!(request.r#type, Some(OrderType::Market));
-        assert_eq!(request.time_in_force, Some(TimeInForce::Day));
+        assert_eq!(request.time_in_force, Some(TimeInForce::Cls));
         assert_eq!(request.limit_price, None);
+        assert_eq!(request.extended_hours, Some(true));
         assert_eq!(request.order_class, None);
     }
 

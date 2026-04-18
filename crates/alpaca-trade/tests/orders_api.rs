@@ -340,6 +340,8 @@ async fn orders_create_resolved_market_mock() {
                 1,
                 OrderSide::Buy,
                 SubmitOrderStyle::Market,
+                None,
+                None,
             )
             .expect("simple market request should build"),
             WaitFor::Filled,
@@ -381,6 +383,8 @@ async fn orders_create_resolved_limit_mock() {
                 1,
                 OrderSide::Buy,
                 SubmitOrderStyle::Limit { limit_price },
+                None,
+                None,
             )
             .expect("simple limit request should build"),
             WaitFor::Stable,
