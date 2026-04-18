@@ -158,6 +158,32 @@ impl OrderClass {
 }
 
 impl OrderStatus {
+    pub fn parse(value: &str) -> Result<Self, Error> {
+        match value.trim() {
+            "new" => Ok(Self::New),
+            "partially_filled" => Ok(Self::PartiallyFilled),
+            "filled" => Ok(Self::Filled),
+            "done_for_day" => Ok(Self::DoneForDay),
+            "canceled" => Ok(Self::Canceled),
+            "expired" => Ok(Self::Expired),
+            "replaced" => Ok(Self::Replaced),
+            "pending_cancel" => Ok(Self::PendingCancel),
+            "pending_replace" => Ok(Self::PendingReplace),
+            "accepted" => Ok(Self::Accepted),
+            "pending_new" => Ok(Self::PendingNew),
+            "accepted_for_bidding" => Ok(Self::AcceptedForBidding),
+            "stopped" => Ok(Self::Stopped),
+            "rejected" => Ok(Self::Rejected),
+            "suspended" => Ok(Self::Suspended),
+            "calculated" => Ok(Self::Calculated),
+            "held" => Ok(Self::Held),
+            _ => Err(Error::InvalidRequest(format!(
+                "invalid order status: {}",
+                value
+            ))),
+        }
+    }
+
     #[must_use]
     pub fn as_str(&self) -> &'static str {
         match self {
@@ -539,6 +565,10 @@ mod tests {
         assert_eq!(PositionIntent::SellToClose.as_str(), "sell_to_close");
         assert_eq!(OrderClass::Mleg.as_str(), "mleg");
         assert_eq!(OrderStatus::PendingReplace.as_str(), "pending_replace");
+        assert_eq!(
+            OrderStatus::parse("rejected").expect("status should parse"),
+            OrderStatus::Rejected
+        );
     }
 
     #[test]
