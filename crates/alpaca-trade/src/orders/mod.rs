@@ -15,9 +15,7 @@ pub use convenience::{
 pub use execution::Execution;
 pub use lifecycle::{ReplaceResolution, ResolvedOrder, WaitFor};
 pub use results::{
-    is_failed_order_status, is_filled_order_status, is_finished_order_status,
-    is_terminal_status, CancelOutcome, CancelOutcomeKind, OrderTerminalState, UpdateOutcome,
-    UpdateOutcomeKind,
+    CancelOutcome, CancelOutcomeKind, OrderTerminalState, UpdateOutcome, UpdateOutcomeKind,
 };
 pub use model::{
     CancelAllOrderResult, Order, OrderClass, OrderSide, OrderStatus, OrderType, PositionIntent,
