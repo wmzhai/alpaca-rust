@@ -18,11 +18,11 @@ use alpaca_mock::{
 use alpaca_trade::{
     Client as TradeClient, Error,
     orders::{
-        CloseOptionLeg, CloseOptionLegsResult, CreateRequest, ListRequest, OptionLegRequest,
-        OptionQuote, OrderClass, OrderSide, OrderStatus, OrderType, PositionIntent,
-        QueryOrderStatus, ReplaceRequest, ReplaceResolution, StopLoss, SubmitOrderRequest,
-        SubmitOrderStyle, TakeProfit, TimeInForce, TransitionOrderPolicy, TransitionResolution,
-        WaitFor,
+        CloseOptionLeg, CloseOptionLegsResult, CreateRequest, ListRequest, MarketCloseRecovery,
+        OptionLegRequest, OptionQuote, OrderClass, OrderSide, OrderStatus, OrderType,
+        PositionIntent, QueryOrderStatus, ReplaceRequest, ReplaceResolution, StopLoss,
+        SubmitOrderPolicy, SubmitOrderRequest, SubmitOrderStyle, TakeProfit, TimeInForce,
+        TransitionOrderPolicy, TransitionResolution, WaitFor,
     },
 };
 use live_support::can_submit_live_paper_orders;
@@ -421,6 +421,30 @@ async fn orders_submit_resolved_market_mock() {
 }
 
 #[tokio::test]
+async fn orders_submit_with_accept_only_policy_mock() {
+    let (_server, client) = build_fixed_mid_price_mock_client().await;
+
+    let resolved = client
+        .orders()
+        .submit_with_policy(
+            SubmitOrderRequest::simple(
+                FIXED_STOCK_SYMBOL,
+                1,
+                OrderSide::Buy,
+                SubmitOrderStyle::Market,
+                None,
+                Some(false),
+            ),
+            SubmitOrderPolicy::AcceptOnly,
+        )
+        .await
+        .expect("submit_with_policy should submit successfully");
+
+    assert_eq!(resolved.order.status, OrderStatus::Filled);
+    assert_eq!(resolved.order.filled_avg_price, Some(fixed_stock_mid()));
+}
+
+#[tokio::test]
 async fn orders_submit_resolved_limit_mock() {
     let Some(harness) = target_support::build_trade_test_harness(TradeTestTarget::Mock).await
     else {
@@ -499,7 +523,11 @@ async fn orders_submit_resolved_mleg_market_mock() {
     assert_eq!(resolved.order.status, OrderStatus::Filled);
     assert_eq!(resolved.order.order_class, OrderClass::Mleg);
     assert!(
-        resolved.order.legs.as_ref().is_some_and(|legs| !legs.is_empty()),
+        resolved
+            .order
+            .legs
+            .as_ref()
+            .is_some_and(|legs| !legs.is_empty()),
         "filled multi-leg order should include leg details"
     );
 
@@ -520,6 +548,108 @@ async fn orders_submit_resolved_mleg_market_mock() {
             .await
             .expect("mock option close should fill");
         assert_eq!(closed.order.status, OrderStatus::Filled);
+    }
+}
+
+#[tokio::test]
+async fn orders_recover_market_close_retries_before_fallback_mock() {
+    let Some(harness) = target_support::build_trade_test_harness(TradeTestTarget::Mock).await
+    else {
+        return;
+    };
+
+    clear_option_universe_cache().await;
+    let spread = discover_mleg_call_spread(harness.data_client(), ORDER_TEST_SYMBOL)
+        .await
+        .expect("mock call spread should be discoverable");
+    let opened = submit_mleg_market_order(
+        &harness,
+        spread.legs.clone(),
+        Decimal::ONE,
+        OrderSide::Buy,
+        &unique_client_order_id("phase22-mock-market-close-retry-open"),
+    )
+    .await
+    .expect("mock multi-leg open should fill");
+
+    let closing_legs = build_close_option_legs(&harness, &opened).await;
+    let recovery = harness
+        .trade_client()
+        .orders()
+        .recover_market_close(0, 3, 1, closing_legs)
+        .await
+        .expect("market close recovery should succeed");
+
+    assert_eq!(
+        recovery,
+        MarketCloseRecovery::RetryAsMarket {
+            next_retry_count: 1
+        }
+    );
+
+    for leg in opened
+        .legs
+        .as_ref()
+        .expect("filled multi-leg order should expose nested legs")
+    {
+        let position = wait_for_position(&harness, &leg.symbol).await;
+        assert!(position.qty != Decimal::ZERO);
+    }
+}
+
+#[tokio::test]
+async fn orders_recover_market_close_falls_back_after_retry_limit_mock() {
+    let Some(harness) = target_support::build_trade_test_harness(TradeTestTarget::Mock).await
+    else {
+        return;
+    };
+
+    clear_option_universe_cache().await;
+    let spread = discover_mleg_call_spread(harness.data_client(), ORDER_TEST_SYMBOL)
+        .await
+        .expect("mock call spread should be discoverable");
+    let opened = submit_mleg_market_order(
+        &harness,
+        spread.legs.clone(),
+        Decimal::ONE,
+        OrderSide::Buy,
+        &unique_client_order_id("phase22-mock-market-close-fallback-open"),
+    )
+    .await
+    .expect("mock multi-leg open should fill");
+
+    let closing_legs = build_close_option_legs(&harness, &opened).await;
+    let recovery = harness
+        .trade_client()
+        .orders()
+        .recover_market_close(3, 3, 1, closing_legs)
+        .await
+        .expect("market close recovery should succeed");
+
+    match recovery {
+        MarketCloseRecovery::Fallback {
+            next_retry_count,
+            result:
+                CloseOptionLegsResult::Filled {
+                    order,
+                    legs,
+                    cashflow,
+                },
+        } => {
+            assert_eq!(next_retry_count, 4);
+            assert_eq!(order.status, OrderStatus::Filled);
+            assert!(cashflow != Decimal::ZERO);
+            assert!(legs.iter().all(|leg| leg.filled_avg_price > Decimal::ZERO));
+        }
+        other => panic!("expected fallback fill result, got {other:?}"),
+    }
+
+    for leg in opened
+        .legs
+        .as_ref()
+        .expect("filled multi-leg order should expose nested legs")
+    {
+        wait_for_position_absent(&harness, &leg.symbol).await;
     }
 }
 
@@ -565,11 +695,17 @@ async fn orders_transition_resolved_replaces_resting_limit_mock() {
         .expect("auto transition should replace resting stock limit");
 
     match resolution {
-        TransitionResolution::NewOrder { resolved, recreated } => {
+        TransitionResolution::NewOrder {
+            resolved,
+            recreated,
+        } => {
             assert!(!recreated);
             assert_eq!(resolved.order.status, OrderStatus::Filled);
             assert_eq!(resolved.order.filled_avg_price, Some(fixed_stock_mid()));
-            assert_eq!(resolved.order.replaces.as_deref(), Some(resting.id.as_str()));
+            assert_eq!(
+                resolved.order.replaces.as_deref(),
+                Some(resting.id.as_str())
+            );
         }
         TransitionResolution::OriginalOrderTerminal(resolved) => {
             panic!(
@@ -620,7 +756,10 @@ async fn orders_transition_resolved_recreates_type_change_mock() {
         .expect("type change should recreate through cancel and new submit");
 
     match resolution {
-        TransitionResolution::NewOrder { resolved, recreated } => {
+        TransitionResolution::NewOrder {
+            resolved,
+            recreated,
+        } => {
             assert!(recreated);
             assert_eq!(resolved.order.status, OrderStatus::Filled);
             assert_eq!(resolved.order.filled_avg_price, Some(fixed_stock_mid()));
@@ -675,7 +814,10 @@ async fn orders_transition_resolved_recreate_recovers_after_cancel_request_error
         .expect("recreate transition should recover after cancel request error");
 
     match resolution {
-        TransitionResolution::NewOrder { resolved, recreated } => {
+        TransitionResolution::NewOrder {
+            resolved,
+            recreated,
+        } => {
             assert!(recreated);
             assert!(resolved.recovered_after_request_error);
             assert_eq!(resolved.order.status, OrderStatus::Filled);
@@ -796,11 +938,15 @@ async fn orders_close_option_legs_scales_single_leg_ratio_qty_mock() {
             assert_eq!(order.status, OrderStatus::Filled);
             assert_eq!(legs[liquid_index].ratio_qty, 2);
             assert!(legs[liquid_index].filled_avg_price > Decimal::ZERO);
-            assert!(legs.iter().enumerate().all(|(index, leg)| if index == liquid_index {
-                leg.filled_avg_price > Decimal::ZERO
-            } else {
-                leg.filled_avg_price == Decimal::ZERO
-            }));
+            assert!(
+                legs.iter()
+                    .enumerate()
+                    .all(|(index, leg)| if index == liquid_index {
+                        leg.filled_avg_price > Decimal::ZERO
+                    } else {
+                        leg.filled_avg_price == Decimal::ZERO
+                    })
+            );
         }
         other => panic!("expected filled close result, got {other:?}"),
     }
@@ -3212,7 +3358,10 @@ async fn verify_stock_limit_fills_at_mid_on_create_and_replace(client: &TradeCli
         )
         .await
         .expect("fixed resting stock limit should submit");
-    assert!(matches!(resting.status, OrderStatus::Accepted | OrderStatus::New));
+    assert!(matches!(
+        resting.status,
+        OrderStatus::Accepted | OrderStatus::New
+    ));
 
     let replacement = match client
         .orders()
@@ -3290,7 +3439,10 @@ async fn verify_option_limit_fills_at_mid_on_create_and_replace(client: &TradeCl
         })
         .await
         .expect("fixed resting option limit should submit");
-    assert!(matches!(resting.status, OrderStatus::Accepted | OrderStatus::New));
+    assert!(matches!(
+        resting.status,
+        OrderStatus::Accepted | OrderStatus::New
+    ));
 
     let replacement = match client
         .orders()
@@ -3371,7 +3523,10 @@ async fn verify_mleg_limit_fills_at_mid_on_create_and_replace(client: &TradeClie
         )
         .await
         .expect("fixed resting mleg limit should submit");
-    assert!(matches!(resting.status, OrderStatus::Accepted | OrderStatus::New));
+    assert!(matches!(
+        resting.status,
+        OrderStatus::Accepted | OrderStatus::New
+    ));
 
     let replacement = match client
         .orders()
@@ -3399,8 +3554,14 @@ async fn verify_mleg_limit_fills_at_mid_on_create_and_replace(client: &TradeClie
         .as_ref()
         .expect("fixed replaced mleg should include legs");
     assert_eq!(replacement_legs.len(), 2);
-    assert_eq!(replacement_legs[0].filled_avg_price, Some(Decimal::new(320, 2)));
-    assert_eq!(replacement_legs[1].filled_avg_price, Some(Decimal::new(120, 2)));
+    assert_eq!(
+        replacement_legs[0].filled_avg_price,
+        Some(Decimal::new(320, 2))
+    );
+    assert_eq!(
+        replacement_legs[1].filled_avg_price,
+        Some(Decimal::new(120, 2))
+    );
 }
 
 async fn build_recovery_test_client() -> Option<(TestServer, MockServerState, TradeClient)> {

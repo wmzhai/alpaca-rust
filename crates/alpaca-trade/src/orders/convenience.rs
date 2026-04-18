@@ -13,6 +13,12 @@ pub enum SubmitOrderStyle {
     Limit { limit_price: Decimal },
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum SubmitOrderPolicy {
+    Default,
+    AcceptOnly,
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub enum SubmitOrderRequest {
     Simple {
@@ -92,6 +98,29 @@ impl CloseOptionLegsResult {
             Self::Filled { legs, .. } | Self::Submitted { legs, .. } | Self::Skipped { legs } => {
                 legs
             }
+        }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub enum MarketCloseRecovery {
+    RetryAsMarket {
+        next_retry_count: i32,
+    },
+    Fallback {
+        next_retry_count: i32,
+        result: CloseOptionLegsResult,
+    },
+}
+
+impl MarketCloseRecovery {
+    #[must_use]
+    pub fn next_retry_count(&self) -> i32 {
+        match self {
+            Self::RetryAsMarket { next_retry_count }
+            | Self::Fallback {
+                next_retry_count, ..
+            } => *next_retry_count,
         }
     }
 }
@@ -433,6 +462,14 @@ impl SubmitOrderRequest {
         }
     }
 
+    #[must_use]
+    pub fn wait_for(self, policy: SubmitOrderPolicy) -> WaitFor {
+        match policy {
+            SubmitOrderPolicy::Default => self.default_wait_for(),
+            SubmitOrderPolicy::AcceptOnly => WaitFor::Stable,
+        }
+    }
+
     pub fn into_create_request(self) -> Result<CreateRequest, Error> {
         match self {
             Self::Simple {
@@ -442,14 +479,7 @@ impl SubmitOrderRequest {
                 style,
                 time_in_force,
                 extended_hours,
-            } => CreateRequest::simple(
-                &symbol,
-                qty,
-                side,
-                style,
-                time_in_force,
-                extended_hours,
-            ),
+            } => CreateRequest::simple(&symbol, qty, side, style, time_in_force, extended_hours),
             Self::Mleg { qty, style, legs } => CreateRequest::mleg(qty, style, legs),
         }
     }
@@ -478,9 +508,9 @@ impl SubmitOrderRequest {
         match self {
             Self::Simple { .. } => false,
             Self::Mleg { legs, .. } => legs.iter().any(|leg| {
-                leg.position_intent
-                    .is_some_and(|intent| intent == PositionIntent::BuyToClose
-                        || intent == PositionIntent::SellToClose)
+                leg.position_intent.is_some_and(|intent| {
+                    intent == PositionIntent::BuyToClose || intent == PositionIntent::SellToClose
+                })
             }),
         }
     }
@@ -601,13 +631,24 @@ impl ReplaceRequest {
 }
 
 impl OrdersClient {
+    pub async fn submit_with_policy(
+        &self,
+        request: SubmitOrderRequest,
+        policy: SubmitOrderPolicy,
+    ) -> Result<crate::orders::ResolvedOrder, Error> {
+        let target = request.clone().wait_for(policy);
+        self.create_resolved(request.into_create_request()?, target)
+            .await
+    }
+
     pub async fn submit_resolved(
         &self,
         request: SubmitOrderRequest,
         wait_for: Option<WaitFor>,
     ) -> Result<crate::orders::ResolvedOrder, Error> {
         let target = wait_for.unwrap_or_else(|| request.default_wait_for());
-        self.create_resolved(request.into_create_request()?, target).await
+        self.create_resolved(request.into_create_request()?, target)
+            .await
     }
 
     pub async fn close_option_legs(
@@ -704,6 +745,25 @@ impl OrdersClient {
         })
     }
 
+    pub async fn recover_market_close(
+        &self,
+        retry_count: i32,
+        max_retries: i32,
+        qty: i32,
+        legs: Vec<CloseOptionLeg>,
+    ) -> Result<MarketCloseRecovery, Error> {
+        let next_retry_count = retry_count.max(0).saturating_add(1);
+        if next_retry_count <= max_retries.max(0) {
+            return Ok(MarketCloseRecovery::RetryAsMarket { next_retry_count });
+        }
+
+        let result = self.close_option_legs(qty, legs).await?;
+        Ok(MarketCloseRecovery::Fallback {
+            next_retry_count,
+            result,
+        })
+    }
+
     pub async fn transition_resolved(
         &self,
         order_id: &str,
@@ -727,11 +787,12 @@ impl OrdersClient {
             });
         }
 
-        match self.replace_resolved(
-            &current_order.id,
-            ReplaceRequest::from_submit_style(request.style()),
-        )
-        .await?
+        match self
+            .replace_resolved(
+                &current_order.id,
+                ReplaceRequest::from_submit_style(request.style()),
+            )
+            .await?
         {
             super::ReplaceResolution::NewOrder(resolved) => Ok(TransitionResolution::NewOrder {
                 resolved,
@@ -771,9 +832,10 @@ mod tests {
     use rust_decimal::Decimal;
 
     use super::{
-        CloseOptionLeg, CreateRequest, OptionLegRequest, OptionQuote, Order, OrderClass, OrderSide,
-        OrderStatus, OrderType, PositionIntent, ReplaceRequest, SubmitOrderRequest,
-        SubmitOrderStyle, TimeInForce, TransitionOrderPolicy, WaitFor,
+        CloseOptionLeg, CloseOptionLegsResult, CreateRequest, MarketCloseRecovery,
+        OptionLegRequest, OptionQuote, Order, OrderClass, OrderSide, OrderStatus, OrderType,
+        PositionIntent, ReplaceRequest, SubmitOrderPolicy, SubmitOrderRequest, SubmitOrderStyle,
+        TimeInForce, TransitionOrderPolicy, WaitFor,
     };
 
     #[test]
@@ -934,6 +996,45 @@ mod tests {
     }
 
     #[test]
+    fn submit_request_policy_overrides_wait_target() {
+        let market = SubmitOrderRequest::simple(
+            "SPY",
+            1,
+            OrderSide::Buy,
+            SubmitOrderStyle::Market,
+            None,
+            None,
+        );
+        assert_eq!(
+            market.clone().wait_for(SubmitOrderPolicy::Default),
+            WaitFor::Filled
+        );
+        assert_eq!(
+            market.wait_for(SubmitOrderPolicy::AcceptOnly),
+            WaitFor::Stable
+        );
+    }
+
+    #[test]
+    fn market_close_recovery_exposes_next_retry_count() {
+        assert_eq!(
+            MarketCloseRecovery::RetryAsMarket {
+                next_retry_count: 1
+            }
+            .next_retry_count(),
+            1
+        );
+        assert_eq!(
+            MarketCloseRecovery::Fallback {
+                next_retry_count: 4,
+                result: CloseOptionLegsResult::Skipped { legs: Vec::new() },
+            }
+            .next_retry_count(),
+            4
+        );
+    }
+
+    #[test]
     fn submit_request_converts_into_create_request() {
         let simple = SubmitOrderRequest::simple(
             "SPY",
@@ -983,8 +1084,14 @@ mod tests {
             r#type: OrderType::Limit,
             ..Default::default()
         };
-        let market_simple =
-            SubmitOrderRequest::simple("SPY", 1, OrderSide::Buy, SubmitOrderStyle::Market, None, None);
+        let market_simple = SubmitOrderRequest::simple(
+            "SPY",
+            1,
+            OrderSide::Buy,
+            SubmitOrderStyle::Market,
+            None,
+            None,
+        );
         assert!(market_simple.requires_recreate(&simple_current, TransitionOrderPolicy::Auto));
 
         let open_mleg_current = Order {
