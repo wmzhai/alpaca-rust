@@ -1,0 +1,143 @@
+{
+  "fixture": "expiration-math",
+  "cases": [
+    {
+      "id": "expiration-timestamp-normal-day",
+      "api": "expiration.close",
+      "input": {
+        "expiration_date": "2025-02-06"
+      },
+      "expected": {
+        "value": "2025-02-06 16:00:00"
+      }
+    },
+    {
+      "id": "expiration-timestamp-early-close",
+      "api": "expiration.close",
+      "input": {
+        "expiration_date": "2025-07-03"
+      },
+      "expected": {
+        "value": "2025-07-03 13:00:00"
+      }
+    },
+    {
+      "id": "calendar-dte-next-day",
+      "api": "expiration.calendar_days",
+      "input": {
+        "timestamp": "2025-02-05 11:30:04",
+        "expiration_date": "2025-02-06"
+      },
+      "expected": {
+        "value": 1
+      }
+    },
+    {
+      "id": "calendar-dte-same-day-before-close",
+      "api": "expiration.calendar_days",
+      "input": {
+        "timestamp": "2025-02-06 11:30:04",
+        "expiration_date": "2025-02-06"
+      },
+      "expected": {
+        "value": 0
+      }
+    },
+    {
+      "id": "calendar-dte-same-day-after-close",
+      "api": "expiration.calendar_days",
+      "input": {
+        "timestamp": "2025-02-06 16:00:01",
+        "expiration_date": "2025-02-06"
+      },
+      "expected": {
+        "value": -1
+      }
+    },
+    {
+      "id": "fractional-dte-same-day",
+      "api": "expiration.days",
+      "input": {
+        "timestamp": "2025-02-06 11:30:04",
+        "expiration_date": "2025-02-06"
+      },
+      "expected": {
+        "value": 0.1874537037037037
+      },
+      "tolerance": 1e-12
+    },
+    {
+      "id": "year-fraction-to-expiration",
+      "api": "expiration.years",
+      "input": {
+        "timestamp": "2025-02-06 11:30:04",
+        "expiration_date": "2025-03-21",
+        "basis": "ACT/365.25"
+      },
+      "expected": {
+        "value": 0.11824080411691637
+      },
+      "tolerance": 1e-12
+    },
+    {
+      "id": "time-to-expiration",
+      "api": "expiration.years",
+      "input": {
+        "timestamp": "2025-02-06 11:30:04",
+        "expiration_date": "2025-03-21",
+        "basis": "ACT/365.25"
+      },
+      "expected": {
+        "value": 0.11824080411691637
+      },
+      "tolerance": 1e-12
+    },
+    {
+      "id": "time-to-expiration-after-close-clamps-zero",
+      "api": "expiration.years",
+      "input": {
+        "timestamp": "2025-02-06 16:00:01",
+        "expiration_date": "2025-02-06"
+      },
+      "expected": {
+        "value": 0
+      }
+    },
+    {
+      "id": "year-fraction-between-dates",
+      "api": "expiration.years_between_dates",
+      "input": {
+        "start_date": "2025-02-06",
+        "end_date": "2025-03-21",
+        "basis": "ACT/365"
+      },
+      "expected": {
+        "value": 0.1178082191780822
+      },
+      "tolerance": 1e-12
+    },
+    {
+      "id": "year-fraction-between-dates-default-basis",
+      "api": "expiration.years_between_dates",
+      "input": {
+        "start_date": "2025-02-06",
+        "end_date": "2025-03-21"
+      },
+      "expected": {
+        "value": 0.1178082191780822
+      },
+      "tolerance": 1e-12
+    },
+    {
+      "id": "add-trading-days-over-holiday",
+      "api": "calendar.add_trading_days",
+      "input": {
+        "date": "2025-07-02",
+        "days": 2
+      },
+      "expected": {
+        "value": "2025-07-07"
+      }
+    }
+  ]
+}

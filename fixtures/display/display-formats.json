@@ -1,0 +1,227 @@
+{
+  "fixture": "display-formats",
+  "cases": [
+    {
+      "id": "compact-date-mm-dd",
+      "api": "display.compact",
+      "input": {
+        "date": "2025-02-06",
+        "style": "mm-dd"
+      },
+      "expected": {
+        "value": "02-06"
+      }
+    },
+    {
+      "id": "compact-date-yy-mm-dd",
+      "api": "display.compact",
+      "input": {
+        "date": "2025-02-06",
+        "style": "yy-mm-dd"
+      },
+      "expected": {
+        "value": "25-02-06"
+      }
+    },
+    {
+      "id": "compact-date-yymmdd",
+      "api": "display.compact",
+      "input": {
+        "date": "2025-02-06",
+        "style": "yymmdd"
+      },
+      "expected": {
+        "value": "250206"
+      }
+    },
+    {
+      "id": "compact-timestamp-mm-dd-hh-mm",
+      "api": "display.compact",
+      "input": {
+        "timestamp": "2025-02-06 11:30:04",
+        "style": "mm-dd hh:mm"
+      },
+      "expected": {
+        "value": "02-06 11:30"
+      }
+    },
+    {
+      "id": "compact-timestamp-yy-mm-dd-hh-mm",
+      "api": "display.compact",
+      "input": {
+        "timestamp": "2025-02-06 11:30:04",
+        "style": "yy-mm-dd hh:mm"
+      },
+      "expected": {
+        "value": "25-02-06 11:30"
+      }
+    },
+    {
+      "id": "compact-timestamp-yyyy-mm-dd-hh-mm",
+      "api": "display.compact",
+      "input": {
+        "timestamp": "2025-02-06 11:30:04",
+        "style": "yyyy-mm-dd hh:mm"
+      },
+      "expected": {
+        "value": "2025-02-06 11:30"
+      }
+    },
+    {
+      "id": "time-only",
+      "api": "display.time",
+      "input": {
+        "timestamp": "2025-02-06 11:30:04"
+      },
+      "expected": {
+        "value": "11:30"
+      }
+    },
+    {
+      "id": "time-only-second",
+      "api": "display.time",
+      "input": {
+        "timestamp": "2025-02-06 11:30:04",
+        "precision": "second"
+      },
+      "expected": {
+        "value": "11:30:04"
+      }
+    },
+    {
+      "id": "hhmm-from-compact",
+      "api": "display.hhmm",
+      "input": {
+        "input": "0930"
+      },
+      "expected": {
+        "value": "09:30"
+      }
+    },
+    {
+      "id": "hhmm-duration-hours",
+      "api": "display.duration",
+      "input": {
+        "start": "09:30",
+        "end": "12:00"
+      },
+      "expected": {
+        "value": "2h 30m"
+      }
+    },
+    {
+      "id": "hhmm-duration-minutes-only",
+      "api": "display.duration",
+      "input": {
+        "start": "09:30",
+        "end": "10:00"
+      },
+      "expected": {
+        "value": "30m"
+      }
+    },
+    {
+      "id": "hhmm-duration-invalid",
+      "api": "display.duration",
+      "input": {
+        "start": "bad",
+        "end": "10:00"
+      },
+      "expected": {
+        "value": "-"
+      }
+    },
+    {
+      "id": "weekday-code",
+      "api": "display.weekday_code",
+      "input": {
+        "date": "2025-02-06"
+      },
+      "expected": {
+        "value": "thu"
+      }
+    },
+    {
+      "id": "relative-duration-parts",
+      "api": "display.relative_duration_parts",
+      "input": {
+        "from": "2025-02-06 11:30:04",
+        "to": "2025-02-06 16:00:00"
+      },
+      "expected": {
+        "sign": 1,
+        "total_seconds": 16196,
+        "days": 0,
+        "hours": 4,
+        "minutes": 29,
+        "seconds": 56
+      }
+    },
+    {
+      "id": "compact-duration-hm",
+      "api": "display.compact_duration",
+      "input": {
+        "parts": {
+          "sign": 1,
+          "total_seconds": 16196,
+          "days": 0,
+          "hours": 4,
+          "minutes": 29,
+          "seconds": 56
+        },
+        "style": "hm"
+      },
+      "expected": {
+        "value": "4h 29m"
+      }
+    },
+    {
+      "id": "compact-duration-dhm",
+      "api": "display.compact_duration",
+      "input": {
+        "parts": {
+          "sign": 1,
+          "total_seconds": 93784,
+          "days": 1,
+          "hours": 2,
+          "minutes": 3,
+          "seconds": 4
+        },
+        "style": "dhm"
+      },
+      "expected": {
+        "value": "1d 2h 3m"
+      }
+    },
+    {
+      "id": "compact-days-until-day",
+      "api": "display.compact_days_until",
+      "input": {
+        "days": 3.5
+      },
+      "expected": {
+        "value": "3.5D"
+      }
+    },
+    {
+      "id": "compact-days-until-hour",
+      "api": "display.compact_days_until",
+      "input": {
+        "days": 0.25
+      },
+      "expected": {
+        "value": "6.0h"
+      }
+    },
+    {
+      "id": "compact-days-until-negative-hour",
+      "api": "display.compact_days_until",
+      "input": {
+        "days": -0.5
+      },
+      "expected": {
+        "value": "-12.0h"
+      }
+    }
+  ]
+}

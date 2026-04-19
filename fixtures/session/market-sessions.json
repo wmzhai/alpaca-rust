@@ -1,0 +1,115 @@
+{
+  "fixture": "market-sessions",
+  "cases": [
+    {
+      "id": "premarket-normal-day",
+      "api": "session.market_session_at",
+      "input": {
+        "timestamp": "2025-02-06 08:15:00"
+      },
+      "expected": {
+        "value": "premarket"
+      }
+    },
+    {
+      "id": "regular-normal-day",
+      "api": "session.market_session_at",
+      "input": {
+        "timestamp": "2025-02-06 11:30:04"
+      },
+      "expected": {
+        "value": "regular"
+      }
+    },
+    {
+      "id": "after-hours-normal-day",
+      "api": "session.market_session_at",
+      "input": {
+        "timestamp": "2025-02-06 19:59:59"
+      },
+      "expected": {
+        "value": "after_hours"
+      }
+    },
+    {
+      "id": "closed-after-20",
+      "api": "session.market_session_at",
+      "input": {
+        "timestamp": "2025-02-06 20:00:00"
+      },
+      "expected": {
+        "value": "closed"
+      }
+    },
+    {
+      "id": "after-hours-on-early-close-day",
+      "api": "session.market_session_at",
+      "input": {
+        "timestamp": "2025-07-03 14:00:00"
+      },
+      "expected": {
+        "value": "after_hours"
+      }
+    },
+    {
+      "id": "holiday-closed",
+      "api": "session.market_session_at",
+      "input": {
+        "timestamp": "2025-07-04 10:00:00"
+      },
+      "expected": {
+        "value": "closed"
+      }
+    },
+    {
+      "id": "overnight-before-four",
+      "api": "session.is_overnight_window",
+      "input": {
+        "timestamp": "2025-02-06 03:59:59"
+      },
+      "expected": {
+        "value": true
+      }
+    },
+    {
+      "id": "overnight-at-four",
+      "api": "session.is_overnight_window",
+      "input": {
+        "timestamp": "2025-02-06 04:00:00"
+      },
+      "expected": {
+        "value": false
+      }
+    },
+    {
+      "id": "overnight-before-twenty",
+      "api": "session.is_overnight_window",
+      "input": {
+        "timestamp": "2025-02-06 19:59:59"
+      },
+      "expected": {
+        "value": false
+      }
+    },
+    {
+      "id": "overnight-at-twenty",
+      "api": "session.is_overnight_window",
+      "input": {
+        "timestamp": "2025-02-06 20:00:00"
+      },
+      "expected": {
+        "value": true
+      }
+    },
+    {
+      "id": "overnight-invalid-input",
+      "api": "session.is_overnight_window",
+      "input": {
+        "timestamp": "bad-timestamp"
+      },
+      "expected": {
+        "value": false
+      }
+    }
+  ]
+}

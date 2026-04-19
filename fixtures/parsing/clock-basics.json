@@ -1,0 +1,128 @@
+{
+  "fixture": "clock-basics",
+  "cases": [
+    {
+      "id": "parse-date-basic",
+      "api": "clock.parse_date",
+      "input": {
+        "input": "2025-02-06"
+      },
+      "expected": {
+        "value": "2025-02-06"
+      }
+    },
+    {
+      "id": "parse-timestamp-basic",
+      "api": "clock.parse_timestamp",
+      "input": {
+        "input": "2025-02-06 11:30:04"
+      },
+      "expected": {
+        "value": "2025-02-06 11:30:04"
+      }
+    },
+    {
+      "id": "parse-timestamp-rfc3339-est",
+      "api": "clock.parse_timestamp",
+      "input": {
+        "input": "2025-02-06T16:30:04Z"
+      },
+      "expected": {
+        "value": "2025-02-06 11:30:04"
+      }
+    },
+    {
+      "id": "to-utc-rfc3339-est",
+      "api": "clock.to_utc_rfc3339",
+      "input": {
+        "input": "2025-02-06 11:30:04"
+      },
+      "expected": {
+        "value": "2025-02-06T16:30:04Z"
+      }
+    },
+    {
+      "id": "from-unix-seconds-est",
+      "api": "clock.from_unix_seconds",
+      "input": {
+        "seconds": 1738859404
+      },
+      "expected": {
+        "value": "2025-02-06 11:30:04"
+      }
+    },
+    {
+      "id": "from-unix-seconds-zero-empty",
+      "api": "clock.from_unix_seconds",
+      "input": {
+        "seconds": 0
+      },
+      "expected": {
+        "value": ""
+      }
+    },
+    {
+      "id": "truncate-to-minute",
+      "api": "clock.truncate_to_minute",
+      "input": {
+        "input": "2025-02-06 11:30:04"
+      },
+      "expected": {
+        "value": "2025-02-06 11:30:00"
+      }
+    },
+    {
+      "id": "truncate-to-minute-missing-seconds",
+      "api": "clock.truncate_to_minute",
+      "input": {
+        "input": "2025-02-06 11:30"
+      },
+      "expected": {
+        "value": "2025-02-06 11:30:00"
+      }
+    },
+    {
+      "id": "minute-key",
+      "api": "clock.minute_key",
+      "input": {
+        "input": "2025-02-06 11:30:04"
+      },
+      "expected": {
+        "value": "2025-02-06 11:30"
+      }
+    },
+    {
+      "id": "hhmm-from-parts",
+      "api": "clock.hhmm_string_from_parts",
+      "input": {
+        "hour": 9,
+        "minute": 30
+      },
+      "expected": {
+        "value": "09:30"
+      }
+    },
+    {
+      "id": "minutes-from-hhmm",
+      "api": "clock.minutes_from_hhmm",
+      "input": {
+        "input": "09:30"
+      },
+      "expected": {
+        "value": 570
+      }
+    },
+    {
+      "id": "fractional-days-between-date-to-timestamp",
+      "api": "clock.fractional_days_between",
+      "input": {
+        "start": "2025-02-06",
+        "end": "2025-02-06 12:00:00"
+      },
+      "expected": {
+        "value": 0.5
+      },
+      "tolerance": 1e-9
+    }
+  ]
+}

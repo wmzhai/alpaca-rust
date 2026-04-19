@@ -1,0 +1,177 @@
+{
+  "fixture": "date-ranges",
+  "cases": [
+    {
+      "id": "date-add-forward",
+      "api": "range.add_days",
+      "input": {
+        "date": "2025-02-06",
+        "days": 7
+      },
+      "expected": {
+        "value": "2025-02-13"
+      }
+    },
+    {
+      "id": "date-add-cross-year-backward",
+      "api": "range.add_days",
+      "input": {
+        "date": "2025-01-02",
+        "days": -5
+      },
+      "expected": {
+        "value": "2024-12-28"
+      }
+    },
+    {
+      "id": "date-list-inclusive",
+      "api": "range.dates",
+      "input": {
+        "start_date": "2025-02-06",
+        "end_date": "2025-02-09"
+      },
+      "expected": {
+        "value": [
+          "2025-02-06",
+          "2025-02-07",
+          "2025-02-08",
+          "2025-02-09"
+        ]
+      }
+    },
+    {
+      "id": "trading-dates-between-holiday-window",
+      "api": "range.trading_dates",
+      "input": {
+        "start_date": "2025-07-02",
+        "end_date": "2025-07-07"
+      },
+      "expected": {
+        "value": [
+          "2025-07-02",
+          "2025-07-03",
+          "2025-07-07"
+        ]
+      }
+    },
+    {
+      "id": "last-trading-date-normal-friday",
+      "api": "range.is_last_trading_date_of_week",
+      "input": {
+        "date": "2025-02-07"
+      },
+      "expected": {
+        "value": true
+      }
+    },
+    {
+      "id": "last-trading-date-shifted-thursday",
+      "api": "range.is_last_trading_date_of_week",
+      "input": {
+        "date": "2025-04-17"
+      },
+      "expected": {
+        "value": true
+      }
+    },
+    {
+      "id": "not-last-trading-date-midweek",
+      "api": "range.is_last_trading_date_of_week",
+      "input": {
+        "date": "2025-02-06"
+      },
+      "expected": {
+        "value": false
+      }
+    },
+    {
+      "id": "last-trading-date-invalid-input",
+      "api": "range.is_last_trading_date_of_week",
+      "input": {
+        "date": "bad-date"
+      },
+      "expected": {
+        "value": false
+      }
+    },
+    {
+      "id": "weekly-last-trading-dates-good-friday-window",
+      "api": "range.weekly_last_trading_dates",
+      "input": {
+        "start_date": "2026-04-13",
+        "end_date": "2026-04-17"
+      },
+      "expected": {
+        "value": [
+          "2026-04-17"
+        ]
+      }
+    },
+    {
+      "id": "nearest-last-trading-date-midweek",
+      "api": "range.last_trading_date_of_week",
+      "input": {
+        "date": "2025-02-05"
+      },
+      "expected": {
+        "value": "2025-02-07"
+      }
+    },
+    {
+      "id": "nearest-last-trading-date-weekend",
+      "api": "range.last_trading_date_of_week",
+      "input": {
+        "date": "2025-02-08"
+      },
+      "expected": {
+        "value": "2025-02-07"
+      }
+    },
+    {
+      "id": "nearest-last-trading-date-holiday-friday",
+      "api": "range.last_trading_date_of_week",
+      "input": {
+        "date": "2025-07-04"
+      },
+      "expected": {
+        "value": "2025-07-03"
+      }
+    },
+    {
+      "id": "calendar-week-range",
+      "api": "range.calendar_week_range",
+      "input": {
+        "date": "2025-02-06"
+      },
+      "expected": {
+        "start_date": "2025-02-03",
+        "end_date": "2025-02-09"
+      }
+    },
+    {
+      "id": "iso-week-range",
+      "api": "range.iso_week_range",
+      "input": {
+        "year": 2025,
+        "week": 6
+      },
+      "expected": {
+        "start_date": "2025-02-03",
+        "end_date": "2025-02-09"
+      }
+    },
+    {
+      "id": "nth-weekday-third-friday",
+      "api": "range.nth_weekday",
+      "input": {
+        "year": 2025,
+        "month": 3,
+        "weekday": "fri",
+        "nth": 3
+      },
+      "expected": {
+        "value": "2025-03-21"
+      }
+    }
+  ]
+}

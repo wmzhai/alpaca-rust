@@ -1,0 +1,131 @@
+{
+  "fixture": "trading-days",
+  "cases": [
+    {
+      "id": "new-year-holiday",
+      "api": "calendar.trading_day_info",
+      "input": {
+        "date": "2025-01-01"
+      },
+      "expected": {
+        "date": "2025-01-01",
+        "is_trading_date": false,
+        "is_market_holiday": true,
+        "is_early_close": false,
+        "market_hours": {
+          "date": "2025-01-01",
+          "is_trading_date": false,
+          "is_early_close": false,
+          "premarket_open": null,
+          "regular_open": null,
+          "regular_close": null,
+          "after_hours_close": null
+        }
+      }
+    },
+    {
+      "id": "normal-trading-day",
+      "api": "calendar.is_trading_date",
+      "input": {
+        "date": "2025-02-06"
+      },
+      "expected": {
+        "value": true
+      }
+    },
+    {
+      "id": "invalid-trading-day-input",
+      "api": "calendar.is_trading_date",
+      "input": {
+        "date": "bad-date"
+      },
+      "expected": {
+        "value": false
+      }
+    },
+    {
+      "id": "normal-market-hours",
+      "api": "calendar.market_hours_for_date",
+      "input": {
+        "date": "2025-02-06"
+      },
+      "expected": {
+        "date": "2025-02-06",
+        "is_trading_date": true,
+        "is_early_close": false,
+        "premarket_open": "04:00",
+        "regular_open": "09:30",
+        "regular_close": "16:00",
+        "after_hours_close": "20:00"
+      }
+    },
+    {
+      "id": "independence-eve-early-close",
+      "api": "calendar.market_hours_for_date",
+      "input": {
+        "date": "2025-07-03"
+      },
+      "expected": {
+        "date": "2025-07-03",
+        "is_trading_date": true,
+        "is_early_close": true,
+        "premarket_open": "04:00",
+        "regular_open": "09:30",
+        "regular_close": "13:00",
+        "after_hours_close": "20:00"
+      }
+    },
+    {
+      "id": "previous-trading-date-after-holiday",
+      "api": "calendar.add_trading_days",
+      "input": {
+        "date": "2025-01-02",
+        "days": -1
+      },
+      "expected": {
+        "value": "2024-12-31"
+      }
+    },
+    {
+      "id": "next-trading-date-before-holiday",
+      "api": "calendar.add_trading_days",
+      "input": {
+        "date": "2025-07-03",
+        "days": 1
+      },
+      "expected": {
+        "value": "2025-07-07"
+      }
+    },
+    {
+      "id": "last-completed-trading-date-after-close",
+      "api": "calendar.last_completed_trading_date",
+      "input": {
+        "timestamp": "2025-02-06 16:30:00"
+      },
+      "expected": {
+        "value": "2025-02-06"
+      }
+    },
+    {
+      "id": "last-completed-trading-date-before-close",
+      "api": "calendar.last_completed_trading_date",
+      "input": {
+        "timestamp": "2025-02-06 15:59:59"
+      },
+      "expected": {
+        "value": "2025-02-05"
+      }
+    },
+    {
+      "id": "last-completed-trading-date-holiday",
+      "api": "calendar.last_completed_trading_date",
+      "input": {
+        "timestamp": "2025-07-04 10:00:00"
+      },
+      "expected": {
+        "value": "2025-07-03"
+      }
+    }
+  ]
+}

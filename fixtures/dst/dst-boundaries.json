@@ -1,0 +1,45 @@
+{
+  "fixture": "dst-boundaries",
+  "cases": [
+    {
+      "id": "dst-start-before-jump",
+      "api": "clock.parse_timestamp",
+      "input": {
+        "input": "2025-03-09T06:59:59Z"
+      },
+      "expected": {
+        "value": "2025-03-09 01:59:59"
+      }
+    },
+    {
+      "id": "dst-start-after-jump",
+      "api": "clock.parse_timestamp",
+      "input": {
+        "input": "2025-03-09T07:00:00Z"
+      },
+      "expected": {
+        "value": "2025-03-09 03:00:00"
+      }
+    },
+    {
+      "id": "dst-end-first-130",
+      "api": "clock.parse_timestamp",
+      "input": {
+        "input": "2025-11-02T05:30:00Z"
+      },
+      "expected": {
+        "value": "2025-11-02 01:30:00"
+      }
+    },
+    {
+      "id": "dst-end-second-130",
+      "api": "clock.parse_timestamp",
+      "input": {
+        "input": "2025-11-02T06:30:00Z"
+      },
+      "expected": {
+        "value": "2025-11-02 01:30:00"
+      }
+    }
+  ]
+}
