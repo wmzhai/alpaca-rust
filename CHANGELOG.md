@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.24.6
+
+- Lowered the library workspace `rust-version` floor from `1.95.0` to `1.94.1` after confirming the published Rust crates still build and pass their key tests on `1.94.1`.
+- Fixed the release workflow Rust toolchain setup so `cargo fmt --check` runs with the required `rustfmt` component installed.
+- Rolled the failed `v0.24.5` tag attempt forward into the next patch release so the release workflow can rerun from a corrected tagged commit.
+
 ## v0.24.5
 
 - Reorganized the public documentation and website around the current three-layer Rust workspace: foundation SDK crates, semantic crates, and the `alpaca-facade` composition layer.

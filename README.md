@@ -72,7 +72,7 @@ Use `alpaca-data` for market data:
 
 ```toml
 [dependencies]
-alpaca-data = "0.24.5"
+alpaca-data = "0.24.6"
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
 ```
 
@@ -89,7 +89,7 @@ Use `alpaca-trade` for trading resources:
 
 ```toml
 [dependencies]
-alpaca-trade = "0.24.5"
+alpaca-trade = "0.24.6"
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
 ```
 
@@ -107,8 +107,8 @@ Use `alpaca-facade` for the high-level composition layer:
 
 ```toml
 [dependencies]
-alpaca-facade = "0.24.5"
-alpaca-data = "0.24.5"
+alpaca-facade = "0.24.6"
+alpaca-data = "0.24.6"
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
 ```
 

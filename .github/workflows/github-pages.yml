@@ -58,7 +58,8 @@ jobs:
       - name: Install Rust
         uses: dtolnay/rust-toolchain@master
         with:
-          toolchain: 1.95.0
+          toolchain: 1.94.1
+          components: rustfmt
 
       - name: Cache Rust
         uses: Swatinem/rust-cache@v2
@@ -140,7 +141,7 @@ jobs:
       - name: Install Rust
         uses: dtolnay/rust-toolchain@master
         with:
-          toolchain: 1.95.0
+          toolchain: 1.94.1
 
       - name: Authenticate with crates.io
         id: auth
