@@ -15,7 +15,9 @@ use alpaca_option::types::{
     OptionQuote, OptionRight, OptionRightCode, OptionSnapshot,
 };
 use alpaca_option::url;
-use alpaca_option::{LiquidityData, LiquidityOptionData, LiquidityStats, OptionError, PayoffLegInput};
+use alpaca_option::{
+    LiquidityData, LiquidityOptionData, LiquidityStats, OptionError, PayoffLegInput,
+};
 use serde_json::json;
 use ts_rs::TS;
 
@@ -213,9 +215,14 @@ fn canonical_option_chain_queries_stay_in_bottom_library() {
         ],
     };
 
-    let expirations =
-        chain::expiration_dates(&chain, None, Some(20), Some(80), Some("2026-04-17 10:00:00"))
-            .expect("expiration dates should resolve");
+    let expirations = chain::expiration_dates(
+        &chain,
+        None,
+        Some(20),
+        Some(80),
+        Some("2026-04-17 10:00:00"),
+    )
+    .expect("expiration dates should resolve");
     assert_eq!(
         expirations
             .into_iter()
@@ -1024,7 +1031,13 @@ fn analysis_short_itm_positions_handle_canonical_short_positions() {
                 underlying_price: Some(105.0),
             }),
         ),
-        sample_position(contract_at(110.0, OptionRight::Put), -2, None, "shortput", None),
+        sample_position(
+            contract_at(110.0, OptionRight::Put),
+            -2,
+            None,
+            "shortput",
+            None,
+        ),
         sample_position(
             contract_at(110.0, OptionRight::Call),
             1,
@@ -1220,9 +1233,11 @@ fn execution_quote_leg_type_absorbs_legacy_order_leg_payloads_directly() {
             .as_str(),
         "buy"
     );
-    assert!(alpaca_option::PositionIntent::from_str("sell_to_close")
-        .unwrap()
-        .is_close());
+    assert!(
+        alpaca_option::PositionIntent::from_str("sell_to_close")
+            .unwrap()
+            .is_close()
+    );
     assert_eq!(
         execution_quote::leg_type("SPY250321P00580000", "buy", "buy_to_close", None),
         Some("shortput".to_string())
@@ -1412,36 +1427,40 @@ fn execution_quote_leg_builds_a_single_execution_leg_from_direct_quote_inputs() 
         Some("1.26")
     );
 
-    assert!(execution_quote::leg(execution_quote::ExecutionLegInput {
-        action: alpaca_option::ExecutionAction::Open,
-        leg_type: "longcall".to_string(),
-        contract: "bad-contract".to_string(),
-        quantity: Some(1),
-        snapshot: None,
-        timestamp: Some("2025-02-06 11:30:04".to_string()),
-        bid: None,
-        ask: None,
-        price: Some(1.2),
-        spread_percent: Some(0.1),
-        greeks: None,
-        iv: None,
-    })
-    .is_none());
-    assert!(execution_quote::leg(execution_quote::ExecutionLegInput {
-        action: alpaca_option::ExecutionAction::Open,
-        leg_type: "longcall".to_string(),
-        contract: "SPY250321P00580000".to_string(),
-        quantity: Some(1),
-        snapshot: None,
-        timestamp: Some("2025-02-06 11:30:04".to_string()),
-        bid: Some(1.1),
-        ask: Some(1.3),
-        price: None,
-        spread_percent: None,
-        greeks: None,
-        iv: None,
-    })
-    .is_none());
+    assert!(
+        execution_quote::leg(execution_quote::ExecutionLegInput {
+            action: alpaca_option::ExecutionAction::Open,
+            leg_type: "longcall".to_string(),
+            contract: "bad-contract".to_string(),
+            quantity: Some(1),
+            snapshot: None,
+            timestamp: Some("2025-02-06 11:30:04".to_string()),
+            bid: None,
+            ask: None,
+            price: Some(1.2),
+            spread_percent: Some(0.1),
+            greeks: None,
+            iv: None,
+        })
+        .is_none()
+    );
+    assert!(
+        execution_quote::leg(execution_quote::ExecutionLegInput {
+            action: alpaca_option::ExecutionAction::Open,
+            leg_type: "longcall".to_string(),
+            contract: "SPY250321P00580000".to_string(),
+            quantity: Some(1),
+            snapshot: None,
+            timestamp: Some("2025-02-06 11:30:04".to_string()),
+            bid: Some(1.1),
+            ask: Some(1.3),
+            price: None,
+            spread_percent: None,
+            greeks: None,
+            iv: None,
+        })
+        .is_none()
+    );
 }
 
 #[test]

@@ -18,6 +18,27 @@ alpaca-trade = "0.24.5"
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
 ```
 
+For time and calendar semantics:
+
+```toml
+[dependencies]
+alpaca-time = "0.24.5"
+```
+
+For option semantics:
+
+```toml
+[dependencies]
+alpaca-option = "0.24.5"
+```
+
+For the high-level composition layer:
+
+```toml
+[dependencies]
+alpaca-facade = "0.24.5"
+```
+
 For the mock server:
 
 ```bash
@@ -52,6 +73,7 @@ let client = Client::builder()
 - Read [Installation](./installation.md)
 - Read [Authentication](./authentication.md)
 - Review [Project Structure](./project-structure.md)
+- Browse [Reference Index](./reference/index.md)
 - Read [Mock Server](./mock-server.md)
 - Read [Testing Guide](./testing.md)
 - Read [Market Data API Coverage](./api-coverage/market-data.md)

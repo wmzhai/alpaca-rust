@@ -3,9 +3,15 @@ name = "alpaca-time"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
+authors.workspace = true
 license.workspace = true
 repository.workspace = true
 homepage.workspace = true
+documentation = "https://docs.rs/alpaca-time"
+readme = "README.md"
+description = "New York time and US trading-calendar semantics for the alpaca-rust workspace"
+keywords = ["alpaca", "time", "calendar", "trading", "new-york"]
+categories = ["date-and-time"]
 
 [lib]
 path = "src/lib.rs"

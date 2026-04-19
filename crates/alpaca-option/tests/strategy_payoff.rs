@@ -1,7 +1,8 @@
 use alpaca_option::payoff;
 use alpaca_option::pricing;
 use alpaca_option::{
-    OptionContract, OptionRight, StrategyBreakEvenInput, StrategyPnlInput, StrategyValuationPosition,
+    OptionContract, OptionRight, StrategyBreakEvenInput, StrategyPnlInput,
+    StrategyValuationPosition,
 };
 use alpaca_time::expiration;
 
@@ -68,7 +69,10 @@ fn strategy_pnl_mixes_expired_and_unexpired_positions() {
     })
     .unwrap();
 
-    assert!((actual - expected).abs() < 1e-9, "actual={actual}, expected={expected}");
+    assert!(
+        (actual - expected).abs() < 1e-9,
+        "actual={actual}, expected={expected}"
+    );
 }
 
 #[test]
@@ -127,7 +131,10 @@ fn strategy_pnl_applies_volatility_shift_only_to_long_positions() {
     })
     .unwrap();
 
-    assert!((actual - expected).abs() < 1e-9, "actual={actual}, expected={expected}");
+    assert!(
+        (actual - expected).abs() < 1e-9,
+        "actual={actual}, expected={expected}"
+    );
 }
 
 #[test]

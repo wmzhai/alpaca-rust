@@ -1,19 +1,26 @@
 # Reference Index
 
-This reference section covers the currently implemented workspace crates and the main API resource surfaces in `alpaca-rust`.
+This reference section covers the published Rust crates and the resource-level
+HTTP surfaces in `alpaca-rust`.
 
 ## Workspace Crates
 
-### Foundation
+### Foundation SDK
 
 - [alpaca-core](./alpaca-core.md)
 - [alpaca-rest-http](./alpaca-rest-http.md)
-
-### Product Crates
-
 - [alpaca-data](./alpaca-data.md)
 - [alpaca-trade](./alpaca-trade.md)
 - [alpaca-mock](./alpaca-mock.md)
+
+### Semantic Core
+
+- [alpaca-time](./alpaca-time.md)
+- [alpaca-option](./alpaca-option.md)
+
+### Convenience Facade
+
+- [alpaca-facade](./alpaca-facade.md)
 
 ## Market Data Resource Reference
 

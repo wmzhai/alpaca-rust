@@ -100,8 +100,8 @@ fn intrinsic(option_right: &OptionRight, spot: f64, strike: f64) -> f64 {
 fn gbs_d1_d2(spot: f64, strike: f64, years: f64, carry: f64, volatility: f64) -> (f64, f64) {
     let sqrt_years = years.sqrt();
     let sigma_sqrt_t = volatility * sqrt_years;
-    let d1 = ((spot / strike).ln() + (carry + 0.5 * volatility * volatility) * years)
-        / sigma_sqrt_t;
+    let d1 =
+        ((spot / strike).ln() + (carry + 0.5 * volatility * volatility) * years) / sigma_sqrt_t;
     (d1, d1 - sigma_sqrt_t)
 }
 
@@ -264,12 +264,14 @@ fn bs1993_phi(
     let sqrt_years = years.sqrt();
     let sigma_sq = volatility * volatility;
     let lambda_term = (-rate + gamma * carry + 0.5 * gamma * (gamma - 1.0) * sigma_sq) * years;
-    let d = -((spot / h).ln() + (carry + (gamma - 0.5) * sigma_sq) * years)
-        / (volatility * sqrt_years);
+    let d =
+        -((spot / h).ln() + (carry + (gamma - 0.5) * sigma_sq) * years) / (volatility * sqrt_years);
     let kappa = 2.0 * carry / sigma_sq + 2.0 * gamma - 1.0;
     lambda_term.exp()
         * spot.powf(gamma)
-        * (normal_cdf(d) - (i / spot).powf(kappa) * normal_cdf(d - 2.0 * (i / spot).ln() / (volatility * sqrt_years)))
+        * (normal_cdf(d)
+            - (i / spot).powf(kappa)
+                * normal_cdf(d - 2.0 * (i / spot).ln() / (volatility * sqrt_years)))
 }
 
 fn bs1993_call_price(
@@ -304,8 +306,7 @@ fn bs1993_call_price(
         return spot - strike;
     }
 
-    alpha * spot.powf(beta)
-        - alpha * bs1993_phi(spot, years, beta, i, i, rate, carry, volatility)
+    alpha * spot.powf(beta) - alpha * bs1993_phi(spot, years, beta, i, i, rate, carry, volatility)
         + bs1993_phi(spot, years, 1.0, i, i, rate, carry, volatility)
         - bs1993_phi(spot, years, 1.0, strike, i, rate, carry, volatility)
         - strike * bs1993_phi(spot, years, 0.0, i, i, rate, carry, volatility)
@@ -398,12 +399,13 @@ fn ju_quadratic_price_inner(
     let d1_sk = ((forward_sk / strike).ln() + 0.5 * variance) / sqrt_variance;
     let d2_sk = d1_sk - sqrt_variance;
     let v_e_h = forward_sk * normal_pdf(d1_sk) / (alpha * sqrt_variance)
-        - phi * forward_sk * normal_cdf(phi * d1_sk) * dividend_discount.ln() / risk_free_discount.ln()
+        - phi * forward_sk * normal_cdf(phi * d1_sk) * dividend_discount.ln()
+            / risk_free_discount.ln()
         + phi * strike * normal_cdf(phi * d2_sk);
     let denominator = 2.0 * lambda + beta - 1.0;
     let b = (1.0 - h) * alpha * lambda_prime / (2.0 * denominator);
-    let c = -((1.0 - h) * alpha / denominator)
-        * (v_e_h / h_a + 1.0 / h + lambda_prime / denominator);
+    let c =
+        -((1.0 - h) * alpha / denominator) * (v_e_h / h_a + 1.0 / h + lambda_prime / denominator);
     let spot_ratio = (spot / sk).ln();
     let chi = spot_ratio * (b * spot_ratio + c);
 
@@ -425,8 +427,15 @@ pub fn tree_price(
     steps: Option<usize>,
     use_richardson: Option<bool>,
 ) -> OptionResult<f64> {
-    let option_right =
-        validate_inputs(spot, strike, years, rate, dividend_yield, volatility, option_right)?;
+    let option_right = validate_inputs(
+        spot,
+        strike,
+        years,
+        rate,
+        dividend_yield,
+        volatility,
+        option_right,
+    )?;
 
     if matches!(option_right, OptionRight::Call) && dividend_yield <= 0.0 {
         return Ok(gbs_price(
@@ -469,8 +478,8 @@ pub fn tree_price(
 
         for level in (1..=steps).rev() {
             for index in 0..level {
-                let continuation =
-                    discount_step * (probability * values[index + 1] + (1.0 - probability) * values[index]);
+                let continuation = discount_step
+                    * (probability * values[index + 1] + (1.0 - probability) * values[index]);
                 let stock = spot * down.powf((level - 1 - index) as f64) * up.powf(index as f64);
                 let exercise = intrinsic(&option_right, stock, strike);
                 values[index] = continuation.max(exercise);
@@ -502,8 +511,15 @@ pub fn barone_adesi_whaley_price(
     volatility: f64,
     option_right: &str,
 ) -> OptionResult<f64> {
-    let option_right =
-        validate_inputs(spot, strike, years, rate, dividend_yield, volatility, option_right)?;
+    let option_right = validate_inputs(
+        spot,
+        strike,
+        years,
+        rate,
+        dividend_yield,
+        volatility,
+        option_right,
+    )?;
     let carry = carry(rate, dividend_yield);
     if matches!(option_right, OptionRight::Call) && carry >= rate {
         return Ok(gbs_price(
@@ -550,8 +566,10 @@ pub fn barone_adesi_whaley_price(
             let q = (-(n - 1.0) + ((n - 1.0) * (n - 1.0) + 4.0 * kappa).sqrt()) / 2.0;
             let a = (sk / q) * (1.0 - dividend_discount * normal_cdf(d1));
             if spot < sk {
-                Ok(gbs_price(&option_right, spot, strike, years, rate, carry, volatility)
-                    + a * (spot / sk).powf(q))
+                Ok(
+                    gbs_price(&option_right, spot, strike, years, rate, carry, volatility)
+                        + a * (spot / sk).powf(q),
+                )
             } else {
                 Ok(spot - strike)
             }
@@ -560,8 +578,10 @@ pub fn barone_adesi_whaley_price(
             let q = (-(n - 1.0) - ((n - 1.0) * (n - 1.0) + 4.0 * kappa).sqrt()) / 2.0;
             let a = -(sk / q) * (1.0 - dividend_discount * normal_cdf(-d1));
             if spot > sk {
-                Ok(gbs_price(&option_right, spot, strike, years, rate, carry, volatility)
-                    + a * (spot / sk).powf(q))
+                Ok(
+                    gbs_price(&option_right, spot, strike, years, rate, carry, volatility)
+                        + a * (spot / sk).powf(q),
+                )
             } else {
                 Ok(strike - spot)
             }
@@ -578,12 +598,21 @@ pub fn bjerksund_stensland_1993_price(
     volatility: f64,
     option_right: &str,
 ) -> OptionResult<f64> {
-    let option_right =
-        validate_inputs(spot, strike, years, rate, dividend_yield, volatility, option_right)?;
+    let option_right = validate_inputs(
+        spot,
+        strike,
+        years,
+        rate,
+        dividend_yield,
+        volatility,
+        option_right,
+    )?;
     let carry = carry(rate, dividend_yield);
     Ok(match option_right {
         OptionRight::Call => bs1993_call_price(spot, strike, years, rate, carry, volatility),
-        OptionRight::Put => bs1993_call_price(strike, spot, years, dividend_yield, -carry, volatility),
+        OptionRight::Put => {
+            bs1993_call_price(strike, spot, years, dividend_yield, -carry, volatility)
+        }
     })
 }
 
@@ -596,8 +625,15 @@ pub fn ju_quadratic_price(
     volatility: f64,
     option_right: &str,
 ) -> OptionResult<f64> {
-    let option_right =
-        validate_inputs(spot, strike, years, rate, dividend_yield, volatility, option_right)?;
+    let option_right = validate_inputs(
+        spot,
+        strike,
+        years,
+        rate,
+        dividend_yield,
+        volatility,
+        option_right,
+    )?;
     ju_quadratic_price_inner(
         &option_right,
         spot,
@@ -609,7 +645,10 @@ pub fn ju_quadratic_price(
     )
 }
 
-fn validate_cash_dividends(dividends: &[CashDividend], years: f64) -> OptionResult<Vec<CashDividend>> {
+fn validate_cash_dividends(
+    dividends: &[CashDividend],
+    years: f64,
+) -> OptionResult<Vec<CashDividend>> {
     if dividends.is_empty() {
         return Err(OptionError::new(
             "invalid_math_input",
@@ -705,7 +744,9 @@ fn dividend_step_value(
                     values_after,
                     (state_spot - dividend_amount).max(x_grid[0]),
                 ),
-                CashDividendModel::Escrowed => interpolate_linear(x_grid, values_after, *state_spot),
+                CashDividendModel::Escrowed => {
+                    interpolate_linear(x_grid, values_after, *state_spot)
+                }
             };
             let exercise = intrinsic(
                 option_right,
@@ -788,7 +829,11 @@ fn implicit_crank_nicolson_step(
     }
 
     for index in 1..last {
-        let exercise = intrinsic(option_right, actual_spot(x_grid[index], rate, time, dividends, model), strike);
+        let exercise = intrinsic(
+            option_right,
+            actual_spot(x_grid[index], rate, time, dividends, model),
+            strike,
+        );
         next[index] = next[index].max(exercise);
     }
 

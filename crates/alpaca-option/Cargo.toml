@@ -3,20 +3,22 @@ name = "alpaca-option"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
+authors.workspace = true
 license.workspace = true
 repository.workspace = true
 homepage.workspace = true
+documentation = "https://docs.rs/alpaca-option"
+readme = "README.md"
+description = "Provider-neutral option semantics and math for the alpaca-rust workspace"
+keywords = ["alpaca", "options", "pricing", "greeks", "finance"]
+categories = ["mathematics"]
 
 [lib]
 path = "src/lib.rs"
 
-[features]
-default = []
-optworks-ts-export = []
-
 [dependencies]
-alpaca-core = { path = "../alpaca-core" }
-alpaca-time = { path = "../alpaca-time" }
+alpaca-core = { path = "../alpaca-core", version = "0.24.5" }
+alpaca-time = { path = "../alpaca-time", version = "0.24.5" }
 chrono.workspace = true
 rust_decimal.workspace = true
 serde.workspace = true

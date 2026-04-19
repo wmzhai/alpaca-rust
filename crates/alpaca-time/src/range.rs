@@ -56,7 +56,11 @@ pub fn dates(start_date: &str, end_date: &str) -> TimeResult<Vec<String>> {
 pub fn trading_dates(start_date: &str, end_date: &str) -> TimeResult<Vec<String>> {
     Ok(dates(start_date, end_date)?
         .into_iter()
-        .filter(|date| parse_naive_date(date).map(is_trading_date_naive).unwrap_or(false))
+        .filter(|date| {
+            parse_naive_date(date)
+                .map(is_trading_date_naive)
+                .unwrap_or(false)
+        })
         .collect())
 }
 
@@ -77,9 +81,9 @@ pub fn nth_weekday(year: i32, month: u32, weekday: &str, nth: u32) -> TimeResult
     })?;
 
     while current.weekday() != target_weekday {
-        current = current
-            .succ_opt()
-            .ok_or_else(|| TimeError::new("date_overflow", "date overflow while selecting weekday"))?;
+        current = current.succ_opt().ok_or_else(|| {
+            TimeError::new("date_overflow", "date overflow while selecting weekday")
+        })?;
     }
 
     current += Duration::days(((nth - 1) * 7) as i64);
@@ -101,8 +105,9 @@ pub fn is_last_trading_date_of_week(date: &str) -> bool {
         return false;
     }
 
-    let Ok(next_trading) = add_trading_days(&format_date(date), 1)
-        .and_then(|value| parse_naive_date(&value)) else {
+    let Ok(next_trading) =
+        add_trading_days(&format_date(date), 1).and_then(|value| parse_naive_date(&value))
+    else {
         return false;
     };
     let current_week_start = date - Duration::days(date.weekday().num_days_from_monday() as i64);

@@ -1,8 +1,7 @@
 use std::str::FromStr;
 
 use alpaca_core::{
-    BaseUrl, Credentials, Error, QueryWriter,
-    decimal,
+    BaseUrl, Credentials, Error, QueryWriter, decimal,
     pagination::{PaginatedRequest, PaginatedResponse, collect_all},
 };
 use rust_decimal::Decimal;
@@ -28,8 +27,14 @@ fn base_url_trims_trailing_slashes_and_joins_paths_cleanly() {
     let base_url = BaseUrl::new("https://example.com/v2/").expect("valid base url");
 
     assert_eq!(base_url.as_str(), "https://example.com/v2");
-    assert_eq!(base_url.join_path("/orders"), "https://example.com/v2/orders");
-    assert_eq!(base_url.join_path("positions"), "https://example.com/v2/positions");
+    assert_eq!(
+        base_url.join_path("/orders"),
+        "https://example.com/v2/orders"
+    );
+    assert_eq!(
+        base_url.join_path("positions"),
+        "https://example.com/v2/positions"
+    );
 }
 
 #[test]
@@ -112,26 +117,23 @@ impl PaginatedResponse for MockResponse {
 
 #[tokio::test]
 async fn collect_all_merges_pages_and_clears_the_terminal_token() {
-    let response = collect_all(
-        MockRequest { page_token: None },
-        |request| async move {
-            Ok(match request.page_token.as_deref() {
-                None => MockResponse {
-                    items: vec!["page-1"],
-                    next_page_token: Some("page-2".to_owned()),
-                },
-                Some("page-2") => MockResponse {
-                    items: vec!["page-2"],
-                    next_page_token: Some("page-3".to_owned()),
-                },
-                Some("page-3") => MockResponse {
-                    items: vec!["page-3"],
-                    next_page_token: None,
-                },
-                Some(other) => panic!("unexpected page token: {other}"),
-            })
-        },
-    )
+    let response = collect_all(MockRequest { page_token: None }, |request| async move {
+        Ok(match request.page_token.as_deref() {
+            None => MockResponse {
+                items: vec!["page-1"],
+                next_page_token: Some("page-2".to_owned()),
+            },
+            Some("page-2") => MockResponse {
+                items: vec!["page-2"],
+                next_page_token: Some("page-3".to_owned()),
+            },
+            Some("page-3") => MockResponse {
+                items: vec!["page-3"],
+                next_page_token: None,
+            },
+            Some(other) => panic!("unexpected page token: {other}"),
+        })
+    })
     .await
     .expect("pagination must succeed");
 
@@ -141,22 +143,19 @@ async fn collect_all_merges_pages_and_clears_the_terminal_token() {
 
 #[tokio::test]
 async fn collect_all_rejects_repeated_next_page_tokens() {
-    let error = collect_all(
-        MockRequest { page_token: None },
-        |request| async move {
-            Ok(match request.page_token.as_deref() {
-                None => MockResponse {
-                    items: vec!["page-1"],
-                    next_page_token: Some("page-2".to_owned()),
-                },
-                Some("page-2") => MockResponse {
-                    items: vec!["page-2"],
-                    next_page_token: Some("page-2".to_owned()),
-                },
-                Some(other) => panic!("unexpected page token: {other}"),
-            })
-        },
-    )
+    let error = collect_all(MockRequest { page_token: None }, |request| async move {
+        Ok(match request.page_token.as_deref() {
+            None => MockResponse {
+                items: vec!["page-1"],
+                next_page_token: Some("page-2".to_owned()),
+            },
+            Some("page-2") => MockResponse {
+                items: vec!["page-2"],
+                next_page_token: Some("page-2".to_owned()),
+            },
+            Some(other) => panic!("unexpected page token: {other}"),
+        })
+    })
     .await
     .expect_err("repeated page tokens must fail");
 

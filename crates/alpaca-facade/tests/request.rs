@@ -1,5 +1,5 @@
-use alpaca_option::OptionRight;
 use alpaca_facade::OptionChainRequest;
+use alpaca_option::OptionRight;
 use rust_decimal::Decimal;
 
 #[test]
@@ -8,8 +8,16 @@ fn request_from_dte_range_builds_ny_date_window_and_rounded_strikes() {
 
     assert_eq!(request.strike_price_gte(), Some(Decimal::new(43213, 2)));
     assert_eq!(request.strike_price_lte(), Some(Decimal::new(44187, 2)));
-    assert!(request.expiration_date_gte().is_some_and(|value| value.len() == 10));
-    assert!(request.expiration_date_lte().is_some_and(|value| value.len() == 10));
+    assert!(
+        request
+            .expiration_date_gte()
+            .is_some_and(|value| value.len() == 10)
+    );
+    assert!(
+        request
+            .expiration_date_lte()
+            .is_some_and(|value| value.len() == 10)
+    );
 }
 
 #[test]
@@ -50,10 +58,11 @@ fn request_covers_narrower_window_and_same_option_type() {
         .with_option_type(OptionRight::Call)
         .with_strike_range(Some(90.0), Some(110.0))
         .with_underlying_price(Some(100.0));
-    let requested = OptionChainRequest::from_expiration_range(Some("2026-04-24"), Some("2026-05-09"))
-        .with_option_type(OptionRight::Call)
-        .with_strike_range(Some(95.0), Some(105.0))
-        .with_underlying_price(Some(101.5));
+    let requested =
+        OptionChainRequest::from_expiration_range(Some("2026-04-24"), Some("2026-05-09"))
+            .with_option_type(OptionRight::Call)
+            .with_strike_range(Some(95.0), Some(105.0))
+            .with_underlying_price(Some(101.5));
 
     assert!(cached.covers(&requested));
     assert!(!requested.covers(&cached));
@@ -61,10 +70,11 @@ fn request_covers_narrower_window_and_same_option_type() {
 
 #[test]
 fn request_merge_expands_bounds_and_promotes_option_type_to_all_when_needed() {
-    let mut merged = OptionChainRequest::from_expiration_range(Some("2026-04-24"), Some("2026-05-09"))
-        .with_option_type(OptionRight::Call)
-        .with_strike_range(Some(95.0), Some(105.0))
-        .with_underlying_price(Some(101.5));
+    let mut merged =
+        OptionChainRequest::from_expiration_range(Some("2026-04-24"), Some("2026-05-09"))
+            .with_option_type(OptionRight::Call)
+            .with_strike_range(Some(95.0), Some(105.0))
+            .with_underlying_price(Some(101.5));
 
     merged.merge(
         &OptionChainRequest::from_expiration_range(Some("2026-04-20"), Some("2026-05-16"))

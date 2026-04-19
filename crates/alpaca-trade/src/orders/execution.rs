@@ -9,7 +9,6 @@ use crate::Error;
 use super::{OrderStatus, OrderTerminalState, SubmitOrderStyle};
 
 #[derive(Debug, Clone, Serialize, PartialEq, Default, TS)]
-#[ts(export, export_to = "../../../../optworks/packages/optworks-ts/src/generated/")]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum Execution {
     #[default]
@@ -333,7 +332,9 @@ impl Execution {
         {
             *current_percentage >= 1.0
                 && matches!(
-                    OrderStatus::parse(status).ok().and_then(OrderStatus::terminal_state),
+                    OrderStatus::parse(status)
+                        .ok()
+                        .and_then(OrderStatus::terminal_state),
                     Some(OrderTerminalState::Canceled) | Some(OrderTerminalState::Rejected)
                 )
         } else {
@@ -440,7 +441,11 @@ mod tests {
         };
 
         let advanced = execution
-            .advance_dynamic_market(Decimal::new(-2000, 2), Decimal::new(-1000, 2), dt(10, 10, 0))
+            .advance_dynamic_market(
+                Decimal::new(-2000, 2),
+                Decimal::new(-1000, 2),
+                dt(10, 10, 0),
+            )
             .unwrap();
         assert_eq!(
             advanced,
@@ -455,7 +460,11 @@ mod tests {
         );
 
         let terminal = advanced
-            .advance_dynamic_market(Decimal::new(-2000, 2), Decimal::new(-1000, 2), dt(10, 11, 0))
+            .advance_dynamic_market(
+                Decimal::new(-2000, 2),
+                Decimal::new(-1000, 2),
+                dt(10, 11, 0),
+            )
             .unwrap();
         assert_eq!(terminal, Execution::Market);
     }
@@ -493,7 +502,10 @@ mod tests {
                 limit_price: Decimal::new(125, 2),
             }
         );
-        assert_eq!(Execution::from_order_type("market", None).unwrap(), Execution::Market);
+        assert_eq!(
+            Execution::from_order_type("market", None).unwrap(),
+            Execution::Market
+        );
         assert!(Execution::from_order_type("limit", None).is_err());
 
         let export = Execution::export_to_string().unwrap();

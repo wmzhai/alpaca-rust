@@ -2,7 +2,7 @@
 
 ## Library Crates
 
-Add the crate you actually want to use.
+Add the Rust crate that matches the layer you want to use.
 
 Market data:
 
@@ -20,12 +20,20 @@ alpaca-trade = "0.24.5"
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
 ```
 
-Low-level crates are also published:
+Semantic and facade crates are also published:
+
+- `alpaca-time`
+- `alpaca-option`
+- `alpaca-facade`
+
+Foundation crates are also published:
 
 - `alpaca-core`
 - `alpaca-rest-http`
 
-Most users should not start from those low-level crates.
+Most users should start from `alpaca-data`, `alpaca-trade`, `alpaca-time`,
+`alpaca-option`, or `alpaca-facade` instead of depending on the low-level
+foundation crates directly.
 
 ## Binary Crate
 
@@ -68,4 +76,8 @@ Mock server binding:
 
 ## Versioning Note
 
-The workspace publishes multiple crates that move together. If you depend on more than one `alpaca-*` crate directly, keep their versions aligned.
+The workspace publishes multiple Rust crates that move together. If you depend
+on more than one `alpaca-*` crate directly, keep their versions aligned.
+
+Optional TypeScript companions exist inside the repo under `packages/`, but they
+are not the primary published system surface for release planning.

@@ -65,6 +65,15 @@ Expected publish order:
 3. `alpaca-data`
 4. `alpaca-trade`
 5. `alpaca-mock`
+6. `alpaca-time`
+7. `alpaca-option`
+8. `alpaca-facade`
+
+## Published Crate Name Versus Source Directory
+
+If docs or release automation mention `alpaca-rest-http` while the repository
+tree uses `crates/alpaca-http`, that is expected. The source directory name and
+the published crate name are intentionally different.
 
 ## Real API Tests Skip Or Fail Outside Market Conditions
 

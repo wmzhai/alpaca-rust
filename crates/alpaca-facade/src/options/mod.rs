@@ -8,16 +8,12 @@
 use std::collections::HashMap;
 
 use alpaca_core::decimal;
-use alpaca_data::options::{
-    ordered_snapshots, preferred_feed, ChainRequest,
-    ContractType, OptionsFeed, Snapshot,
-    SnapshotsRequest,
-};
-use alpaca_data::stocks::{
-    display_stock_symbol, DataFeed,
-
-};
 use alpaca_data::Client;
+use alpaca_data::options::{
+    ChainRequest, ContractType, OptionsFeed, Snapshot, SnapshotsRequest, ordered_snapshots,
+    preferred_feed,
+};
+use alpaca_data::stocks::{DataFeed, display_stock_symbol};
 use alpaca_option::contract;
 use alpaca_option::pricing;
 use alpaca_option::url;
@@ -68,7 +64,12 @@ impl OptionChainRequest {
     }
 
     #[must_use]
-    pub fn from_dte_range(min_dte: i32, max_dte: i32, strike_price_gte: Option<f64>, strike_price_lte: Option<f64>) -> Self {
+    pub fn from_dte_range(
+        min_dte: i32,
+        max_dte: i32,
+        strike_price_gte: Option<f64>,
+        strike_price_lte: Option<f64>,
+    ) -> Self {
         let today = clock::today();
 
         Self::from_expiration_range(
@@ -79,7 +80,10 @@ impl OptionChainRequest {
     }
 
     #[must_use]
-    pub fn from_expiration_range(expiration_date_gte: Option<&str>, expiration_date_lte: Option<&str>) -> Self {
+    pub fn from_expiration_range(
+        expiration_date_gte: Option<&str>,
+        expiration_date_lte: Option<&str>,
+    ) -> Self {
         Self::new().with_expiration_range(expiration_date_gte, expiration_date_lte)
     }
 
@@ -250,7 +254,11 @@ where
 {
     match (current, incoming) {
         (None, _) | (_, None) => None,
-        (Some(current), Some(incoming)) => Some(if current <= incoming { current } else { incoming }),
+        (Some(current), Some(incoming)) => Some(if current <= incoming {
+            current
+        } else {
+            incoming
+        }),
     }
 }
 
@@ -260,7 +268,11 @@ where
 {
     match (current, incoming) {
         (None, _) | (_, None) => None,
-        (Some(current), Some(incoming)) => Some(if current >= incoming { current } else { incoming }),
+        (Some(current), Some(incoming)) => Some(if current >= incoming {
+            current
+        } else {
+            incoming
+        }),
     }
 }
 
@@ -396,8 +408,8 @@ fn repaired_greeks_and_iv(
         return (fallback_greeks, fallback_iv);
     };
 
-    let years = expiration::years(&contract.expiration_date, Some(&clock::now()), None)
-        .max(MIN_TIME_YEARS);
+    let years =
+        expiration::years(&contract.expiration_date, Some(&clock::now()), None).max(MIN_TIME_YEARS);
     let risk_free_rate = risk_free_rate.unwrap_or(DEFAULT_RISK_FREE_RATE);
     let dividend_yield = dividend_yield.unwrap_or(DEFAULT_DIVIDEND_YIELD);
 
@@ -565,9 +577,7 @@ pub fn map_snapshots(
         .collect()
 }
 
-pub fn required_underlying_display_symbols(
-    snapshots: &HashMap<String, Snapshot>,
-) -> Vec<String> {
+pub fn required_underlying_display_symbols(snapshots: &HashMap<String, Snapshot>) -> Vec<String> {
     let mut symbols = ordered_snapshots(snapshots)
         .into_iter()
         .filter_map(|(occ_symbol, snapshot)| {
@@ -620,8 +630,7 @@ async fn fetch_underlying_prices(
         .stocks()
         .snapshots(alpaca_data::stocks::SnapshotsRequest {
             symbols: missing_symbols,
-            feed: session::is_overnight_window(&clock::now())
-                .then_some(DataFeed::Boats),
+            feed: session::is_overnight_window(&clock::now()).then_some(DataFeed::Boats),
             currency: None,
         })
         .await
@@ -702,7 +711,9 @@ pub async fn resolve_positions_from_optionstrat_url(
             },
             avg_cost: decimal::from_f64(leg.premium_per_contract.unwrap_or(0.0), 2),
             leg_type: match leg.order_side {
-                alpaca_option::OrderSide::Buy => format!("long{}", leg.contract.option_right.as_str()),
+                alpaca_option::OrderSide::Buy => {
+                    format!("long{}", leg.contract.option_right.as_str())
+                }
                 alpaca_option::OrderSide::Sell => {
                     format!("short{}", leg.contract.option_right.as_str())
                 }

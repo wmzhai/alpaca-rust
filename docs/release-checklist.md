@@ -8,14 +8,18 @@ This checklist defines the public release bar for `alpaca-rust`.
 - The next minimal patch release should be `v0.24.5`
 - `.github/workflows/github-pages.yml` is the only release workflow
 - The release workflow triggers only on semantic version tags matching `v*.*.*`
-- crates.io Trusted Publishing must remain configured for `alpaca-core`, `alpaca-rest-http`, `alpaca-data`, `alpaca-trade`, and `alpaca-mock`
+- crates.io Trusted Publishing must remain configured for all published Rust crates:
+  `alpaca-core`, `alpaca-rest-http`, `alpaca-data`, `alpaca-trade`,
+  `alpaca-mock`, `alpaca-time`, `alpaca-option`, and `alpaca-facade`
 - The `github-pages` environment must allow deployments from `master` and tags matching `v*.*.*`
 
 ## Public Surface
 
-- Root `README.md` reflects the current workspace shape
-- Each published crate has its own `README.md`
-- `Cargo.toml` metadata is present for every published crate
+- The official published system surface is the Rust workspace only
+- `packages/alpaca-time` and `packages/alpaca-option` remain optional workspace plus features and are not separate release artifacts
+- Root `README.md` reflects the current three-layer Rust workspace shape
+- Each published Rust crate has its own `README.md`
+- `Cargo.toml` metadata is present for every published Rust crate
 - docs.rs is the primary API-reference host
 - GitHub Pages hosts narrative docs for the whole workspace
 - `CHANGELOG.md` contains a non-empty section for the release tag
@@ -26,24 +30,25 @@ This checklist defines the public release bar for `alpaca-rust`.
 Run before a release:
 
 ```bash
-cargo fmt --check
-cargo check --workspace
-cargo test --doc
-cargo doc --workspace --no-deps
-npm run build --prefix website
-cargo package --list -p alpaca-core
-cargo package --list -p alpaca-rest-http
-cargo package --list -p alpaca-data
-cargo package --list -p alpaca-trade
-cargo package --list -p alpaca-mock
-cargo publish --dry-run -p alpaca-core
-cargo publish --dry-run -p alpaca-rest-http
-cargo publish --dry-run -p alpaca-data
-cargo publish --dry-run -p alpaca-trade
-cargo publish --dry-run -p alpaca-mock
+cargo build --workspace
+cargo test -p alpaca-time
+cargo test -p alpaca-option
+cargo test -p alpaca-facade --test request
+pnpm install --frozen-lockfile
+pnpm run test:packages
+pnpm run typecheck:packages
+python3 tools/docs/generate-doc-site
+pnpm run build:website
+for crate in alpaca-core alpaca-rest-http alpaca-data alpaca-trade alpaca-mock alpaca-time alpaca-option alpaca-facade; do
+  cargo package --list --allow-dirty -p "$crate"
+done
+cargo publish --dry-run --locked --allow-dirty -p alpaca-core
+cargo publish --dry-run --locked --allow-dirty -p alpaca-time
 ```
 
-Before the first real release, downstream `cargo publish --dry-run` commands are expected to require previously published workspace dependencies on crates.io.
+`cargo publish --dry-run` cannot fully preflight downstream crates until their
+new dependency versions are visible on crates.io. The release workflow therefore
+performs staged dry-runs inside the dependency-ordered publish loop.
 
 ## Minimal Patch Release Flow
 
@@ -55,24 +60,32 @@ Use this flow for the next patch release, for example `v0.24.5`.
    - bump the website package version in `website/package.json`
    - update versioned install snippets in `docs/getting-started.md` and `docs/installation.md`
    - add a non-empty `## v0.24.5` section to `CHANGELOG.md`
+   - ensure the three-layer crate list is consistent across `README.md`, `docs/`, generated docs metadata, and the website
    - regenerate docs metadata with `python3 tools/docs/generate-doc-site`
 
 2. Run the local preflight
 
 ```bash
-cargo fmt --check
-cargo check --workspace
-cargo test --doc
-cargo doc --workspace --no-deps
-npm ci --prefix website
+cargo build --workspace
+cargo test -p alpaca-time
+cargo test -p alpaca-option
+cargo test -p alpaca-facade --test request
+pnpm install --frozen-lockfile
+pnpm run test:packages
+pnpm run typecheck:packages
 python3 tools/docs/generate-doc-site
-npm run build --prefix website
+pnpm run build:website
+for crate in alpaca-core alpaca-rest-http alpaca-data alpaca-trade alpaca-mock alpaca-time alpaca-option alpaca-facade; do
+  cargo package --list --allow-dirty -p "$crate"
+done
+cargo publish --dry-run --locked --allow-dirty -p alpaca-core
+cargo publish --dry-run --locked --allow-dirty -p alpaca-time
 ```
 
 3. Commit and push `master`
 
 ```bash
-git add Cargo.toml crates docs website CHANGELOG.md .github/workflows/github-pages.yml
+git add Cargo.toml crates docs website CHANGELOG.md .github/workflows/github-pages.yml memory AGENTS.md design.md
 git commit -m "chore: prepare v0.24.5 release (v0.24.5)"
 git push origin master
 ```
@@ -100,6 +113,9 @@ curl -fsS https://crates.io/api/v1/crates/alpaca-rest-http/0.24.5 >/dev/null
 curl -fsS https://crates.io/api/v1/crates/alpaca-data/0.24.5 >/dev/null
 curl -fsS https://crates.io/api/v1/crates/alpaca-trade/0.24.5 >/dev/null
 curl -fsS https://crates.io/api/v1/crates/alpaca-mock/0.24.5 >/dev/null
+curl -fsS https://crates.io/api/v1/crates/alpaca-time/0.24.5 >/dev/null
+curl -fsS https://crates.io/api/v1/crates/alpaca-option/0.24.5 >/dev/null
+curl -fsS https://crates.io/api/v1/crates/alpaca-facade/0.24.5 >/dev/null
 curl -I -L https://wmzhai.github.io/alpaca-rust/
 ```
 
@@ -123,6 +139,9 @@ Publish in dependency order:
 3. `alpaca-data`
 4. `alpaca-trade`
 5. `alpaca-mock`
+6. `alpaca-time`
+7. `alpaca-option`
+8. `alpaca-facade`
 
 Wait for crates.io index visibility before publishing each dependent crate.
 
@@ -130,6 +149,7 @@ Wait for crates.io index visibility before publishing each dependent crate.
 
 - Release automation is tag-only and runs from `.github/workflows/github-pages.yml`
 - crates.io publication uses Trusted Publishing from GitHub Actions
+- staged `cargo publish --dry-run` checks run immediately before each real publish in dependency order
 - GitHub Pages deploys from the same tag workflow
 - GitHub Release creation runs from the same tag workflow
 

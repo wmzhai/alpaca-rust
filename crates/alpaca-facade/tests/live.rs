@@ -1,13 +1,13 @@
 use std::collections::HashMap;
 use std::path::PathBuf;
 
-use alpaca_data::{options::preferred_feed, stocks::SnapshotsRequest, Client};
-use rust_decimal::Decimal;
-use alpaca_option::url;
+use alpaca_data::{Client, options::preferred_feed, stocks::SnapshotsRequest};
 use alpaca_facade::{
-    fetch_chain, map_live_snapshots, map_snapshot, map_snapshots, resolve_positions_from_optionstrat_url,
-    OptionChainRequest,
+    OptionChainRequest, fetch_chain, map_live_snapshots, map_snapshot, map_snapshots,
+    resolve_positions_from_optionstrat_url,
 };
+use alpaca_option::url;
+use rust_decimal::Decimal;
 
 fn repo_root() -> PathBuf {
     let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
@@ -311,10 +311,12 @@ async fn resolve_positions_from_optionstrat_url_uses_live_snapshots() {
     assert_eq!(resolved.positions.len(), 2);
     assert_eq!(resolved.positions[0].avg_cost, Decimal::new(100, 2));
     assert_eq!(resolved.positions[1].avg_cost, Decimal::new(200, 2));
-    assert!(resolved
-        .positions
-        .iter()
-        .all(|position| position.snapshot_ref().is_some()));
+    assert!(
+        resolved
+            .positions
+            .iter()
+            .all(|position| position.snapshot_ref().is_some())
+    );
     for position in &resolved.positions {
         let snapshot = position.snapshot_ref().unwrap();
         assert_ny_timestamp(&snapshot.as_of);

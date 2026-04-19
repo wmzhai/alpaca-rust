@@ -1,13 +1,13 @@
+use crate::{OptionChainRequest, map_live_snapshots, required_underlying_display_symbols};
 use ::chrono::NaiveDateTime;
+use alpaca_data::Client;
 use alpaca_data::cache::{CacheStats as RawCacheStats, CachedClient, StockBarsRequest};
 use alpaca_data::corporate_actions::{CorporateActionType, ListRequest};
 use alpaca_data::stocks::{self, BarPoint, TimeFrame, preferred_feed as preferred_stock_feed};
-use alpaca_data::Client;
-use anyhow::{Context, Result};
 use alpaca_option::contract;
 use alpaca_option::url;
 use alpaca_option::{OptionChain, OptionError, OptionPosition, OptionSnapshot, OrderSide};
-use crate::{OptionChainRequest, map_live_snapshots, required_underlying_display_symbols};
+use anyhow::{Context, Result};
 use rust_decimal::prelude::ToPrimitive;
 use serde::Serialize;
 use std::collections::{HashMap, HashSet};
@@ -132,8 +132,7 @@ impl AlpacaData {
     }
 
     fn now_timestamp() -> NaiveDateTime {
-        chrono::timestamp(None)
-            .expect("chrono::timestamp should always succeed for now()")
+        chrono::timestamp(None).expect("chrono::timestamp should always succeed for now()")
     }
 
     fn normalize_values<S: AsRef<str>>(values: &[S]) -> Vec<String> {
@@ -207,8 +206,7 @@ impl AlpacaData {
     }
 
     fn bars_start(window: BarsWindow) -> String {
-        range::add_days(&clock::today(), window.lookback_days())
-            .unwrap_or_else(|_| clock::today())
+        range::add_days(&clock::today(), window.lookback_days()).unwrap_or_else(|_| clock::today())
     }
 
     fn format_datetime(value: Option<NaiveDateTime>) -> Option<String> {
@@ -406,14 +404,20 @@ impl AlpacaData {
         self.raw.watch_options(&contracts).await;
 
         if let Err(error) = self.raw.refresh_options().await {
-            tracing::warn!("failed to refresh raw option snapshots, keeping stale cache: {}", error);
+            tracing::warn!(
+                "failed to refresh raw option snapshots, keeping stale cache: {}",
+                error
+            );
             return Ok(0);
         }
 
         match self.rebuild_options().await {
             Ok(count) => Ok(count),
             Err(error) => {
-                tracing::warn!("failed to rebuild enriched option cache, keeping stale cache: {}", error);
+                tracing::warn!(
+                    "failed to rebuild enriched option cache, keeping stale cache: {}",
+                    error
+                );
                 Ok(0)
             }
         }
@@ -436,15 +440,21 @@ impl AlpacaData {
         }
 
         let tasks = requests.into_iter().map(|(symbol, request)| async move {
-            let underlying_price = self.raw.stock(&symbol).await.and_then(|snapshot| {
-                snapshot.price().and_then(|value| value.to_f64())
-            });
+            let underlying_price = self
+                .raw
+                .stock(&symbol)
+                .await
+                .and_then(|snapshot| snapshot.price().and_then(|value| value.to_f64()));
             let request = request.with_underlying_price(underlying_price);
 
             match self.fetch_and_build_chain(&symbol, &request).await {
                 Ok(chain) => Some((symbol, request, chain)),
                 Err(error) => {
-                    tracing::warn!("failed to refresh {} option chain, keeping stale cache: {}", symbol, error);
+                    tracing::warn!(
+                        "failed to refresh {} option chain, keeping stale cache: {}",
+                        symbol,
+                        error
+                    );
                     None
                 }
             }
@@ -497,7 +507,9 @@ impl AlpacaData {
             cache.updated_at = None;
         }
 
-        tracing::info!("[MarketCache] cleared option facade caches while keeping raw stock and bar caches");
+        tracing::info!(
+            "[MarketCache] cleared option facade caches while keeping raw stock and bar caches"
+        );
     }
 
     async fn ensure_options<S: AsRef<str>>(
@@ -652,7 +664,11 @@ impl AlpacaData {
         Ok(OptionChain {
             underlying_symbol: chain.underlying_symbol,
             as_of: chain.as_of,
-            snapshots: chain.snapshots.into_iter().map(OptionSnapshot::from).collect(),
+            snapshots: chain
+                .snapshots
+                .into_iter()
+                .map(OptionSnapshot::from)
+                .collect(),
         })
     }
 
@@ -682,9 +698,11 @@ impl AlpacaData {
             return Ok(chain);
         }
 
-        let underlying_price = self.raw.stock(&symbol).await.and_then(|snapshot| {
-            snapshot.price().and_then(|value| value.to_f64())
-        });
+        let underlying_price = self
+            .raw
+            .stock(&symbol)
+            .await
+            .and_then(|snapshot| snapshot.price().and_then(|value| value.to_f64()));
         let request = request.with_underlying_price(underlying_price);
         let chain = self.fetch_and_build_chain(&symbol, &request).await?;
 
@@ -755,9 +773,7 @@ impl AlpacaData {
         requested
             .into_iter()
             .filter_map(|(original, resolved)| {
-                bars.get(&resolved)
-                    .cloned()
-                    .map(|bars| (original, bars))
+                bars.get(&resolved).cloned().map(|bars| (original, bars))
             })
             .collect()
     }
@@ -766,7 +782,11 @@ impl AlpacaData {
         match self.raw.refresh_bars(window.key()).await {
             Ok(count) => Ok(count),
             Err(error) => {
-                tracing::warn!("failed to refresh {}, keeping stale cache: {}", window.refresh_label(), error);
+                tracing::warn!(
+                    "failed to refresh {}, keeping stale cache: {}",
+                    window.refresh_label(),
+                    error
+                );
                 Ok(0)
             }
         }

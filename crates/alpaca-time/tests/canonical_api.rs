@@ -19,23 +19,56 @@ fn canonical_clock_api_uses_short_names() {
 #[test]
 fn canonical_display_api_absorbs_date_timestamp_and_invalid_inputs() {
     assert_eq!(display::compact("2026-02-06", "mm-dd hh:mm"), "02-06");
-    assert_eq!(display::compact("2026-04-12T02:35:16Z", "mm-dd hh:mm"), "04-11 22:35");
+    assert_eq!(
+        display::compact("2026-04-12T02:35:16Z", "mm-dd hh:mm"),
+        "04-11 22:35"
+    );
     assert_eq!(display::compact("2026-04-12 09:35:16", "mm-dd"), "04-12");
-    assert_eq!(display::compact("bad-timestamp", "mm-dd hh:mm"), "bad-timestamp");
+    assert_eq!(
+        display::compact("bad-timestamp", "mm-dd hh:mm"),
+        "bad-timestamp"
+    );
 
-    assert_eq!(display::time("2026-02-06", Some("minute"), Some("mm-dd")), "02-06");
-    assert_eq!(display::time("2026-04-12T02:35:16Z", Some("second"), Some("mm-dd")), "22:35:16");
-    assert_eq!(display::time("bad-timestamp", Some("minute"), Some("mm-dd")), "bad-timestamp");
+    assert_eq!(
+        display::time("2026-02-06", Some("minute"), Some("mm-dd")),
+        "02-06"
+    );
+    assert_eq!(
+        display::time("2026-04-12T02:35:16Z", Some("second"), Some("mm-dd")),
+        "22:35:16"
+    );
+    assert_eq!(
+        display::time("bad-timestamp", Some("minute"), Some("mm-dd")),
+        "bad-timestamp"
+    );
 }
 
 #[test]
 fn canonical_expiration_api_makes_at_optional_and_clamps_years() {
-    assert_eq!(expiration::close("2025-02-06").unwrap(), "2025-02-06 16:00:00");
-    assert_eq!(expiration::calendar_days("2025-02-06", Some("2025-02-06 15:59:59")).unwrap(), 0);
-    assert_eq!(expiration::calendar_days("2025-02-06", Some("2025-02-06 16:00:01")).unwrap(), -1);
-    assert_eq!(expiration::days("2025-02-07", Some("2025-02-06 16:00:00")).unwrap(), 1.0);
-    assert_eq!(expiration::years("2025-02-06", Some("2025-02-06 16:00:01"), None), 0.0);
-    assert_eq!(expiration::years("2025-02-06", Some("bad-timestamp"), None), 0.0);
+    assert_eq!(
+        expiration::close("2025-02-06").unwrap(),
+        "2025-02-06 16:00:00"
+    );
+    assert_eq!(
+        expiration::calendar_days("2025-02-06", Some("2025-02-06 15:59:59")).unwrap(),
+        0
+    );
+    assert_eq!(
+        expiration::calendar_days("2025-02-06", Some("2025-02-06 16:00:01")).unwrap(),
+        -1
+    );
+    assert_eq!(
+        expiration::days("2025-02-07", Some("2025-02-06 16:00:00")).unwrap(),
+        1.0
+    );
+    assert_eq!(
+        expiration::years("2025-02-06", Some("2025-02-06 16:00:01"), None),
+        0.0
+    );
+    assert_eq!(
+        expiration::years("2025-02-06", Some("bad-timestamp"), None),
+        0.0
+    );
 }
 
 #[test]

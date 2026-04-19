@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.24.5
+
+- Reorganized the public documentation and website around the current three-layer Rust workspace: foundation SDK crates, semantic crates, and the `alpaca-facade` composition layer.
+- Added publish-ready crate metadata and public READMEs for `alpaca-time`, `alpaca-option`, and `alpaca-facade`.
+- Clarified that the TypeScript workspace packages are optional plus features for repo consumers, not the primary published system surface.
+- Extended the release checklist, docs metadata generation, and GitHub release automation to cover all eight published Rust crates.
+- Removed the remaining `optworks`-specific Rust export hooks from the published crates and aligned the workspace toward the `0.24.5` release line.
+
 ## v0.24.4
 
 - Added a workspace installer script for running `alpaca-mock` as a local user service on macOS and Ubuntu.

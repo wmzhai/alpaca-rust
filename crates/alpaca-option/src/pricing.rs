@@ -149,13 +149,27 @@ pub fn intrinsic_value(spot: f64, strike: f64, option_right: &str) -> OptionResu
     })
 }
 
-pub fn extrinsic_value(option_price: f64, spot: f64, strike: f64, option_right: &str) -> OptionResult<f64> {
+pub fn extrinsic_value(
+    option_price: f64,
+    spot: f64,
+    strike: f64,
+    option_right: &str,
+) -> OptionResult<f64> {
     ensure_finite("option_price", option_price)?;
     Ok((option_price - intrinsic_value(spot, strike, option_right)?).max(0.0))
 }
 
-pub fn contract_extrinsic_value(option_price: f64, spot: f64, contract: &OptionContract) -> OptionResult<f64> {
-    extrinsic_value(option_price, spot, contract.strike, contract.option_right.as_str())
+pub fn contract_extrinsic_value(
+    option_price: f64,
+    spot: f64,
+    contract: &OptionContract,
+) -> OptionResult<f64> {
+    extrinsic_value(
+        option_price,
+        spot,
+        contract.strike,
+        contract.option_right.as_str(),
+    )
 }
 
 pub fn implied_volatility_from_price(
@@ -197,10 +211,12 @@ pub fn implied_volatility_from_price(
     brent_solve(
         lower_bound,
         upper_bound,
-        |volatility| price_black_scholes_core(&BlackScholesInput {
-            volatility,
-            ..black_scholes_input.clone()
-        }) - input.target_price,
+        |volatility| {
+            price_black_scholes_core(&BlackScholesInput {
+                volatility,
+                ..black_scholes_input.clone()
+            }) - input.target_price
+        },
         input.tolerance,
         input.max_iterations,
     )

@@ -230,25 +230,21 @@ impl PositionBook {
                 });
 
             match execution.position_intent {
-                Some(PositionIntent::BuyToOpen) => {
-                    position.open_long(
-                        execution.qty,
-                        execution.price,
-                        execution.market_snapshot.as_ref(),
-                        &execution.occurred_at,
-                    )
-                }
+                Some(PositionIntent::BuyToOpen) => position.open_long(
+                    execution.qty,
+                    execution.price,
+                    execution.market_snapshot.as_ref(),
+                    &execution.occurred_at,
+                ),
                 Some(PositionIntent::SellToClose) => {
                     position.close_long(execution.qty, &execution.occurred_at)
                 }
-                Some(PositionIntent::SellToOpen) => {
-                    position.open_short(
-                        execution.qty,
-                        execution.price,
-                        execution.market_snapshot.as_ref(),
-                        &execution.occurred_at,
-                    )
-                }
+                Some(PositionIntent::SellToOpen) => position.open_short(
+                    execution.qty,
+                    execution.price,
+                    execution.market_snapshot.as_ref(),
+                    &execution.occurred_at,
+                ),
                 Some(PositionIntent::BuyToClose) => {
                     position.close_short(execution.qty, &execution.occurred_at)
                 }

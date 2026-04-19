@@ -2,9 +2,10 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use alpaca_core::BaseUrl;
-use reqwest::header::{HeaderMap, HeaderName, HeaderValue, CONTENT_TYPE};
+use reqwest::header::{CONTENT_TYPE, HeaderMap, HeaderName, HeaderValue};
 use serde::de::DeserializeOwned;
 
+use crate::Error;
 use crate::auth::Authenticator;
 use crate::meta::{ErrorMeta, HttpResponse, ResponseMeta};
 use crate::observer::{
@@ -13,7 +14,6 @@ use crate::observer::{
 use crate::rate_limit::ConcurrencyLimit;
 use crate::request::{NoContent, RequestBody, RequestParts};
 use crate::retry::{RetryConfig, RetryDecision};
-use crate::Error;
 
 #[derive(Clone)]
 pub struct HttpClient {

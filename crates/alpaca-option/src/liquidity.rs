@@ -7,7 +7,6 @@ use crate::snapshot;
 use crate::types::OptionSnapshot;
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
-#[cfg_attr(feature = "optworks-ts-export", ts(export, export_to = "../../../../optworks/packages/optworks-ts/src/generated/"))]
 pub struct LiquidityOptionData {
     pub contract: String,
     #[serde(rename = "type")]
@@ -48,7 +47,6 @@ impl LiquidityOptionData {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
-#[cfg_attr(feature = "optworks-ts-export", ts(export, export_to = "../../../../optworks/packages/optworks-ts/src/generated/"))]
 pub struct LiquidityStats {
     pub total_count: usize,
     pub avg_spread_pct: f64,
@@ -80,10 +78,7 @@ impl LiquidityStats {
         }
 
         let mut spreads: Vec<f64> = options.iter().map(|option| option.spread_pct).collect();
-        spreads.sort_by(|left, right| {
-            left.partial_cmp(right)
-                .unwrap_or(std::cmp::Ordering::Equal)
-        });
+        spreads.sort_by(|left, right| left.partial_cmp(right).unwrap_or(std::cmp::Ordering::Equal));
 
         let avg_spread_pct = spreads.iter().sum::<f64>() / spreads.len() as f64;
         let median_spread_pct = if spreads.len() % 2 == 0 {
@@ -99,18 +94,12 @@ impl LiquidityStats {
         let min_delta = options
             .iter()
             .map(|option| option.delta)
-            .min_by(|left, right| {
-                left.partial_cmp(right)
-                    .unwrap_or(std::cmp::Ordering::Equal)
-            })
+            .min_by(|left, right| left.partial_cmp(right).unwrap_or(std::cmp::Ordering::Equal))
             .unwrap_or(0.0);
         let max_delta = options
             .iter()
             .map(|option| option.delta)
-            .max_by(|left, right| {
-                left.partial_cmp(right)
-                    .unwrap_or(std::cmp::Ordering::Equal)
-            })
+            .max_by(|left, right| left.partial_cmp(right).unwrap_or(std::cmp::Ordering::Equal))
             .unwrap_or(0.0);
 
         Self {
@@ -126,7 +115,6 @@ impl LiquidityStats {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
-#[cfg_attr(feature = "optworks-ts-export", ts(export, export_to = "../../../../optworks/packages/optworks-ts/src/generated/"))]
 pub struct LiquidityData {
     pub symbol: String,
     pub timestamp: String,
@@ -136,7 +124,6 @@ pub struct LiquidityData {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
-#[cfg_attr(feature = "optworks-ts-export", ts(export, export_to = "../../../../optworks/packages/optworks-ts/src/generated/"))]
 pub struct LiquidityBatchResponse {
     pub results: HashMap<String, LiquidityData>,
 }

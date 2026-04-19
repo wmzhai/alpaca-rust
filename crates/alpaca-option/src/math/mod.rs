@@ -1,6 +1,6 @@
 pub mod american;
-pub mod barrier;
 pub mod bachelier;
+pub mod barrier;
 pub mod black76;
 pub mod geometric_asian;
 

@@ -88,7 +88,9 @@ pub fn linspace(start: f64, end: f64, count: usize) -> OptionResult<Vec<f64>> {
     }
 
     let step = (end - start) / (count - 1) as f64;
-    Ok((0..count).map(|index| start + step * index as f64).collect())
+    Ok((0..count)
+        .map(|index| start + step * index as f64)
+        .collect())
 }
 
 fn validate_brent_params(
@@ -292,7 +294,9 @@ where
     if lower_bound > upper_bound {
         return Err(OptionError::new(
             "invalid_numeric_input",
-            format!("lower_bound must be less than or equal to upper_bound: {lower_bound} > {upper_bound}"),
+            format!(
+                "lower_bound must be less than or equal to upper_bound: {lower_bound} > {upper_bound}"
+            ),
         ));
     }
 

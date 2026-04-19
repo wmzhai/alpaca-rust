@@ -2,8 +2,8 @@ use crate::error::{OptionError, OptionResult};
 use crate::pricing;
 use crate::pricing::greeks_black_scholes;
 use crate::types::{
-    AssignmentRiskLevel, BlackScholesInput, MoneynessLabel, OptionPosition, OptionRight, PositionSide,
-    ShortItmPosition,
+    AssignmentRiskLevel, BlackScholesInput, MoneynessLabel, OptionPosition, OptionRight,
+    PositionSide, ShortItmPosition,
 };
 
 const CONTRACT_MULTIPLIER: f64 = 100.0;
@@ -146,11 +146,7 @@ pub fn otm_percent(spot: f64, strike: f64, option_right: &str) -> OptionResult<f
 
 pub fn position_otm_percent(spot: f64, position: &OptionPosition) -> OptionResult<f64> {
     let contract = position.contract_info();
-    otm_percent(
-        spot,
-        contract.strike,
-        contract.option_right.as_str(),
-    )
+    otm_percent(spot, contract.strike, contract.option_right.as_str())
 }
 
 pub fn assignment_risk(extrinsic: f64) -> OptionResult<AssignmentRiskLevel> {
@@ -238,11 +234,8 @@ pub fn short_itm_positions(
             .and_then(|snapshot| snapshot.quote.mark.or(snapshot.quote.last))
             .unwrap_or(0.0);
         let contract = position.contract_info();
-        let intrinsic = pricing::intrinsic_value(
-            spot,
-            contract.strike,
-            contract.option_right.as_str(),
-        )?;
+        let intrinsic =
+            pricing::intrinsic_value(spot, contract.strike, contract.option_right.as_str())?;
         if intrinsic <= 0.0 {
             continue;
         }

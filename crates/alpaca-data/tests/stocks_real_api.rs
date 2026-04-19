@@ -80,7 +80,9 @@ async fn stocks_resource_reads_real_api_endpoints() {
     recorder
         .record_json("alpaca-data-stocks", "snapshots-single", &snapshots)
         .expect("snapshots sample should record");
-    let snapshot = snapshots.get("AAPL").expect("single-symbol snapshots should contain AAPL");
+    let snapshot = snapshots
+        .get("AAPL")
+        .expect("single-symbol snapshots should contain AAPL");
     assert!(snapshot.latest_trade.is_some() || snapshot.latest_quote.is_some());
     assert!(snapshot.timestamp().is_some());
     assert!(snapshot.price().is_some());
@@ -105,14 +107,12 @@ async fn stocks_resource_reads_real_api_endpoints() {
     assert_eq!(ordered.len(), batch_snapshots.len());
     assert!(ordered.windows(2).all(|pair| pair[0].0 <= pair[1].0));
     assert!(
-        ordered
-            .iter()
-            .all(|(_, snapshot)| {
-                snapshot.timestamp().is_some()
-                    && snapshot.price().is_some()
-                    && (snapshot.bid_price().is_some() || snapshot.ask_price().is_some())
-                    && (snapshot.session_close().is_some() || snapshot.previous_close().is_some())
-            }),
+        ordered.iter().all(|(_, snapshot)| {
+            snapshot.timestamp().is_some()
+                && snapshot.price().is_some()
+                && (snapshot.bid_price().is_some() || snapshot.ask_price().is_some())
+                && (snapshot.session_close().is_some() || snapshot.previous_close().is_some())
+        }),
         "ordered stock snapshots should expose canonical quote/session readers"
     );
 
@@ -123,8 +123,12 @@ async fn stocks_resource_reads_real_api_endpoints() {
             currency: None,
         })
         .await
-        .expect("BRK.B snapshots request should succeed through canonical stock symbol normalization");
-    let brk_snapshot = brk_snapshots.get("BRK.B").expect("BRK.B snapshots should contain BRK.B");
+        .expect(
+            "BRK.B snapshots request should succeed through canonical stock symbol normalization",
+        );
+    let brk_snapshot = brk_snapshots
+        .get("BRK.B")
+        .expect("BRK.B snapshots should contain BRK.B");
     assert!(brk_snapshot.timestamp().is_some());
     assert!(brk_snapshot.price().is_some());
     assert!(brk_snapshot.bid_price().is_some() || brk_snapshot.ask_price().is_some());

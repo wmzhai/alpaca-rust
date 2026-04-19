@@ -112,7 +112,9 @@ pub fn parse_occ_symbol(occ_symbol: &str) -> Option<OptionContract> {
     let underlying_symbol = &normalized[..split];
     if underlying_symbol.is_empty()
         || underlying_symbol.len() > MAX_UNDERLYING_LENGTH
-        || !underlying_symbol.chars().all(|ch| ch.is_ascii_alphanumeric())
+        || !underlying_symbol
+            .chars()
+            .all(|ch| ch.is_ascii_alphanumeric())
     {
         return None;
     }
@@ -158,7 +160,8 @@ pub fn build_occ_symbol(
     if !(0.0..=99_999_999.0).contains(&strike_thousandths) {
         return None;
     }
-    let yymmdd = expiration_date[2..4].to_string() + &expiration_date[5..7] + &expiration_date[8..10];
+    let yymmdd =
+        expiration_date[2..4].to_string() + &expiration_date[5..7] + &expiration_date[8..10];
 
     Some(format!(
         "{}{}{}{:08}",

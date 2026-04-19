@@ -4,20 +4,25 @@ use std::fs;
 use std::path::PathBuf;
 
 use alpaca_option::{
-    analysis, contract, execution_quote, expiration_selection, math, numeric, payoff, pricing,
-    probability, url, ExecutionLegInput, ExecutionSnapshot, OptionChain, OptionChainRecord,
-    OptionContract, OptionPosition, OptionRight, OptionSnapshot, PayoffLegInput, QuotedLeg,
-    RollLegSelection,
-    StrategyBreakEvenInput, StrategyPnlInput,
+    ExecutionLegInput, ExecutionSnapshot, OptionChain, OptionChainRecord, OptionContract,
+    OptionPosition, OptionRight, OptionSnapshot, PayoffLegInput, QuotedLeg, RollLegSelection,
+    StrategyBreakEvenInput, StrategyPnlInput, analysis, contract, execution_quote,
+    expiration_selection, math, numeric, payoff, pricing, probability, url,
 };
 
 fn repo_root() -> PathBuf {
     let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    manifest_dir.parent().unwrap().parent().unwrap().to_path_buf()
+    manifest_dir
+        .parent()
+        .unwrap()
+        .parent()
+        .unwrap()
+        .to_path_buf()
 }
 
 fn load_cases(relative_path: &str) -> Vec<Value> {
-    let content = fs::read_to_string(repo_root().join(relative_path)).expect("fixture should exist");
+    let content =
+        fs::read_to_string(repo_root().join(relative_path)).expect("fixture should exist");
     serde_json::from_str::<Value>(&content)
         .expect("fixture json should parse")
         .get("cases")
@@ -27,8 +32,8 @@ fn load_cases(relative_path: &str) -> Vec<Value> {
 }
 
 fn load_support_fixture_paths() -> Vec<String> {
-    let content =
-        fs::read_to_string(repo_root().join("fixtures/catalog.json")).expect("catalog should exist");
+    let content = fs::read_to_string(repo_root().join("fixtures/catalog.json"))
+        .expect("catalog should exist");
     let catalog = serde_json::from_str::<Value>(&content).expect("catalog json should parse");
 
     catalog
@@ -42,8 +47,8 @@ fn load_support_fixture_paths() -> Vec<String> {
 }
 
 fn load_layer_fixture_paths() -> Vec<String> {
-    let content =
-        fs::read_to_string(repo_root().join("fixtures/catalog.json")).expect("catalog should exist");
+    let content = fs::read_to_string(repo_root().join("fixtures/catalog.json"))
+        .expect("catalog should exist");
     let catalog = serde_json::from_str::<Value>(&content).expect("catalog json should parse");
 
     let layer_paths = catalog
@@ -67,7 +72,10 @@ fn load_layer_fixture_paths() -> Vec<String> {
 }
 
 fn unwrap_expected(expected: &Value) -> Value {
-    expected.get("value").cloned().unwrap_or_else(|| expected.clone())
+    expected
+        .get("value")
+        .cloned()
+        .unwrap_or_else(|| expected.clone())
 }
 
 fn fixture_avg_cost_value(input: &Value) -> Value {
@@ -249,7 +257,9 @@ fn assert_with_tolerance(
     match (actual, expected) {
         (Value::Number(actual_number), Value::Number(expected_number)) => {
             let actual_value = actual_number.as_f64().expect("actual number should be f64");
-            let expected_value = expected_number.as_f64().expect("expected number should be f64");
+            let expected_value = expected_number
+                .as_f64()
+                .expect("expected number should be f64");
             if let Some(limit) = resolve_tolerance(tolerance, field_tolerances, path) {
                 assert!(
                     (actual_value - expected_value).abs() <= limit,
@@ -261,7 +271,9 @@ fn assert_with_tolerance(
         }
         (Value::Array(actual_items), Value::Array(expected_items)) => {
             assert_eq!(actual_items.len(), expected_items.len(), "{case_id}");
-            for (index, (actual_item, expected_item)) in actual_items.iter().zip(expected_items.iter()).enumerate() {
+            for (index, (actual_item, expected_item)) in
+                actual_items.iter().zip(expected_items.iter()).enumerate()
+            {
                 let mut child_path = path.to_vec();
                 child_path.push(index.to_string());
                 assert_with_tolerance(
@@ -301,9 +313,9 @@ fn run_case(case: &Value) -> Value {
     let input = case.get("input").unwrap();
 
     match api {
-        "contract.normalize_underlying_symbol" => serde_json::to_value(contract::normalize_underlying_symbol(
-            input.get("symbol").unwrap().as_str().unwrap(),
-        ))
+        "contract.normalize_underlying_symbol" => serde_json::to_value(
+            contract::normalize_underlying_symbol(input.get("symbol").unwrap().as_str().unwrap()),
+        )
         .unwrap(),
         "contract.is_occ_symbol" => serde_json::to_value(contract::is_occ_symbol(
             input.get("occ_symbol").unwrap().as_str().unwrap(),
@@ -320,20 +332,22 @@ fn run_case(case: &Value) -> Value {
                 .get("strike")
                 .and_then(Value::as_f64)
                 .or_else(|| {
-                    input.get("strike").and_then(Value::as_str).and_then(|value| value.parse::<f64>().ok())
+                    input
+                        .get("strike")
+                        .and_then(Value::as_str)
+                        .and_then(|value| value.parse::<f64>().ok())
                 })
                 .unwrap_or(f64::NAN),
             input.get("option_right").unwrap().as_str().unwrap(),
-        )
-        )
-        .unwrap(),
-        "url.to_optionstrat_underlying_path" => serde_json::to_value(url::to_optionstrat_underlying_path(
-            input.get("symbol").unwrap().as_str().unwrap(),
         ))
         .unwrap(),
-        "url.from_optionstrat_underlying_path" => serde_json::to_value(url::from_optionstrat_underlying_path(
-            input.get("path").unwrap().as_str().unwrap(),
-        ))
+        "url.to_optionstrat_underlying_path" => serde_json::to_value(
+            url::to_optionstrat_underlying_path(input.get("symbol").unwrap().as_str().unwrap()),
+        )
+        .unwrap(),
+        "url.from_optionstrat_underlying_path" => serde_json::to_value(
+            url::from_optionstrat_underlying_path(input.get("path").unwrap().as_str().unwrap()),
+        )
         .unwrap(),
         "url.build_optionstrat_leg_fragment" => serde_json::to_value(
             url::build_optionstrat_leg_fragment(&alpaca_option::OptionStratLegInput {
@@ -342,10 +356,7 @@ fn run_case(case: &Value) -> Value {
                     .and_then(Value::as_str)
                     .unwrap()
                     .to_string(),
-                quantity: input
-                    .get("quantity")
-                    .and_then(Value::as_i64)
-                    .unwrap() as i32,
+                quantity: input.get("quantity").and_then(Value::as_i64).unwrap() as i32,
                 premium_per_contract: input.get("premium_per_contract").and_then(Value::as_f64),
                 ..Default::default()
             }),
@@ -392,10 +403,7 @@ fn run_case(case: &Value) -> Value {
                         .unwrap()
                         .to_string(),
                     quantity: stock.get("quantity").and_then(Value::as_i64).unwrap() as i32,
-                    cost_per_share: stock
-                        .get("cost_per_share")
-                        .and_then(Value::as_f64)
-                        .unwrap(),
+                    cost_per_share: stock.get("cost_per_share").and_then(Value::as_f64).unwrap(),
                 })
                 .collect::<Vec<_>>();
 
@@ -412,7 +420,7 @@ fn run_case(case: &Value) -> Value {
                 },
             ))
             .unwrap()
-        },
+        }
         "url.parse_optionstrat_url" => serde_json::to_value(
             url::parse_optionstrat_url(input.get("url").unwrap().as_str().unwrap()).unwrap(),
         )
@@ -426,13 +434,19 @@ fn run_case(case: &Value) -> Value {
                 .iter()
                 .map(|value| value.as_str().unwrap().to_string())
                 .collect::<Vec<_>>();
-            serde_json::to_value(url::parse_optionstrat_leg_fragments(
-                input.get("underlying_display_symbol").unwrap().as_str().unwrap(),
-                &fragments,
+            serde_json::to_value(
+                url::parse_optionstrat_leg_fragments(
+                    input
+                        .get("underlying_display_symbol")
+                        .unwrap()
+                        .as_str()
+                        .unwrap(),
+                    &fragments,
+                )
+                .unwrap(),
             )
-            .unwrap())
             .unwrap()
-        },
+        }
         "pricing.price_black_scholes" => serde_json::to_value(
             pricing::price_black_scholes(&alpaca_option::BlackScholesInput {
                 spot: input.get("spot").unwrap().as_f64().unwrap(),
@@ -441,7 +455,10 @@ fn run_case(case: &Value) -> Value {
                 rate: input.get("rate").unwrap().as_f64().unwrap(),
                 dividend_yield: input.get("dividend_yield").unwrap().as_f64().unwrap(),
                 volatility: input.get("volatility").unwrap().as_f64().unwrap(),
-                option_right: OptionRight::from_str(input.get("option_right").unwrap().as_str().unwrap()).unwrap(),
+                option_right: OptionRight::from_str(
+                    input.get("option_right").unwrap().as_str().unwrap(),
+                )
+                .unwrap(),
             })
             .unwrap(),
         )
@@ -454,28 +471,36 @@ fn run_case(case: &Value) -> Value {
                 rate: input.get("rate").unwrap().as_f64().unwrap(),
                 dividend_yield: input.get("dividend_yield").unwrap().as_f64().unwrap(),
                 volatility: input.get("volatility").unwrap().as_f64().unwrap(),
-                option_right: OptionRight::from_str(input.get("option_right").unwrap().as_str().unwrap()).unwrap(),
+                option_right: OptionRight::from_str(
+                    input.get("option_right").unwrap().as_str().unwrap(),
+                )
+                .unwrap(),
             })
             .unwrap(),
         )
         .unwrap(),
         "pricing.implied_volatility_from_price" => serde_json::to_value(
-            pricing::implied_volatility_from_price(&alpaca_option::BlackScholesImpliedVolatilityInput {
-                target_price: input.get("target_price").unwrap().as_f64().unwrap(),
-                spot: input.get("spot").unwrap().as_f64().unwrap(),
-                strike: input.get("strike").unwrap().as_f64().unwrap(),
-                years: input.get("years").unwrap().as_f64().unwrap(),
-                rate: input.get("rate").unwrap().as_f64().unwrap(),
-                dividend_yield: input.get("dividend_yield").unwrap().as_f64().unwrap(),
-                option_right: OptionRight::from_str(input.get("option_right").unwrap().as_str().unwrap()).unwrap(),
-                lower_bound: input.get("lower_bound").and_then(Value::as_f64),
-                upper_bound: input.get("upper_bound").and_then(Value::as_f64),
-                tolerance: input.get("tolerance").and_then(Value::as_f64),
-                max_iterations: input
-                    .get("max_iterations")
-                    .and_then(Value::as_u64)
-                    .map(|value| value as usize),
-            })
+            pricing::implied_volatility_from_price(
+                &alpaca_option::BlackScholesImpliedVolatilityInput {
+                    target_price: input.get("target_price").unwrap().as_f64().unwrap(),
+                    spot: input.get("spot").unwrap().as_f64().unwrap(),
+                    strike: input.get("strike").unwrap().as_f64().unwrap(),
+                    years: input.get("years").unwrap().as_f64().unwrap(),
+                    rate: input.get("rate").unwrap().as_f64().unwrap(),
+                    dividend_yield: input.get("dividend_yield").unwrap().as_f64().unwrap(),
+                    option_right: OptionRight::from_str(
+                        input.get("option_right").unwrap().as_str().unwrap(),
+                    )
+                    .unwrap(),
+                    lower_bound: input.get("lower_bound").and_then(Value::as_f64),
+                    upper_bound: input.get("upper_bound").and_then(Value::as_f64),
+                    tolerance: input.get("tolerance").and_then(Value::as_f64),
+                    max_iterations: input
+                        .get("max_iterations")
+                        .and_then(Value::as_u64)
+                        .map(|value| value as usize),
+                },
+            )
             .unwrap(),
         )
         .unwrap(),
@@ -575,7 +600,10 @@ fn run_case(case: &Value) -> Value {
                 input.get("dividend_yield").unwrap().as_f64().unwrap(),
                 input.get("volatility").unwrap().as_f64().unwrap(),
                 input.get("option_right").unwrap().as_str().unwrap(),
-                input.get("steps").and_then(Value::as_u64).map(|value| value as usize),
+                input
+                    .get("steps")
+                    .and_then(Value::as_u64)
+                    .map(|value| value as usize),
                 input.get("use_richardson").and_then(Value::as_bool),
             )
             .unwrap(),
@@ -710,31 +738,36 @@ fn run_case(case: &Value) -> Value {
             .unwrap(),
         )
         .unwrap(),
-        "analysis.moneyness_ratio" => serde_json::to_value(analysis::moneyness_ratio(
-            input.get("spot").unwrap().as_f64().unwrap(),
-            input.get("strike").unwrap().as_f64().unwrap(),
+        "analysis.moneyness_ratio" => serde_json::to_value(
+            analysis::moneyness_ratio(
+                input.get("spot").unwrap().as_f64().unwrap(),
+                input.get("strike").unwrap().as_f64().unwrap(),
+            )
+            .unwrap(),
         )
-        .unwrap())
         .unwrap(),
-        "analysis.moneyness_label" => serde_json::to_value(analysis::moneyness_label(
-            input.get("spot").unwrap().as_f64().unwrap(),
-            input.get("strike").unwrap().as_f64().unwrap(),
-            input.get("option_right").unwrap().as_str().unwrap(),
-            input.get("atm_band").and_then(Value::as_f64),
+        "analysis.moneyness_label" => serde_json::to_value(
+            analysis::moneyness_label(
+                input.get("spot").unwrap().as_f64().unwrap(),
+                input.get("strike").unwrap().as_f64().unwrap(),
+                input.get("option_right").unwrap().as_str().unwrap(),
+                input.get("atm_band").and_then(Value::as_f64),
+            )
+            .unwrap(),
         )
-        .unwrap())
         .unwrap(),
-        "analysis.otm_percent" => serde_json::to_value(analysis::otm_percent(
-            input.get("spot").unwrap().as_f64().unwrap(),
-            input.get("strike").unwrap().as_f64().unwrap(),
-            input.get("option_right").unwrap().as_str().unwrap(),
+        "analysis.otm_percent" => serde_json::to_value(
+            analysis::otm_percent(
+                input.get("spot").unwrap().as_f64().unwrap(),
+                input.get("strike").unwrap().as_f64().unwrap(),
+                input.get("option_right").unwrap().as_str().unwrap(),
+            )
+            .unwrap(),
         )
-        .unwrap())
         .unwrap(),
-        "analysis.assignment_risk" => serde_json::to_value(analysis::assignment_risk(
-            input.get("extrinsic").unwrap().as_f64().unwrap(),
+        "analysis.assignment_risk" => serde_json::to_value(
+            analysis::assignment_risk(input.get("extrinsic").unwrap().as_f64().unwrap()).unwrap(),
         )
-        .unwrap())
         .unwrap(),
         "analysis.short_extrinsic_amount" => serde_json::to_value(
             analysis::short_extrinsic_amount(
@@ -782,23 +815,30 @@ fn run_case(case: &Value) -> Value {
         "model.option_chain" => serde_json::json!({
             "valid": serde_json::from_value::<OptionChain>(input.clone()).is_ok()
         }),
-        "pricing.intrinsic_value" => serde_json::to_value(pricing::intrinsic_value(
-            input.get("spot").unwrap().as_f64().unwrap(),
-            input.get("strike").unwrap().as_f64().unwrap(),
-            input.get("option_right").unwrap().as_str().unwrap(),
+        "pricing.intrinsic_value" => serde_json::to_value(
+            pricing::intrinsic_value(
+                input.get("spot").unwrap().as_f64().unwrap(),
+                input.get("strike").unwrap().as_f64().unwrap(),
+                input.get("option_right").unwrap().as_str().unwrap(),
+            )
+            .unwrap(),
         )
-        .unwrap())
         .unwrap(),
-        "pricing.extrinsic_value" => serde_json::to_value(pricing::extrinsic_value(
-            input.get("option_price").unwrap().as_f64().unwrap(),
-            input.get("spot").unwrap().as_f64().unwrap(),
-            input.get("strike").unwrap().as_f64().unwrap(),
-            input.get("option_right").unwrap().as_str().unwrap(),
+        "pricing.extrinsic_value" => serde_json::to_value(
+            pricing::extrinsic_value(
+                input.get("option_price").unwrap().as_f64().unwrap(),
+                input.get("spot").unwrap().as_f64().unwrap(),
+                input.get("strike").unwrap().as_f64().unwrap(),
+                input.get("option_right").unwrap().as_str().unwrap(),
+            )
+            .unwrap(),
         )
-        .unwrap())
         .unwrap(),
         "execution_quote.best_worst" => {
-            let structure_quantity = input.get("structure_quantity").and_then(Value::as_u64).map(|value| value as u32);
+            let structure_quantity = input
+                .get("structure_quantity")
+                .and_then(Value::as_u64)
+                .map(|value| value as u32);
             if let Some(positions) = input.get("positions") {
                 let positions = fixture_positions(positions);
                 serde_json::to_value(
@@ -806,13 +846,15 @@ fn run_case(case: &Value) -> Value {
                 )
                 .unwrap()
             } else {
-                let legs = serde_json::from_value::<Vec<QuotedLeg>>(input.get("legs").unwrap().clone()).unwrap();
+                let legs =
+                    serde_json::from_value::<Vec<QuotedLeg>>(input.get("legs").unwrap().clone())
+                        .unwrap();
                 serde_json::to_value(
                     execution_quote::best_worst(legs.as_slice(), structure_quantity).unwrap(),
                 )
                 .unwrap()
             }
-        },
+        }
         "execution_quote.quote" => {
             if let Some(snapshot) = input.get("snapshot") {
                 let snapshot = serde_json::from_value::<OptionSnapshot>(snapshot.clone()).unwrap();
@@ -824,59 +866,73 @@ fn run_case(case: &Value) -> Value {
                 let leg = serde_json::from_value::<QuotedLeg>(leg.clone()).unwrap();
                 serde_json::to_value(execution_quote::quote(&leg)).unwrap()
             } else {
-                let quote =
-                    serde_json::from_value::<alpaca_option::OptionQuote>(input.get("quote").unwrap().clone())
-                        .unwrap();
+                let quote = serde_json::from_value::<alpaca_option::OptionQuote>(
+                    input.get("quote").unwrap().clone(),
+                )
+                .unwrap();
                 serde_json::to_value(execution_quote::quote(&quote)).unwrap()
             }
-        },
+        }
         "execution_quote.limit_price" => serde_json::to_value(execution_quote::limit_price(
             input.get("price").and_then(Value::as_f64),
         ))
         .unwrap(),
-        "execution_quote.order_legs" => serde_json::to_value(execution_quote::order_legs(
-            &fixture_positions(input.get("positions").unwrap()),
-            input.get("action").unwrap().as_str().unwrap(),
-            input
-                .get("include_leg_types")
-                .and_then(Value::as_array)
-                .map(|values| {
-                    values
-                        .iter()
-                        .filter_map(Value::as_str)
-                        .map(str::to_string)
-                        .collect::<Vec<_>>()
-                })
-                .as_deref(),
-            input
-                .get("exclude_leg_types")
-                .and_then(Value::as_array)
-                .map(|values| {
-                    values
-                        .iter()
-                        .filter_map(Value::as_str)
-                        .map(str::to_string)
-                        .collect::<Vec<_>>()
-                })
-                .as_deref(),
-        ).unwrap()).unwrap(),
-        "execution_quote.leg" => serde_json::to_value(
-            execution_quote::leg(
-                serde_json::from_value::<ExecutionLegInput>(input.clone()).unwrap(),
+        "execution_quote.order_legs" => serde_json::to_value(
+            execution_quote::order_legs(
+                &fixture_positions(input.get("positions").unwrap()),
+                input.get("action").unwrap().as_str().unwrap(),
+                input
+                    .get("include_leg_types")
+                    .and_then(Value::as_array)
+                    .map(|values| {
+                        values
+                            .iter()
+                            .filter_map(Value::as_str)
+                            .map(str::to_string)
+                            .collect::<Vec<_>>()
+                    })
+                    .as_deref(),
+                input
+                    .get("exclude_leg_types")
+                    .and_then(Value::as_array)
+                    .map(|values| {
+                        values
+                            .iter()
+                            .filter_map(Value::as_str)
+                            .map(str::to_string)
+                            .collect::<Vec<_>>()
+                    })
+                    .as_deref(),
             )
-        ).unwrap(),
-        "execution_quote.roll_legs" => serde_json::to_value(execution_quote::roll_legs(
-            &fixture_positions(input.get("positions").unwrap()),
-            &serde_json::from_value::<std::collections::HashMap<String, ExecutionSnapshot>>(
-                input.get("snapshots").unwrap().clone()
-            ).unwrap(),
-            &serde_json::from_value::<Vec<RollLegSelection>>(input.get("selections").unwrap().clone()).unwrap(),
-        ).unwrap()).unwrap(),
-        "execution_quote.scale_quote" => serde_json::to_value(execution_quote::scale_quote(
-            input.get("price").unwrap().as_f64().unwrap(),
-            input.get("structure_quantity").unwrap().as_u64().unwrap() as u32,
+            .unwrap(),
         )
-        .unwrap())
+        .unwrap(),
+        "execution_quote.leg" => serde_json::to_value(execution_quote::leg(
+            serde_json::from_value::<ExecutionLegInput>(input.clone()).unwrap(),
+        ))
+        .unwrap(),
+        "execution_quote.roll_legs" => serde_json::to_value(
+            execution_quote::roll_legs(
+                &fixture_positions(input.get("positions").unwrap()),
+                &serde_json::from_value::<std::collections::HashMap<String, ExecutionSnapshot>>(
+                    input.get("snapshots").unwrap().clone(),
+                )
+                .unwrap(),
+                &serde_json::from_value::<Vec<RollLegSelection>>(
+                    input.get("selections").unwrap().clone(),
+                )
+                .unwrap(),
+            )
+            .unwrap(),
+        )
+        .unwrap(),
+        "execution_quote.scale_quote" => serde_json::to_value(
+            execution_quote::scale_quote(
+                input.get("price").unwrap().as_f64().unwrap(),
+                input.get("structure_quantity").unwrap().as_u64().unwrap() as u32,
+            )
+            .unwrap(),
+        )
         .unwrap(),
         "execution_quote.scale_quote_range" => serde_json::to_value(
             execution_quote::scale_quote_range(
@@ -912,22 +968,32 @@ fn run_case(case: &Value) -> Value {
                 input.get("strike").unwrap().as_f64().unwrap(),
                 input.get("premium").unwrap().as_f64().unwrap(),
                 input.get("quantity").unwrap().as_u64().unwrap() as u32,
-                input.get("underlying_price_at_expiry").unwrap().as_f64().unwrap(),
+                input
+                    .get("underlying_price_at_expiry")
+                    .unwrap()
+                    .as_f64()
+                    .unwrap(),
             )
             .unwrap(),
         )
         .unwrap(),
         "payoff.strategy_payoff_at_expiry" => serde_json::to_value(
             payoff::strategy_payoff_at_expiry(
-                &serde_json::from_value::<Vec<PayoffLegInput>>(input.get("legs").unwrap().clone()).unwrap(),
-                input.get("underlying_price_at_expiry").unwrap().as_f64().unwrap(),
+                &serde_json::from_value::<Vec<PayoffLegInput>>(input.get("legs").unwrap().clone())
+                    .unwrap(),
+                input
+                    .get("underlying_price_at_expiry")
+                    .unwrap()
+                    .as_f64()
+                    .unwrap(),
             )
             .unwrap(),
         )
         .unwrap(),
         "payoff.break_even_points" => serde_json::to_value(
             payoff::break_even_points(
-                &serde_json::from_value::<Vec<PayoffLegInput>>(input.get("legs").unwrap().clone()).unwrap(),
+                &serde_json::from_value::<Vec<PayoffLegInput>>(input.get("legs").unwrap().clone())
+                    .unwrap(),
             )
             .unwrap(),
         )

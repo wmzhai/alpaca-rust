@@ -99,14 +99,16 @@ fn solver_residual(
                 )
                 - target_price
         }
-        _ => price_core(
-            forward,
-            strike,
-            years,
-            rate,
-            normal_volatility,
-            option_right,
-        ) - target_price,
+        _ => {
+            price_core(
+                forward,
+                strike,
+                years,
+                rate,
+                normal_volatility,
+                option_right,
+            ) - target_price
+        }
     }
 }
 
@@ -148,8 +150,7 @@ fn price_core(
     let std_dev = normal_volatility * years.sqrt();
     let d = spread / std_dev;
 
-    discount_r
-        * (direction * spread * normal_cdf(direction * d) + std_dev * normal_pdf(d))
+    discount_r * (direction * spread * normal_cdf(direction * d) + std_dev * normal_pdf(d))
 }
 
 pub fn price(
@@ -160,8 +161,14 @@ pub fn price(
     normal_volatility: f64,
     option_right: &str,
 ) -> OptionResult<f64> {
-    let option_right =
-        validate_inputs(forward, strike, years, rate, normal_volatility, option_right)?;
+    let option_right = validate_inputs(
+        forward,
+        strike,
+        years,
+        rate,
+        normal_volatility,
+        option_right,
+    )?;
     Ok(price_core(
         forward,
         strike,
@@ -180,8 +187,14 @@ pub fn greeks(
     normal_volatility: f64,
     option_right: &str,
 ) -> OptionResult<Greeks> {
-    let option_right =
-        validate_inputs(forward, strike, years, rate, normal_volatility, option_right)?;
+    let option_right = validate_inputs(
+        forward,
+        strike,
+        years,
+        rate,
+        normal_volatility,
+        option_right,
+    )?;
     ensure_positive("normal_volatility", normal_volatility)?;
 
     let discount_r = discount(rate, years);
@@ -261,10 +274,24 @@ pub fn implied_volatility_from_price(
 
     let mut lower = lower_bound;
     let mut upper = upper_bound;
-    let mut lower_value =
-        solver_residual(&option_right, target_price, forward, strike, years, rate, lower);
-    let mut upper_value =
-        solver_residual(&option_right, target_price, forward, strike, years, rate, upper);
+    let mut lower_value = solver_residual(
+        &option_right,
+        target_price,
+        forward,
+        strike,
+        years,
+        rate,
+        lower,
+    );
+    let mut upper_value = solver_residual(
+        &option_right,
+        target_price,
+        forward,
+        strike,
+        years,
+        rate,
+        upper,
+    );
     if lower_value == 0.0 {
         return Ok(lower);
     }

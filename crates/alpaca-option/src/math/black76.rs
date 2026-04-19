@@ -181,7 +181,9 @@ pub fn implied_volatility_from_price(
     if target_price < intrinsic_price {
         return Err(OptionError::new(
             "invalid_math_input",
-            format!("target_price is below discounted intrinsic value: {target_price} < {intrinsic_price}"),
+            format!(
+                "target_price is below discounted intrinsic value: {target_price} < {intrinsic_price}"
+            ),
         ));
     }
 
@@ -208,8 +210,10 @@ pub fn implied_volatility_from_price(
 
     let mut lower = lower_bound;
     let mut upper = upper_bound;
-    let mut lower_value = price_core(forward, strike, years, rate, lower, &option_right) - target_price;
-    let mut upper_value = price_core(forward, strike, years, rate, upper, &option_right) - target_price;
+    let mut lower_value =
+        price_core(forward, strike, years, rate, lower, &option_right) - target_price;
+    let mut upper_value =
+        price_core(forward, strike, years, rate, upper, &option_right) - target_price;
     if lower_value.abs() <= tolerance {
         return Ok(lower);
     }
@@ -225,7 +229,8 @@ pub fn implied_volatility_from_price(
 
     let mut volatility = (lower + upper) / 2.0;
     for _ in 0..max_iterations {
-        let value = price_core(forward, strike, years, rate, volatility, &option_right) - target_price;
+        let value =
+            price_core(forward, strike, years, rate, volatility, &option_right) - target_price;
         let vega = discount(rate, years)
             * forward
             * normal_pdf(d1_d2(forward, strike, years, volatility).0)
@@ -235,7 +240,9 @@ pub fn implied_volatility_from_price(
         } else {
             f64::INFINITY
         };
-        if (value.abs() <= tolerance && step_estimate <= tolerance) || (upper - lower).abs() <= tolerance {
+        if (value.abs() <= tolerance && step_estimate <= tolerance)
+            || (upper - lower).abs() <= tolerance
+        {
             return Ok(volatility);
         }
         if value < 0.0 {

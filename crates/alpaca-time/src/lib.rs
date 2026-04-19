@@ -18,6 +18,5 @@ pub mod types;
 pub use error::{TimeError, TimeResult};
 pub use types::{
     DateRange, DayCountBasis, DurationParts, MarketHours, MarketSession, TimestampParts,
-    TradingDayInfo,
-    WeekdayCode,
+    TradingDayInfo, WeekdayCode,
 };

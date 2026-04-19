@@ -28,7 +28,8 @@ pub fn calendar_days(expiration_date: &str, at: Option<&str>) -> TimeResult<i64>
     if day_diff != 0 {
         return Ok(day_diff);
     }
-    let expiration = parse_naive_timestamp(&close(&expiration_date.format("%Y-%m-%d").to_string())?)?;
+    let expiration =
+        parse_naive_timestamp(&close(&expiration_date.format("%Y-%m-%d").to_string())?)?;
     if timestamp <= expiration {
         Ok(0)
     } else {
@@ -50,7 +51,11 @@ pub fn years(expiration_date: &str, at: Option<&str>, basis: Option<&str>) -> f6
         .unwrap_or(0.0)
 }
 
-pub fn years_between_dates(start_date: &str, end_date: &str, basis: Option<&str>) -> TimeResult<f64> {
+pub fn years_between_dates(
+    start_date: &str,
+    end_date: &str,
+    basis: Option<&str>,
+) -> TimeResult<f64> {
     let start_date = parse_naive_date(start_date)?;
     let end_date = parse_naive_date(end_date)?;
     let basis = match basis {

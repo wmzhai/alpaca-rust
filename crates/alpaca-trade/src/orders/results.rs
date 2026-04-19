@@ -61,7 +61,6 @@ impl CancelOutcomeKind {
             OrderTerminalState::Rejected => Self::Rejected,
         }
     }
-
 }
 
 #[derive(Debug, Clone)]
@@ -103,13 +102,14 @@ pub enum UpdateOutcomeKind {
 
 impl UpdateOutcomeKind {
     pub fn from_new_order_status(status: &str) -> Option<Self> {
-        match OrderStatus::parse(status).ok().and_then(OrderStatus::terminal_state) {
+        match OrderStatus::parse(status)
+            .ok()
+            .and_then(OrderStatus::terminal_state)
+        {
             Some(OrderTerminalState::Filled) => Some(Self::ReplacedNewOrderFilled),
             Some(state) => Some(Self::ReplaceFailedNewOrderTerminal(state)),
             None => match OrderStatus::parse(status).ok()? {
-                OrderStatus::Accepted | OrderStatus::New => {
-                    Some(Self::ReplacedNewOrderPending)
-                }
+                OrderStatus::Accepted | OrderStatus::New => Some(Self::ReplacedNewOrderPending),
                 _ => None,
             },
         }
@@ -150,16 +150,15 @@ impl<T> UpdateOutcome<T> {
     pub fn is_filled(&self) -> bool {
         matches!(
             self.kind,
-            UpdateOutcomeKind::OldOrderFilledBeforeReplace | UpdateOutcomeKind::ReplacedNewOrderFilled
+            UpdateOutcomeKind::OldOrderFilledBeforeReplace
+                | UpdateOutcomeKind::ReplacedNewOrderFilled
         )
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{
-        CancelOutcomeKind, OrderStatus, OrderTerminalState, UpdateOutcomeKind,
-    };
+    use super::{CancelOutcomeKind, OrderStatus, OrderTerminalState, UpdateOutcomeKind};
 
     #[test]
     fn failed_status_maps_into_terminal_state() {

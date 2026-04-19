@@ -65,7 +65,8 @@ pub fn compact(input: &str, style: &str) -> String {
 
 pub fn time(input: &str, precision: Option<&str>, date_style: Option<&str>) -> String {
     if input.len() == 10 {
-        return compact_date(input, date_style.unwrap_or("mm-dd")).unwrap_or_else(|_| input.to_string());
+        return compact_date(input, date_style.unwrap_or("mm-dd"))
+            .unwrap_or_else(|_| input.to_string());
     }
 
     time_only(input, precision.unwrap_or("minute")).unwrap_or_else(|_| input.to_string())
@@ -84,12 +85,18 @@ pub fn hhmm(input: &str) -> TimeResult<String> {
         ));
     }
 
-    let hour = input[0..2]
-        .parse::<u32>()
-        .map_err(|_| TimeError::new("invalid_hhmm_compact", format!("invalid compact hhmm: {input}")))?;
-    let minute = input[2..4]
-        .parse::<u32>()
-        .map_err(|_| TimeError::new("invalid_hhmm_compact", format!("invalid compact hhmm: {input}")))?;
+    let hour = input[0..2].parse::<u32>().map_err(|_| {
+        TimeError::new(
+            "invalid_hhmm_compact",
+            format!("invalid compact hhmm: {input}"),
+        )
+    })?;
+    let minute = input[2..4].parse::<u32>().map_err(|_| {
+        TimeError::new(
+            "invalid_hhmm_compact",
+            format!("invalid compact hhmm: {input}"),
+        )
+    })?;
 
     crate::clock::hhmm_string_from_parts(hour, minute)
 }
@@ -127,7 +134,13 @@ pub fn weekday_code(date: &str) -> TimeResult<WeekdayCode> {
 }
 
 pub fn duration_parts(seconds: i64) -> DurationParts {
-    let sign = if seconds > 0 { 1 } else if seconds < 0 { -1 } else { 0 };
+    let sign = if seconds > 0 {
+        1
+    } else if seconds < 0 {
+        -1
+    } else {
+        0
+    };
     let total_seconds = seconds.abs();
     let days = total_seconds / 86_400;
     let hours = (total_seconds % 86_400) / 3_600;
@@ -176,7 +189,7 @@ pub fn compact_duration(parts: &DurationParts, style: Option<&str>) -> TimeResul
             return Err(TimeError::new(
                 "invalid_compact_duration_style",
                 format!("invalid compact duration style: {other}"),
-            ))
+            ));
         }
     };
 

@@ -22,11 +22,11 @@ use alpaca_trade::positions::{
 };
 
 use activities::{
-    is_public_activity, matches_activity_type, project_activity, ActivityEvent, ActivityEventKind,
+    ActivityEvent, ActivityEventKind, is_public_activity, matches_activity_type, project_activity,
 };
 use executions::ExecutionFact;
-pub use market_data::{InstrumentSnapshot, LiveMarketDataBridge, DEFAULT_STOCK_SYMBOL};
-use positions::{parse_option_symbol, project_position, OptionContractType, PositionBook};
+pub use market_data::{DEFAULT_STOCK_SYMBOL, InstrumentSnapshot, LiveMarketDataBridge};
+use positions::{OptionContractType, PositionBook, parse_option_symbol, project_position};
 
 #[derive(Debug, Clone)]
 pub struct MockServerState {
@@ -1038,8 +1038,10 @@ impl MockServerState {
                 request_side: request_side.clone(),
             },
         );
-        let market_quotes =
-            HashMap::from([(position.instrument_identity.symbol.clone(), snapshot.clone())]);
+        let market_quotes = HashMap::from([(
+            position.instrument_identity.symbol.clone(),
+            snapshot.clone(),
+        )]);
         apply_fill_effects(account, &order, &request_side, Some(&market_quotes));
 
         Ok(ClosePositionBody::from(order))
@@ -1180,7 +1182,10 @@ impl MockServerState {
             position_intent,
             share_qty,
             parsed.strike_price,
-            Some(InstrumentSnapshot::equity(parsed.strike_price, parsed.strike_price)),
+            Some(InstrumentSnapshot::equity(
+                parsed.strike_price,
+                parsed.strike_price,
+            )),
             now.clone(),
         );
         account
@@ -1750,7 +1755,9 @@ fn infer_request_side(
     request_legs: Option<&[OptionLegRequest]>,
     market_quotes: &HashMap<String, InstrumentSnapshot>,
 ) -> OrderSide {
-    if let Some(side) = request_side && side != OrderSide::Unspecified {
+    if let Some(side) = request_side
+        && side != OrderSide::Unspecified
+    {
         return side;
     }
 
@@ -2476,10 +2483,8 @@ mod tests {
         assert_eq!(sell_limit_order.status, OrderStatus::Filled);
         assert_eq!(sell_limit_order.filled_avg_price, Some(-expected_mid));
 
-        let mut sell_resting_order = build_test_mleg_order(
-            OrderType::Limit,
-            Some(-expected_mid + Decimal::new(1, 2)),
-        );
+        let mut sell_resting_order =
+            build_test_mleg_order(OrderType::Limit, Some(-expected_mid + Decimal::new(1, 2)));
         apply_mleg_fill_rules(&mut sell_resting_order, &OrderSide::Sell, &market_quotes);
         assert_eq!(sell_resting_order.status, OrderStatus::New);
         assert_eq!(sell_resting_order.filled_avg_price, None);
@@ -2532,12 +2537,7 @@ mod tests {
             OrderSide::Buy
         );
         assert_eq!(
-            infer_request_side(
-                None,
-                None,
-                Some(long_short_legs.as_slice()),
-                &market_quotes
-            ),
+            infer_request_side(None, None, Some(long_short_legs.as_slice()), &market_quotes),
             OrderSide::Sell
         );
     }

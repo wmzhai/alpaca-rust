@@ -20,7 +20,12 @@ impl ListRequest {
     #[must_use]
     pub fn for_types(activity_types: &[&str], after_date: Option<&str>) -> Self {
         Self {
-            activity_types: Some(activity_types.iter().map(|value| (*value).to_owned()).collect()),
+            activity_types: Some(
+                activity_types
+                    .iter()
+                    .map(|value| (*value).to_owned())
+                    .collect(),
+            ),
             date: None,
             until: None,
             after: after_date.map(ToOwned::to_owned),
@@ -146,7 +151,10 @@ mod tests {
             Some(vec!["OPASN".to_string(), "OPEXP".to_string()])
         );
         assert_eq!(request.page_size, Some(100));
-        assert_eq!(request.after.as_deref(), Some(expected_default_after_date().as_str()));
+        assert_eq!(
+            request.after.as_deref(),
+            Some(expected_default_after_date().as_str())
+        );
     }
 
     #[test]

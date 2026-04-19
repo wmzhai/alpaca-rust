@@ -8,6 +8,36 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 DOCS_GENERATED = ROOT / "docs" / "generated"
+CRATE_ORDER = [
+    "alpaca-core",
+    "alpaca-rest-http",
+    "alpaca-data",
+    "alpaca-trade",
+    "alpaca-mock",
+    "alpaca-time",
+    "alpaca-option",
+    "alpaca-facade",
+]
+CRATE_LAYERS = {
+    "alpaca-core": "foundation",
+    "alpaca-rest-http": "foundation",
+    "alpaca-data": "foundation",
+    "alpaca-trade": "foundation",
+    "alpaca-mock": "foundation",
+    "alpaca-time": "semantic",
+    "alpaca-option": "semantic",
+    "alpaca-facade": "facade",
+}
+CRATE_PATHS = {
+    "alpaca-core": "crates/alpaca-core",
+    "alpaca-rest-http": "crates/alpaca-http",
+    "alpaca-data": "crates/alpaca-data",
+    "alpaca-trade": "crates/alpaca-trade",
+    "alpaca-mock": "crates/alpaca-mock",
+    "alpaca-time": "crates/alpaca-time",
+    "alpaca-option": "crates/alpaca-option",
+    "alpaca-facade": "crates/alpaca-facade",
+}
 
 
 def main() -> int:
@@ -22,16 +52,20 @@ def main() -> int:
         ).stdout
     )
 
+    packages_by_name = {pkg["name"]: pkg for pkg in metadata["packages"]}
     packages = [
         {
-            "name": pkg["name"],
-            "version": pkg["version"],
-            "authors": pkg.get("authors", []),
-            "description": pkg.get("description"),
-            "documentation": pkg.get("documentation"),
-            "homepage": pkg.get("homepage"),
+            "name": name,
+            "path": CRATE_PATHS[name],
+            "layer": CRATE_LAYERS[name],
+            "version": packages_by_name[name]["version"],
+            "authors": packages_by_name[name].get("authors", []),
+            "description": packages_by_name[name].get("description"),
+            "documentation": packages_by_name[name].get("documentation"),
+            "homepage": packages_by_name[name].get("homepage"),
         }
-        for pkg in metadata["packages"]
+        for name in CRATE_ORDER
+        if name in packages_by_name
     ]
 
     (DOCS_GENERATED / "api-index.json").write_text(
@@ -41,7 +75,12 @@ def main() -> int:
         json.dumps(
             {
                 "packages": {
-                    pkg["name"]: pkg.get("description") for pkg in packages
+                    pkg["name"]: {
+                        "path": pkg["path"],
+                        "layer": pkg["layer"],
+                        "description": pkg.get("description"),
+                    }
+                    for pkg in packages
                 }
             },
             indent=2,
@@ -62,6 +101,9 @@ def main() -> int:
                     "reference/alpaca-data",
                     "reference/alpaca-trade",
                     "reference/alpaca-mock",
+                    "reference/alpaca-time",
+                    "reference/alpaca-option",
+                    "reference/alpaca-facade",
                     "api-coverage/market-data",
                     "api-coverage/trading",
                     "trade-mainline",

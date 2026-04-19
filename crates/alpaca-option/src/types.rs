@@ -1,6 +1,6 @@
 use alpaca_core::float;
-use rust_decimal::prelude::ToPrimitive;
 use rust_decimal::Decimal;
+use rust_decimal::prelude::ToPrimitive;
 use serde::{Deserialize, Deserializer, Serialize};
 use ts_rs::TS;
 
@@ -8,7 +8,6 @@ use crate::contract;
 use crate::error::{OptionError, OptionResult};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
-#[cfg_attr(feature = "optworks-ts-export", ts(export, export_to = "../../../../optworks/packages/optworks-ts/src/generated/"))]
 #[serde(rename_all = "lowercase")]
 pub enum OptionRight {
     Call,
@@ -225,7 +224,6 @@ impl AssignmentRiskLevel {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
-#[cfg_attr(feature = "optworks-ts-export", ts(export, export_to = "../../../../optworks/packages/optworks-ts/src/generated/"))]
 pub struct OptionContract {
     pub underlying_symbol: String,
     pub expiration_date: String,
@@ -247,7 +245,6 @@ impl Default for OptionContract {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
-#[cfg_attr(feature = "optworks-ts-export", ts(export, export_to = "../../../../optworks/packages/optworks-ts/src/generated/"))]
 pub struct OptionQuote {
     pub bid: Option<f64>,
     pub ask: Option<f64>,
@@ -275,7 +272,6 @@ pub struct ContractDisplay {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
-#[cfg_attr(feature = "optworks-ts-export", ts(export, export_to = "../../../../optworks/packages/optworks-ts/src/generated/"))]
 pub struct Greeks {
     pub delta: f64,
     pub gamma: f64,
@@ -323,7 +319,6 @@ pub struct BlackScholesImpliedVolatilityInput {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
-#[cfg_attr(feature = "optworks-ts-export", ts(export, export_to = "../../../../optworks/packages/optworks-ts/src/generated/"))]
 pub struct OptionSnapshot {
     pub as_of: String,
     pub contract: OptionContract,
@@ -403,11 +398,17 @@ impl OptionSnapshot {
     }
 
     pub fn bid(&self) -> f64 {
-        self.quote.bid.filter(|value| value.is_finite()).unwrap_or(0.0)
+        self.quote
+            .bid
+            .filter(|value| value.is_finite())
+            .unwrap_or(0.0)
     }
 
     pub fn ask(&self) -> f64 {
-        self.quote.ask.filter(|value| value.is_finite()).unwrap_or(0.0)
+        self.quote
+            .ask
+            .filter(|value| value.is_finite())
+            .unwrap_or(0.0)
     }
 
     pub fn price(&self) -> f64 {
@@ -459,7 +460,6 @@ where
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
-#[cfg_attr(feature = "optworks-ts-export", ts(export, export_to = "../../../../optworks/packages/optworks-ts/src/generated/"))]
 pub struct OptionPosition {
     pub contract: String,
     #[serde(default, deserialize_with = "deserialize_position_snapshot")]
@@ -551,7 +551,6 @@ impl Default for OptionPosition {
         }
     }
 }
-
 
 impl TryFrom<&OptionPosition> for StrategyValuationPosition {
     type Error = OptionError;
@@ -676,16 +675,12 @@ impl From<&OptionSnapshot> for OptionChainRecord {
             expiration_date: value.contract.expiration_date.clone(),
             option_right: value.contract.option_right.clone(),
             strike: value.contract.strike,
-            underlying_price: value
-                .underlying_price
-                .filter(|number| number.is_finite()),
+            underlying_price: value.underlying_price.filter(|number| number.is_finite()),
             bid: value.quote.bid.filter(|number| number.is_finite()),
             ask: value.quote.ask.filter(|number| number.is_finite()),
             mark: value.quote.mark.filter(|number| number.is_finite()),
             last: value.quote.last.filter(|number| number.is_finite()),
-            implied_volatility: value
-                .implied_volatility
-                .filter(|number| number.is_finite()),
+            implied_volatility: value.implied_volatility.filter(|number| number.is_finite()),
             delta: value
                 .greeks
                 .as_ref()
@@ -737,18 +732,26 @@ impl From<&OptionChainRecord> for OptionSnapshot {
                     .filter(|number| number.is_finite() && *number > 0.0),
             },
             greeks: Some(Greeks {
-                delta: value.delta.filter(|number| number.is_finite()).unwrap_or(0.0),
-                gamma: value.gamma.filter(|number| number.is_finite()).unwrap_or(0.0),
-                vega: value.vega.filter(|number| number.is_finite()).unwrap_or(0.0),
-                theta: value.theta.filter(|number| number.is_finite()).unwrap_or(0.0),
+                delta: value
+                    .delta
+                    .filter(|number| number.is_finite())
+                    .unwrap_or(0.0),
+                gamma: value
+                    .gamma
+                    .filter(|number| number.is_finite())
+                    .unwrap_or(0.0),
+                vega: value
+                    .vega
+                    .filter(|number| number.is_finite())
+                    .unwrap_or(0.0),
+                theta: value
+                    .theta
+                    .filter(|number| number.is_finite())
+                    .unwrap_or(0.0),
                 rho: value.rho.filter(|number| number.is_finite()).unwrap_or(0.0),
             }),
-            implied_volatility: value
-                .implied_volatility
-                .filter(|number| number.is_finite()),
-            underlying_price: value
-                .underlying_price
-                .filter(|number| number.is_finite()),
+            implied_volatility: value.implied_volatility.filter(|number| number.is_finite()),
+            underlying_price: value.underlying_price.filter(|number| number.is_finite()),
         }
     }
 }
@@ -856,7 +859,6 @@ pub struct OptionStratUrlInput {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
-#[cfg_attr(feature = "optworks-ts-export", ts(export, export_to = "../../../../optworks/packages/optworks-ts/src/generated/"))]
 pub struct OptionChain {
     pub underlying_symbol: String,
     pub as_of: String,
@@ -864,7 +866,6 @@ pub struct OptionChain {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
-#[cfg_attr(feature = "optworks-ts-export", ts(export, export_to = "../../../../optworks/packages/optworks-ts/src/generated/"))]
 pub struct OptionChainRecord {
     pub as_of: String,
     pub underlying_symbol: String,

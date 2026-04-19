@@ -102,10 +102,7 @@ mod tests {
         live_positions.insert("SPY260417P00500000".to_string(), -2);
 
         let quantity = structure_quantity(
-            [
-                ("SPY260417C00550000", 1),
-                ("SPY260417P00500000", -1),
-            ],
+            [("SPY260417C00550000", 1), ("SPY260417P00500000", -1)],
             &live_positions,
         );
 

@@ -133,7 +133,10 @@ impl CachedClient {
                 }
             }
             for (contract, snapshot) in &fetched {
-                state.options.values.insert(contract.clone(), snapshot.clone());
+                state
+                    .options
+                    .values
+                    .insert(contract.clone(), snapshot.clone());
             }
             state.options.updated_at = Some(SystemTime::now());
             hits.extend(fetched);
@@ -261,11 +264,7 @@ impl CachedClient {
             }
         }
 
-        self.bars(key)
-            .await
-            .ok()?
-            .get(&resolved)
-            .cloned()
+        self.bars(key).await.ok()?.get(&resolved).cloned()
     }
 
     pub async fn refresh_bars(&self, key: &str) -> Result<usize, Error> {
@@ -283,7 +282,10 @@ impl CachedClient {
         let mut state = self.state.write().await;
         state.bars.values.insert(key.to_string(), fetched);
         state.bars.empty.insert(key.to_string(), missing);
-        state.bars.updated_at.insert(key.to_string(), SystemTime::now());
+        state
+            .bars
+            .updated_at
+            .insert(key.to_string(), SystemTime::now());
         Ok(count)
     }
 
@@ -310,12 +312,20 @@ impl CachedClient {
                 .bars
                 .updated_at
                 .iter()
-                .map(|(key, value)| (key.clone(), format_timestamp(Some(*value)).unwrap_or_default()))
+                .map(|(key, value)| {
+                    (
+                        key.clone(),
+                        format_timestamp(Some(*value)).unwrap_or_default(),
+                    )
+                })
                 .collect(),
         }
     }
 
-    async fn fetch_stocks(&self, symbols: &[String]) -> Result<HashMap<String, stocks::Snapshot>, Error> {
+    async fn fetch_stocks(
+        &self,
+        symbols: &[String],
+    ) -> Result<HashMap<String, stocks::Snapshot>, Error> {
         self.raw
             .stocks()
             .snapshots(StockSnapshotsRequest {
@@ -351,9 +361,12 @@ impl CachedClient {
         }
 
         let state = self.state.read().await;
-        state.bars.requests.get(key).cloned().ok_or_else(|| {
-            Error::InvalidRequest(format!("bars key is unknown: {key}"))
-        })
+        state
+            .bars
+            .requests
+            .get(key)
+            .cloned()
+            .ok_or_else(|| Error::InvalidRequest(format!("bars key is unknown: {key}")))
     }
 
     async fn fetch_missing_bars(

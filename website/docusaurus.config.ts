@@ -3,7 +3,7 @@ import type * as Preset from '@docusaurus/preset-classic';
 
 const config: Config = {
   title: 'alpaca-rust',
-  tagline: 'High-Performance Rust Client for Alpaca Market Data and Trading APIs',
+  tagline: 'Rust workspace for Alpaca HTTP SDKs, market-time semantics, and option-domain helpers',
   favicon: 'img/logo.svg',
   url: 'https://wmzhai.github.io',
   baseUrl: '/alpaca-rust/',
@@ -28,7 +28,7 @@ const config: Config = {
           path: '../docs',
           routeBasePath: 'docs',
           sidebarPath: './sidebars.ts',
-          editUrl: 'https://github.com/wmzhai/alpaca-rust/tree/main/',
+          editUrl: 'https://github.com/wmzhai/alpaca-rust/tree/master/',
         },
         blog: false,
         theme: {
@@ -74,6 +74,9 @@ const config: Config = {
             {href: 'https://docs.rs/alpaca-core', label: 'alpaca-core'},
             {href: 'https://docs.rs/alpaca-rest-http', label: 'alpaca-rest-http'},
             {href: 'https://docs.rs/alpaca-mock', label: 'alpaca-mock'},
+            {href: 'https://docs.rs/alpaca-time', label: 'alpaca-time'},
+            {href: 'https://docs.rs/alpaca-option', label: 'alpaca-option'},
+            {href: 'https://docs.rs/alpaca-facade', label: 'alpaca-facade'},
           ],
         },
         {href: 'https://github.com/wmzhai/alpaca-rust', label: 'GitHub', position: 'right'},
@@ -95,7 +98,9 @@ const config: Config = {
           items: [
             {label: 'alpaca-data', to: '/docs/reference/alpaca-data'},
             {label: 'alpaca-trade', to: '/docs/reference/alpaca-trade'},
-            {label: 'alpaca-rest-http', to: '/docs/reference/alpaca-rest-http'},
+            {label: 'alpaca-time', to: '/docs/reference/alpaca-time'},
+            {label: 'alpaca-option', to: '/docs/reference/alpaca-option'},
+            {label: 'alpaca-facade', to: '/docs/reference/alpaca-facade'},
           ],
         },
         {
@@ -106,6 +111,9 @@ const config: Config = {
             {label: 'alpaca-core', href: 'https://docs.rs/alpaca-core'},
             {label: 'alpaca-rest-http', href: 'https://docs.rs/alpaca-rest-http'},
             {label: 'alpaca-mock', href: 'https://docs.rs/alpaca-mock'},
+            {label: 'alpaca-time', href: 'https://docs.rs/alpaca-time'},
+            {label: 'alpaca-option', href: 'https://docs.rs/alpaca-option'},
+            {label: 'alpaca-facade', href: 'https://docs.rs/alpaca-facade'},
           ],
         },
         {

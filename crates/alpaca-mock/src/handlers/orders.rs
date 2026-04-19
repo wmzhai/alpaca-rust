@@ -1,6 +1,6 @@
 use axum::{
-    extract::{Extension, Path, Query, State},
     Json,
+    extract::{Extension, Path, Query, State},
 };
 use rust_decimal::Decimal;
 use serde::Deserialize;

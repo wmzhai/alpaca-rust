@@ -304,7 +304,10 @@ impl OrderStatus {
 
     #[must_use]
     pub fn is_failed_terminal(self) -> bool {
-        matches!(self, Self::Failed | Self::Canceled | Self::Expired | Self::Rejected)
+        matches!(
+            self,
+            Self::Failed | Self::Canceled | Self::Expired | Self::Rejected
+        )
     }
 
     #[must_use]

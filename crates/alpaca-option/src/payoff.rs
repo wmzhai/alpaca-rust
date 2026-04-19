@@ -32,7 +32,10 @@ fn ensure_finite(code: &'static str, name: &str, value: f64) -> OptionResult<()>
     if value.is_finite() {
         Ok(())
     } else {
-        Err(OptionError::new(code, format!("{name} must be finite: {value}")))
+        Err(OptionError::new(
+            code,
+            format!("{name} must be finite: {value}"),
+        ))
     }
 }
 
@@ -182,7 +185,11 @@ fn valuation_years(expiration_date: &str, evaluation_time: &str) -> OptionResult
             format!("invalid expiration context for {expiration_date}: {error}"),
         )
     })?;
-    Ok(expiration::years(expiration_date, Some(evaluation_time), None))
+    Ok(expiration::years(
+        expiration_date,
+        Some(evaluation_time),
+        None,
+    ))
 }
 
 fn strategy_entry_cost(
@@ -310,7 +317,9 @@ fn strategy_mark_value_prepared(
                 years: position.years,
                 rate,
                 dividend_yield,
-                volatility: position.implied_volatility.expect("prepared implied_volatility"),
+                volatility: position
+                    .implied_volatility
+                    .expect("prepared implied_volatility"),
                 option_right: position.option_right.clone(),
             })?
         };
@@ -320,7 +329,10 @@ fn strategy_mark_value_prepared(
 }
 
 fn push_unique_root(roots: &mut Vec<f64>, root: f64, tolerance: f64) {
-    if roots.iter().any(|existing| (*existing - root).abs() <= tolerance) {
+    if roots
+        .iter()
+        .any(|existing| (*existing - root).abs() <= tolerance)
+    {
         return;
     }
     roots.push(root);
@@ -399,8 +411,13 @@ impl StrategyValuationContext {
         tolerance: Option<f64>,
         max_iterations: Option<usize>,
     ) -> OptionResult<Vec<f64>> {
-        let (tolerance, scan_step, max_iterations) =
-            validate_break_even_params(lower_bound, upper_bound, scan_step, tolerance, max_iterations)?;
+        let (tolerance, scan_step, max_iterations) = validate_break_even_params(
+            lower_bound,
+            upper_bound,
+            scan_step,
+            tolerance,
+            max_iterations,
+        )?;
 
         let mut roots = Vec::new();
         let mut previous_spot = lower_bound;

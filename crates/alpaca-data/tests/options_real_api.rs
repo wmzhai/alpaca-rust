@@ -3,9 +3,7 @@ mod live_support;
 
 use alpaca_data::{
     Client,
-    options::{
-        ChainRequest, SnapshotsRequest, preferred_feed, options_underlying_symbol,
-    },
+    options::{ChainRequest, SnapshotsRequest, options_underlying_symbol, preferred_feed},
 };
 use live_support::{AlpacaService, LiveTestEnv, discover_option_contracts};
 
@@ -81,7 +79,10 @@ async fn options_chain_absorbs_brk_b_provider_symbol_rules() {
         page_token: None,
     };
 
-    assert_eq!(options_underlying_symbol(&request.underlying_symbol), "BRKB");
+    assert_eq!(
+        options_underlying_symbol(&request.underlying_symbol),
+        "BRKB"
+    );
 
     let chain = client
         .options()

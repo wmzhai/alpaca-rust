@@ -1,9 +1,44 @@
 {
   "packages": {
-    "alpaca-core": "Shared primitives for the alpaca-rust workspace",
-    "alpaca-rest-http": "Shared HTTP transport layer for the alpaca-rust workspace",
-    "alpaca-data": "Rust client for the Alpaca Market Data HTTP API",
-    "alpaca-trade": "Rust client for the Alpaca Trading HTTP API",
-    "alpaca-mock": "Executable mock server for alpaca-rust trading and market-data flows"
+    "alpaca-core": {
+      "path": "crates/alpaca-core",
+      "layer": "foundation",
+      "description": "Shared primitives for the alpaca-rust workspace"
+    },
+    "alpaca-rest-http": {
+      "path": "crates/alpaca-http",
+      "layer": "foundation",
+      "description": "Shared HTTP transport layer for the alpaca-rust workspace"
+    },
+    "alpaca-data": {
+      "path": "crates/alpaca-data",
+      "layer": "foundation",
+      "description": "Rust client for the Alpaca Market Data HTTP API"
+    },
+    "alpaca-trade": {
+      "path": "crates/alpaca-trade",
+      "layer": "foundation",
+      "description": "Rust client for the Alpaca Trading HTTP API"
+    },
+    "alpaca-mock": {
+      "path": "crates/alpaca-mock",
+      "layer": "foundation",
+      "description": "Executable mock server for alpaca-rust trading and market-data flows"
+    },
+    "alpaca-time": {
+      "path": "crates/alpaca-time",
+      "layer": "semantic",
+      "description": "New York time and US trading-calendar semantics for the alpaca-rust workspace"
+    },
+    "alpaca-option": {
+      "path": "crates/alpaca-option",
+      "layer": "semantic",
+      "description": "Provider-neutral option semantics and math for the alpaca-rust workspace"
+    },
+    "alpaca-facade": {
+      "path": "crates/alpaca-facade",
+      "layer": "facade",
+      "description": "High-level convenience facades built on top of the alpaca-rust workspace crates"
+    }
   }
 }

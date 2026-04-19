@@ -141,7 +141,9 @@ pub fn trading_day_info(date: &str) -> TimeResult<TradingDayInfo> {
 }
 
 pub fn is_trading_date(date: &str) -> bool {
-    parse_naive_date(date).map(is_trading_date_naive).unwrap_or(false)
+    parse_naive_date(date)
+        .map(is_trading_date_naive)
+        .unwrap_or(false)
 }
 
 pub fn is_trading_today() -> bool {

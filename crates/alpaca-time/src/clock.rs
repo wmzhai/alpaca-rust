@@ -17,12 +17,15 @@ pub(crate) fn parse_naive_timestamp(input: &str) -> TimeResult<NaiveDateTime> {
 
     if let Ok(rfc3339) = DateTime::parse_from_rfc3339(input) {
         let ny_local = rfc3339.with_timezone(&New_York).naive_local();
-        return ny_local
-            .with_nanosecond(0)
-            .ok_or_else(|| TimeError::new("invalid_timestamp", format!("invalid timestamp: {input}")));
+        return ny_local.with_nanosecond(0).ok_or_else(|| {
+            TimeError::new("invalid_timestamp", format!("invalid timestamp: {input}"))
+        });
     }
 
-    Err(TimeError::new("invalid_timestamp", format!("invalid timestamp: {input}")))
+    Err(TimeError::new(
+        "invalid_timestamp",
+        format!("invalid timestamp: {input}"),
+    ))
 }
 
 pub(crate) fn format_naive_timestamp(value: NaiveDateTime) -> String {
@@ -44,7 +47,12 @@ pub(crate) fn ny_local_to_utc(value: NaiveDateTime) -> TimeResult<DateTime<Utc>>
         .single()
         .or_else(|| New_York.from_local_datetime(&value).earliest())
         .or_else(|| New_York.from_local_datetime(&value).latest())
-        .ok_or_else(|| TimeError::new("invalid_ny_local_time", format!("cannot localize NY time: {value}")))?;
+        .ok_or_else(|| {
+            TimeError::new(
+                "invalid_ny_local_time",
+                format!("cannot localize NY time: {value}"),
+            )
+        })?;
     Ok(localized.with_timezone(&Utc))
 }
 
@@ -178,7 +186,10 @@ pub fn minutes_from_hhmm(input: &str) -> TimeResult<u32> {
         .parse::<u32>()
         .map_err(|_| TimeError::new("invalid_hhmm", format!("invalid hhmm: {input}")))?;
     if pieces.next().is_some() || hour > 23 || minute > 59 {
-        return Err(TimeError::new("invalid_hhmm", format!("invalid hhmm: {input}")));
+        return Err(TimeError::new(
+            "invalid_hhmm",
+            format!("invalid hhmm: {input}"),
+        ));
     }
     Ok(hour * 60 + minute)
 }
@@ -229,9 +240,9 @@ pub fn fractional_days_since(input: &str) -> TimeResult<f64> {
 
 #[cfg(test)]
 mod tests {
-    use std::cmp::Ordering;
-    use ::chrono::{NaiveDate, NaiveDateTime};
     use crate::chrono;
+    use ::chrono::{NaiveDate, NaiveDateTime};
+    use std::cmp::Ordering;
 
     use super::{
         compare_date_or_timestamp, first_date_or_timestamp, now, parse_date_or_timestamp,

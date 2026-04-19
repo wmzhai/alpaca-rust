@@ -2,7 +2,9 @@ use rust_decimal::Decimal;
 
 use alpaca_data::{
     Client,
-    options::{SnapshotsRequest as OptionSnapshotsRequest, preferred_feed as preferred_option_feed},
+    options::{
+        SnapshotsRequest as OptionSnapshotsRequest, preferred_feed as preferred_option_feed,
+    },
     stocks::{SnapshotsRequest as StockSnapshotsRequest, preferred_feed as preferred_stock_feed},
 };
 
@@ -91,11 +93,14 @@ impl LiveMarketDataBridge {
                 currency: None,
             })
             .await?;
-        let snapshot = snapshot.get(&alpaca_data::stocks::display_stock_symbol(symbol)).cloned().ok_or_else(|| {
-            MarketDataBridgeError::Unavailable(format!(
-                "stock snapshots response did not include {symbol}"
-            ))
-        })?;
+        let snapshot = snapshot
+            .get(&alpaca_data::stocks::display_stock_symbol(symbol))
+            .cloned()
+            .ok_or_else(|| {
+                MarketDataBridgeError::Unavailable(format!(
+                    "stock snapshots response did not include {symbol}"
+                ))
+            })?;
         let quote = snapshot.latest_quote.ok_or_else(|| {
             MarketDataBridgeError::Unavailable(format!(
                 "stock snapshot for {symbol} did not include latest_quote"

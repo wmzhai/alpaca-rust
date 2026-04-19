@@ -1,16 +1,24 @@
 # alpaca-rust
 
-`alpaca-rust` is a Rust workspace for Alpaca HTTP APIs.
+`alpaca-rust` is a Rust workspace for Alpaca HTTP SDKs, market-time semantics,
+provider-neutral option models, and high-level convenience facades.
 
-The workspace is organized around five crates:
+The published Rust surface is organized into three layers:
 
-- `alpaca-data`: market data client for stocks, options, news, and corporate actions
-- `alpaca-trade`: trading client for paper/live trading resources
-- `alpaca-core`: shared primitives such as credentials, base URLs, query helpers, and serde helpers
-- `alpaca-rest-http`: shared transport, retry, observer, and response metadata layer
-- `alpaca-mock`: executable mock server for trade mainline and contract-style testing
+- Foundation SDK: `alpaca-core`, `alpaca-rest-http`, `alpaca-data`, `alpaca-trade`, `alpaca-mock`
+- Semantic core: `alpaca-time`, `alpaca-option`
+- Convenience facade: `alpaca-facade`
 
-Primary entry points for application code are `alpaca-data` and `alpaca-trade`.
+Primary entry points depend on what you are building:
+
+- use `alpaca-data` for direct market-data HTTP access
+- use `alpaca-trade` for direct trading HTTP access
+- use `alpaca-time` and `alpaca-option` for reusable domain semantics
+- use `alpaca-facade` when you want the higher-level composition layer
+
+Optional TypeScript companions exist under `packages/alpaca-time` and
+`packages/alpaca-option`, but they are plus features inside the workspace, not
+the recommended published system surface.
 
 Quick links:
 
@@ -18,33 +26,31 @@ Quick links:
 - GitHub Pages: <https://wmzhai.github.io/alpaca-rust/>
 - `alpaca-data` docs.rs: <https://docs.rs/alpaca-data>
 - `alpaca-trade` docs.rs: <https://docs.rs/alpaca-trade>
+- `alpaca-time` docs.rs: <https://docs.rs/alpaca-time>
+- `alpaca-option` docs.rs: <https://docs.rs/alpaca-option>
+- `alpaca-facade` docs.rs: <https://docs.rs/alpaca-facade>
 
 Maintainer: Weiming Zhai <wmzhai@gmail.com>
 
 ## What Is Included
 
-- Market Data HTTP support for stocks, options, news, and corporate actions
-- Trading HTTP support for account, account configurations, activities, assets, calendar, clock, options contracts, orders, portfolio history, positions, and watchlists
-- Shared low-level crates for transport and shared primitives
-- A mock server executable for trade-mainline and contract-style validation
+- Alpaca Market Data HTTP support for stocks, options, news, and corporate actions
+- Alpaca Trading HTTP support for account, activities, assets, calendar, clock, options contracts, orders, portfolio history, positions, and watchlists
+- Shared low-level transport, credentials, query, pagination, and serde primitives
+- New York time and US trading-calendar semantics
+- Provider-neutral option contracts, snapshots, pricing, payoff, and URL helpers
+- A high-level facade crate that combines raw cache primitives with option enrichment helpers
+- An executable mock server for trade-mainline and contract-style validation
 
 ## What Is Not Included
 
-The current public release line does not implement:
+The current published Rust release line does not implement:
 
 - WebSocket or stream APIs
-- Crypto
-- Broker API
-- FIX
-- Third-party provider clients
-- Strategy logic, order orchestration, cache layers, fallback providers, or stateful application workflows
-
-Additional market-data families intentionally not covered in the current release line:
-
-- forex
-- fixed income
-- logos
-- screener
+- crypto, forex, fixed income, logos, or screener APIs
+- Broker API or FIX
+- third-party provider clients
+- application singletons, strategy orchestration, or provider fallback systems
 
 ## Credentials
 
@@ -97,114 +103,66 @@ let client = Client::builder()
 # Ok::<(), alpaca_trade::Error>(())
 ```
 
+Use `alpaca-facade` for the high-level composition layer:
+
+```toml
+[dependencies]
+alpaca-facade = "0.24.5"
+alpaca-data = "0.24.5"
+tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
+```
+
+```rust
+use alpaca_data::cache::CachedClient;
+use alpaca_data::Client;
+use alpaca_facade::{AlpacaData, AlpacaDataConfig};
+
+let raw = Client::builder()
+    .credentials_from_env()?
+    .build()?;
+let facade = AlpacaData::with_raw(CachedClient::new(raw), AlpacaDataConfig::default());
+# let _ = facade;
+# Ok::<(), alpaca_data::Error>(())
+```
+
 Run the mock server:
 
 ```bash
 cargo run -p alpaca-mock
 ```
 
-Build `alpaca-mock` in release mode and run it as a local user service on macOS or Ubuntu:
+Build `alpaca-mock` in release mode and run it as a local user service on macOS
+or Ubuntu:
 
 ```bash
 ./scripts/install-alpaca-mock-service.sh
 ```
 
-The installer reads the root `.env`, registers the service, starts it, and verifies `GET /health`.
-After it starts, point trading clients at:
+The installer reads the root `.env`, registers the service, starts it, and
+verifies `GET /health`. After it starts, point trading clients at:
 
 ```bash
 ALPACA_TRADE_BASE_URL=http://127.0.0.1:3847
 ```
 
-Mock execution semantics are intentionally simple:
-
-- stock and single-option marketable orders fill at mid price
-- multi-leg marketable orders fill at composite mid price
-- limit orders become eligible as soon as the submitted limit reaches that mid or composite mid
-
-## Project Status
-
-Current public scope:
-
-- HTTP APIs only
-- Market data for stocks and options, plus news and corporate actions
-- Trading resources for account, assets, clock, calendar, orders, positions, activities, portfolio history, account configurations, options contracts, and watchlists
-- Mock-server support for trade mainline validation
-
-Explicitly out of scope for the current release line:
-
-- WebSocket
-- Crypto
-- Broker API
-- FIX
-- Third-party provider clients
-
 ## Crate Guide
 
-### `alpaca-data`
+### Foundation SDK
 
-Use this crate when you need the Alpaca Market Data HTTP API.
+- `alpaca-core`: shared primitives such as credentials, base URLs, query helpers, and serde helpers
+- `alpaca-rest-http`: shared transport, retry, observer, and response metadata layer
+- `alpaca-data`: market data client for stocks, options, news, and corporate actions
+- `alpaca-trade`: trading client for paper/live trading resources
+- `alpaca-mock`: executable mock server for market-data-backed trade validation
 
-Implemented mirror coverage:
+### Semantic Core
 
-- stocks: bars, quotes, trades, latest bars/quotes/trades, snapshots, auctions, condition codes, exchange codes
-- options: bars, trades, latest quotes/trades, snapshots, chain, condition codes, exchange codes
-- news: list
-- corporate actions: list
+- `alpaca-time`: New York time, trading calendar, expiration, and display semantics
+- `alpaca-option`: provider-neutral option contracts, snapshots, chains, pricing, payoff, and URL helpers
 
-Thin convenience helpers currently included:
+### Convenience Facade
 
-- `*_all` pagination aggregators for supported paginated endpoints
-- stock snapshot convenience readers and stable ordering helpers
-- provider-safe stock symbol normalization on stock request paths and batch query symbols
+- `alpaca-facade`: high-level adapters that combine `alpaca-data`, `alpaca-time`, and `alpaca-option`
 
-Not implemented in `alpaca-data`:
-
-- crypto
-- websocket
-- stream APIs
-- forex
-- fixed income
-- logos
-- screener
-
-### `alpaca-trade`
-
-Use this crate when you need the Alpaca Trading HTTP API.
-
-Implemented mirror coverage:
-
-- account
-- account configurations
-- activities
-- assets
-- calendar and clock, including current v3 calendar/clock coverage
-- options contracts
-- orders
-- portfolio history
-- positions
-- watchlists
-
-Thin convenience helpers currently included:
-
-- `list_all` / pagination collection for activities and options contracts where supported
-
-Not implemented in `alpaca-trade`:
-
-- websocket or stream APIs
-- broker APIs
-- FIX
-- crypto and fixed income trading surfaces
-- high-level order orchestration or application state machines
-
-### `alpaca-core`
-
-Use this crate only if you explicitly want shared low-level primitives. It is not intended to be the primary application entry point.
-
-### `alpaca-rest-http`
-
-Use this crate only if you explicitly want the low-level transport layer. Most SDK users should stay on `alpaca-data` or `alpaca-trade`.
-
-### `alpaca-mock`
-
-Use this crate when you need an executable mock server for integration tests or trade-mainline flows. It is a real public binary crate, but it remains purpose-built for SDK testing and development flows.
+See `docs/`, the crate READMEs under `crates/`, and the published docs.rs pages
+for the full reference.

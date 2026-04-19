@@ -213,7 +213,8 @@ impl BarrierKernel {
                     if self.strike >= self.barrier {
                         self.f(-1.0)
                     } else {
-                        self.a(1.0) - self.b(1.0) + self.c(-1.0, 1.0) - self.d(-1.0, 1.0) + self.f(-1.0)
+                        self.a(1.0) - self.b(1.0) + self.c(-1.0, 1.0) - self.d(-1.0, 1.0)
+                            + self.f(-1.0)
                     }
                 }
             },
@@ -234,7 +235,8 @@ impl BarrierKernel {
                 }
                 BarrierType::DownOut => {
                     if self.strike >= self.barrier {
-                        self.a(-1.0) - self.b(-1.0) + self.c(1.0, -1.0) - self.d(1.0, -1.0) + self.f(1.0)
+                        self.a(-1.0) - self.b(-1.0) + self.c(1.0, -1.0) - self.d(1.0, -1.0)
+                            + self.f(1.0)
                     } else {
                         self.f(1.0)
                     }

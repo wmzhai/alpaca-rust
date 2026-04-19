@@ -1,86 +1,65 @@
 # Project Structure
 
-The public workspace is split into five crates.
+`alpaca-rust` is organized around published Rust crates, optional workspace
+companions, and supporting documentation/test assets.
 
-## `alpaca-core`
+## Published Rust Crates
 
-Shared primitives:
+| Path | Published crate | Role | Notes |
+| --- | --- | --- | --- |
+| `crates/alpaca-core` | `alpaca-core` | Shared primitives | Credentials, base URLs, query helpers, serde helpers |
+| `crates/alpaca-http` | `alpaca-rest-http` | Shared transport | Directory path differs from the published crate name |
+| `crates/alpaca-data` | `alpaca-data` | Market Data HTTP SDK | Stocks, options, news, corporate actions |
+| `crates/alpaca-trade` | `alpaca-trade` | Trading HTTP SDK | Account, orders, positions, activities, contracts, watchlists |
+| `crates/alpaca-mock` | `alpaca-mock` | Executable mock server | Market-data-backed trade validation |
+| `crates/alpaca-time` | `alpaca-time` | Time semantics | New York time, trading calendar, expiration helpers |
+| `crates/alpaca-option` | `alpaca-option` | Option semantics | Contracts, snapshots, pricing, payoff, URL helpers |
+| `crates/alpaca-facade` | `alpaca-facade` | Convenience facade | High-level composition of the lower workspace crates |
 
-- credentials
-- base URLs
-- query writer
-- pagination helpers
-- decimal and integer serde helpers
+## Optional Workspace Plus Features
 
-Not here:
+| Path | Package | Role |
+| --- | --- | --- |
+| `packages/alpaca-time` | `@alpaca/time` | Optional TypeScript companion for time semantics |
+| `packages/alpaca-option` | `@alpaca/option` | Optional TypeScript companion for option semantics |
 
-- resource clients
-- Alpaca resource models
-- transport execution
+These TypeScript packages are available to workspace consumers, but they are not
+the primary published system surface or the default public entry point.
 
-## `alpaca-rest-http`
+## Supporting Directories
 
-Shared transport:
+| Path | Role |
+| --- | --- |
+| `docs/` | Public user-facing documentation |
+| `spec/` | Crate-scoped API, model, and semantics contracts |
+| `memory/` | Local collaboration memory and routing notes |
+| `fixtures/` | Shared JSON fixtures for `alpaca-time` and `alpaca-option` |
+| `tests/support/live/` | Shared live-test support for Rust crates |
+| `tools/api-coverage/` | API coverage manifests and audit tooling |
+| `tools/docs/` | Documentation metadata generation scripts |
+| `website/` | Docusaurus site for public docs and rustdoc hosting |
 
-- request parts
-- HTTP client wrapper
-- retry configuration
-- response and error metadata
-- observer hooks
-- concurrency limiting
+## Layering
 
-Not here:
+### Foundation SDK
 
-- resource-specific request builders
-- market-data or trading models
-- application state
+- `alpaca-core`
+- `alpaca-rest-http`
+- `alpaca-data`
+- `alpaca-trade`
+- `alpaca-mock`
 
-## `alpaca-data`
+### Semantic Core
 
-Market Data SDK:
+- `alpaca-time`
+- `alpaca-option`
 
-- stocks
-- options
-- news
-- corporate actions
+### Convenience Facade
 
-Not here:
+- `alpaca-facade`
 
-- crypto
-- websocket
-- forex
-- fixed income
-- logos
-- screener
+## Important Naming Note
 
-## `alpaca-trade`
-
-Trading SDK:
-
-- account
-- account configurations
-- activities
-- assets
-- calendar
-- clock
-- options contracts
-- orders
-- portfolio history
-- positions
-- watchlists
-
-Not here:
-
-- broker API
-- FIX
-- trading websocket/stream APIs
-- high-level order workflows
-
-## `alpaca-mock`
-
-Executable mock server with a thin library surface for tests and mock-state bootstrapping.
-
-Not here:
-
-- a fully generic Alpaca simulator
-- invented fallback market data
+The source directory `crates/alpaca-http` publishes as the crate
+`alpaca-rest-http`. Public docs, docs.rs links, and release automation use the
+published crate name; repository layout uses the source directory name.

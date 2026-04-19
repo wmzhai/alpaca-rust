@@ -48,9 +48,11 @@ pub fn expiry_probability_in_range(
     }
 
     let sigma_sqrt_t = volatility * years.sqrt();
-    let d2_lower = ((spot / lower_price).ln() + (rate - dividend_yield - 0.5 * volatility * volatility) * years)
+    let d2_lower = ((spot / lower_price).ln()
+        + (rate - dividend_yield - 0.5 * volatility * volatility) * years)
         / sigma_sqrt_t;
-    let d2_upper = ((spot / upper_price).ln() + (rate - dividend_yield - 0.5 * volatility * volatility) * years)
+    let d2_upper = ((spot / upper_price).ln()
+        + (rate - dividend_yield - 0.5 * volatility * volatility) * years)
         / sigma_sqrt_t;
 
     Ok(normal_cdf(d2_lower) - normal_cdf(d2_upper))

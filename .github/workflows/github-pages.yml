@@ -66,8 +66,14 @@ jobs:
       - name: Format check
         run: cargo fmt --check
 
-      - name: Check workspace
-        run: cargo check --workspace
+      - name: Build workspace
+        run: cargo build --workspace
+
+      - name: Test semantic and facade crates
+        run: |
+          cargo test -p alpaca-time
+          cargo test -p alpaca-option
+          cargo test -p alpaca-facade --test request
 
       - name: Test doctests
         run: cargo test --doc
@@ -75,18 +81,29 @@ jobs:
       - name: Build rustdoc
         run: cargo doc --workspace --no-deps
 
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.32.1
+
       - name: Setup Node
         uses: actions/setup-node@v6
         with:
-          node-version: '22'
-          cache: npm
-          cache-dependency-path: website/package-lock.json
+          node-version: '24'
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
 
-      - name: Install website dependencies
-        run: npm ci --prefix website
+      - name: Install workspace JavaScript dependencies
+        run: pnpm install --frozen-lockfile
 
       - name: Generate docs metadata
         run: python3 tools/docs/generate-doc-site
+
+      - name: Test optional workspace packages
+        run: pnpm run test:packages
+
+      - name: Typecheck optional workspace packages
+        run: pnpm run typecheck:packages
 
       - name: Copy rustdoc bundle into site static assets
         run: |
@@ -95,7 +112,13 @@ jobs:
           cp -R target/doc/. website/static/api/
 
       - name: Build docs site
-        run: npm run build --prefix website
+        run: pnpm run build:website
+
+      - name: Verify publishable package manifests
+        run: |
+          for crate in alpaca-core alpaca-rest-http alpaca-data alpaca-trade alpaca-mock alpaca-time alpaca-option alpaca-facade; do
+            cargo package --list -p "$crate"
+          done
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
@@ -145,7 +168,7 @@ jobs:
               "https://crates.io/api/v1/crates/${crate}/${version}"
           }
 
-          for crate in alpaca-core alpaca-rest-http alpaca-data alpaca-trade alpaca-mock; do
+          for crate in alpaca-core alpaca-rest-http alpaca-data alpaca-trade alpaca-mock alpaca-time alpaca-option alpaca-facade; do
             version="$(version_for "$crate")"
             status="$(crate_exists "$crate" "$version")"
             case "$status" in
@@ -162,6 +185,7 @@ jobs:
                 ;;
             esac
 
+            cargo publish --dry-run --locked -p "$crate"
             cargo publish -p "$crate" --locked
 
             for attempt in $(seq 1 30); do

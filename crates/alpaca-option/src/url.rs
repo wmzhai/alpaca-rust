@@ -61,7 +61,9 @@ pub fn to_optionstrat_underlying_path(symbol: &str) -> String {
 }
 
 pub fn from_optionstrat_underlying_path(path: &str) -> String {
-    path.replace("%2F", "/").replace("%2f", "/").replace('/', ".")
+    path.replace("%2F", "/")
+        .replace("%2f", "/")
+        .replace('/', ".")
 }
 
 pub fn build_optionstrat_leg_fragment(input: &OptionStratLegInput) -> Option<String> {
@@ -196,7 +198,10 @@ pub fn parse_optionstrat_url(url: &str) -> OptionResult<ParsedOptionStratUrl> {
     let leg_fragments = if fragments.is_empty() {
         Vec::new()
     } else {
-        fragments.split(',').map(|fragment| fragment.to_string()).collect()
+        fragments
+            .split(',')
+            .map(|fragment| fragment.to_string())
+            .collect()
     };
 
     Ok(ParsedOptionStratUrl {
@@ -218,10 +223,14 @@ fn parse_compact_contract(input: &str) -> OptionResult<(String, String, char, f6
 
         if underlying.is_empty()
             || underlying.len() > 6
-            || !underlying.chars().all(|value| value.is_ascii_alphanumeric())
+            || !underlying
+                .chars()
+                .all(|value| value.is_ascii_alphanumeric())
             || !date.chars().all(|value| value.is_ascii_digit())
             || strike.is_empty()
-            || !strike.chars().all(|value| value.is_ascii_digit() || value == '.')
+            || !strike
+                .chars()
+                .all(|value| value.is_ascii_digit() || value == '.')
         {
             continue;
         }
@@ -242,7 +251,10 @@ fn parse_compact_contract(input: &str) -> OptionResult<(String, String, char, f6
     ))
 }
 
-fn parse_optionstrat_leg_fragment(fragment: &str, expected_underlying: &str) -> OptionResult<StrategyLegInput> {
+fn parse_optionstrat_leg_fragment(
+    fragment: &str,
+    expected_underlying: &str,
+) -> OptionResult<StrategyLegInput> {
     let (order_side, compact_fragment) = if let Some(value) = fragment.strip_prefix("-.") {
         (OrderSide::Sell, value)
     } else if let Some(value) = fragment.strip_prefix('.') {
@@ -291,7 +303,11 @@ fn parse_optionstrat_leg_fragment(fragment: &str, expected_underlying: &str) -> 
         &underlying_symbol,
         &expiration_date,
         strike,
-        if option_right_code == 'C' { "call" } else { "put" },
+        if option_right_code == 'C' {
+            "call"
+        } else {
+            "put"
+        },
     )
     .ok_or_else(|| {
         OptionError::new(

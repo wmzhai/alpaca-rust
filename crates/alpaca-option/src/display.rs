@@ -21,10 +21,16 @@ pub fn compact_contract(contract: &OptionContract, expiration_style: Option<&str
     contract_display(contract, expiration_style).compact
 }
 
-pub fn contract_display(contract: &OptionContract, expiration_style: Option<&str>) -> ContractDisplay {
+pub fn contract_display(
+    contract: &OptionContract,
+    expiration_style: Option<&str>,
+) -> ContractDisplay {
     let strike = format_strike(contract.strike);
     let option_right_code = contract.option_right.code_string();
-    let expiration = display::compact(&contract.expiration_date, expiration_style.unwrap_or("mm-dd"));
+    let expiration = display::compact(
+        &contract.expiration_date,
+        expiration_style.unwrap_or("mm-dd"),
+    );
 
     ContractDisplay {
         strike: strike.clone(),

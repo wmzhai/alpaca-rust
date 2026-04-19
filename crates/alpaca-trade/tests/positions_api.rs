@@ -12,8 +12,7 @@ use std::collections::BTreeSet;
 use alpaca_trade::{
     orders::{CreateRequest, OrderSide, OrderType, TimeInForce},
     positions::{
-        CloseAllRequest, Position, option_qty_map, reconcile_signed_positions,
-        structure_quantity,
+        CloseAllRequest, Position, option_qty_map, reconcile_signed_positions, structure_quantity,
     },
 };
 use rust_decimal::Decimal;
@@ -68,7 +67,9 @@ fn positions_convenience_maps_resolves_and_reconciles_option_shapes() {
     ];
     assert_eq!(
         structure_quantity(
-            template.iter().map(|position| (position.symbol.as_str(), position.qty)),
+            template
+                .iter()
+                .map(|position| (position.symbol.as_str(), position.qty)),
             &mapped,
         ),
         Some(2)

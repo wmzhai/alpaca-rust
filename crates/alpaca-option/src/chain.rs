@@ -28,7 +28,10 @@ fn strike_tolerance(value: Option<f64>) -> f64 {
 
 fn matches_contract(snapshot: &OptionSnapshot, filter: SnapshotFilter<'_>) -> bool {
     if let Some(occ_symbol) = filter.occ_symbol {
-        return snapshot.contract.occ_symbol.eq_ignore_ascii_case(occ_symbol.trim());
+        return snapshot
+            .contract
+            .occ_symbol
+            .eq_ignore_ascii_case(occ_symbol.trim());
     }
 
     if let Some(expiration_date) = filter.expiration_date {
@@ -55,7 +58,10 @@ fn matches_contract(snapshot: &OptionSnapshot, filter: SnapshotFilter<'_>) -> bo
     true
 }
 
-pub fn list_snapshots<'a>(chain: &'a OptionChain, filter: SnapshotFilter<'_>) -> Vec<&'a OptionSnapshot> {
+pub fn list_snapshots<'a>(
+    chain: &'a OptionChain,
+    filter: SnapshotFilter<'_>,
+) -> Vec<&'a OptionSnapshot> {
     chain
         .snapshots
         .iter()
@@ -63,7 +69,10 @@ pub fn list_snapshots<'a>(chain: &'a OptionChain, filter: SnapshotFilter<'_>) ->
         .collect()
 }
 
-pub fn find_snapshot<'a>(chain: &'a OptionChain, filter: SnapshotFilter<'_>) -> Option<&'a OptionSnapshot> {
+pub fn find_snapshot<'a>(
+    chain: &'a OptionChain,
+    filter: SnapshotFilter<'_>,
+) -> Option<&'a OptionSnapshot> {
     chain
         .snapshots
         .iter()

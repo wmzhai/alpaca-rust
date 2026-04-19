@@ -1,7 +1,7 @@
 use chrono::{NaiveDate, NaiveDateTime};
 
-use crate::clock::{now, parse_naive_date, parse_naive_timestamp, today};
 use crate::TimeResult;
+use crate::clock::{now, parse_naive_date, parse_naive_timestamp, today};
 
 pub fn date(input: Option<&str>) -> TimeResult<NaiveDate> {
     match input {

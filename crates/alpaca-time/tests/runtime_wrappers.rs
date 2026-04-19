@@ -8,13 +8,22 @@ fn fractional_day_wrappers_track_current_time() {
     let until = clock::fractional_days_until(&now).expect("fractional_days_until should work");
     let since = clock::fractional_days_since(&now).expect("fractional_days_since should work");
 
-    assert!(until.abs() <= tolerance, "until={until} exceeded tolerance={tolerance}");
-    assert!(since.abs() <= tolerance, "since={since} exceeded tolerance={tolerance}");
+    assert!(
+        until.abs() <= tolerance,
+        "until={until} exceeded tolerance={tolerance}"
+    );
+    assert!(
+        since.abs() <= tolerance,
+        "since={since} exceeded tolerance={tolerance}"
+    );
 }
 
 #[test]
 fn clock_helpers_absorb_common_fallbacks() {
-    assert_eq!(clock::truncate_to_minute("2025-02-06 11:30"), "2025-02-06 11:30:00");
+    assert_eq!(
+        clock::truncate_to_minute("2025-02-06 11:30"),
+        "2025-02-06 11:30:00"
+    );
     assert_eq!(clock::from_unix_seconds(0), "");
 }
 
@@ -24,7 +33,10 @@ fn calendar_and_range_helpers_absorb_common_fallbacks() {
     assert_eq!(range::add_days(&today, 1).unwrap().len(), 10);
     assert!(!range::is_last_trading_date_of_week("bad-date"));
     assert!(!calendar::is_trading_date("bad-date"));
-    assert_eq!(calendar::is_trading_today(), calendar::is_trading_date(&today));
+    assert_eq!(
+        calendar::is_trading_today(),
+        calendar::is_trading_date(&today)
+    );
 }
 
 #[test]
@@ -58,6 +70,12 @@ fn session_and_calendar_helpers_accept_rfc3339_utc() {
 
 #[test]
 fn years_absorb_elapsed_and_invalid_input() {
-    assert_eq!(expiration::years("2025-02-06", Some("2025-02-06 16:00:01"), None), 0.0);
-    assert_eq!(expiration::years("2025-02-06", Some("bad-timestamp"), None), 0.0);
+    assert_eq!(
+        expiration::years("2025-02-06", Some("2025-02-06 16:00:01"), None),
+        0.0
+    );
+    assert_eq!(
+        expiration::years("2025-02-06", Some("bad-timestamp"), None),
+        0.0
+    );
 }

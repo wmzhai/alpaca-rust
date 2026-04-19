@@ -119,7 +119,9 @@ pub(crate) async fn stock_order_price_context(
         .await
         .map_err(|error| format!("stock snapshot request failed: {error}"))?;
     let snapshot = snapshot
-        .get(&alpaca_data::stocks::display_stock_symbol(underlying_symbol))
+        .get(&alpaca_data::stocks::display_stock_symbol(
+            underlying_symbol,
+        ))
         .cloned()
         .ok_or_else(|| format!("stock snapshots response did not include {underlying_symbol}"))?;
     let quote = snapshot.latest_quote.ok_or_else(|| {
@@ -330,7 +332,9 @@ async fn latest_stock_ask(
         .await
         .map_err(|error| format!("stock snapshot request failed: {error}"))?;
     let snapshot = snapshot
-        .get(&alpaca_data::stocks::display_stock_symbol(underlying_symbol))
+        .get(&alpaca_data::stocks::display_stock_symbol(
+            underlying_symbol,
+        ))
         .cloned()
         .ok_or_else(|| format!("stock snapshots response did not include {underlying_symbol}"))?;
     let quote = snapshot.latest_quote.ok_or_else(|| {
