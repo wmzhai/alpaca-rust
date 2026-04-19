@@ -1,0 +1,186 @@
+{
+  "fixture": "pricing/bsm-put-call-parity",
+  "layer": {
+    "id": "03-stress",
+    "label": "Stress",
+    "status": "integrated",
+    "source_dataset": "option_stress_dataset.json",
+    "source_case_count": 38,
+    "purpose": "The numerical stability stress layer for pathological scenarios."
+  },
+  "oracle": {
+    "tier": "A/B",
+    "layer_id": "03-stress",
+    "layer_label": "Stress",
+    "status": "integrated",
+    "dataset_origin": "option-test/option_stress_dataset.json",
+    "purpose": "Black-Scholes-Merton put-call parity invariants.",
+    "dataset_group": "stress_parity_invariants"
+  },
+  "cases": [
+    {
+      "id": "stress_parity_001",
+      "api": "pricing.black_scholes_put_call_parity",
+      "input": {
+        "spot": 100.0,
+        "strike": 100.0,
+        "years": 1.0,
+        "rate": 0.02,
+        "dividend_yield": 0.0,
+        "volatility": 0.25
+      },
+      "expected": {
+        "call_minus_put": 1.980132669324469,
+        "discounted_forward_minus_strike": 1.980132669324476
+      },
+      "tolerance": 1e-12,
+      "source": {
+        "dataset_origin": "option-test/option_stress_dataset.json",
+        "dataset_group": "stress_parity_invariants",
+        "dataset_case_id": "stress_parity_001",
+        "original_inputs": {
+          "model": "black_scholes_merton",
+          "spot": 100.0,
+          "strike": 100.0,
+          "time_to_expiry": 1.0,
+          "risk_free_rate": 0.02,
+          "dividend_yield": 0.0,
+          "volatility": 0.25
+        },
+        "original_expected": {
+          "call_minus_put": 1.980132669324469,
+          "discounted_forward_minus_strike": 1.980132669324476
+        },
+        "original_validation": {
+          "parity_abs_diff": 7.105427357601002e-15
+        },
+        "original_tolerance": {
+          "abs": 1e-12
+        }
+      }
+    },
+    {
+      "id": "stress_parity_002",
+      "api": "pricing.black_scholes_put_call_parity",
+      "input": {
+        "spot": 100.0,
+        "strike": 100.0,
+        "years": 1.0,
+        "rate": -0.01,
+        "dividend_yield": 0.04,
+        "volatility": 0.25
+      },
+      "expected": {
+        "call_minus_put": -4.926072793184486,
+        "discounted_forward_minus_strike": -4.926072793184474
+      },
+      "tolerance": 1e-12,
+      "source": {
+        "dataset_origin": "option-test/option_stress_dataset.json",
+        "dataset_group": "stress_parity_invariants",
+        "dataset_case_id": "stress_parity_002",
+        "original_inputs": {
+          "model": "black_scholes_merton",
+          "spot": 100.0,
+          "strike": 100.0,
+          "time_to_expiry": 1.0,
+          "risk_free_rate": -0.01,
+          "dividend_yield": 0.04,
+          "volatility": 0.25
+        },
+        "original_expected": {
+          "call_minus_put": -4.926072793184486,
+          "discounted_forward_minus_strike": -4.926072793184474
+        },
+        "original_validation": {
+          "parity_abs_diff": 1.1546319456101628e-14
+        },
+        "original_tolerance": {
+          "abs": 1e-12
+        }
+      }
+    },
+    {
+      "id": "stress_parity_003",
+      "api": "pricing.black_scholes_put_call_parity",
+      "input": {
+        "spot": 40.0,
+        "strike": 55.0,
+        "years": 0.15,
+        "rate": 0.03,
+        "dividend_yield": 0.0,
+        "volatility": 0.18
+      },
+      "expected": {
+        "call_minus_put": -14.753056040626381,
+        "discounted_forward_minus_strike": -14.753056040626383
+      },
+      "tolerance": 1e-12,
+      "source": {
+        "dataset_origin": "option-test/option_stress_dataset.json",
+        "dataset_group": "stress_parity_invariants",
+        "dataset_case_id": "stress_parity_003",
+        "original_inputs": {
+          "model": "black_scholes_merton",
+          "spot": 40.0,
+          "strike": 55.0,
+          "time_to_expiry": 0.15,
+          "risk_free_rate": 0.03,
+          "dividend_yield": 0.0,
+          "volatility": 0.18
+        },
+        "original_expected": {
+          "call_minus_put": -14.753056040626381,
+          "discounted_forward_minus_strike": -14.753056040626383
+        },
+        "original_validation": {
+          "parity_abs_diff": 1.7763568394002505e-15
+        },
+        "original_tolerance": {
+          "abs": 1e-12
+        }
+      }
+    },
+    {
+      "id": "stress_parity_004",
+      "api": "pricing.black_scholes_put_call_parity",
+      "input": {
+        "spot": 160.0,
+        "strike": 100.0,
+        "years": 2.5,
+        "rate": 0.01,
+        "dividend_yield": 0.07,
+        "volatility": 0.4
+      },
+      "expected": {
+        "call_minus_put": 36.78213212023991,
+        "discounted_forward_minus_strike": 36.78213212023991
+      },
+      "tolerance": 1e-12,
+      "source": {
+        "dataset_origin": "option-test/option_stress_dataset.json",
+        "dataset_group": "stress_parity_invariants",
+        "dataset_case_id": "stress_parity_004",
+        "original_inputs": {
+          "model": "black_scholes_merton",
+          "spot": 160.0,
+          "strike": 100.0,
+          "time_to_expiry": 2.5,
+          "risk_free_rate": 0.01,
+          "dividend_yield": 0.07,
+          "volatility": 0.4
+        },
+        "original_expected": {
+          "call_minus_put": 36.78213212023991,
+          "discounted_forward_minus_strike": 36.78213212023991
+        },
+        "original_validation": {
+          "parity_abs_diff": 0.0
+        },
+        "original_tolerance": {
+          "abs": 1e-12
+        }
+      }
+    }
+  ]
+}

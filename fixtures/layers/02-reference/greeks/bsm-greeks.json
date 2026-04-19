@@ -1,0 +1,682 @@
+{
+  "fixture": "greeks/bsm-greeks",
+  "layer": {
+    "id": "02-reference",
+    "label": "Reference",
+    "status": "integrated",
+    "source_dataset": "option_reference_dataset.json",
+    "source_case_count": 48,
+    "purpose": "The primary day-to-day regression layer with balanced model coverage."
+  },
+  "oracle": {
+    "tier": "A",
+    "layer_id": "02-reference",
+    "layer_label": "Reference",
+    "status": "integrated",
+    "dataset_origin": "option-test/option_reference_dataset.json",
+    "purpose": "Black-Scholes-Merton greeks regression cases.",
+    "dataset_group": "european_bsm_exact"
+  },
+  "cases": [
+    {
+      "id": "eu_bsm_001",
+      "api": "pricing.greeks_black_scholes",
+      "input": {
+        "spot": 60.0,
+        "strike": 65.0,
+        "years": 0.25,
+        "rate": 0.08,
+        "dividend_yield": 0.0,
+        "volatility": 0.3,
+        "option_right": "call"
+      },
+      "expected": {
+        "delta": 0.37248279796197287,
+        "gamma": 0.04204275575378517,
+        "vega": 0.11351544053521996,
+        "theta": -0.02309088873078732,
+        "rho": 5.053899858200543
+      },
+      "tolerance": 1e-09,
+      "source": {
+        "dataset_origin": "option-test/option_reference_dataset.json",
+        "dataset_group": "european_bsm_exact",
+        "dataset_case_id": "eu_bsm_001",
+        "original_inputs": {
+          "model": "black_scholes_merton",
+          "option_type": "call",
+          "spot": 60.0,
+          "strike": 65.0,
+          "time_to_expiry": 0.25,
+          "risk_free_rate": 0.08,
+          "dividend_yield": 0.0,
+          "volatility": 0.3
+        },
+        "original_expected": {
+          "price": 2.1333684449162,
+          "delta": 0.37248279796197287,
+          "gamma": 0.04204275575378517,
+          "vega": 11.351544053521996,
+          "theta": -8.428174386737371,
+          "rho": 5.053899858200543
+        },
+        "original_validation": {
+          "quantlib_black_calculator": {
+            "price": 2.1333684449161994,
+            "delta": 0.37248279796197314,
+            "gamma": 0.04204275575378517,
+            "vega": 11.351544053522,
+            "theta": -8.428174386737368,
+            "rho": 5.053899858200543
+          },
+          "py_vollib_price": 2.1333684449162,
+          "max_abs_diff": 3.552713678800501e-15,
+          "source_note": "Parameter patterns mostly come from Haug-derived QuantLib European-option regression cases."
+        },
+        "original_tolerance": {
+          "price_abs": 1e-10,
+          "greeks_abs": 1e-09
+        },
+        "normalization": {
+          "vega": "divide by 100 to convert from per 1.0 volatility unit to per 1% volatility change",
+          "theta": "divide by 365 to convert from per year to per calendar day",
+          "rho": "no conversion; source and alpaca-option both use per 1.0 rate unit"
+        }
+      }
+    },
+    {
+      "id": "eu_bsm_002",
+      "api": "pricing.greeks_black_scholes",
+      "input": {
+        "spot": 100.0,
+        "strike": 95.0,
+        "years": 0.5,
+        "rate": 0.1,
+        "dividend_yield": 0.05,
+        "volatility": 0.2,
+        "option_right": "put"
+      },
+      "expected": {
+        "delta": -0.2641815996360724,
+        "gamma": 0.022839574296269993,
+        "vega": 0.2283957429626999,
+        "theta": -0.008220624921638504,
+        "rho": -14.44147380518153
+      },
+      "tolerance": 1e-09,
+      "source": {
+        "dataset_origin": "option-test/option_reference_dataset.json",
+        "dataset_group": "european_bsm_exact",
+        "dataset_case_id": "eu_bsm_002",
+        "original_inputs": {
+          "model": "black_scholes_merton",
+          "option_type": "put",
+          "spot": 100.0,
+          "strike": 95.0,
+          "time_to_expiry": 0.5,
+          "risk_free_rate": 0.1,
+          "dividend_yield": 0.05,
+          "volatility": 0.2
+        },
+        "original_expected": {
+          "price": 2.464787646755821,
+          "delta": -0.2641815996360724,
+          "gamma": 0.022839574296269993,
+          "vega": 22.83957429626999,
+          "theta": -3.000528096398054,
+          "rho": -14.44147380518153
+        },
+        "original_validation": {
+          "quantlib_black_calculator": {
+            "price": 2.464787646755827,
+            "delta": -0.2641815996360721,
+            "gamma": 0.022839574296269986,
+            "vega": 22.839574296270005,
+            "theta": -3.0005280963980554,
+            "rho": -14.44147380518153
+          },
+          "py_vollib_price": 2.464787646755818,
+          "max_abs_diff": 1.4210854715202004e-14,
+          "source_note": "Parameter patterns mostly come from Haug-derived QuantLib European-option regression cases."
+        },
+        "original_tolerance": {
+          "price_abs": 1e-10,
+          "greeks_abs": 1e-09
+        },
+        "normalization": {
+          "vega": "divide by 100 to convert from per 1.0 volatility unit to per 1% volatility change",
+          "theta": "divide by 365 to convert from per year to per calendar day",
+          "rho": "no conversion; source and alpaca-option both use per 1.0 rate unit"
+        }
+      }
+    },
+    {
+      "id": "eu_bsm_003",
+      "api": "pricing.greeks_black_scholes",
+      "input": {
+        "spot": 19.0,
+        "strike": 19.0,
+        "years": 0.75,
+        "rate": 0.1,
+        "dividend_yield": 0.1,
+        "volatility": 0.28,
+        "option_right": "put"
+      },
+      "expected": {
+        "delta": -0.419107250394901,
+        "gamma": 0.07974503467912114,
+        "vega": 0.06045471079024174,
+        "theta": -0.002625706471856308,
+        "rho": -7.24806636205454
+      },
+      "tolerance": 1e-09,
+      "source": {
+        "dataset_origin": "option-test/option_reference_dataset.json",
+        "dataset_group": "european_bsm_exact",
+        "dataset_case_id": "eu_bsm_003",
+        "original_inputs": {
+          "model": "black_scholes_merton",
+          "option_type": "put",
+          "spot": 19.0,
+          "strike": 19.0,
+          "time_to_expiry": 0.75,
+          "risk_free_rate": 0.1,
+          "dividend_yield": 0.1,
+          "volatility": 0.28
+        },
+        "original_expected": {
+          "price": 1.7010507252362672,
+          "delta": -0.419107250394901,
+          "gamma": 0.07974503467912114,
+          "vega": 6.045471079024174,
+          "theta": -0.9583828622275524,
+          "rho": -7.24806636205454
+        },
+        "original_validation": {
+          "quantlib_black_calculator": {
+            "price": 1.7010507252362677,
+            "delta": -0.41910725039490093,
+            "gamma": 0.07974503467912114,
+            "vega": 6.045471079024173,
+            "theta": -0.9583828622275523,
+            "rho": -7.248066362054539
+          },
+          "py_vollib_price": 1.7010507252362679,
+          "max_abs_diff": 8.881784197001252e-16,
+          "source_note": "Parameter patterns mostly come from Haug-derived QuantLib European-option regression cases."
+        },
+        "original_tolerance": {
+          "price_abs": 1e-10,
+          "greeks_abs": 1e-09
+        },
+        "normalization": {
+          "vega": "divide by 100 to convert from per 1.0 volatility unit to per 1% volatility change",
+          "theta": "divide by 365 to convert from per year to per calendar day",
+          "rho": "no conversion; source and alpaca-option both use per 1.0 rate unit"
+        }
+      }
+    },
+    {
+      "id": "eu_bsm_004",
+      "api": "pricing.greeks_black_scholes",
+      "input": {
+        "spot": 19.0,
+        "strike": 19.0,
+        "years": 0.75,
+        "rate": 0.1,
+        "dividend_yield": 0.1,
+        "volatility": 0.28,
+        "option_right": "call"
+      },
+      "expected": {
+        "delta": 0.5086362359336519,
+        "gamma": 0.07974503467912114,
+        "vega": 0.06045471079024174,
+        "theta": -0.002625706471856308,
+        "rho": 5.972278318127339
+      },
+      "tolerance": 1e-09,
+      "source": {
+        "dataset_origin": "option-test/option_reference_dataset.json",
+        "dataset_group": "european_bsm_exact",
+        "dataset_case_id": "eu_bsm_004",
+        "original_inputs": {
+          "model": "black_scholes_merton",
+          "option_type": "call",
+          "spot": 19.0,
+          "strike": 19.0,
+          "time_to_expiry": 0.75,
+          "risk_free_rate": 0.1,
+          "dividend_yield": 0.1,
+          "volatility": 0.28
+        },
+        "original_expected": {
+          "price": 1.7010507252362672,
+          "delta": 0.5086362359336519,
+          "gamma": 0.07974503467912114,
+          "vega": 6.045471079024174,
+          "theta": -0.9583828622275524,
+          "rho": 5.972278318127339
+        },
+        "original_validation": {
+          "quantlib_black_calculator": {
+            "price": 1.7010507252362677,
+            "delta": 0.5086362359336518,
+            "gamma": 0.07974503467912114,
+            "vega": 6.045471079024173,
+            "theta": -0.9583828622275523,
+            "rho": 5.972278318127339
+          },
+          "py_vollib_price": 1.7010507252362679,
+          "max_abs_diff": 8.881784197001252e-16,
+          "source_note": "Parameter patterns mostly come from Haug-derived QuantLib European-option regression cases."
+        },
+        "original_tolerance": {
+          "price_abs": 1e-10,
+          "greeks_abs": 1e-09
+        },
+        "normalization": {
+          "vega": "divide by 100 to convert from per 1.0 volatility unit to per 1% volatility change",
+          "theta": "divide by 365 to convert from per year to per calendar day",
+          "rho": "no conversion; source and alpaca-option both use per 1.0 rate unit"
+        }
+      }
+    },
+    {
+      "id": "eu_bsm_005",
+      "api": "pricing.greeks_black_scholes",
+      "input": {
+        "spot": 1.56,
+        "strike": 1.6,
+        "years": 0.5,
+        "rate": 0.06,
+        "dividend_yield": 0.08,
+        "volatility": 0.12,
+        "option_right": "call"
+      },
+      "expected": {
+        "delta": 0.3403859092321428,
+        "gamma": 2.700266083546168,
+        "vega": 0.003942820524550772,
+        "theta": -9.574753626739735e-05,
+        "rho": 0.2509513826263515
+      },
+      "tolerance": 1e-09,
+      "source": {
+        "dataset_origin": "option-test/option_reference_dataset.json",
+        "dataset_group": "european_bsm_exact",
+        "dataset_case_id": "eu_bsm_005",
+        "original_inputs": {
+          "model": "black_scholes_merton",
+          "option_type": "call",
+          "spot": 1.56,
+          "strike": 1.6,
+          "time_to_expiry": 0.5,
+          "risk_free_rate": 0.06,
+          "dividend_yield": 0.08,
+          "volatility": 0.12
+        },
+        "original_expected": {
+          "price": 0.02909925314943968,
+          "delta": 0.3403859092321428,
+          "gamma": 2.700266083546168,
+          "vega": 0.39428205245507725,
+          "theta": -0.03494785073760003,
+          "rho": 0.2509513826263515
+        },
+        "original_validation": {
+          "quantlib_black_calculator": {
+            "price": 0.02909925314943963,
+            "delta": 0.34038590923214307,
+            "gamma": 2.7002660835461687,
+            "vega": 0.3942820524550771,
+            "theta": -0.03494785073760011,
+            "rho": 0.25095138262635164
+          },
+          "py_vollib_price": 0.029099253149439695,
+          "max_abs_diff": 8.881784197001252e-16,
+          "source_note": "Parameter patterns mostly come from Haug-derived QuantLib European-option regression cases."
+        },
+        "original_tolerance": {
+          "price_abs": 1e-10,
+          "greeks_abs": 1e-09
+        },
+        "normalization": {
+          "vega": "divide by 100 to convert from per 1.0 volatility unit to per 1% volatility change",
+          "theta": "divide by 365 to convert from per year to per calendar day",
+          "rho": "no conversion; source and alpaca-option both use per 1.0 rate unit"
+        }
+      }
+    },
+    {
+      "id": "eu_bsm_006",
+      "api": "pricing.greeks_black_scholes",
+      "input": {
+        "spot": 75.0,
+        "strike": 70.0,
+        "years": 0.5,
+        "rate": 0.1,
+        "dividend_yield": 0.05,
+        "volatility": 0.35,
+        "option_right": "put"
+      },
+      "expected": {
+        "delta": -0.29970791756159126,
+        "gamma": 0.01846638382628984,
+        "vega": 0.18177846579004062,
+        "theta": -0.013231907476525806,
+        "rho": -13.28252382287735
+      },
+      "tolerance": 1e-09,
+      "source": {
+        "dataset_origin": "option-test/option_reference_dataset.json",
+        "dataset_group": "european_bsm_exact",
+        "dataset_case_id": "eu_bsm_006",
+        "original_inputs": {
+          "model": "black_scholes_merton",
+          "option_type": "put",
+          "spot": 75.0,
+          "strike": 70.0,
+          "time_to_expiry": 0.5,
+          "risk_free_rate": 0.1,
+          "dividend_yield": 0.05,
+          "volatility": 0.35
+        },
+        "original_expected": {
+          "price": 4.0869538286353535,
+          "delta": -0.29970791756159126,
+          "gamma": 0.01846638382628984,
+          "vega": 18.17784657900406,
+          "theta": -4.829646228931919,
+          "rho": -13.28252382287735
+        },
+        "original_validation": {
+          "quantlib_black_calculator": {
+            "price": 4.086953828635356,
+            "delta": -0.2997079175615913,
+            "gamma": 0.01846638382628983,
+            "vega": 18.17784657900407,
+            "theta": -4.829646228931915,
+            "rho": -13.282523822877351
+          },
+          "py_vollib_price": 4.086953828635353,
+          "max_abs_diff": 7.105427357601002e-15,
+          "source_note": "Parameter patterns mostly come from Haug-derived QuantLib European-option regression cases."
+        },
+        "original_tolerance": {
+          "price_abs": 1e-10,
+          "greeks_abs": 1e-09
+        },
+        "normalization": {
+          "vega": "divide by 100 to convert from per 1.0 volatility unit to per 1% volatility change",
+          "theta": "divide by 365 to convert from per year to per calendar day",
+          "rho": "no conversion; source and alpaca-option both use per 1.0 rate unit"
+        }
+      }
+    },
+    {
+      "id": "eu_bsm_007",
+      "api": "pricing.greeks_black_scholes",
+      "input": {
+        "spot": 90.0,
+        "strike": 100.0,
+        "years": 0.1,
+        "rate": 0.1,
+        "dividend_yield": 0.1,
+        "volatility": 0.15,
+        "option_right": "call"
+      },
+      "expected": {
+        "delta": 0.013853942225826324,
+        "gamma": 0.008272739138675001,
+        "vega": 0.010051378053490127,
+        "theta": -0.002059737915501676,
+        "rho": 0.1226364651787891
+      },
+      "tolerance": 1e-09,
+      "source": {
+        "dataset_origin": "option-test/option_reference_dataset.json",
+        "dataset_group": "european_bsm_exact",
+        "dataset_case_id": "eu_bsm_007",
+        "original_inputs": {
+          "model": "black_scholes_merton",
+          "option_type": "call",
+          "spot": 90.0,
+          "strike": 100.0,
+          "time_to_expiry": 0.1,
+          "risk_free_rate": 0.1,
+          "dividend_yield": 0.1,
+          "volatility": 0.15
+        },
+        "original_expected": {
+          "price": 0.020490148536478184,
+          "delta": 0.013853942225826324,
+          "gamma": 0.008272739138675001,
+          "vega": 1.0051378053490128,
+          "theta": -0.7518043391581117,
+          "rho": 0.1226364651787891
+        },
+        "original_validation": {
+          "quantlib_black_calculator": {
+            "price": 0.0204901485364782,
+            "delta": 0.01385394222582662,
+            "gamma": 0.008272739138675125,
+            "vega": 1.005137805349037,
+            "theta": -0.7518043391581227,
+            "rho": 0.12263646517879168
+          },
+          "py_vollib_price": 0.020490148536478188,
+          "max_abs_diff": 2.4202861936828413e-14,
+          "source_note": "Parameter patterns mostly come from Haug-derived QuantLib European-option regression cases."
+        },
+        "original_tolerance": {
+          "price_abs": 1e-10,
+          "greeks_abs": 1e-09
+        },
+        "normalization": {
+          "vega": "divide by 100 to convert from per 1.0 volatility unit to per 1% volatility change",
+          "theta": "divide by 365 to convert from per year to per calendar day",
+          "rho": "no conversion; source and alpaca-option both use per 1.0 rate unit"
+        }
+      }
+    },
+    {
+      "id": "eu_bsm_008",
+      "api": "pricing.greeks_black_scholes",
+      "input": {
+        "spot": 100.0,
+        "strike": 100.0,
+        "years": 0.5,
+        "rate": 0.1,
+        "dividend_yield": 0.1,
+        "volatility": 0.25,
+        "option_right": "call"
+      },
+      "expected": {
+        "delta": 0.5091131970680137,
+        "gamma": 0.02138325761071547,
+        "vega": 0.2672907201339434,
+        "theta": -0.01647205015615192,
+        "rho": 22.105811371635017
+      },
+      "tolerance": 1e-09,
+      "source": {
+        "dataset_origin": "option-test/option_reference_dataset.json",
+        "dataset_group": "european_bsm_exact",
+        "dataset_case_id": "eu_bsm_008",
+        "original_inputs": {
+          "model": "black_scholes_merton",
+          "option_type": "call",
+          "spot": 100.0,
+          "strike": 100.0,
+          "time_to_expiry": 0.5,
+          "risk_free_rate": 0.1,
+          "dividend_yield": 0.1,
+          "volatility": 0.25
+        },
+        "original_expected": {
+          "price": 6.699696963531337,
+          "delta": 0.5091131970680137,
+          "gamma": 0.02138325761071547,
+          "vega": 26.729072013394337,
+          "theta": -6.012298306995451,
+          "rho": 22.105811371635017
+        },
+        "original_validation": {
+          "quantlib_black_calculator": {
+            "price": 6.699696963531345,
+            "delta": 0.5091131970680137,
+            "gamma": 0.021383257610715474,
+            "vega": 26.72907201339434,
+            "theta": -6.012298306995453,
+            "rho": 22.10581137163502
+          },
+          "py_vollib_price": 6.699696963531338,
+          "max_abs_diff": 7.993605777301127e-15,
+          "source_note": "Parameter patterns mostly come from Haug-derived QuantLib European-option regression cases."
+        },
+        "original_tolerance": {
+          "price_abs": 1e-10,
+          "greeks_abs": 1e-09
+        },
+        "normalization": {
+          "vega": "divide by 100 to convert from per 1.0 volatility unit to per 1% volatility change",
+          "theta": "divide by 365 to convert from per year to per calendar day",
+          "rho": "no conversion; source and alpaca-option both use per 1.0 rate unit"
+        }
+      }
+    },
+    {
+      "id": "eu_bsm_009",
+      "api": "pricing.greeks_black_scholes",
+      "input": {
+        "spot": 110.0,
+        "strike": 100.0,
+        "years": 0.5,
+        "rate": 0.1,
+        "dividend_yield": 0.1,
+        "volatility": 0.25,
+        "option_right": "put"
+      },
+      "expected": {
+        "delta": -0.25221972311121404,
+        "gamma": 0.016027379932263025,
+        "vega": 0.24241412147547822,
+        "theta": -0.01570688922852548,
+        "rho": -15.508777113492545
+      },
+      "tolerance": 1e-09,
+      "source": {
+        "dataset_origin": "option-test/option_reference_dataset.json",
+        "dataset_group": "european_bsm_exact",
+        "dataset_case_id": "eu_bsm_009",
+        "original_inputs": {
+          "model": "black_scholes_merton",
+          "option_type": "put",
+          "spot": 110.0,
+          "strike": 100.0,
+          "time_to_expiry": 0.5,
+          "risk_free_rate": 0.1,
+          "dividend_yield": 0.1,
+          "volatility": 0.25
+        },
+        "original_expected": {
+          "price": 3.273384684751549,
+          "delta": -0.25221972311121404,
+          "gamma": 0.016027379932263025,
+          "vega": 24.241412147547823,
+          "theta": -5.733014568411801,
+          "rho": -15.508777113492545
+        },
+        "original_validation": {
+          "quantlib_black_calculator": {
+            "price": 3.27338468475155,
+            "delta": -0.2522197231112142,
+            "gamma": 0.016027379932263018,
+            "vega": 24.241412147547827,
+            "theta": -5.7330145684118,
+            "rho": -15.508777113492556
+          },
+          "py_vollib_price": 3.2733846847515466,
+          "max_abs_diff": 1.0658141036401503e-14,
+          "source_note": "Parameter patterns mostly come from Haug-derived QuantLib European-option regression cases."
+        },
+        "original_tolerance": {
+          "price_abs": 1e-10,
+          "greeks_abs": 1e-09
+        },
+        "normalization": {
+          "vega": "divide by 100 to convert from per 1.0 volatility unit to per 1% volatility change",
+          "theta": "divide by 365 to convert from per year to per calendar day",
+          "rho": "no conversion; source and alpaca-option both use per 1.0 rate unit"
+        }
+      }
+    },
+    {
+      "id": "eu_bsm_010",
+      "api": "pricing.greeks_black_scholes",
+      "input": {
+        "spot": 42.0,
+        "strike": 40.0,
+        "years": 0.75,
+        "rate": 0.04,
+        "dividend_yield": 0.08,
+        "volatility": 0.35,
+        "option_right": "call"
+      },
+      "expected": {
+        "delta": 0.5505079008346853,
+        "gamma": 0.028847096893412215,
+        "vega": 0.13357648216494528,
+        "theta": -0.005446655895170973,
+        "rho": 13.517838087997967
+      },
+      "tolerance": 1e-09,
+      "source": {
+        "dataset_origin": "option-test/option_reference_dataset.json",
+        "dataset_group": "european_bsm_exact",
+        "dataset_case_id": "eu_bsm_010",
+        "original_inputs": {
+          "model": "black_scholes_merton",
+          "option_type": "call",
+          "spot": 42.0,
+          "strike": 40.0,
+          "time_to_expiry": 0.75,
+          "risk_free_rate": 0.04,
+          "dividend_yield": 0.08,
+          "volatility": 0.35
+        },
+        "original_expected": {
+          "price": 5.09754771772616,
+          "delta": 0.5505079008346853,
+          "gamma": 0.028847096893412215,
+          "vega": 13.357648216494526,
+          "theta": -1.988029401737405,
+          "rho": 13.517838087997967
+        },
+        "original_validation": {
+          "quantlib_black_calculator": {
+            "price": 5.097547717726164,
+            "delta": 0.5505079008346854,
+            "gamma": 0.028847096893412215,
+            "vega": 13.357648216494525,
+            "theta": -1.9880294017374027,
+            "rho": 13.517838087997966
+          },
+          "py_vollib_price": 5.097547717726159,
+          "max_abs_diff": 4.440892098500626e-15,
+          "source_note": "Parameter patterns mostly come from Haug-derived QuantLib European-option regression cases."
+        },
+        "original_tolerance": {
+          "price_abs": 1e-10,
+          "greeks_abs": 1e-09
+        },
+        "normalization": {
+          "vega": "divide by 100 to convert from per 1.0 volatility unit to per 1% volatility change",
+          "theta": "divide by 365 to convert from per year to per calendar day",
+          "rho": "no conversion; source and alpaca-option both use per 1.0 rate unit"
+        }
+      }
+    }
+  ]
+}

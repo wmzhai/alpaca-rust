@@ -1,0 +1,687 @@
+{
+  "fixture": "greeks/bsm-greeks",
+  "layer": {
+    "id": "01-validated",
+    "label": "Validated",
+    "status": "integrated",
+    "source_dataset": "option_validated_dataset.json",
+    "source_case_count": 20,
+    "purpose": "The most basic and reliable closed-form regression layer."
+  },
+  "oracle": {
+    "tier": "A",
+    "layer_id": "01-validated",
+    "layer_label": "Validated",
+    "status": "integrated",
+    "dataset_origin": "option-test/option_validated_dataset.json",
+    "purpose": "Black-Scholes-Merton greeks regression cases.",
+    "dataset_group": "validated_bsm_prices_and_greeks"
+  },
+  "cases": [
+    {
+      "id": "validated_bsm_001",
+      "api": "pricing.greeks_black_scholes",
+      "input": {
+        "spot": 60.0,
+        "strike": 65.0,
+        "years": 0.25,
+        "rate": 0.08,
+        "dividend_yield": 0.0,
+        "volatility": 0.3,
+        "option_right": "call"
+      },
+      "expected": {
+        "delta": 0.37248279796197287,
+        "gamma": 0.04204275575378517,
+        "vega": 0.11351544053521996,
+        "theta": -0.02309088873078732,
+        "rho": 5.053899858200543
+      },
+      "tolerance": 1e-07,
+      "source": {
+        "dataset_origin": "option-test/option_validated_dataset.json",
+        "dataset_group": "validated_bsm_prices_and_greeks",
+        "dataset_case_id": "validated_bsm_001",
+        "original_inputs": {
+          "model": "black_scholes_merton",
+          "option_type": "call",
+          "spot": 60.0,
+          "strike": 65.0,
+          "time_to_expiry": 0.25,
+          "risk_free_rate": 0.08,
+          "dividend_yield": 0.0,
+          "volatility": 0.3
+        },
+        "original_expected": {
+          "price": 2.1333684449162,
+          "delta": 0.37248279796197287,
+          "gamma": 0.04204275575378517,
+          "vega": 11.351544053521996,
+          "theta": -8.428174386737371,
+          "rho": 5.053899858200543
+        },
+        "original_validation": {
+          "quantlib": {
+            "price": 2.1333684449161994,
+            "delta": 0.37248279796197314,
+            "gamma": 0.04204275575378517,
+            "vega": 11.351544053522,
+            "theta": -8.428174386737368,
+            "rho": 5.053899858200543
+          },
+          "py_vollib": {
+            "price": 2.1333684449162,
+            "delta": 0.37248279796197303,
+            "gamma": 0.04204275575378518,
+            "vega": 11.351544053522,
+            "theta": -8.428174386737375,
+            "rho": 5.053899858200545
+          },
+          "blackscholes_python": {
+            "price": 2.1333684449162043,
+            "delta": 0.37248279796197303,
+            "gamma": 0.04204275575378518,
+            "vega": 11.351544053522,
+            "theta": -8.428174386737375,
+            "rho": 5.053899858200545
+          },
+          "max_abs_diff_price_all_sources": 0.0057746737185864205,
+          "max_abs_diff_greeks_quantlib_vollib": 3.552713678800501e-15,
+          "max_abs_diff_delta_gamma_blackscholes_supporting": 1.6653345369377348e-16,
+          "mibian_price": 2.1275937711976134
+        },
+        "original_tolerance": {
+          "price_abs": 1e-10,
+          "greeks_abs": 1e-07,
+          "mibian_price_abs": 0.006
+        },
+        "normalization": {
+          "vega": "divide by 100 to convert from per 1.0 volatility unit to per 1% volatility change",
+          "theta": "divide by 365 to convert from per year to per calendar day",
+          "rho": "no conversion; source and alpaca-option both use per 1.0 rate unit"
+        }
+      }
+    },
+    {
+      "id": "validated_bsm_002",
+      "api": "pricing.greeks_black_scholes",
+      "input": {
+        "spot": 100.0,
+        "strike": 95.0,
+        "years": 0.5,
+        "rate": 0.1,
+        "dividend_yield": 0.05,
+        "volatility": 0.2,
+        "option_right": "put"
+      },
+      "expected": {
+        "delta": -0.2641815996360724,
+        "gamma": 0.022839574296269993,
+        "vega": 0.2283957429626999,
+        "theta": -0.008220624921638504,
+        "rho": -14.44147380518153
+      },
+      "tolerance": 1e-07,
+      "source": {
+        "dataset_origin": "option-test/option_validated_dataset.json",
+        "dataset_group": "validated_bsm_prices_and_greeks",
+        "dataset_case_id": "validated_bsm_002",
+        "original_inputs": {
+          "model": "black_scholes_merton",
+          "option_type": "put",
+          "spot": 100.0,
+          "strike": 95.0,
+          "time_to_expiry": 0.5,
+          "risk_free_rate": 0.1,
+          "dividend_yield": 0.05,
+          "volatility": 0.2
+        },
+        "original_expected": {
+          "price": 2.464787646755821,
+          "delta": -0.2641815996360724,
+          "gamma": 0.022839574296269993,
+          "vega": 22.83957429626999,
+          "theta": -3.000528096398054,
+          "rho": -14.44147380518153
+        },
+        "original_validation": {
+          "quantlib": {
+            "price": 2.464787646755827,
+            "delta": -0.2641815996360721,
+            "gamma": 0.022839574296269986,
+            "vega": 22.839574296270005,
+            "theta": -3.0005280963980554,
+            "rho": -14.44147380518153
+          },
+          "py_vollib": {
+            "price": 2.464787646755818,
+            "delta": -0.2641815996360726,
+            "gamma": 0.022839574296269996,
+            "vega": 22.839574296269998,
+            "theta": -3.000528096398055,
+            "rho": -14.44147380518154
+          },
+          "blackscholes_python": {
+            "price": 2.46478764675582,
+            "delta": -0.2641815996360726,
+            "gamma": 0.022839574296269996,
+            "vega": 23.417760872306726,
+            "theta": -3.234730099384339,
+            "rho": -14.44147380518154
+          },
+          "max_abs_diff_price_all_sources": 5.773159728050814e-15,
+          "max_abs_diff_greeks_quantlib_vollib": 1.4210854715202004e-14,
+          "max_abs_diff_delta_gamma_blackscholes_supporting": 1.6653345369377348e-16
+        },
+        "original_tolerance": {
+          "price_abs": 1e-10,
+          "greeks_abs": 1e-07,
+          "mibian_price_abs": 0.006
+        },
+        "normalization": {
+          "vega": "divide by 100 to convert from per 1.0 volatility unit to per 1% volatility change",
+          "theta": "divide by 365 to convert from per year to per calendar day",
+          "rho": "no conversion; source and alpaca-option both use per 1.0 rate unit"
+        }
+      }
+    },
+    {
+      "id": "validated_bsm_003",
+      "api": "pricing.greeks_black_scholes",
+      "input": {
+        "spot": 19.0,
+        "strike": 19.0,
+        "years": 0.75,
+        "rate": 0.1,
+        "dividend_yield": 0.1,
+        "volatility": 0.28,
+        "option_right": "put"
+      },
+      "expected": {
+        "delta": -0.419107250394901,
+        "gamma": 0.07974503467912114,
+        "vega": 0.06045471079024174,
+        "theta": -0.002625706471856308,
+        "rho": -7.24806636205454
+      },
+      "tolerance": 1e-07,
+      "source": {
+        "dataset_origin": "option-test/option_validated_dataset.json",
+        "dataset_group": "validated_bsm_prices_and_greeks",
+        "dataset_case_id": "validated_bsm_003",
+        "original_inputs": {
+          "model": "black_scholes_merton",
+          "option_type": "put",
+          "spot": 19.0,
+          "strike": 19.0,
+          "time_to_expiry": 0.75,
+          "risk_free_rate": 0.1,
+          "dividend_yield": 0.1,
+          "volatility": 0.28
+        },
+        "original_expected": {
+          "price": 1.7010507252362672,
+          "delta": -0.419107250394901,
+          "gamma": 0.07974503467912114,
+          "vega": 6.045471079024174,
+          "theta": -0.9583828622275524,
+          "rho": -7.24806636205454
+        },
+        "original_validation": {
+          "quantlib": {
+            "price": 1.7010507252362677,
+            "delta": -0.41910725039490093,
+            "gamma": 0.07974503467912114,
+            "vega": 6.045471079024173,
+            "theta": -0.9583828622275523,
+            "rho": -7.248066362054539
+          },
+          "py_vollib": {
+            "price": 1.7010507252362679,
+            "delta": -0.419107250394901,
+            "gamma": 0.07974503467912114,
+            "vega": 6.045471079024174,
+            "theta": -0.9583828622275522,
+            "rho": -7.248066362054539
+          },
+          "blackscholes_python": {
+            "price": 1.7010507252362679,
+            "delta": -0.419107250394901,
+            "gamma": 0.07974503467912114,
+            "vega": 6.516317460711568,
+            "theta": -1.1410108525760139,
+            "rho": -7.248066362054539
+          },
+          "max_abs_diff_price_all_sources": 6.661338147750939e-16,
+          "max_abs_diff_greeks_quantlib_vollib": 8.881784197001252e-16,
+          "max_abs_diff_delta_gamma_blackscholes_supporting": 0.0
+        },
+        "original_tolerance": {
+          "price_abs": 1e-10,
+          "greeks_abs": 1e-07,
+          "mibian_price_abs": 0.006
+        },
+        "normalization": {
+          "vega": "divide by 100 to convert from per 1.0 volatility unit to per 1% volatility change",
+          "theta": "divide by 365 to convert from per year to per calendar day",
+          "rho": "no conversion; source and alpaca-option both use per 1.0 rate unit"
+        }
+      }
+    },
+    {
+      "id": "validated_bsm_004",
+      "api": "pricing.greeks_black_scholes",
+      "input": {
+        "spot": 19.0,
+        "strike": 19.0,
+        "years": 0.75,
+        "rate": 0.1,
+        "dividend_yield": 0.1,
+        "volatility": 0.28,
+        "option_right": "call"
+      },
+      "expected": {
+        "delta": 0.5086362359336519,
+        "gamma": 0.07974503467912114,
+        "vega": 0.06045471079024174,
+        "theta": -0.002625706471856308,
+        "rho": 5.972278318127339
+      },
+      "tolerance": 1e-07,
+      "source": {
+        "dataset_origin": "option-test/option_validated_dataset.json",
+        "dataset_group": "validated_bsm_prices_and_greeks",
+        "dataset_case_id": "validated_bsm_004",
+        "original_inputs": {
+          "model": "black_scholes_merton",
+          "option_type": "call",
+          "spot": 19.0,
+          "strike": 19.0,
+          "time_to_expiry": 0.75,
+          "risk_free_rate": 0.1,
+          "dividend_yield": 0.1,
+          "volatility": 0.28
+        },
+        "original_expected": {
+          "price": 1.7010507252362672,
+          "delta": 0.5086362359336519,
+          "gamma": 0.07974503467912114,
+          "vega": 6.045471079024174,
+          "theta": -0.9583828622275524,
+          "rho": 5.972278318127339
+        },
+        "original_validation": {
+          "quantlib": {
+            "price": 1.7010507252362677,
+            "delta": 0.5086362359336518,
+            "gamma": 0.07974503467912114,
+            "vega": 6.045471079024173,
+            "theta": -0.9583828622275523,
+            "rho": 5.972278318127339
+          },
+          "py_vollib": {
+            "price": 1.7010507252362679,
+            "delta": 0.5086362359336519,
+            "gamma": 0.07974503467912114,
+            "vega": 6.045471079024174,
+            "theta": -0.9583828622275523,
+            "rho": 5.972278318127339
+          },
+          "blackscholes_python": {
+            "price": 1.701050725236267,
+            "delta": 0.5086362359336519,
+            "gamma": 0.07974503467912114,
+            "vega": 6.516317460711568,
+            "theta": -0.9583828622275522,
+            "rho": 5.972278318127339
+          },
+          "max_abs_diff_price_all_sources": 6.661338147750939e-16,
+          "max_abs_diff_greeks_quantlib_vollib": 8.881784197001252e-16,
+          "max_abs_diff_delta_gamma_blackscholes_supporting": 0.0
+        },
+        "original_tolerance": {
+          "price_abs": 1e-10,
+          "greeks_abs": 1e-07,
+          "mibian_price_abs": 0.006
+        },
+        "normalization": {
+          "vega": "divide by 100 to convert from per 1.0 volatility unit to per 1% volatility change",
+          "theta": "divide by 365 to convert from per year to per calendar day",
+          "rho": "no conversion; source and alpaca-option both use per 1.0 rate unit"
+        }
+      }
+    },
+    {
+      "id": "validated_bsm_005",
+      "api": "pricing.greeks_black_scholes",
+      "input": {
+        "spot": 1.56,
+        "strike": 1.6,
+        "years": 0.5,
+        "rate": 0.06,
+        "dividend_yield": 0.08,
+        "volatility": 0.12,
+        "option_right": "call"
+      },
+      "expected": {
+        "delta": 0.3403859092321428,
+        "gamma": 2.700266083546168,
+        "vega": 0.003942820524550772,
+        "theta": -9.574753626739735e-05,
+        "rho": 0.2509513826263515
+      },
+      "tolerance": 1e-07,
+      "source": {
+        "dataset_origin": "option-test/option_validated_dataset.json",
+        "dataset_group": "validated_bsm_prices_and_greeks",
+        "dataset_case_id": "validated_bsm_005",
+        "original_inputs": {
+          "model": "black_scholes_merton",
+          "option_type": "call",
+          "spot": 1.56,
+          "strike": 1.6,
+          "time_to_expiry": 0.5,
+          "risk_free_rate": 0.06,
+          "dividend_yield": 0.08,
+          "volatility": 0.12
+        },
+        "original_expected": {
+          "price": 0.02909925314943968,
+          "delta": 0.3403859092321428,
+          "gamma": 2.700266083546168,
+          "vega": 0.39428205245507725,
+          "theta": -0.03494785073760003,
+          "rho": 0.2509513826263515
+        },
+        "original_validation": {
+          "quantlib": {
+            "price": 0.02909925314943963,
+            "delta": 0.34038590923214307,
+            "gamma": 2.7002660835461687,
+            "vega": 0.3942820524550771,
+            "theta": -0.03494785073760011,
+            "rho": 0.25095138262635164
+          },
+          "py_vollib": {
+            "price": 0.029099253149439695,
+            "delta": 0.34038590923214274,
+            "gamma": 2.7002660835461674,
+            "vega": 0.39428205245507725,
+            "theta": -0.034947850737600025,
+            "rho": 0.25095138262635147
+          },
+          "blackscholes_python": {
+            "price": 0.02909925314943973,
+            "delta": 0.34038590923214274,
+            "gamma": 2.7002660835461674,
+            "vega": 0.4103730082659328,
+            "theta": -0.034947850737600025,
+            "rho": 0.25095138262635147
+          },
+          "max_abs_diff_price_all_sources": 5.204170427930421e-17,
+          "max_abs_diff_greeks_quantlib_vollib": 8.881784197001252e-16,
+          "max_abs_diff_delta_gamma_blackscholes_supporting": 4.440892098500626e-16
+        },
+        "original_tolerance": {
+          "price_abs": 1e-10,
+          "greeks_abs": 1e-07,
+          "mibian_price_abs": 0.006
+        },
+        "normalization": {
+          "vega": "divide by 100 to convert from per 1.0 volatility unit to per 1% volatility change",
+          "theta": "divide by 365 to convert from per year to per calendar day",
+          "rho": "no conversion; source and alpaca-option both use per 1.0 rate unit"
+        }
+      }
+    },
+    {
+      "id": "validated_bsm_006",
+      "api": "pricing.greeks_black_scholes",
+      "input": {
+        "spot": 75.0,
+        "strike": 70.0,
+        "years": 0.5,
+        "rate": 0.1,
+        "dividend_yield": 0.05,
+        "volatility": 0.35,
+        "option_right": "put"
+      },
+      "expected": {
+        "delta": -0.29970791756159126,
+        "gamma": 0.01846638382628984,
+        "vega": 0.18177846579004062,
+        "theta": -0.013231907476525806,
+        "rho": -13.28252382287735
+      },
+      "tolerance": 1e-07,
+      "source": {
+        "dataset_origin": "option-test/option_validated_dataset.json",
+        "dataset_group": "validated_bsm_prices_and_greeks",
+        "dataset_case_id": "validated_bsm_006",
+        "original_inputs": {
+          "model": "black_scholes_merton",
+          "option_type": "put",
+          "spot": 75.0,
+          "strike": 70.0,
+          "time_to_expiry": 0.5,
+          "risk_free_rate": 0.1,
+          "dividend_yield": 0.05,
+          "volatility": 0.35
+        },
+        "original_expected": {
+          "price": 4.0869538286353535,
+          "delta": -0.29970791756159126,
+          "gamma": 0.01846638382628984,
+          "vega": 18.17784657900406,
+          "theta": -4.829646228931919,
+          "rho": -13.28252382287735
+        },
+        "original_validation": {
+          "quantlib": {
+            "price": 4.086953828635356,
+            "delta": -0.2997079175615913,
+            "gamma": 0.01846638382628983,
+            "vega": 18.17784657900407,
+            "theta": -4.829646228931915,
+            "rho": -13.282523822877351
+          },
+          "py_vollib": {
+            "price": 4.086953828635353,
+            "delta": -0.2997079175615913,
+            "gamma": 0.018466383826289845,
+            "vega": 18.17784657900407,
+            "theta": -4.829646228931919,
+            "rho": -13.282523822877353
+          },
+          "blackscholes_python": {
+            "price": 4.086953828635348,
+            "delta": -0.29970791756159143,
+            "gamma": 0.018466383826289845,
+            "vega": 18.638020956026132,
+            "theta": -5.155845572283163,
+            "rho": -13.282523822877353
+          },
+          "max_abs_diff_price_all_sources": 5.329070518200751e-15,
+          "max_abs_diff_greeks_quantlib_vollib": 7.105427357601002e-15,
+          "max_abs_diff_delta_gamma_blackscholes_supporting": 1.6653345369377348e-16
+        },
+        "original_tolerance": {
+          "price_abs": 1e-10,
+          "greeks_abs": 1e-07,
+          "mibian_price_abs": 0.006
+        },
+        "normalization": {
+          "vega": "divide by 100 to convert from per 1.0 volatility unit to per 1% volatility change",
+          "theta": "divide by 365 to convert from per year to per calendar day",
+          "rho": "no conversion; source and alpaca-option both use per 1.0 rate unit"
+        }
+      }
+    },
+    {
+      "id": "validated_bsm_007",
+      "api": "pricing.greeks_black_scholes",
+      "input": {
+        "spot": 42.0,
+        "strike": 40.0,
+        "years": 0.75,
+        "rate": 0.04,
+        "dividend_yield": 0.08,
+        "volatility": 0.35,
+        "option_right": "call"
+      },
+      "expected": {
+        "delta": 0.5505079008346853,
+        "gamma": 0.028847096893412215,
+        "vega": 0.13357648216494528,
+        "theta": -0.005446655895170973,
+        "rho": 13.517838087997967
+      },
+      "tolerance": 1e-07,
+      "source": {
+        "dataset_origin": "option-test/option_validated_dataset.json",
+        "dataset_group": "validated_bsm_prices_and_greeks",
+        "dataset_case_id": "validated_bsm_007",
+        "original_inputs": {
+          "model": "black_scholes_merton",
+          "option_type": "call",
+          "spot": 42.0,
+          "strike": 40.0,
+          "time_to_expiry": 0.75,
+          "risk_free_rate": 0.04,
+          "dividend_yield": 0.08,
+          "volatility": 0.35
+        },
+        "original_expected": {
+          "price": 5.09754771772616,
+          "delta": 0.5505079008346853,
+          "gamma": 0.028847096893412215,
+          "vega": 13.357648216494526,
+          "theta": -1.988029401737405,
+          "rho": 13.517838087997967
+        },
+        "original_validation": {
+          "quantlib": {
+            "price": 5.097547717726164,
+            "delta": 0.5505079008346854,
+            "gamma": 0.028847096893412215,
+            "vega": 13.357648216494525,
+            "theta": -1.9880294017374027,
+            "rho": 13.517838087997966
+          },
+          "py_vollib": {
+            "price": 5.097547717726159,
+            "delta": 0.5505079008346854,
+            "gamma": 0.028847096893412222,
+            "vega": 13.357648216494528,
+            "theta": -1.9880294017374052,
+            "rho": 13.51783808799797
+          },
+          "blackscholes_python": {
+            "price": 5.097547717726165,
+            "delta": 0.5505079008346854,
+            "gamma": 0.028847096893412222,
+            "vega": 14.18363905217033,
+            "theta": -1.9880294017374054,
+            "rho": 13.51783808799797
+          },
+          "max_abs_diff_price_all_sources": 5.329070518200751e-15,
+          "max_abs_diff_greeks_quantlib_vollib": 2.220446049250313e-15,
+          "max_abs_diff_delta_gamma_blackscholes_supporting": 1.1102230246251565e-16
+        },
+        "original_tolerance": {
+          "price_abs": 1e-10,
+          "greeks_abs": 1e-07,
+          "mibian_price_abs": 0.006
+        },
+        "normalization": {
+          "vega": "divide by 100 to convert from per 1.0 volatility unit to per 1% volatility change",
+          "theta": "divide by 365 to convert from per year to per calendar day",
+          "rho": "no conversion; source and alpaca-option both use per 1.0 rate unit"
+        }
+      }
+    },
+    {
+      "id": "validated_bsm_008",
+      "api": "pricing.greeks_black_scholes",
+      "input": {
+        "spot": 110.0,
+        "strike": 100.0,
+        "years": 0.5,
+        "rate": 0.1,
+        "dividend_yield": 0.1,
+        "volatility": 0.25,
+        "option_right": "put"
+      },
+      "expected": {
+        "delta": -0.25221972311121404,
+        "gamma": 0.016027379932263025,
+        "vega": 0.24241412147547822,
+        "theta": -0.01570688922852548,
+        "rho": -15.508777113492545
+      },
+      "tolerance": 1e-07,
+      "source": {
+        "dataset_origin": "option-test/option_validated_dataset.json",
+        "dataset_group": "validated_bsm_prices_and_greeks",
+        "dataset_case_id": "validated_bsm_008",
+        "original_inputs": {
+          "model": "black_scholes_merton",
+          "option_type": "put",
+          "spot": 110.0,
+          "strike": 100.0,
+          "time_to_expiry": 0.5,
+          "risk_free_rate": 0.1,
+          "dividend_yield": 0.1,
+          "volatility": 0.25
+        },
+        "original_expected": {
+          "price": 3.273384684751549,
+          "delta": -0.25221972311121404,
+          "gamma": 0.016027379932263025,
+          "vega": 24.241412147547823,
+          "theta": -5.733014568411801,
+          "rho": -15.508777113492545
+        },
+        "original_validation": {
+          "quantlib": {
+            "price": 3.27338468475155,
+            "delta": -0.2522197231112142,
+            "gamma": 0.016027379932263018,
+            "vega": 24.241412147547827,
+            "theta": -5.7330145684118,
+            "rho": -15.508777113492556
+          },
+          "py_vollib": {
+            "price": 3.2733846847515466,
+            "delta": -0.2522197231112139,
+            "gamma": 0.016027379932263025,
+            "vega": 24.241412147547827,
+            "theta": -5.733014568411801,
+            "rho": -15.508777113492542
+          },
+          "blackscholes_python": {
+            "price": 3.2733846847515515,
+            "delta": -0.2522197231112139,
+            "gamma": 0.016027379932263025,
+            "vega": 25.484295926055673,
+            "theta": -6.37038746116374,
+            "rho": -15.508777113492542
+          },
+          "max_abs_diff_price_all_sources": 2.6645352591003757e-15,
+          "max_abs_diff_greeks_quantlib_vollib": 1.0658141036401503e-14,
+          "max_abs_diff_delta_gamma_blackscholes_supporting": 1.6653345369377348e-16
+        },
+        "original_tolerance": {
+          "price_abs": 1e-10,
+          "greeks_abs": 1e-07,
+          "mibian_price_abs": 0.006
+        },
+        "normalization": {
+          "vega": "divide by 100 to convert from per 1.0 volatility unit to per 1% volatility change",
+          "theta": "divide by 365 to convert from per year to per calendar day",
+          "rho": "no conversion; source and alpaca-option both use per 1.0 rate unit"
+        }
+      }
+    }
+  ]
+}

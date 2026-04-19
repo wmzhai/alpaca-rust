@@ -1,0 +1,358 @@
+{
+  "fixture": "pricing/bsm-pricing",
+  "layer": {
+    "id": "05-extreme-stability",
+    "label": "Extreme Stability",
+    "status": "integrated",
+    "source_dataset": "option_extreme_stability_dataset.json",
+    "source_case_count": 38,
+    "purpose": "A harder floating-point stability hardening layer."
+  },
+  "oracle": {
+    "tier": "A+/B",
+    "layer_id": "05-extreme-stability",
+    "layer_label": "Extreme Stability",
+    "status": "integrated",
+    "dataset_origin": "option-test/option_extreme_stability_dataset.json",
+    "purpose": "Black-Scholes-Merton pricing regression cases.",
+    "dataset_group": "extreme_bsm_exact"
+  },
+  "cases": [
+    {
+      "id": "xbsm_001",
+      "api": "pricing.price_black_scholes",
+      "input": {
+        "spot": 100.0,
+        "strike": 100.0,
+        "years": 0.0027397260273972603,
+        "rate": 0.05,
+        "dividend_yield": 0.0,
+        "volatility": 0.01,
+        "option_right": "call"
+      },
+      "expected": {
+        "value": 0.028440029269688694
+      },
+      "tolerance": 1e-10,
+      "source": {
+        "dataset_origin": "option-test/option_extreme_stability_dataset.json",
+        "dataset_group": "extreme_bsm_exact",
+        "dataset_case_id": "xbsm_001",
+        "original_inputs": {
+          "model": "black_scholes_merton",
+          "option_type": "call",
+          "spot": 100.0,
+          "strike": 100.0,
+          "time_to_expiry": 0.0027397260273972603,
+          "risk_free_rate": 0.05,
+          "dividend_yield": 0.0,
+          "volatility": 0.01
+        },
+        "original_expected": {
+          "price": 0.028440029269688694
+        },
+        "original_validation": {
+          "quantlib": 0.028440029269704587,
+          "abs_diff_local_vs_quantlib": 1.5893536486899507e-14
+        },
+        "original_tolerance": {
+          "price_abs": 1e-10
+        }
+      }
+    },
+    {
+      "id": "xbsm_002",
+      "api": "pricing.price_black_scholes",
+      "input": {
+        "spot": 100.0,
+        "strike": 100.0,
+        "years": 0.0027397260273972603,
+        "rate": -0.01,
+        "dividend_yield": 0.0,
+        "volatility": 1.2,
+        "option_right": "put"
+      },
+      "expected": {
+        "value": 2.5067837903630092
+      },
+      "tolerance": 1e-10,
+      "source": {
+        "dataset_origin": "option-test/option_extreme_stability_dataset.json",
+        "dataset_group": "extreme_bsm_exact",
+        "dataset_case_id": "xbsm_002",
+        "original_inputs": {
+          "model": "black_scholes_merton",
+          "option_type": "put",
+          "spot": 100.0,
+          "strike": 100.0,
+          "time_to_expiry": 0.0027397260273972603,
+          "risk_free_rate": -0.01,
+          "dividend_yield": 0.0,
+          "volatility": 1.2
+        },
+        "original_expected": {
+          "price": 2.5067837903630092
+        },
+        "original_validation": {
+          "quantlib": 2.5067837903630084,
+          "abs_diff_local_vs_quantlib": 8.881784197001252e-16
+        },
+        "original_tolerance": {
+          "price_abs": 1e-10
+        }
+      }
+    },
+    {
+      "id": "xbsm_003",
+      "api": "pricing.price_black_scholes",
+      "input": {
+        "spot": 250.0,
+        "strike": 100.0,
+        "years": 10.0,
+        "rate": 0.03,
+        "dividend_yield": 0.02,
+        "volatility": 0.12,
+        "option_right": "call"
+      },
+      "expected": {
+        "value": 130.65325629560832
+      },
+      "tolerance": 1e-10,
+      "source": {
+        "dataset_origin": "option-test/option_extreme_stability_dataset.json",
+        "dataset_group": "extreme_bsm_exact",
+        "dataset_case_id": "xbsm_003",
+        "original_inputs": {
+          "model": "black_scholes_merton",
+          "option_type": "call",
+          "spot": 250.0,
+          "strike": 100.0,
+          "time_to_expiry": 10.0,
+          "risk_free_rate": 0.03,
+          "dividend_yield": 0.02,
+          "volatility": 0.12
+        },
+        "original_expected": {
+          "price": 130.65325629560832
+        },
+        "original_validation": {
+          "quantlib": 130.6532562956083,
+          "abs_diff_local_vs_quantlib": 2.842170943040401e-14
+        },
+        "original_tolerance": {
+          "price_abs": 1e-10
+        }
+      }
+    },
+    {
+      "id": "xbsm_004",
+      "api": "pricing.price_black_scholes",
+      "input": {
+        "spot": 25.0,
+        "strike": 100.0,
+        "years": 5.0,
+        "rate": 0.0,
+        "dividend_yield": 0.0,
+        "volatility": 0.75,
+        "option_right": "put"
+      },
+      "expected": {
+        "value": 82.82455065952182
+      },
+      "tolerance": 1e-10,
+      "source": {
+        "dataset_origin": "option-test/option_extreme_stability_dataset.json",
+        "dataset_group": "extreme_bsm_exact",
+        "dataset_case_id": "xbsm_004",
+        "original_inputs": {
+          "model": "black_scholes_merton",
+          "option_type": "put",
+          "spot": 25.0,
+          "strike": 100.0,
+          "time_to_expiry": 5.0,
+          "risk_free_rate": 0.0,
+          "dividend_yield": 0.0,
+          "volatility": 0.75
+        },
+        "original_expected": {
+          "price": 82.82455065952182
+        },
+        "original_validation": {
+          "quantlib": 82.82455065952182,
+          "abs_diff_local_vs_quantlib": 0.0
+        },
+        "original_tolerance": {
+          "price_abs": 1e-10
+        }
+      }
+    },
+    {
+      "id": "xbsm_005",
+      "api": "pricing.price_black_scholes",
+      "input": {
+        "spot": 100.0,
+        "strike": 180.0,
+        "years": 3.0,
+        "rate": -0.005,
+        "dividend_yield": 0.01,
+        "volatility": 0.55,
+        "option_right": "call"
+      },
+      "expected": {
+        "value": 18.07872347642102
+      },
+      "tolerance": 1e-10,
+      "source": {
+        "dataset_origin": "option-test/option_extreme_stability_dataset.json",
+        "dataset_group": "extreme_bsm_exact",
+        "dataset_case_id": "xbsm_005",
+        "original_inputs": {
+          "model": "black_scholes_merton",
+          "option_type": "call",
+          "spot": 100.0,
+          "strike": 180.0,
+          "time_to_expiry": 3.0,
+          "risk_free_rate": -0.005,
+          "dividend_yield": 0.01,
+          "volatility": 0.55
+        },
+        "original_expected": {
+          "price": 18.07872347642102
+        },
+        "original_validation": {
+          "quantlib": 18.078723476421015,
+          "abs_diff_local_vs_quantlib": 3.552713678800501e-15
+        },
+        "original_tolerance": {
+          "price_abs": 1e-10
+        }
+      }
+    },
+    {
+      "id": "xbsm_006",
+      "api": "pricing.price_black_scholes",
+      "input": {
+        "spot": 180.0,
+        "strike": 100.0,
+        "years": 3.0,
+        "rate": 0.07,
+        "dividend_yield": 0.0,
+        "volatility": 0.08,
+        "option_right": "put"
+      },
+      "expected": {
+        "value": 1.1724199811966353e-08
+      },
+      "tolerance": 1e-10,
+      "source": {
+        "dataset_origin": "option-test/option_extreme_stability_dataset.json",
+        "dataset_group": "extreme_bsm_exact",
+        "dataset_case_id": "xbsm_006",
+        "original_inputs": {
+          "model": "black_scholes_merton",
+          "option_type": "put",
+          "spot": 180.0,
+          "strike": 100.0,
+          "time_to_expiry": 3.0,
+          "risk_free_rate": 0.07,
+          "dividend_yield": 0.0,
+          "volatility": 0.08
+        },
+        "original_expected": {
+          "price": 1.1724199811966353e-08
+        },
+        "original_validation": {
+          "quantlib": 1.1724207998718843e-08,
+          "abs_diff_local_vs_quantlib": 8.186752490036928e-15
+        },
+        "original_tolerance": {
+          "price_abs": 1e-10
+        }
+      }
+    },
+    {
+      "id": "xbsm_007",
+      "api": "pricing.price_black_scholes",
+      "input": {
+        "spot": 100.0,
+        "strike": 100.0,
+        "years": 30.0,
+        "rate": 0.015,
+        "dividend_yield": 0.012,
+        "volatility": 0.09,
+        "option_right": "call"
+      },
+      "expected": {
+        "value": 16.21215334039326
+      },
+      "tolerance": 1e-10,
+      "source": {
+        "dataset_origin": "option-test/option_extreme_stability_dataset.json",
+        "dataset_group": "extreme_bsm_exact",
+        "dataset_case_id": "xbsm_007",
+        "original_inputs": {
+          "model": "black_scholes_merton",
+          "option_type": "call",
+          "spot": 100.0,
+          "strike": 100.0,
+          "time_to_expiry": 30.0,
+          "risk_free_rate": 0.015,
+          "dividend_yield": 0.012,
+          "volatility": 0.09
+        },
+        "original_expected": {
+          "price": 16.21215334039326
+        },
+        "original_validation": {
+          "quantlib": 16.212153340393268,
+          "abs_diff_local_vs_quantlib": 7.105427357601002e-15
+        },
+        "original_tolerance": {
+          "price_abs": 1e-10
+        }
+      }
+    },
+    {
+      "id": "xbsm_008",
+      "api": "pricing.price_black_scholes",
+      "input": {
+        "spot": 100.0,
+        "strike": 100.0,
+        "years": 30.0,
+        "rate": 0.015,
+        "dividend_yield": 0.012,
+        "volatility": 0.09,
+        "option_right": "put"
+      },
+      "expected": {
+        "value": 10.20733589546748
+      },
+      "tolerance": 1e-10,
+      "source": {
+        "dataset_origin": "option-test/option_extreme_stability_dataset.json",
+        "dataset_group": "extreme_bsm_exact",
+        "dataset_case_id": "xbsm_008",
+        "original_inputs": {
+          "model": "black_scholes_merton",
+          "option_type": "put",
+          "spot": 100.0,
+          "strike": 100.0,
+          "time_to_expiry": 30.0,
+          "risk_free_rate": 0.015,
+          "dividend_yield": 0.012,
+          "volatility": 0.09
+        },
+        "original_expected": {
+          "price": 10.20733589546748
+        },
+        "original_validation": {
+          "quantlib": 10.207335895467489,
+          "abs_diff_local_vs_quantlib": 8.881784197001252e-15
+        },
+        "original_tolerance": {
+          "price_abs": 1e-10
+        }
+      }
+    }
+  ]
+}

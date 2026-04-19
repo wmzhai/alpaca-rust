@@ -1,0 +1,395 @@
+{
+  "fixture": "pineify-implied-volatility",
+  "oracle": {
+    "provider": "pineify",
+    "url": "https://pineify.app/black-scholes-option-calculator",
+    "captured_at": "2026-04-12",
+    "mode": "market_price_to_iv",
+    "display_precision": "IV is captured from the site UI in percent with 2 decimal places",
+    "normalization": {
+      "value": "expected IV is stored as a decimal fraction, so expected value = raw implied_volatility_pct / 100"
+    }
+  },
+  "cases": [
+    {
+      "id": "pineify-call-atm-30d",
+      "api": "pricing.implied_volatility_from_price",
+      "input": {
+        "target_price": 2.4723,
+        "spot": 100.0,
+        "strike": 100.0,
+        "years": 0.0821917808219178,
+        "rate": 0.045,
+        "dividend_yield": 0.0,
+        "option_right": "call",
+        "lower_bound": 0.0001,
+        "upper_bound": 5.0,
+        "tolerance": 1e-10
+      },
+      "expected": {
+        "value": 0.2
+      },
+      "tolerance": 5e-05,
+      "source": {
+        "provider": "pineify",
+        "url": "https://pineify.app/black-scholes-option-calculator",
+        "captured_at": "2026-04-12",
+        "input": {
+          "option_right": "call",
+          "spot": 100.0,
+          "strike": 100.0,
+          "days": 30,
+          "market_price": 2.4723,
+          "rate_pct": 4.5,
+          "dividend_yield_pct": 0.0
+        },
+        "output": {
+          "implied_volatility_pct": 20.0,
+          "years_display": 0.0822
+        }
+      }
+    },
+    {
+      "id": "pineify-put-otm-45d",
+      "api": "pricing.implied_volatility_from_price",
+      "input": {
+        "target_price": 1.3304,
+        "spot": 100.0,
+        "strike": 95.0,
+        "years": 0.123287671232877,
+        "rate": 0.045,
+        "dividend_yield": 0.0,
+        "option_right": "put",
+        "lower_bound": 0.0001,
+        "upper_bound": 5.0,
+        "tolerance": 1e-10
+      },
+      "expected": {
+        "value": 0.25
+      },
+      "tolerance": 5e-05,
+      "source": {
+        "provider": "pineify",
+        "url": "https://pineify.app/black-scholes-option-calculator",
+        "captured_at": "2026-04-12",
+        "input": {
+          "option_right": "put",
+          "spot": 100.0,
+          "strike": 95.0,
+          "days": 45,
+          "market_price": 1.3304,
+          "rate_pct": 4.5,
+          "dividend_yield_pct": 0.0
+        },
+        "output": {
+          "implied_volatility_pct": 25.0,
+          "years_display": 0.1233
+        }
+      }
+    },
+    {
+      "id": "pineify-call-itm-14d",
+      "api": "pricing.implied_volatility_from_price",
+      "input": {
+        "target_price": 5.2955,
+        "spot": 105.0,
+        "strike": 100.0,
+        "years": 0.0383561643835616,
+        "rate": 0.045,
+        "dividend_yield": 0.0,
+        "option_right": "call",
+        "lower_bound": 0.0001,
+        "upper_bound": 5.0,
+        "tolerance": 1e-10
+      },
+      "expected": {
+        "value": 0.18
+      },
+      "tolerance": 5e-05,
+      "source": {
+        "provider": "pineify",
+        "url": "https://pineify.app/black-scholes-option-calculator",
+        "captured_at": "2026-04-12",
+        "input": {
+          "option_right": "call",
+          "spot": 105.0,
+          "strike": 100.0,
+          "days": 14,
+          "market_price": 5.2955,
+          "rate_pct": 4.5,
+          "dividend_yield_pct": 0.0
+        },
+        "output": {
+          "implied_volatility_pct": 18.0,
+          "years_display": 0.0384
+        }
+      }
+    },
+    {
+      "id": "pineify-put-itm-60d",
+      "api": "pricing.implied_volatility_from_price",
+      "input": {
+        "target_price": 7.5183,
+        "spot": 100.0,
+        "strike": 105.0,
+        "years": 0.164383561643836,
+        "rate": 0.03,
+        "dividend_yield": 0.0,
+        "option_right": "put",
+        "lower_bound": 0.0001,
+        "upper_bound": 5.0,
+        "tolerance": 1e-10
+      },
+      "expected": {
+        "value": 0.3
+      },
+      "tolerance": 5e-05,
+      "source": {
+        "provider": "pineify",
+        "url": "https://pineify.app/black-scholes-option-calculator",
+        "captured_at": "2026-04-12",
+        "input": {
+          "option_right": "put",
+          "spot": 100.0,
+          "strike": 105.0,
+          "days": 60,
+          "market_price": 7.5183,
+          "rate_pct": 3.0,
+          "dividend_yield_pct": 0.0
+        },
+        "output": {
+          "implied_volatility_pct": 30.0,
+          "years_display": 0.1644
+        }
+      }
+    },
+    {
+      "id": "pineify-call-otm-90d",
+      "api": "pricing.implied_volatility_from_price",
+      "input": {
+        "target_price": 3.4787,
+        "spot": 100.0,
+        "strike": 110.0,
+        "years": 0.246575342465753,
+        "rate": 0.02,
+        "dividend_yield": 0.0,
+        "option_right": "call",
+        "lower_bound": 0.0001,
+        "upper_bound": 5.0,
+        "tolerance": 1e-10
+      },
+      "expected": {
+        "value": 0.35
+      },
+      "tolerance": 5e-05,
+      "source": {
+        "provider": "pineify",
+        "url": "https://pineify.app/black-scholes-option-calculator",
+        "captured_at": "2026-04-12",
+        "input": {
+          "option_right": "call",
+          "spot": 100.0,
+          "strike": 110.0,
+          "days": 90,
+          "market_price": 3.4787,
+          "rate_pct": 2.0,
+          "dividend_yield_pct": 0.0
+        },
+        "output": {
+          "implied_volatility_pct": 35.0,
+          "years_display": 0.2466
+        }
+      }
+    },
+    {
+      "id": "pineify-call-dividend-45d",
+      "api": "pricing.implied_volatility_from_price",
+      "input": {
+        "target_price": 6.8916,
+        "spot": 120.0,
+        "strike": 115.0,
+        "years": 0.123287671232877,
+        "rate": 0.04,
+        "dividend_yield": 0.015,
+        "option_right": "call",
+        "lower_bound": 0.0001,
+        "upper_bound": 5.0,
+        "tolerance": 1e-10
+      },
+      "expected": {
+        "value": 0.22
+      },
+      "tolerance": 5e-05,
+      "source": {
+        "provider": "pineify",
+        "url": "https://pineify.app/black-scholes-option-calculator",
+        "captured_at": "2026-04-12",
+        "input": {
+          "option_right": "call",
+          "spot": 120.0,
+          "strike": 115.0,
+          "days": 45,
+          "market_price": 6.8916,
+          "rate_pct": 4.0,
+          "dividend_yield_pct": 1.5
+        },
+        "output": {
+          "implied_volatility_pct": 22.0,
+          "years_display": 0.1233
+        }
+      }
+    },
+    {
+      "id": "pineify-put-dividend-120d",
+      "api": "pricing.implied_volatility_from_price",
+      "input": {
+        "target_price": 7.8809,
+        "spot": 85.0,
+        "strike": 90.0,
+        "years": 0.328767123287671,
+        "rate": 0.035,
+        "dividend_yield": 0.018,
+        "option_right": "put",
+        "lower_bound": 0.0001,
+        "upper_bound": 5.0,
+        "tolerance": 1e-10
+      },
+      "expected": {
+        "value": 0.27
+      },
+      "tolerance": 5e-05,
+      "source": {
+        "provider": "pineify",
+        "url": "https://pineify.app/black-scholes-option-calculator",
+        "captured_at": "2026-04-12",
+        "input": {
+          "option_right": "put",
+          "spot": 85.0,
+          "strike": 90.0,
+          "days": 120,
+          "market_price": 7.8809,
+          "rate_pct": 3.5,
+          "dividend_yield_pct": 1.8
+        },
+        "output": {
+          "implied_volatility_pct": 27.0,
+          "years_display": 0.3288
+        }
+      }
+    },
+    {
+      "id": "pineify-call-skewed-37d",
+      "api": "pricing.implied_volatility_from_price",
+      "input": {
+        "target_price": 2.2346,
+        "spot": 123.45,
+        "strike": 127.5,
+        "years": 0.101369863013699,
+        "rate": 0.0415,
+        "dividend_yield": 0.009,
+        "option_right": "call",
+        "lower_bound": 0.0001,
+        "upper_bound": 5.0,
+        "tolerance": 1e-10
+      },
+      "expected": {
+        "value": 0.2375
+      },
+      "tolerance": 5e-05,
+      "source": {
+        "provider": "pineify",
+        "url": "https://pineify.app/black-scholes-option-calculator",
+        "captured_at": "2026-04-12",
+        "input": {
+          "option_right": "call",
+          "spot": 123.45,
+          "strike": 127.5,
+          "days": 37,
+          "market_price": 2.2346,
+          "rate_pct": 4.15,
+          "dividend_yield_pct": 0.9
+        },
+        "output": {
+          "implied_volatility_pct": 23.75,
+          "years_display": 0.1014
+        }
+      }
+    },
+    {
+      "id": "pineify-put-deep-itm-28d",
+      "api": "pricing.implied_volatility_from_price",
+      "input": {
+        "target_price": 6.4803,
+        "spot": 54.0,
+        "strike": 60.0,
+        "years": 0.0767123287671233,
+        "rate": 0.0505,
+        "dividend_yield": 0.0,
+        "option_right": "put",
+        "lower_bound": 0.0001,
+        "upper_bound": 5.0,
+        "tolerance": 1e-10
+      },
+      "expected": {
+        "value": 0.4235
+      },
+      "tolerance": 5e-05,
+      "source": {
+        "provider": "pineify",
+        "url": "https://pineify.app/black-scholes-option-calculator",
+        "captured_at": "2026-04-12",
+        "input": {
+          "option_right": "put",
+          "spot": 54.0,
+          "strike": 60.0,
+          "days": 28,
+          "market_price": 6.4803,
+          "rate_pct": 5.05,
+          "dividend_yield_pct": 0.0
+        },
+        "output": {
+          "implied_volatility_pct": 42.35,
+          "years_display": 0.0767
+        }
+      }
+    },
+    {
+      "id": "pineify-call-longdated-540d",
+      "api": "pricing.implied_volatility_from_price",
+      "input": {
+        "target_price": 37.1065,
+        "spot": 310.0,
+        "strike": 330.0,
+        "years": 1.47945205479452,
+        "rate": 0.0395,
+        "dividend_yield": 0.006,
+        "option_right": "call",
+        "lower_bound": 0.0001,
+        "upper_bound": 5.0,
+        "tolerance": 1e-10
+      },
+      "expected": {
+        "value": 0.2615
+      },
+      "tolerance": 5e-05,
+      "source": {
+        "provider": "pineify",
+        "url": "https://pineify.app/black-scholes-option-calculator",
+        "captured_at": "2026-04-12",
+        "input": {
+          "option_right": "call",
+          "spot": 310.0,
+          "strike": 330.0,
+          "days": 540,
+          "market_price": 37.1065,
+          "rate_pct": 3.95,
+          "dividend_yield_pct": 0.6
+        },
+        "output": {
+          "implied_volatility_pct": 26.15,
+          "years_display": 1.4795
+        }
+      }
+    }
+  ]
+}

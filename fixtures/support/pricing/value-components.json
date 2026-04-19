@@ -1,0 +1,45 @@
+{
+  "fixture": "value-components",
+  "cases": [
+    {
+      "id": "intrinsic-call-itm",
+      "api": "pricing.intrinsic_value",
+      "input": {
+        "spot": 105.0,
+        "strike": 100.0,
+        "option_right": "call"
+      },
+      "expected": {
+        "value": 5.0
+      },
+      "tolerance": 1e-12
+    },
+    {
+      "id": "intrinsic-put-itm",
+      "api": "pricing.intrinsic_value",
+      "input": {
+        "spot": 95.0,
+        "strike": 100.0,
+        "option_right": "put"
+      },
+      "expected": {
+        "value": 5.0
+      },
+      "tolerance": 1e-12
+    },
+    {
+      "id": "extrinsic-call",
+      "api": "pricing.extrinsic_value",
+      "input": {
+        "option_price": 7.0,
+        "spot": 105.0,
+        "strike": 100.0,
+        "option_right": "call"
+      },
+      "expected": {
+        "value": 2.0
+      },
+      "tolerance": 1e-12
+    }
+  ]
+}

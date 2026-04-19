@@ -1,0 +1,168 @@
+{
+  "fixture": "payoff-functions",
+  "cases": [
+    {
+      "id": "single-leg-long-call",
+      "api": "payoff.single_leg_payoff_at_expiry",
+      "input": {
+        "option_right": "call",
+        "position_side": "long",
+        "strike": 100.0,
+        "premium": 2.0,
+        "quantity": 1,
+        "underlying_price_at_expiry": 110.0
+      },
+      "expected": {
+        "value": 8.0
+      },
+      "tolerance": 1e-12
+    },
+    {
+      "id": "strategy-payoff-bull-call-spread",
+      "api": "payoff.strategy_payoff_at_expiry",
+      "input": {
+        "underlying_price_at_expiry": 115.0,
+        "legs": [
+          {
+            "option_right": "call",
+            "position_side": "long",
+            "strike": 100.0,
+            "premium": 2.0,
+            "quantity": 1
+          },
+          {
+            "option_right": "call",
+            "position_side": "short",
+            "strike": 110.0,
+            "premium": 1.0,
+            "quantity": 1
+          }
+        ]
+      },
+      "expected": {
+        "value": 9.0
+      },
+      "tolerance": 1e-12
+    },
+    {
+      "id": "break-even-long-straddle",
+      "api": "payoff.break_even_points",
+      "input": {
+        "legs": [
+          {
+            "option_right": "call",
+            "position_side": "long",
+            "strike": 100.0,
+            "premium": 5.0,
+            "quantity": 1
+          },
+          {
+            "option_right": "put",
+            "position_side": "long",
+            "strike": 100.0,
+            "premium": 4.0,
+            "quantity": 1
+          }
+        ]
+      },
+      "expected": {
+        "value": [
+          91.0,
+          109.0
+        ]
+      },
+      "tolerance": 1e-08
+    },
+    {
+      "id": "strategy-pnl-mixed-expired-unexpired",
+      "api": "payoff.strategy_pnl",
+      "input": {
+        "positions": [
+          {
+            "contract": {
+              "underlying_symbol": "SPY",
+              "expiration_date": "2025-03-21",
+              "strike": 100.0,
+              "option_right": "put",
+              "occ_symbol": "SPY250321P00100000"
+            },
+            "quantity": -1,
+            "avg_entry_price": 2.0,
+            "implied_volatility": 0.3
+          },
+          {
+            "contract": {
+              "underlying_symbol": "SPY",
+              "expiration_date": "2025-04-24",
+              "strike": 95.0,
+              "option_right": "put",
+              "occ_symbol": "SPY250424P00095000"
+            },
+            "quantity": 1,
+            "avg_entry_price": 1.0,
+            "implied_volatility": 0.25
+          }
+        ],
+        "underlying_price": 97.0,
+        "evaluation_time": "2025-03-21 16:00:00",
+        "entry_cost": null,
+        "rate": 0.03,
+        "dividend_yield": null,
+        "long_volatility_shift": null
+      },
+      "expected": {
+        "value": -7.723954958015611
+      },
+      "tolerance": 1e-09
+    },
+    {
+      "id": "strategy-break-even-credit-strangle",
+      "api": "payoff.strategy_break_even_points",
+      "input": {
+        "positions": [
+          {
+            "contract": {
+              "underlying_symbol": "SPY",
+              "expiration_date": "2025-03-21",
+              "strike": 90.0,
+              "option_right": "put",
+              "occ_symbol": "SPY250321P00090000"
+            },
+            "quantity": -1,
+            "avg_entry_price": 1.5,
+            "implied_volatility": 0.25
+          },
+          {
+            "contract": {
+              "underlying_symbol": "SPY",
+              "expiration_date": "2025-03-21",
+              "strike": 110.0,
+              "option_right": "call",
+              "occ_symbol": "SPY250321C00110000"
+            },
+            "quantity": -1,
+            "avg_entry_price": 1.5,
+            "implied_volatility": 0.25
+          }
+        ],
+        "evaluation_time": "2025-03-21 16:00:00",
+        "entry_cost": null,
+        "rate": 0.03,
+        "dividend_yield": null,
+        "long_volatility_shift": null,
+        "lower_bound": 50.0,
+        "upper_bound": 150.0,
+        "scan_step": 1.0,
+        "tolerance": 1e-09,
+        "max_iterations": 100
+      },
+      "expected": {
+        "value": [
+          87.0,
+          113.0
+        ]
+      },
+      "tolerance": 1e-08
+    }
+  ]
+}

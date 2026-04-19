@@ -1,0 +1,232 @@
+{
+  "fixture": "math/american-bjerksund-stensland-1993-pricing",
+  "layer": {
+    "id": "02-reference",
+    "label": "Reference",
+    "status": "integrated",
+    "source_dataset": "option_reference_dataset.json",
+    "source_case_count": 48,
+    "purpose": "The primary day-to-day regression layer with balanced model coverage."
+  },
+  "oracle": {
+    "tier": "A",
+    "layer_id": "02-reference",
+    "layer_label": "Reference",
+    "status": "integrated",
+    "dataset_origin": "option-test/option_reference_dataset.json",
+    "purpose": "Bjerksund-Stensland 1993 pricing regression cases.",
+    "split_from": "fixtures/math/american-bjerksund-stensland-1993-pricing.json"
+  },
+  "cases": [
+    {
+      "id": "am_bs_001",
+      "api": "math.american_bjerksund_stensland_1993_price",
+      "input": {
+        "spot": 42.0,
+        "strike": 40.0,
+        "years": 0.75,
+        "rate": 0.04,
+        "dividend_yield": 0.08,
+        "volatility": 0.35,
+        "option_right": "call"
+      },
+      "expected": {
+        "value": 5.2704
+      },
+      "tolerance": 0.001,
+      "source": {
+        "dataset_case_id": "am_bs_001",
+        "original_inputs": {
+          "model": "american_black_scholes_merton",
+          "pricing_method": "bjerksund_stensland",
+          "option_type": "call",
+          "spot": 42.0,
+          "strike": 40.0,
+          "time_to_expiry": 0.75,
+          "risk_free_rate": 0.04,
+          "dividend_yield": 0.08,
+          "volatility": 0.35
+        },
+        "original_expected": {
+          "price": 5.2704
+        },
+        "original_validation": {
+          "quantlib_bjerksund_stensland": 5.270403878797557,
+          "quantlib_fd_black_scholes": 5.308859670858857,
+          "abs_diff_reference_vs_bs": 3.878797556922109e-06,
+          "abs_diff_reference_vs_fd": 0.03845967085885693
+        },
+        "dataset_origin": "option-test/option_reference_dataset.json",
+        "dataset_group": "american_bjerksund_stensland_literature"
+      }
+    },
+    {
+      "id": "am_bs_002",
+      "api": "math.american_bjerksund_stensland_1993_price",
+      "input": {
+        "spot": 36.0,
+        "strike": 40.0,
+        "years": 1.0,
+        "rate": 0.06,
+        "dividend_yield": 0.0,
+        "volatility": 0.2,
+        "option_right": "put"
+      },
+      "expected": {
+        "value": 4.4531
+      },
+      "tolerance": 0.001,
+      "source": {
+        "dataset_case_id": "am_bs_002",
+        "original_inputs": {
+          "model": "american_black_scholes_merton",
+          "pricing_method": "bjerksund_stensland",
+          "option_type": "put",
+          "spot": 36.0,
+          "strike": 40.0,
+          "time_to_expiry": 1.0,
+          "risk_free_rate": 0.06,
+          "dividend_yield": 0.0,
+          "volatility": 0.2
+        },
+        "original_expected": {
+          "price": 4.4531
+        },
+        "original_validation": {
+          "quantlib_bjerksund_stensland": 4.453064175103183,
+          "quantlib_fd_black_scholes": 4.486389245447512,
+          "abs_diff_reference_vs_bs": 3.5824896817082674e-05,
+          "abs_diff_reference_vs_fd": 0.033289245447511995
+        },
+        "dataset_origin": "option-test/option_reference_dataset.json",
+        "dataset_group": "american_bjerksund_stensland_literature"
+      }
+    },
+    {
+      "id": "am_bs_003",
+      "api": "math.american_bjerksund_stensland_1993_price",
+      "input": {
+        "spot": 100.0,
+        "strike": 100.0,
+        "years": 1.0,
+        "rate": 0.05,
+        "dividend_yield": 0.05,
+        "volatility": 0.0021,
+        "option_right": "call"
+      },
+      "expected": {
+        "value": 0.08032314
+      },
+      "tolerance": 0.001,
+      "source": {
+        "dataset_case_id": "am_bs_003",
+        "original_inputs": {
+          "model": "american_black_scholes_merton",
+          "pricing_method": "bjerksund_stensland",
+          "option_type": "call",
+          "spot": 100.0,
+          "strike": 100.0,
+          "time_to_expiry": 1.0,
+          "risk_free_rate": 0.05,
+          "dividend_yield": 0.05,
+          "volatility": 0.0021
+        },
+        "original_expected": {
+          "price": 0.08032314
+        },
+        "original_validation": {
+          "quantlib_bjerksund_stensland": 0.08032252366646198,
+          "quantlib_fd_black_scholes": 0.08058793605239188,
+          "abs_diff_reference_vs_bs": 6.16333538025482e-07,
+          "abs_diff_reference_vs_fd": 0.0002647960523918802
+        },
+        "dataset_origin": "option-test/option_reference_dataset.json",
+        "dataset_group": "american_bjerksund_stensland_literature"
+      }
+    },
+    {
+      "id": "am_bs_004",
+      "api": "math.american_bjerksund_stensland_1993_price",
+      "input": {
+        "spot": 110.0,
+        "strike": 100.0,
+        "years": 1.0,
+        "rate": 0.05,
+        "dividend_yield": 0.05,
+        "volatility": 0.0001,
+        "option_right": "call"
+      },
+      "expected": {
+        "value": 10.0
+      },
+      "tolerance": 0.001,
+      "source": {
+        "dataset_case_id": "am_bs_004",
+        "original_inputs": {
+          "model": "american_black_scholes_merton",
+          "pricing_method": "bjerksund_stensland",
+          "option_type": "call",
+          "spot": 110.0,
+          "strike": 100.0,
+          "time_to_expiry": 1.0,
+          "risk_free_rate": 0.05,
+          "dividend_yield": 0.05,
+          "volatility": 0.0001
+        },
+        "original_expected": {
+          "price": 10.0
+        },
+        "original_validation": {
+          "quantlib_bjerksund_stensland": 10.0,
+          "quantlib_fd_black_scholes": 10.000000000000043,
+          "abs_diff_reference_vs_bs": 0.0,
+          "abs_diff_reference_vs_fd": 4.263256414560601e-14
+        },
+        "dataset_origin": "option-test/option_reference_dataset.json",
+        "dataset_group": "american_bjerksund_stensland_literature"
+      }
+    },
+    {
+      "id": "am_bs_005",
+      "api": "math.american_bjerksund_stensland_1993_price",
+      "input": {
+        "spot": 100.0,
+        "strike": 110.0,
+        "years": 1.0,
+        "rate": 0.05,
+        "dividend_yield": 0.05,
+        "volatility": 0.0001,
+        "option_right": "put"
+      },
+      "expected": {
+        "value": 10.0
+      },
+      "tolerance": 0.001,
+      "source": {
+        "dataset_case_id": "am_bs_005",
+        "original_inputs": {
+          "model": "american_black_scholes_merton",
+          "pricing_method": "bjerksund_stensland",
+          "option_type": "put",
+          "spot": 100.0,
+          "strike": 110.0,
+          "time_to_expiry": 1.0,
+          "risk_free_rate": 0.05,
+          "dividend_yield": 0.05,
+          "volatility": 0.0001
+        },
+        "original_expected": {
+          "price": 10.0
+        },
+        "original_validation": {
+          "quantlib_bjerksund_stensland": 10.0,
+          "quantlib_fd_black_scholes": 9.999999999999961,
+          "abs_diff_reference_vs_bs": 0.0,
+          "abs_diff_reference_vs_fd": 3.907985046680551e-14
+        },
+        "dataset_origin": "option-test/option_reference_dataset.json",
+        "dataset_group": "american_bjerksund_stensland_literature"
+      }
+    }
+  ]
+}

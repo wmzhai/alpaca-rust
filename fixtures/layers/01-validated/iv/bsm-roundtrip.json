@@ -1,0 +1,320 @@
+{
+  "fixture": "iv/bsm-roundtrip",
+  "layer": {
+    "id": "01-validated",
+    "label": "Validated",
+    "status": "integrated",
+    "source_dataset": "option_validated_dataset.json",
+    "source_case_count": 20,
+    "purpose": "The most basic and reliable closed-form regression layer."
+  },
+  "oracle": {
+    "tier": "A",
+    "layer_id": "01-validated",
+    "layer_label": "Validated",
+    "status": "integrated",
+    "dataset_origin": "option-test/option_validated_dataset.json",
+    "purpose": "Black-Scholes-Merton implied-volatility roundtrip cases.",
+    "dataset_group": "validated_implied_volatility"
+  },
+  "cases": [
+    {
+      "id": "validated_iv_001",
+      "api": "pricing.implied_volatility_from_price",
+      "input": {
+        "target_price": 5.8760242338276045,
+        "spot": 100.0,
+        "strike": 100.0,
+        "years": 0.5,
+        "rate": 0.01,
+        "dividend_yield": 0.0,
+        "option_right": "call",
+        "lower_bound": 1e-06,
+        "upper_bound": 5.0,
+        "tolerance": 1e-12,
+        "max_iterations": 256
+      },
+      "expected": {
+        "value": 0.2
+      },
+      "tolerance": 1e-10,
+      "source": {
+        "dataset_origin": "option-test/option_validated_dataset.json",
+        "dataset_group": "validated_implied_volatility",
+        "dataset_case_id": "validated_iv_001",
+        "original_inputs": {
+          "model": "black_scholes_merton",
+          "option_type": "call",
+          "spot": 100.0,
+          "strike": 100.0,
+          "time_to_expiry": 0.5,
+          "risk_free_rate": 0.01,
+          "dividend_yield": 0.0,
+          "target_price": 5.8760242338276045
+        },
+        "original_expected": {
+          "implied_volatility": 0.2
+        },
+        "original_validation": {
+          "quantlib_implied_vol": 0.20000091418383328,
+          "py_vollib_implied_vol": 0.2,
+          "max_abs_diff_all_sources": 0.00029816776514052235,
+          "mibian_implied_vol": 0.20029816776514053
+        },
+        "original_tolerance": {
+          "abs": 1e-10,
+          "mibian_abs": 0.0005,
+          "metric": "implied_volatility"
+        }
+      }
+    },
+    {
+      "id": "validated_iv_002",
+      "api": "pricing.implied_volatility_from_price",
+      "input": {
+        "target_price": 5.377272153095836,
+        "spot": 100.0,
+        "strike": 100.0,
+        "years": 0.5,
+        "rate": 0.01,
+        "dividend_yield": 0.0,
+        "option_right": "put",
+        "lower_bound": 1e-06,
+        "upper_bound": 5.0,
+        "tolerance": 1e-12,
+        "max_iterations": 256
+      },
+      "expected": {
+        "value": 0.2
+      },
+      "tolerance": 1e-10,
+      "source": {
+        "dataset_origin": "option-test/option_validated_dataset.json",
+        "dataset_group": "validated_implied_volatility",
+        "dataset_case_id": "validated_iv_002",
+        "original_inputs": {
+          "model": "black_scholes_merton",
+          "option_type": "put",
+          "spot": 100.0,
+          "strike": 100.0,
+          "time_to_expiry": 0.5,
+          "risk_free_rate": 0.01,
+          "dividend_yield": 0.0,
+          "target_price": 5.377272153095836
+        },
+        "original_expected": {
+          "implied_volatility": 0.2
+        },
+        "original_validation": {
+          "quantlib_implied_vol": 0.2000009141838326,
+          "py_vollib_implied_vol": 0.20000000000000015,
+          "max_abs_diff_all_sources": 0.00024951547384260975,
+          "mibian_implied_vol": 0.20024951547384262
+        },
+        "original_tolerance": {
+          "abs": 1e-10,
+          "mibian_abs": 0.0005,
+          "metric": "implied_volatility"
+        }
+      }
+    },
+    {
+      "id": "validated_iv_003",
+      "api": "pricing.implied_volatility_from_price",
+      "input": {
+        "target_price": 12.532725522998595,
+        "spot": 100.0,
+        "strike": 110.0,
+        "years": 1.25,
+        "rate": 0.03,
+        "dividend_yield": 0.01,
+        "option_right": "call",
+        "lower_bound": 1e-06,
+        "upper_bound": 5.0,
+        "tolerance": 1e-12,
+        "max_iterations": 256
+      },
+      "expected": {
+        "value": 0.35
+      },
+      "tolerance": 1e-10,
+      "source": {
+        "dataset_origin": "option-test/option_validated_dataset.json",
+        "dataset_group": "validated_implied_volatility",
+        "dataset_case_id": "validated_iv_003",
+        "original_inputs": {
+          "model": "black_scholes_merton",
+          "option_type": "call",
+          "spot": 100.0,
+          "strike": 110.0,
+          "time_to_expiry": 1.25,
+          "risk_free_rate": 0.03,
+          "dividend_yield": 0.01,
+          "target_price": 12.532725522998595
+        },
+        "original_expected": {
+          "implied_volatility": 0.35
+        },
+        "original_validation": {
+          "quantlib_implied_vol": 0.34999999999999987,
+          "py_vollib_implied_vol": 0.34999999999999987,
+          "max_abs_diff_all_sources": 1.1102230246251565e-16
+        },
+        "original_tolerance": {
+          "abs": 1e-10,
+          "mibian_abs": 0.0005,
+          "metric": "implied_volatility"
+        }
+      }
+    },
+    {
+      "id": "validated_iv_004",
+      "api": "pricing.implied_volatility_from_price",
+      "input": {
+        "target_price": 9.12745104531875,
+        "spot": 100.0,
+        "strike": 90.0,
+        "years": 1.25,
+        "rate": 0.03,
+        "dividend_yield": 0.01,
+        "option_right": "put",
+        "lower_bound": 1e-06,
+        "upper_bound": 5.0,
+        "tolerance": 1e-12,
+        "max_iterations": 256
+      },
+      "expected": {
+        "value": 0.35
+      },
+      "tolerance": 1e-10,
+      "source": {
+        "dataset_origin": "option-test/option_validated_dataset.json",
+        "dataset_group": "validated_implied_volatility",
+        "dataset_case_id": "validated_iv_004",
+        "original_inputs": {
+          "model": "black_scholes_merton",
+          "option_type": "put",
+          "spot": 100.0,
+          "strike": 90.0,
+          "time_to_expiry": 1.25,
+          "risk_free_rate": 0.03,
+          "dividend_yield": 0.01,
+          "target_price": 9.12745104531875
+        },
+        "original_expected": {
+          "implied_volatility": 0.35
+        },
+        "original_validation": {
+          "quantlib_implied_vol": 0.34999965472776806,
+          "py_vollib_implied_vol": 0.35,
+          "max_abs_diff_all_sources": 3.4527223191638257e-07
+        },
+        "original_tolerance": {
+          "abs": 1e-10,
+          "mibian_abs": 0.0005,
+          "metric": "implied_volatility"
+        }
+      }
+    },
+    {
+      "id": "validated_iv_005",
+      "api": "pricing.implied_volatility_from_price",
+      "input": {
+        "target_price": 26.803371450525002,
+        "spot": 120.0,
+        "strike": 100.0,
+        "years": 1.0,
+        "rate": 0.02,
+        "dividend_yield": 0.0,
+        "option_right": "call",
+        "lower_bound": 1e-06,
+        "upper_bound": 5.0,
+        "tolerance": 1e-12,
+        "max_iterations": 256
+      },
+      "expected": {
+        "value": 0.3
+      },
+      "tolerance": 1e-10,
+      "source": {
+        "dataset_origin": "option-test/option_validated_dataset.json",
+        "dataset_group": "validated_implied_volatility",
+        "dataset_case_id": "validated_iv_005",
+        "original_inputs": {
+          "model": "black_scholes_merton",
+          "option_type": "call",
+          "spot": 120.0,
+          "strike": 100.0,
+          "time_to_expiry": 1.0,
+          "risk_free_rate": 0.02,
+          "dividend_yield": 0.0,
+          "target_price": 26.803371450525002
+        },
+        "original_expected": {
+          "implied_volatility": 0.3
+        },
+        "original_validation": {
+          "quantlib_implied_vol": 0.30000060122647865,
+          "py_vollib_implied_vol": 0.3000000000000001,
+          "max_abs_diff_all_sources": 6.012264786581234e-07,
+          "mibian_implied_vol": 0.29999997466802597
+        },
+        "original_tolerance": {
+          "abs": 1e-10,
+          "mibian_abs": 0.0005,
+          "metric": "implied_volatility"
+        }
+      }
+    },
+    {
+      "id": "validated_iv_006",
+      "api": "pricing.implied_volatility_from_price",
+      "input": {
+        "target_price": 21.939939654598035,
+        "spot": 80.0,
+        "strike": 100.0,
+        "years": 1.0,
+        "rate": 0.02,
+        "dividend_yield": 0.0,
+        "option_right": "put",
+        "lower_bound": 1e-06,
+        "upper_bound": 5.0,
+        "tolerance": 1e-12,
+        "max_iterations": 256
+      },
+      "expected": {
+        "value": 0.3
+      },
+      "tolerance": 1e-10,
+      "source": {
+        "dataset_origin": "option-test/option_validated_dataset.json",
+        "dataset_group": "validated_implied_volatility",
+        "dataset_case_id": "validated_iv_006",
+        "original_inputs": {
+          "model": "black_scholes_merton",
+          "option_type": "put",
+          "spot": 80.0,
+          "strike": 100.0,
+          "time_to_expiry": 1.0,
+          "risk_free_rate": 0.02,
+          "dividend_yield": 0.0,
+          "target_price": 21.939939654598035
+        },
+        "original_expected": {
+          "implied_volatility": 0.3
+        },
+        "original_validation": {
+          "quantlib_implied_vol": 0.2999999999999998,
+          "py_vollib_implied_vol": 0.3000000000000001,
+          "max_abs_diff_all_sources": 1.1920928966180355e-08,
+          "mibian_implied_vol": 0.30000001192092896
+        },
+        "original_tolerance": {
+          "abs": 1e-10,
+          "mibian_abs": 0.0005,
+          "metric": "implied_volatility"
+        }
+      }
+    }
+  ]
+}

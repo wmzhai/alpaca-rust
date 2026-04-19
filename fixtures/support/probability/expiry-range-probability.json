@@ -1,0 +1,22 @@
+{
+  "fixture": "expiry-range-probability",
+  "cases": [
+    {
+      "id": "spy-between-95-and-105",
+      "api": "probability.expiry_probability_in_range",
+      "input": {
+        "spot": 100.0,
+        "lower_price": 95.0,
+        "upper_price": 105.0,
+        "years": 0.0821917808219178,
+        "rate": 0.045,
+        "dividend_yield": 0.0,
+        "volatility": 0.2
+      },
+      "expected": {
+        "value": 0.6164081624782114
+      },
+      "tolerance": 1e-06
+    }
+  ]
+}

@@ -1,0 +1,274 @@
+{
+  "fixture": "math/bachelier-greeks",
+  "layer": {
+    "id": "02-reference",
+    "label": "Reference",
+    "status": "integrated",
+    "source_dataset": "option_reference_dataset.json",
+    "source_case_count": 48,
+    "purpose": "The primary day-to-day regression layer with balanced model coverage."
+  },
+  "oracle": {
+    "tier": "A",
+    "layer_id": "02-reference",
+    "layer_label": "Reference",
+    "status": "integrated",
+    "dataset_origin": "option-test/option_reference_dataset.json",
+    "purpose": "Bachelier greeks regression cases.",
+    "split_from": "fixtures/math/bachelier-greeks.json"
+  },
+  "cases": [
+    {
+      "id": "bachelier_001",
+      "api": "math.bachelier_greeks",
+      "input": {
+        "forward": 100.0,
+        "strike": 100.0,
+        "years": 0.5,
+        "rate": 0.02,
+        "normal_volatility": 5.0,
+        "option_right": "call"
+      },
+      "expected": {
+        "delta": 0.49502491687458405,
+        "gamma": 0.1117151606788937,
+        "vega": 0.27928790169723433,
+        "theta": -1.368510718316448,
+        "rho": -0.6982197542430857
+      },
+      "tolerance": 1e-12,
+      "source": {
+        "dataset_origin": "option-test/option_reference_dataset.json",
+        "dataset_group": "bachelier_exact",
+        "dataset_case_id": "bachelier_001",
+        "original_inputs": {
+          "model": "bachelier",
+          "option_type": "call",
+          "forward": 100.0,
+          "strike": 100.0,
+          "time_to_expiry": 0.5,
+          "risk_free_rate": 0.02,
+          "normal_volatility": 5.0
+        },
+        "original_expected": {
+          "price": 1.3964395084861712
+        },
+        "original_validation": {
+          "quantlib_bachelier_black_formula": 1.3964395084861714,
+          "max_abs_diff": 2.220446049250313e-16
+        },
+        "formula_source": "Analytical Bachelier/normal model formulas, with price cross-checked by option-test against QuantLib."
+      }
+    },
+    {
+      "id": "bachelier_002",
+      "api": "math.bachelier_greeks",
+      "input": {
+        "forward": 100.0,
+        "strike": 100.0,
+        "years": 0.5,
+        "rate": 0.02,
+        "normal_volatility": 5.0,
+        "option_right": "put"
+      },
+      "expected": {
+        "delta": -0.49502491687458405,
+        "gamma": 0.1117151606788937,
+        "vega": 0.27928790169723433,
+        "theta": -1.368510718316448,
+        "rho": -0.6982197542430857
+      },
+      "tolerance": 1e-12,
+      "source": {
+        "dataset_origin": "option-test/option_reference_dataset.json",
+        "dataset_group": "bachelier_exact",
+        "dataset_case_id": "bachelier_002",
+        "original_inputs": {
+          "model": "bachelier",
+          "option_type": "put",
+          "forward": 100.0,
+          "strike": 100.0,
+          "time_to_expiry": 0.5,
+          "risk_free_rate": 0.02,
+          "normal_volatility": 5.0
+        },
+        "original_expected": {
+          "price": 1.3964395084861712
+        },
+        "original_validation": {
+          "quantlib_bachelier_black_formula": 1.3964395084861714,
+          "max_abs_diff": 2.220446049250313e-16
+        },
+        "formula_source": "Analytical Bachelier/normal model formulas, with price cross-checked by option-test against QuantLib."
+      }
+    },
+    {
+      "id": "bachelier_003",
+      "api": "math.bachelier_greeks",
+      "input": {
+        "forward": 0.015,
+        "strike": 0.01,
+        "years": 2.0,
+        "rate": 0.0,
+        "normal_volatility": 0.01,
+        "option_right": "call"
+      },
+      "expected": {
+        "delta": 0.6381631950841185,
+        "gamma": 26.500353234402855,
+        "vega": 0.5300070646880573,
+        "theta": -0.0013250176617201428,
+        "rho": -0.01698177324460233
+      },
+      "tolerance": 1e-12,
+      "source": {
+        "dataset_origin": "option-test/option_reference_dataset.json",
+        "dataset_group": "bachelier_exact",
+        "dataset_case_id": "bachelier_003",
+        "original_inputs": {
+          "model": "bachelier",
+          "option_type": "call",
+          "forward": 0.015,
+          "strike": 0.01,
+          "time_to_expiry": 2.0,
+          "risk_free_rate": 0.0,
+          "normal_volatility": 0.01
+        },
+        "original_expected": {
+          "price": 0.008490886622301163
+        },
+        "original_validation": {
+          "quantlib_bachelier_black_formula": 0.008490886622301165,
+          "max_abs_diff": 1.734723475976807e-18
+        },
+        "formula_source": "Analytical Bachelier/normal model formulas, with price cross-checked by option-test against QuantLib."
+      }
+    },
+    {
+      "id": "bachelier_004",
+      "api": "math.bachelier_greeks",
+      "input": {
+        "forward": -0.002,
+        "strike": 0.0,
+        "years": 1.5,
+        "rate": 0.0,
+        "normal_volatility": 0.008,
+        "option_right": "put"
+      },
+      "expected": {
+        "delta": -0.5808717568070869,
+        "gamma": 39.87738282595042,
+        "vega": 0.47852859391140495,
+        "theta": -0.0012760762504304135,
+        "rho": -0.00748495839735812
+      },
+      "tolerance": 1e-12,
+      "source": {
+        "dataset_origin": "option-test/option_reference_dataset.json",
+        "dataset_group": "bachelier_exact",
+        "dataset_case_id": "bachelier_004",
+        "original_inputs": {
+          "model": "bachelier",
+          "option_type": "put",
+          "forward": -0.002,
+          "strike": 0.0,
+          "time_to_expiry": 1.5,
+          "risk_free_rate": 0.0,
+          "normal_volatility": 0.008
+        },
+        "original_expected": {
+          "price": 0.004989972264905413
+        },
+        "original_validation": {
+          "quantlib_bachelier_black_formula": 0.004989972264905413,
+          "max_abs_diff": 0.0
+        },
+        "formula_source": "Analytical Bachelier/normal model formulas, with price cross-checked by option-test against QuantLib."
+      }
+    },
+    {
+      "id": "bachelier_005",
+      "api": "math.bachelier_greeks",
+      "input": {
+        "forward": 98.0,
+        "strike": 100.0,
+        "years": 1.25,
+        "rate": 0.03,
+        "normal_volatility": 12.0,
+        "option_right": "call"
+      },
+      "expected": {
+        "delta": 0.42452671259275565,
+        "gamma": 0.028324501549736623,
+        "vega": 0.4248675232460494,
+        "theta": -1.9118834059680243,
+        "rho": -5.311696067208851
+      },
+      "tolerance": 1e-12,
+      "source": {
+        "dataset_origin": "option-test/option_reference_dataset.json",
+        "dataset_group": "bachelier_exact",
+        "dataset_case_id": "bachelier_005",
+        "original_inputs": {
+          "model": "bachelier",
+          "option_type": "call",
+          "forward": 98.0,
+          "strike": 100.0,
+          "time_to_expiry": 1.25,
+          "risk_free_rate": 0.03,
+          "normal_volatility": 12.0
+        },
+        "original_expected": {
+          "price": 4.24935685376708
+        },
+        "original_validation": {
+          "quantlib_bachelier_black_formula": 4.249356853767081,
+          "max_abs_diff": 8.881784197001252e-16
+        },
+        "formula_source": "Analytical Bachelier/normal model formulas, with price cross-checked by option-test against QuantLib."
+      }
+    },
+    {
+      "id": "bachelier_006",
+      "api": "math.bachelier_greeks",
+      "input": {
+        "forward": 103.0,
+        "strike": 100.0,
+        "years": 1.25,
+        "rate": 0.03,
+        "normal_volatility": 12.0,
+        "option_right": "put"
+      },
+      "expected": {
+        "delta": -0.39638497535742356,
+        "gamma": 0.027933825006574337,
+        "vega": 0.41900737509861513,
+        "theta": -1.8960673932200192,
+        "rho": -4.798666968888888
+      },
+      "tolerance": 1e-12,
+      "source": {
+        "dataset_origin": "option-test/option_reference_dataset.json",
+        "dataset_group": "bachelier_exact",
+        "dataset_case_id": "bachelier_006",
+        "original_inputs": {
+          "model": "bachelier",
+          "option_type": "put",
+          "forward": 103.0,
+          "strike": 100.0,
+          "time_to_expiry": 1.25,
+          "risk_free_rate": 0.03,
+          "normal_volatility": 12.0
+        },
+        "original_expected": {
+          "price": 3.8389335751111098
+        },
+        "original_validation": {
+          "quantlib_bachelier_black_formula": 3.8389335751111107,
+          "max_abs_diff": 8.881784197001252e-16
+        },
+        "formula_source": "Analytical Bachelier/normal model formulas, with price cross-checked by option-test against QuantLib."
+      }
+    }
+  ]
+}

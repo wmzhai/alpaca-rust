@@ -1,0 +1,262 @@
+{
+  "fixture": "math/bachelier-pricing",
+  "layer": {
+    "id": "05-extreme-stability",
+    "label": "Extreme Stability",
+    "status": "integrated",
+    "source_dataset": "option_extreme_stability_dataset.json",
+    "source_case_count": 38,
+    "purpose": "A harder floating-point stability hardening layer."
+  },
+  "oracle": {
+    "tier": "A+/B",
+    "layer_id": "05-extreme-stability",
+    "layer_label": "Extreme Stability",
+    "status": "integrated",
+    "dataset_origin": "option-test/option_extreme_stability_dataset.json",
+    "purpose": "Bachelier pricing regression cases.",
+    "split_from": "fixtures/math/bachelier-pricing.json"
+  },
+  "cases": [
+    {
+      "id": "xbach_001",
+      "api": "math.bachelier_price",
+      "input": {
+        "forward": 0.01,
+        "strike": 0.01,
+        "years": 0.0027397260273972603,
+        "rate": -0.002,
+        "normal_volatility": 0.0005,
+        "option_right": "call"
+      },
+      "expected": {
+        "value": 1.044085387474162e-05
+      },
+      "tolerance": 1e-10,
+      "source": {
+        "dataset_origin": "option-test/option_extreme_stability_dataset.json",
+        "dataset_group": "extreme_bachelier_exact",
+        "dataset_case_id": "xbach_001",
+        "original_inputs": {
+          "model": "bachelier",
+          "option_type": "call",
+          "forward": 0.01,
+          "strike": 0.01,
+          "time_to_expiry": 0.0027397260273972603,
+          "risk_free_rate": -0.002,
+          "normal_volatility": 0.0005
+        },
+        "original_expected": {
+          "price": 1.044085387474162e-05
+        },
+        "original_validation": {
+          "quantlib": 1.044085387474162e-05,
+          "abs_diff_local_vs_quantlib": 0.0
+        },
+        "original_tolerance": {
+          "price_abs": 1e-10
+        }
+      }
+    },
+    {
+      "id": "xbach_002",
+      "api": "math.bachelier_price",
+      "input": {
+        "forward": -0.002,
+        "strike": 0.0,
+        "years": 2.0,
+        "rate": 0.0,
+        "normal_volatility": 0.01,
+        "option_right": "put"
+      },
+      "expected": {
+        "value": 0.006698220949962971
+      },
+      "tolerance": 1e-10,
+      "source": {
+        "dataset_origin": "option-test/option_extreme_stability_dataset.json",
+        "dataset_group": "extreme_bachelier_exact",
+        "dataset_case_id": "xbach_002",
+        "original_inputs": {
+          "model": "bachelier",
+          "option_type": "put",
+          "forward": -0.002,
+          "strike": 0.0,
+          "time_to_expiry": 2.0,
+          "risk_free_rate": 0.0,
+          "normal_volatility": 0.01
+        },
+        "original_expected": {
+          "price": 0.006698220949962971
+        },
+        "original_validation": {
+          "quantlib": 0.0066982209499629715,
+          "abs_diff_local_vs_quantlib": 8.673617379884035e-19
+        },
+        "original_tolerance": {
+          "price_abs": 1e-10
+        }
+      }
+    },
+    {
+      "id": "xbach_003",
+      "api": "math.bachelier_price",
+      "input": {
+        "forward": 150.0,
+        "strike": 100.0,
+        "years": 0.25,
+        "rate": 0.03,
+        "normal_volatility": 5.0,
+        "option_right": "call"
+      },
+      "expected": {
+        "value": 49.62640274095692
+      },
+      "tolerance": 1e-10,
+      "source": {
+        "dataset_origin": "option-test/option_extreme_stability_dataset.json",
+        "dataset_group": "extreme_bachelier_exact",
+        "dataset_case_id": "xbach_003",
+        "original_inputs": {
+          "model": "bachelier",
+          "option_type": "call",
+          "forward": 150.0,
+          "strike": 100.0,
+          "time_to_expiry": 0.25,
+          "risk_free_rate": 0.03,
+          "normal_volatility": 5.0
+        },
+        "original_expected": {
+          "price": 49.62640274095692
+        },
+        "original_validation": {
+          "quantlib": 49.62640274095691,
+          "abs_diff_local_vs_quantlib": 7.105427357601002e-15
+        },
+        "original_tolerance": {
+          "price_abs": 1e-10
+        }
+      }
+    },
+    {
+      "id": "xbach_004",
+      "api": "math.bachelier_price",
+      "input": {
+        "forward": 50.0,
+        "strike": 100.0,
+        "years": 10.0,
+        "rate": 0.01,
+        "normal_volatility": 20.0,
+        "option_right": "put"
+      },
+      "expected": {
+        "value": 52.23603735397496
+      },
+      "tolerance": 1e-10,
+      "source": {
+        "dataset_origin": "option-test/option_extreme_stability_dataset.json",
+        "dataset_group": "extreme_bachelier_exact",
+        "dataset_case_id": "xbach_004",
+        "original_inputs": {
+          "model": "bachelier",
+          "option_type": "put",
+          "forward": 50.0,
+          "strike": 100.0,
+          "time_to_expiry": 10.0,
+          "risk_free_rate": 0.01,
+          "normal_volatility": 20.0
+        },
+        "original_expected": {
+          "price": 52.23603735397496
+        },
+        "original_validation": {
+          "quantlib": 52.236037353974965,
+          "abs_diff_local_vs_quantlib": 7.105427357601002e-15
+        },
+        "original_tolerance": {
+          "price_abs": 1e-10
+        }
+      }
+    },
+    {
+      "id": "xbach_005",
+      "api": "math.bachelier_price",
+      "input": {
+        "forward": 100.0,
+        "strike": 100.0,
+        "years": 30.0,
+        "rate": 0.0,
+        "normal_volatility": 0.1,
+        "option_right": "call"
+      },
+      "expected": {
+        "value": 0.21850968611841587
+      },
+      "tolerance": 1e-10,
+      "source": {
+        "dataset_origin": "option-test/option_extreme_stability_dataset.json",
+        "dataset_group": "extreme_bachelier_exact",
+        "dataset_case_id": "xbach_005",
+        "original_inputs": {
+          "model": "bachelier",
+          "option_type": "call",
+          "forward": 100.0,
+          "strike": 100.0,
+          "time_to_expiry": 30.0,
+          "risk_free_rate": 0.0,
+          "normal_volatility": 0.1
+        },
+        "original_expected": {
+          "price": 0.21850968611841587
+        },
+        "original_validation": {
+          "quantlib": 0.21850968611841587,
+          "abs_diff_local_vs_quantlib": 0.0
+        },
+        "original_tolerance": {
+          "price_abs": 1e-10
+        }
+      }
+    },
+    {
+      "id": "xbach_006",
+      "api": "math.bachelier_price",
+      "input": {
+        "forward": 100.0,
+        "strike": 120.0,
+        "years": 30.0,
+        "rate": 0.02,
+        "normal_volatility": 25.0,
+        "option_right": "put"
+      },
+      "expected": {
+        "value": 35.78750206621326
+      },
+      "tolerance": 1e-10,
+      "source": {
+        "dataset_origin": "option-test/option_extreme_stability_dataset.json",
+        "dataset_group": "extreme_bachelier_exact",
+        "dataset_case_id": "xbach_006",
+        "original_inputs": {
+          "model": "bachelier",
+          "option_type": "put",
+          "forward": 100.0,
+          "strike": 120.0,
+          "time_to_expiry": 30.0,
+          "risk_free_rate": 0.02,
+          "normal_volatility": 25.0
+        },
+        "original_expected": {
+          "price": 35.78750206621326
+        },
+        "original_validation": {
+          "quantlib": 35.78750206621326,
+          "abs_diff_local_vs_quantlib": 0.0
+        },
+        "original_tolerance": {
+          "price_abs": 1e-10
+        }
+      }
+    }
+  ]
+}

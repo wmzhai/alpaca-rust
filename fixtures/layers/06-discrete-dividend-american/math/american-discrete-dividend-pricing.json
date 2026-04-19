@@ -1,0 +1,830 @@
+{
+  "fixture": "math/american-discrete-dividend-pricing",
+  "layer": {
+    "id": "06-discrete-dividend-american",
+    "label": "Discrete Dividend American",
+    "status": "integrated",
+    "source_dataset": "option_discrete_dividend_american_dataset.json",
+    "source_case_count": 12,
+    "purpose": "American vanilla benchmarks with fixed cash dividends, pending implementation."
+  },
+  "oracle": {
+    "tier": "B+",
+    "layer_id": "06-discrete-dividend-american",
+    "layer_label": "Discrete Dividend American",
+    "status": "integrated",
+    "dataset_origin": "option-test/option_discrete_dividend_american_dataset.json",
+    "purpose": "Fixed cash-dividend American vanilla benchmark cases.",
+    "dataset_group": "american_discrete_dividend_fd_benchmark"
+  },
+  "cases": [
+    {
+      "id": "ddam_001",
+      "api": "math.american.discrete_dividend_price",
+      "input": {
+        "spot": 100.0,
+        "strike": 95.0,
+        "years": 1.0,
+        "rate": 0.03,
+        "volatility": 0.25,
+        "option_right": "call",
+        "cash_dividend_model": "spot",
+        "dividends": [
+          {
+            "time": 0.25,
+            "amount": 1.5
+          },
+          {
+            "time": 0.5,
+            "amount": 1.25
+          }
+        ]
+      },
+      "expected": {
+        "value": 12.281109164162125
+      },
+      "tolerance": 0.01,
+      "source": {
+        "dataset_origin": "option-test/option_discrete_dividend_american_dataset.json",
+        "dataset_group": "american_discrete_dividend_fd_benchmark",
+        "dataset_case_id": "ddam_001",
+        "original_inputs": {
+          "model": "american_black_scholes_merton_discrete_dividend",
+          "option_type": "call",
+          "spot": 100.0,
+          "strike": 95.0,
+          "time_to_expiry": 1.0,
+          "risk_free_rate": 0.03,
+          "volatility": 0.25,
+          "cash_dividend_model": "spot",
+          "dividends": [
+            {
+              "time": 0.25,
+              "amount": 1.5
+            },
+            {
+              "time": 0.5,
+              "amount": 1.25
+            }
+          ]
+        },
+        "original_expected": {
+          "reference_price": 12.281109164162125,
+          "european_price": 12.183204883245764,
+          "minimum_early_exercise_premium": 0.09790428091636016
+        },
+        "original_validation": {
+          "quantlib_fd_reference": 12.281109164162125,
+          "quantlib_fd_higher_resolution": 12.280737291987068,
+          "quantlib_fd_escrowed_higher_resolution": 12.18544659442196,
+          "quantlib_analytic_dividend_european": 12.183204883245764,
+          "abs_diff_fd_levels": 0.00037187217505696424,
+          "abs_diff_spot_vs_escrowed": 0.09566256974016518
+        },
+        "original_tolerance": {
+          "price_abs_vs_fd": 0.01
+        }
+      }
+    },
+    {
+      "id": "ddam_002",
+      "api": "math.american.discrete_dividend_price",
+      "input": {
+        "spot": 100.0,
+        "strike": 100.0,
+        "years": 0.75,
+        "rate": 0.04,
+        "volatility": 0.22,
+        "option_right": "call",
+        "cash_dividend_model": "escrowed",
+        "dividends": [
+          {
+            "time": 0.2,
+            "amount": 2.0
+          }
+        ]
+      },
+      "expected": {
+        "value": 7.9026457881775105
+      },
+      "tolerance": 0.01,
+      "source": {
+        "dataset_origin": "option-test/option_discrete_dividend_american_dataset.json",
+        "dataset_group": "american_discrete_dividend_fd_benchmark",
+        "dataset_case_id": "ddam_002",
+        "original_inputs": {
+          "model": "american_black_scholes_merton_discrete_dividend",
+          "option_type": "call",
+          "spot": 100.0,
+          "strike": 100.0,
+          "time_to_expiry": 0.75,
+          "risk_free_rate": 0.04,
+          "volatility": 0.22,
+          "cash_dividend_model": "escrowed",
+          "dividends": [
+            {
+              "time": 0.2,
+              "amount": 2.0
+            }
+          ]
+        },
+        "original_expected": {
+          "reference_price": 7.9026457881775105,
+          "european_price": 7.902371630971455,
+          "minimum_early_exercise_premium": 0.00027415720605539207
+        },
+        "original_validation": {
+          "quantlib_fd_reference": 7.9026457881775105,
+          "quantlib_fd_higher_resolution": 7.902493267093702,
+          "quantlib_fd_spot_higher_resolution": 7.942740279040817,
+          "quantlib_analytic_dividend_european": 7.902371630971455,
+          "abs_diff_fd_levels": 0.00015252108380892082,
+          "abs_diff_escrowed_vs_spot": 0.0400944908633063
+        },
+        "original_tolerance": {
+          "price_abs_vs_fd": 0.01
+        }
+      }
+    },
+    {
+      "id": "ddam_003",
+      "api": "math.american.discrete_dividend_price",
+      "input": {
+        "spot": 90.0,
+        "strike": 100.0,
+        "years": 1.5,
+        "rate": 0.05,
+        "volatility": 0.2,
+        "option_right": "put",
+        "cash_dividend_model": "spot",
+        "dividends": [
+          {
+            "time": 0.5,
+            "amount": 1.0
+          },
+          {
+            "time": 1.0,
+            "amount": 1.0
+          }
+        ]
+      },
+      "expected": {
+        "value": 12.750677935664179
+      },
+      "tolerance": 0.01,
+      "source": {
+        "dataset_origin": "option-test/option_discrete_dividend_american_dataset.json",
+        "dataset_group": "american_discrete_dividend_fd_benchmark",
+        "dataset_case_id": "ddam_003",
+        "original_inputs": {
+          "model": "american_black_scholes_merton_discrete_dividend",
+          "option_type": "put",
+          "spot": 90.0,
+          "strike": 100.0,
+          "time_to_expiry": 1.5,
+          "risk_free_rate": 0.05,
+          "volatility": 0.2,
+          "cash_dividend_model": "spot",
+          "dividends": [
+            {
+              "time": 0.5,
+              "amount": 1.0
+            },
+            {
+              "time": 1.0,
+              "amount": 1.0
+            }
+          ]
+        },
+        "original_expected": {
+          "reference_price": 12.750677935664179,
+          "european_price": 11.3614322811703,
+          "minimum_early_exercise_premium": 1.3892456544938785
+        },
+        "original_validation": {
+          "quantlib_fd_reference": 12.750677935664179,
+          "quantlib_fd_higher_resolution": 12.750925644751636,
+          "quantlib_fd_escrowed_higher_resolution": 12.652026692430416,
+          "quantlib_analytic_dividend_european": 11.3614322811703,
+          "abs_diff_fd_levels": 0.000247709087457082,
+          "abs_diff_spot_vs_escrowed": 0.09865124323376229
+        },
+        "original_tolerance": {
+          "price_abs_vs_fd": 0.01
+        }
+      }
+    },
+    {
+      "id": "ddam_004",
+      "api": "math.american.discrete_dividend_price",
+      "input": {
+        "spot": 120.0,
+        "strike": 100.0,
+        "years": 1.0,
+        "rate": 0.02,
+        "volatility": 0.3,
+        "option_right": "put",
+        "cash_dividend_model": "escrowed",
+        "dividends": [
+          {
+            "time": 0.4,
+            "amount": 3.0
+          }
+        ]
+      },
+      "expected": {
+        "value": 5.535756067645684
+      },
+      "tolerance": 0.01,
+      "source": {
+        "dataset_origin": "option-test/option_discrete_dividend_american_dataset.json",
+        "dataset_group": "american_discrete_dividend_fd_benchmark",
+        "dataset_case_id": "ddam_004",
+        "original_inputs": {
+          "model": "american_black_scholes_merton_discrete_dividend",
+          "option_type": "put",
+          "spot": 120.0,
+          "strike": 100.0,
+          "time_to_expiry": 1.0,
+          "risk_free_rate": 0.02,
+          "volatility": 0.3,
+          "cash_dividend_model": "escrowed",
+          "dividends": [
+            {
+              "time": 0.4,
+              "amount": 3.0
+            }
+          ]
+        },
+        "original_expected": {
+          "reference_price": 5.535756067645684,
+          "european_price": 5.468937132996435,
+          "minimum_early_exercise_premium": 0.06681893464924915
+        },
+        "original_validation": {
+          "quantlib_fd_reference": 5.535756067645684,
+          "quantlib_fd_higher_resolution": 5.535878724229204,
+          "quantlib_fd_spot_higher_resolution": 5.653005283148454,
+          "quantlib_analytic_dividend_european": 5.468937132996435,
+          "abs_diff_fd_levels": 0.0001226565835201754,
+          "abs_diff_escrowed_vs_spot": 0.11724921550277045
+        },
+        "original_tolerance": {
+          "price_abs_vs_fd": 0.01
+        }
+      }
+    },
+    {
+      "id": "ddam_005",
+      "api": "math.american.discrete_dividend_price",
+      "input": {
+        "spot": 80.0,
+        "strike": 85.0,
+        "years": 2.0,
+        "rate": 0.06,
+        "volatility": 0.35,
+        "option_right": "call",
+        "cash_dividend_model": "spot",
+        "dividends": [
+          {
+            "time": 0.5,
+            "amount": 0.75
+          },
+          {
+            "time": 1.0,
+            "amount": 0.75
+          },
+          {
+            "time": 1.5,
+            "amount": 0.75
+          }
+        ]
+      },
+      "expected": {
+        "value": 16.463269621285313
+      },
+      "tolerance": 0.01,
+      "source": {
+        "dataset_origin": "option-test/option_discrete_dividend_american_dataset.json",
+        "dataset_group": "american_discrete_dividend_fd_benchmark",
+        "dataset_case_id": "ddam_005",
+        "original_inputs": {
+          "model": "american_black_scholes_merton_discrete_dividend",
+          "option_type": "call",
+          "spot": 80.0,
+          "strike": 85.0,
+          "time_to_expiry": 2.0,
+          "risk_free_rate": 0.06,
+          "volatility": 0.35,
+          "cash_dividend_model": "spot",
+          "dividends": [
+            {
+              "time": 0.5,
+              "amount": 0.75
+            },
+            {
+              "time": 1.0,
+              "amount": 0.75
+            },
+            {
+              "time": 1.5,
+              "amount": 0.75
+            }
+          ]
+        },
+        "original_expected": {
+          "reference_price": 16.463269621285313,
+          "european_price": 16.25737082411962,
+          "minimum_early_exercise_premium": 0.2058987971656947
+        },
+        "original_validation": {
+          "quantlib_fd_reference": 16.463269621285313,
+          "quantlib_fd_higher_resolution": 16.46222931003904,
+          "quantlib_fd_escrowed_higher_resolution": 16.257769513187707,
+          "quantlib_analytic_dividend_european": 16.25737082411962,
+          "abs_diff_fd_levels": 0.0010403112462746833,
+          "abs_diff_spot_vs_escrowed": 0.20550010809760622
+        },
+        "original_tolerance": {
+          "price_abs_vs_fd": 0.01
+        }
+      }
+    },
+    {
+      "id": "ddam_006",
+      "api": "math.american.discrete_dividend_price",
+      "input": {
+        "spot": 110.0,
+        "strike": 100.0,
+        "years": 0.5,
+        "rate": 0.01,
+        "volatility": 0.18,
+        "option_right": "call",
+        "cash_dividend_model": "escrowed",
+        "dividends": [
+          {
+            "time": 0.15,
+            "amount": 4.0
+          }
+        ]
+      },
+      "expected": {
+        "value": 10.696171794428333
+      },
+      "tolerance": 0.01,
+      "source": {
+        "dataset_origin": "option-test/option_discrete_dividend_american_dataset.json",
+        "dataset_group": "american_discrete_dividend_fd_benchmark",
+        "dataset_case_id": "ddam_006",
+        "original_inputs": {
+          "model": "american_black_scholes_merton_discrete_dividend",
+          "option_type": "call",
+          "spot": 110.0,
+          "strike": 100.0,
+          "time_to_expiry": 0.5,
+          "risk_free_rate": 0.01,
+          "volatility": 0.18,
+          "cash_dividend_model": "escrowed",
+          "dividends": [
+            {
+              "time": 0.15,
+              "amount": 4.0
+            }
+          ]
+        },
+        "original_expected": {
+          "reference_price": 10.696171794428333,
+          "european_price": 9.090413971925193,
+          "minimum_early_exercise_premium": 1.60575782250314
+        },
+        "original_validation": {
+          "quantlib_fd_reference": 10.696171794428333,
+          "quantlib_fd_higher_resolution": 10.696159696304427,
+          "quantlib_fd_spot_higher_resolution": 10.750045783553189,
+          "quantlib_analytic_dividend_european": 9.090413971925193,
+          "abs_diff_fd_levels": 1.209812390534637e-05,
+          "abs_diff_escrowed_vs_spot": 0.05387398912485608
+        },
+        "original_tolerance": {
+          "price_abs_vs_fd": 0.01
+        }
+      }
+    },
+    {
+      "id": "ddam_007",
+      "api": "math.american.discrete_dividend_price",
+      "input": {
+        "spot": 70.0,
+        "strike": 80.0,
+        "years": 0.75,
+        "rate": 0.025,
+        "volatility": 0.28,
+        "option_right": "put",
+        "cash_dividend_model": "spot",
+        "dividends": [
+          {
+            "time": 0.2,
+            "amount": 0.5
+          },
+          {
+            "time": 0.55,
+            "amount": 0.5
+          }
+        ]
+      },
+      "expected": {
+        "value": 13.0831391087233
+      },
+      "tolerance": 0.01,
+      "source": {
+        "dataset_origin": "option-test/option_discrete_dividend_american_dataset.json",
+        "dataset_group": "american_discrete_dividend_fd_benchmark",
+        "dataset_case_id": "ddam_007",
+        "original_inputs": {
+          "model": "american_black_scholes_merton_discrete_dividend",
+          "option_type": "put",
+          "spot": 70.0,
+          "strike": 80.0,
+          "time_to_expiry": 0.75,
+          "risk_free_rate": 0.025,
+          "volatility": 0.28,
+          "cash_dividend_model": "spot",
+          "dividends": [
+            {
+              "time": 0.2,
+              "amount": 0.5
+            },
+            {
+              "time": 0.55,
+              "amount": 0.5
+            }
+          ]
+        },
+        "original_expected": {
+          "reference_price": 13.0831391087233,
+          "european_price": 12.85042883614339,
+          "minimum_early_exercise_premium": 0.23271027257990973
+        },
+        "original_validation": {
+          "quantlib_fd_reference": 13.0831391087233,
+          "quantlib_fd_higher_resolution": 13.083204228313832,
+          "quantlib_fd_escrowed_higher_resolution": 13.040088564581431,
+          "quantlib_analytic_dividend_european": 12.85042883614339,
+          "abs_diff_fd_levels": 6.511959053234762e-05,
+          "abs_diff_spot_vs_escrowed": 0.043050544141868485
+        },
+        "original_tolerance": {
+          "price_abs_vs_fd": 0.01
+        }
+      }
+    },
+    {
+      "id": "ddam_008",
+      "api": "math.american.discrete_dividend_price",
+      "input": {
+        "spot": 105.0,
+        "strike": 110.0,
+        "years": 2.5,
+        "rate": 0.03,
+        "volatility": 0.24,
+        "option_right": "put",
+        "cash_dividend_model": "escrowed",
+        "dividends": [
+          {
+            "time": 0.5,
+            "amount": 1.25
+          },
+          {
+            "time": 1.0,
+            "amount": 1.25
+          },
+          {
+            "time": 1.5,
+            "amount": 1.25
+          },
+          {
+            "time": 2.0,
+            "amount": 1.25
+          }
+        ]
+      },
+      "expected": {
+        "value": 16.822512894237782
+      },
+      "tolerance": 0.01,
+      "source": {
+        "dataset_origin": "option-test/option_discrete_dividend_american_dataset.json",
+        "dataset_group": "american_discrete_dividend_fd_benchmark",
+        "dataset_case_id": "ddam_008",
+        "original_inputs": {
+          "model": "american_black_scholes_merton_discrete_dividend",
+          "option_type": "put",
+          "spot": 105.0,
+          "strike": 110.0,
+          "time_to_expiry": 2.5,
+          "risk_free_rate": 0.03,
+          "volatility": 0.24,
+          "cash_dividend_model": "escrowed",
+          "dividends": [
+            {
+              "time": 0.5,
+              "amount": 1.25
+            },
+            {
+              "time": 1.0,
+              "amount": 1.25
+            },
+            {
+              "time": 1.5,
+              "amount": 1.25
+            },
+            {
+              "time": 2.0,
+              "amount": 1.25
+            }
+          ]
+        },
+        "original_expected": {
+          "reference_price": 16.822512894237782,
+          "european_price": 16.16704297150808,
+          "minimum_early_exercise_premium": 0.6554699227297007
+        },
+        "original_validation": {
+          "quantlib_fd_reference": 16.822512894237782,
+          "quantlib_fd_higher_resolution": 16.82285719606441,
+          "quantlib_fd_spot_higher_resolution": 17.199571783847496,
+          "quantlib_analytic_dividend_european": 16.16704297150808,
+          "abs_diff_fd_levels": 0.0003443018266295894,
+          "abs_diff_escrowed_vs_spot": 0.3770588896097138
+        },
+        "original_tolerance": {
+          "price_abs_vs_fd": 0.01
+        }
+      }
+    },
+    {
+      "id": "ddam_009",
+      "api": "math.american.discrete_dividend_price",
+      "input": {
+        "spot": 150.0,
+        "strike": 130.0,
+        "years": 1.0,
+        "rate": 0.015,
+        "volatility": 0.32,
+        "option_right": "call",
+        "cash_dividend_model": "spot",
+        "dividends": [
+          {
+            "time": 0.3,
+            "amount": 2.5
+          },
+          {
+            "time": 0.8,
+            "amount": 2.0
+          }
+        ]
+      },
+      "expected": {
+        "value": 28.35969914494732
+      },
+      "tolerance": 0.01,
+      "source": {
+        "dataset_origin": "option-test/option_discrete_dividend_american_dataset.json",
+        "dataset_group": "american_discrete_dividend_fd_benchmark",
+        "dataset_case_id": "ddam_009",
+        "original_inputs": {
+          "model": "american_black_scholes_merton_discrete_dividend",
+          "option_type": "call",
+          "spot": 150.0,
+          "strike": 130.0,
+          "time_to_expiry": 1.0,
+          "risk_free_rate": 0.015,
+          "volatility": 0.32,
+          "cash_dividend_model": "spot",
+          "dividends": [
+            {
+              "time": 0.3,
+              "amount": 2.5
+            },
+            {
+              "time": 0.8,
+              "amount": 2.0
+            }
+          ]
+        },
+        "original_expected": {
+          "reference_price": 28.35969914494732,
+          "european_price": 27.481633962211774,
+          "minimum_early_exercise_premium": 0.878065182735547
+        },
+        "original_validation": {
+          "quantlib_fd_reference": 28.35969914494732,
+          "quantlib_fd_higher_resolution": 28.359470826348552,
+          "quantlib_fd_escrowed_higher_resolution": 28.086431090575108,
+          "quantlib_analytic_dividend_european": 27.481633962211774,
+          "abs_diff_fd_levels": 0.0002283185987685954,
+          "abs_diff_spot_vs_escrowed": 0.27326805437221324
+        },
+        "original_tolerance": {
+          "price_abs_vs_fd": 0.01
+        }
+      }
+    },
+    {
+      "id": "ddam_010",
+      "api": "math.american.discrete_dividend_price",
+      "input": {
+        "spot": 95.0,
+        "strike": 100.0,
+        "years": 0.25,
+        "rate": 0.04,
+        "volatility": 0.5,
+        "option_right": "put",
+        "cash_dividend_model": "escrowed",
+        "dividends": [
+          {
+            "time": 0.12,
+            "amount": 1.0
+          }
+        ]
+      },
+      "expected": {
+        "value": 12.397922603199952
+      },
+      "tolerance": 0.01,
+      "source": {
+        "dataset_origin": "option-test/option_discrete_dividend_american_dataset.json",
+        "dataset_group": "american_discrete_dividend_fd_benchmark",
+        "dataset_case_id": "ddam_010",
+        "original_inputs": {
+          "model": "american_black_scholes_merton_discrete_dividend",
+          "option_type": "put",
+          "spot": 95.0,
+          "strike": 100.0,
+          "time_to_expiry": 0.25,
+          "risk_free_rate": 0.04,
+          "volatility": 0.5,
+          "cash_dividend_model": "escrowed",
+          "dividends": [
+            {
+              "time": 0.12,
+              "amount": 1.0
+            }
+          ]
+        },
+        "original_expected": {
+          "reference_price": 12.397922603199952,
+          "european_price": 12.293356149160294,
+          "minimum_early_exercise_premium": 0.10456645403965759
+        },
+        "original_validation": {
+          "quantlib_fd_reference": 12.397922603199952,
+          "quantlib_fd_higher_resolution": 12.3980463566867,
+          "quantlib_fd_spot_higher_resolution": 12.44658967747279,
+          "quantlib_analytic_dividend_european": 12.293356149160294,
+          "abs_diff_fd_levels": 0.00012375348674886766,
+          "abs_diff_escrowed_vs_spot": 0.04866707427283856
+        },
+        "original_tolerance": {
+          "price_abs_vs_fd": 0.01
+        }
+      }
+    },
+    {
+      "id": "ddam_011",
+      "api": "math.american.discrete_dividend_price",
+      "input": {
+        "spot": 60.0,
+        "strike": 65.0,
+        "years": 1.25,
+        "rate": 0.05,
+        "volatility": 0.4,
+        "option_right": "call",
+        "cash_dividend_model": "spot",
+        "dividends": [
+          {
+            "time": 0.4,
+            "amount": 0.4
+          },
+          {
+            "time": 0.8,
+            "amount": 0.4
+          }
+        ]
+      },
+      "expected": {
+        "value": 9.810034577673974
+      },
+      "tolerance": 0.01,
+      "source": {
+        "dataset_origin": "option-test/option_discrete_dividend_american_dataset.json",
+        "dataset_group": "american_discrete_dividend_fd_benchmark",
+        "dataset_case_id": "ddam_011",
+        "original_inputs": {
+          "model": "american_black_scholes_merton_discrete_dividend",
+          "option_type": "call",
+          "spot": 60.0,
+          "strike": 65.0,
+          "time_to_expiry": 1.25,
+          "risk_free_rate": 0.05,
+          "volatility": 0.4,
+          "cash_dividend_model": "spot",
+          "dividends": [
+            {
+              "time": 0.4,
+              "amount": 0.4
+            },
+            {
+              "time": 0.8,
+              "amount": 0.4
+            }
+          ]
+        },
+        "original_expected": {
+          "reference_price": 9.810034577673974,
+          "european_price": 9.743102607320191,
+          "minimum_early_exercise_premium": 0.0669319703537834
+        },
+        "original_validation": {
+          "quantlib_fd_reference": 9.810034577673974,
+          "quantlib_fd_higher_resolution": 9.809666035990725,
+          "quantlib_fd_escrowed_higher_resolution": 9.743303737084473,
+          "quantlib_analytic_dividend_european": 9.743102607320191,
+          "abs_diff_fd_levels": 0.0003685416832492905,
+          "abs_diff_spot_vs_escrowed": 0.06673084058950174
+        },
+        "original_tolerance": {
+          "price_abs_vs_fd": 0.01
+        }
+      }
+    },
+    {
+      "id": "ddam_012",
+      "api": "math.american.discrete_dividend_price",
+      "input": {
+        "spot": 130.0,
+        "strike": 120.0,
+        "years": 1.75,
+        "rate": 0.035,
+        "volatility": 0.21,
+        "option_right": "put",
+        "cash_dividend_model": "escrowed",
+        "dividends": [
+          {
+            "time": 0.5,
+            "amount": 2.2
+          },
+          {
+            "time": 1.1,
+            "amount": 2.2
+          }
+        ]
+      },
+      "expected": {
+        "value": 8.177483435726229
+      },
+      "tolerance": 0.01,
+      "source": {
+        "dataset_origin": "option-test/option_discrete_dividend_american_dataset.json",
+        "dataset_group": "american_discrete_dividend_fd_benchmark",
+        "dataset_case_id": "ddam_012",
+        "original_inputs": {
+          "model": "american_black_scholes_merton_discrete_dividend",
+          "option_type": "put",
+          "spot": 130.0,
+          "strike": 120.0,
+          "time_to_expiry": 1.75,
+          "risk_free_rate": 0.035,
+          "volatility": 0.21,
+          "cash_dividend_model": "escrowed",
+          "dividends": [
+            {
+              "time": 0.5,
+              "amount": 2.2
+            },
+            {
+              "time": 1.1,
+              "amount": 2.2
+            }
+          ]
+        },
+        "original_expected": {
+          "reference_price": 8.177483435726229,
+          "european_price": 7.72779521049856,
+          "minimum_early_exercise_premium": 0.4496882252276686
+        },
+        "original_validation": {
+          "quantlib_fd_reference": 8.177483435726229,
+          "quantlib_fd_higher_resolution": 8.177789858057814,
+          "quantlib_fd_spot_higher_resolution": 8.389042397284287,
+          "quantlib_analytic_dividend_european": 7.72779521049856,
+          "abs_diff_fd_levels": 0.0003064223315849546,
+          "abs_diff_escrowed_vs_spot": 0.2115589615580582
+        },
+        "original_tolerance": {
+          "price_abs_vs_fd": 0.01
+        }
+      }
+    }
+  ]
+}

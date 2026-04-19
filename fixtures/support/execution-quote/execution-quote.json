@@ -1,0 +1,633 @@
+{
+  "fixture": "execution-quote",
+  "cases": [
+    {
+      "id": "single-long-position",
+      "api": "execution_quote.best_worst",
+      "input": {
+        "positions": [
+          {
+            "contract": {
+              "underlying_symbol": "SPY",
+              "expiration_date": "2025-03-21",
+              "strike": 600.0,
+              "option_right": "call",
+              "occ_symbol": "SPY250321C00600000"
+            },
+            "position_side": "long",
+            "quantity": 1,
+            "avg_entry_price": 2.5,
+            "snapshot": {
+              "as_of": "2025-02-06 11:30:04",
+              "contract": {
+                "underlying_symbol": "SPY",
+                "expiration_date": "2025-03-21",
+                "strike": 600.0,
+                "option_right": "call",
+                "occ_symbol": "SPY250321C00600000"
+              },
+              "quote": {
+                "bid": 2.45,
+                "ask": 2.55,
+                "mark": 2.5,
+                "last": 2.53
+              },
+              "greeks": null,
+              "implied_volatility": null,
+              "underlying_price": null
+            }
+          }
+        ]
+      },
+      "expected": {
+        "structure_quantity": 1,
+        "per_structure": {
+          "best_price": 2.45,
+          "worst_price": 2.55
+        },
+        "per_order": {
+          "best_price": 2.45,
+          "worst_price": 2.55
+        },
+        "dollars": {
+          "best_price": 245.0,
+          "worst_price": 255.0
+        }
+      }
+    },
+    {
+      "id": "single-long-position-scaled",
+      "api": "execution_quote.best_worst",
+      "input": {
+        "structure_quantity": 2,
+        "positions": [
+          {
+            "contract": {
+              "underlying_symbol": "SPY",
+              "expiration_date": "2025-03-21",
+              "strike": 600.0,
+              "option_right": "call",
+              "occ_symbol": "SPY250321C00600000"
+            },
+            "position_side": "long",
+            "quantity": 1,
+            "avg_entry_price": 2.5,
+            "snapshot": {
+              "as_of": "2025-02-06 11:30:04",
+              "contract": {
+                "underlying_symbol": "SPY",
+                "expiration_date": "2025-03-21",
+                "strike": 600.0,
+                "option_right": "call",
+                "occ_symbol": "SPY250321C00600000"
+              },
+              "quote": {
+                "bid": 2.45,
+                "ask": 2.55,
+                "mark": 2.5,
+                "last": 2.53
+              },
+              "greeks": null,
+              "implied_volatility": null,
+              "underlying_price": null
+            }
+          }
+        ]
+      },
+      "expected": {
+        "structure_quantity": 2,
+        "per_structure": {
+          "best_price": 2.45,
+          "worst_price": 2.55
+        },
+        "per_order": {
+          "best_price": 4.9,
+          "worst_price": 5.1
+        },
+        "dollars": {
+          "best_price": 490.0,
+          "worst_price": 510.0
+        }
+      }
+    },
+    {
+      "id": "vertical-spread-legs",
+      "api": "execution_quote.best_worst",
+      "input": {
+        "legs": [
+          {
+            "contract": {
+              "underlying_symbol": "SPY",
+              "expiration_date": "2025-03-21",
+              "strike": 600.0,
+              "option_right": "put",
+              "occ_symbol": "SPY250321P00600000"
+            },
+            "order_side": "buy",
+            "ratio_quantity": 1,
+            "quote": {
+              "bid": 2.45,
+              "ask": 2.55,
+              "mark": 2.5,
+              "last": 2.53
+            },
+            "snapshot": null
+          },
+          {
+            "contract": {
+              "underlying_symbol": "SPY",
+              "expiration_date": "2025-03-21",
+              "strike": 580.0,
+              "option_right": "put",
+              "occ_symbol": "SPY250321P00580000"
+            },
+            "order_side": "sell",
+            "ratio_quantity": 1,
+            "quote": {
+              "bid": 1.1,
+              "ask": 1.2,
+              "mark": 1.15,
+              "last": 1.16
+            },
+            "snapshot": null
+          }
+        ]
+      },
+      "expected": {
+        "structure_quantity": 1,
+        "per_structure": {
+          "best_price": 1.25,
+          "worst_price": 1.45
+        },
+        "per_order": {
+          "best_price": 1.25,
+          "worst_price": 1.45
+        },
+        "dollars": {
+          "best_price": 125.0,
+          "worst_price": 145.0
+        }
+      }
+    },
+    {
+      "id": "best-worst-from-legs-scaled",
+      "api": "execution_quote.best_worst",
+      "input": {
+        "structure_quantity": 3,
+        "legs": [
+          {
+            "contract": {
+              "underlying_symbol": "SPY",
+              "expiration_date": "2025-03-21",
+              "strike": 600.0,
+              "option_right": "put",
+              "occ_symbol": "SPY250321P00600000"
+            },
+            "order_side": "buy",
+            "ratio_quantity": 1,
+            "quote": {
+              "bid": 2.45,
+              "ask": 2.55,
+              "mark": 2.5,
+              "last": 2.53
+            },
+            "snapshot": null
+          },
+          {
+            "contract": {
+              "underlying_symbol": "SPY",
+              "expiration_date": "2025-03-21",
+              "strike": 580.0,
+              "option_right": "put",
+              "occ_symbol": "SPY250321P00580000"
+            },
+            "order_side": "sell",
+            "ratio_quantity": 1,
+            "quote": {
+              "bid": 1.1,
+              "ask": 1.2,
+              "mark": 1.15,
+              "last": 1.16
+            },
+            "snapshot": null
+          }
+        ]
+      },
+      "expected": {
+        "structure_quantity": 3,
+        "per_structure": {
+          "best_price": 1.25,
+          "worst_price": 1.45
+        },
+        "per_order": {
+          "best_price": 3.75,
+          "worst_price": 4.35
+        },
+        "dollars": {
+          "best_price": 375.0,
+          "worst_price": 435.0
+        }
+      }
+    },
+    {
+      "id": "quote-from-snapshot",
+      "api": "execution_quote.quote",
+      "input": {
+        "snapshot": {
+          "as_of": "2025-02-06 11:30:04",
+          "contract": {
+            "underlying_symbol": "SPY",
+            "expiration_date": "2025-03-21",
+            "strike": 600.0,
+            "option_right": "call",
+            "occ_symbol": "SPY250321C00600000"
+          },
+          "quote": {
+            "bid": 1.1,
+            "ask": 1.3,
+            "mark": null,
+            "last": null
+          },
+          "greeks": null,
+          "implied_volatility": null,
+          "underlying_price": null
+        }
+      },
+      "expected": {
+        "bid": 1.1,
+        "ask": 1.3,
+        "mark": 1.2,
+        "last": 1.2
+      }
+    },
+    {
+      "id": "quote-from-canonical-position",
+      "api": "execution_quote.quote",
+      "input": {
+        "position": {
+          "contract": {
+            "underlying_symbol": "SPY",
+            "expiration_date": "2025-03-21",
+            "strike": 600.0,
+            "option_right": "call",
+            "occ_symbol": "SPY250321C00600000"
+          },
+          "position_side": "long",
+          "quantity": 1,
+          "avg_entry_price": null,
+          "snapshot": {
+            "as_of": "2025-02-06 11:30:04",
+            "contract": {
+              "underlying_symbol": "SPY",
+              "expiration_date": "2025-03-21",
+              "strike": 600.0,
+              "option_right": "call",
+              "occ_symbol": "SPY250321C00600000"
+            },
+            "quote": {
+              "bid": 2.45,
+              "ask": 2.55,
+              "mark": null,
+              "last": null
+            },
+            "greeks": null,
+            "implied_volatility": null,
+            "underlying_price": null
+          }
+        }
+      },
+      "expected": {
+        "bid": 2.45,
+        "ask": 2.55,
+        "mark": 2.5,
+        "last": 2.5
+      }
+    },
+    {
+      "id": "limit-price",
+      "api": "execution_quote.limit_price",
+      "input": {
+        "price": 1.45
+      },
+      "expected": {
+        "value": 1.45
+      }
+    },
+    {
+      "id": "limit-price-empty-falls-back-to-zero",
+      "api": "execution_quote.limit_price",
+      "input": {
+        "price": null
+      },
+      "expected": {
+        "value": 0.0
+      }
+    },
+    {
+      "id": "order-legs-close-filtered",
+      "api": "execution_quote.order_legs",
+      "input": {
+        "action": "close",
+        "exclude_leg_types": ["shortput"],
+        "positions": [
+          {
+            "contract": {
+              "underlying_symbol": "SPY",
+              "expiration_date": "2025-03-21",
+              "strike": 600.0,
+              "option_right": "call",
+              "occ_symbol": "SPY250321C00600000"
+            },
+            "position_side": "long",
+            "quantity": 1,
+            "avg_entry_price": 2.5,
+            "snapshot": {
+              "as_of": "2025-02-06 11:30:04",
+              "contract": {
+                "underlying_symbol": "SPY",
+                "expiration_date": "2025-03-21",
+                "strike": 600.0,
+                "option_right": "call",
+                "occ_symbol": "SPY250321C00600000"
+              },
+              "quote": {
+                "bid": 2.45,
+                "ask": 2.55,
+                "mark": null,
+                "last": null
+              },
+              "greeks": null,
+              "implied_volatility": null,
+              "underlying_price": null
+            }
+          },
+          {
+            "contract": {
+              "underlying_symbol": "SPY",
+              "expiration_date": "2025-03-21",
+              "strike": 580.0,
+              "option_right": "put",
+              "occ_symbol": "SPY250321P00580000"
+            },
+            "position_side": "short",
+            "quantity": 1,
+            "avg_entry_price": 1.2,
+            "snapshot": {
+              "as_of": "2025-02-06 11:30:04",
+              "contract": {
+                "underlying_symbol": "SPY",
+                "expiration_date": "2025-03-21",
+                "strike": 580.0,
+                "option_right": "put",
+                "occ_symbol": "SPY250321P00580000"
+              },
+              "quote": {
+                "bid": 1.1,
+                "ask": 1.2,
+                "mark": 1.15,
+                "last": 1.16
+              },
+              "greeks": null,
+              "implied_volatility": 0.28,
+              "underlying_price": 590.0
+            }
+          }
+        ]
+      },
+      "expected": [
+        {
+          "symbol": "SPY250321C00600000",
+          "ratio_qty": "1",
+          "side": "sell",
+          "position_intent": "sell_to_close",
+          "leg_type": "longcall",
+          "snapshot": {
+            "contract": "SPY250321C00600000",
+            "timestamp": "2025-02-06 11:30:04",
+            "bid": "2.45",
+            "ask": "2.55",
+            "price": "2.5",
+            "greeks": {
+              "delta": 0.0,
+              "gamma": 0.0,
+              "vega": 0.0,
+              "theta": 0.0,
+              "rho": 0.0
+            },
+            "iv": 0.0
+          }
+        }
+      ]
+    },
+    {
+      "id": "roll-legs-short-put",
+      "api": "execution_quote.roll_legs",
+      "input": {
+        "positions": [
+          {
+            "contract": {
+              "underlying_symbol": "SPY",
+              "expiration_date": "2025-03-21",
+              "strike": 580.0,
+              "option_right": "put",
+              "occ_symbol": "SPY250321P00580000"
+            },
+            "position_side": "short",
+            "quantity": 2,
+            "avg_entry_price": 1.2,
+            "snapshot": {
+              "as_of": "2025-02-06 11:30:04",
+              "contract": {
+                "underlying_symbol": "SPY",
+                "expiration_date": "2025-03-21",
+                "strike": 580.0,
+                "option_right": "put",
+                "occ_symbol": "SPY250321P00580000"
+              },
+              "quote": {
+                "bid": 1.1,
+                "ask": 1.2,
+                "mark": 1.15,
+                "last": 1.16
+              },
+              "greeks": null,
+              "implied_volatility": 0.28,
+              "underlying_price": 590.0
+            }
+          }
+        ],
+        "snapshots": {
+          "shortput": {
+            "contract": "SPY250328P00575000",
+            "timestamp": "2025-02-06 11:31:00",
+            "bid": "1.75",
+            "ask": "1.95",
+            "price": "1.85",
+            "greeks": {
+              "delta": -0.24,
+              "gamma": 0.02,
+              "vega": 0.08,
+              "theta": -0.02,
+              "rho": -0.01
+            },
+            "iv": 0.24
+          }
+        },
+        "selections": [
+          {
+            "leg_type": "shortput",
+            "quantity": 1
+          }
+        ]
+      },
+      "expected": [
+        {
+          "symbol": "SPY250321P00580000",
+          "ratio_qty": "1",
+          "side": "buy",
+          "position_intent": "buy_to_close",
+          "leg_type": "shortput",
+          "snapshot": {
+            "contract": "SPY250321P00580000",
+            "timestamp": "2025-02-06 11:30:04",
+            "bid": "1.1",
+            "ask": "1.2",
+            "price": "1.15",
+            "greeks": {
+              "delta": 0.0,
+              "gamma": 0.0,
+              "vega": 0.0,
+              "theta": 0.0,
+              "rho": 0.0
+            },
+            "iv": 0.28
+          }
+        },
+        {
+          "symbol": "SPY250328P00575000",
+          "ratio_qty": "1",
+          "side": "sell",
+          "position_intent": "sell_to_open",
+          "leg_type": "shortput",
+          "snapshot": {
+            "contract": "SPY250328P00575000",
+            "timestamp": "2025-02-06 11:31:00",
+            "bid": "1.75",
+            "ask": "1.95",
+            "price": "1.85",
+            "greeks": {
+              "delta": -0.24,
+              "gamma": 0.02,
+              "vega": 0.08,
+              "theta": -0.02,
+              "rho": -0.01
+            },
+            "iv": 0.24
+          }
+        }
+      ]
+    },
+    {
+      "id": "single-open-leg-from-direct-quote-inputs",
+      "api": "execution_quote.leg",
+      "input": {
+        "action": "open",
+        "leg_type": "longcall",
+        "contract": "SPY250321C00600000",
+        "quantity": 1,
+        "timestamp": "2025-02-06 11:30:04",
+        "price": 1.2,
+        "spread_percent": 0.1,
+        "iv": 0.25,
+        "greeks": {
+          "delta": 0.5,
+          "theta": -0.03
+        }
+      },
+      "expected": {
+        "symbol": "SPY250321C00600000",
+        "ratio_qty": "1",
+        "side": "buy",
+        "position_intent": "buy_to_open",
+        "leg_type": "longcall",
+        "snapshot": {
+          "contract": "SPY250321C00600000",
+          "timestamp": "2025-02-06 11:30:04",
+          "bid": "1.14",
+          "ask": "1.26",
+          "price": "1.2",
+          "greeks": {
+            "delta": 0.5,
+            "gamma": 0.0,
+            "vega": 0.0,
+            "theta": -0.03,
+            "rho": 0.0
+          },
+          "iv": 0.25
+        }
+      }
+    },
+    {
+      "id": "scale-quote",
+      "api": "execution_quote.scale_quote",
+      "input": {
+        "price": 1.25,
+        "structure_quantity": 3
+      },
+      "expected": {
+        "structure_quantity": 3,
+        "price": 1.25,
+        "total_price": 3.75,
+        "total_dollars": 375.0
+      }
+    },
+    {
+      "id": "scale-quote-range",
+      "api": "execution_quote.scale_quote_range",
+      "input": {
+        "best_price": 1.25,
+        "worst_price": 1.45,
+        "structure_quantity": 3
+      },
+      "expected": {
+        "structure_quantity": 3,
+        "per_structure": {
+          "best_price": 1.25,
+          "worst_price": 1.45
+        },
+        "per_order": {
+          "best_price": 3.75,
+          "worst_price": 4.35
+        },
+        "dollars": {
+          "best_price": 375.0,
+          "worst_price": 435.0
+        }
+      }
+    },
+    {
+      "id": "limit-quote-halfway",
+      "api": "execution_quote.limit_quote_by_progress",
+      "input": {
+        "best_price": 1.25,
+        "worst_price": 1.45,
+        "progress": 0.5
+      },
+      "expected": {
+        "value": 1.35
+      }
+    },
+    {
+      "id": "progress-of-limit-halfway",
+      "api": "execution_quote.progress_of_limit",
+      "input": {
+        "best_price": 1.25,
+        "worst_price": 1.45,
+        "limit_price": 1.35
+      },
+      "expected": {
+        "value": 0.5
+      }
+    }
+  ]
+}

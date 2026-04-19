@@ -1,0 +1,41 @@
+{
+  "fixture": "expiration-selection",
+  "cases": [
+    {
+      "id": "nearest-weekly-holiday-adjusted",
+      "api": "expiration_selection.nearest_weekly_expiration",
+      "input": {
+        "anchor_date": "2025-07-01"
+      },
+      "expected": {
+        "value": "2025-07-03"
+      }
+    },
+    {
+      "id": "weekly-expirations-between",
+      "api": "expiration_selection.weekly_expirations_between",
+      "input": {
+        "start_date": "2025-07-01",
+        "end_date": "2025-07-18"
+      },
+      "expected": {
+        "value": [
+          "2025-07-03",
+          "2025-07-11",
+          "2025-07-18"
+        ]
+      }
+    },
+    {
+      "id": "standard-monthly-good-friday-adjusted",
+      "api": "expiration_selection.standard_monthly_expiration",
+      "input": {
+        "year": 2025,
+        "month": 4
+      },
+      "expected": {
+        "value": "2025-04-17"
+      }
+    }
+  ]
+}

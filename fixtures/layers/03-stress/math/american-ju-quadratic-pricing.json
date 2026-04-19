@@ -1,0 +1,198 @@
+{
+  "fixture": "math/american-ju-quadratic-pricing",
+  "layer": {
+    "id": "03-stress",
+    "label": "Stress",
+    "status": "integrated",
+    "source_dataset": "option_stress_dataset.json",
+    "source_case_count": 38,
+    "purpose": "The numerical stability stress layer for pathological scenarios."
+  },
+  "oracle": {
+    "tier": "A/B",
+    "layer_id": "03-stress",
+    "layer_label": "Stress",
+    "status": "integrated",
+    "dataset_origin": "option-test/option_stress_dataset.json",
+    "purpose": "Ju quadratic pricing regression cases.",
+    "split_from": "fixtures/math/american-ju-quadratic-pricing.json"
+  },
+  "cases": [
+    {
+      "id": "stress_american_call_high_dividend",
+      "api": "math.american_ju_quadratic_price",
+      "input": {
+        "spot": 100.0,
+        "strike": 90.0,
+        "years": 1.0,
+        "rate": 0.03,
+        "dividend_yield": 0.12,
+        "volatility": 0.25,
+        "option_right": "call"
+      },
+      "expected": {
+        "value": 11.757902233805881
+      },
+      "tolerance": 0.05,
+      "source": {
+        "dataset_case_id": "stress_american_call_high_dividend",
+        "original_inputs": {
+          "model": "american_black_scholes_merton",
+          "option_type": "call",
+          "spot": 100.0,
+          "strike": 90.0,
+          "time_to_expiry": 1.0,
+          "risk_free_rate": 0.03,
+          "dividend_yield": 0.12,
+          "volatility": 0.25
+        },
+        "original_expected": {
+          "reference_price": 11.770741521917095,
+          "european_price": 9.447934207920122,
+          "minimum_early_exercise_premium": 2.3228073139969734
+        },
+        "original_validation": {
+          "quantlib_barone_adesi_whaley": 11.703288150034803,
+          "quantlib_bjerksund_stensland": 11.703494616330934,
+          "quantlib_ju_quadratic": 11.757902233805881,
+          "quantlib_fd_black_scholes": 11.770741521917095,
+          "max_method_spread": 0.0674533718822925
+        },
+        "dataset_group": "stress_american_cross_method",
+        "dataset_origin": "option-test/option_stress_dataset.json"
+      }
+    },
+    {
+      "id": "stress_american_put_deep_itm",
+      "api": "math.american_ju_quadratic_price",
+      "input": {
+        "spot": 60.0,
+        "strike": 100.0,
+        "years": 1.5,
+        "rate": 0.02,
+        "dividend_yield": 0.0,
+        "volatility": 0.2,
+        "option_right": "put"
+      },
+      "expected": {
+        "value": 40.0
+      },
+      "tolerance": 0.05,
+      "source": {
+        "dataset_case_id": "stress_american_put_deep_itm",
+        "original_inputs": {
+          "model": "american_black_scholes_merton",
+          "option_type": "put",
+          "spot": 60.0,
+          "strike": 100.0,
+          "time_to_expiry": 1.5,
+          "risk_free_rate": 0.02,
+          "dividend_yield": 0.0,
+          "volatility": 0.2
+        },
+        "original_expected": {
+          "reference_price": 40.0000000000393,
+          "european_price": 37.218688993017636,
+          "minimum_early_exercise_premium": 2.781311007021664
+        },
+        "original_validation": {
+          "quantlib_barone_adesi_whaley": 40.0,
+          "quantlib_bjerksund_stensland": 40.0,
+          "quantlib_ju_quadratic": 40.0,
+          "quantlib_fd_black_scholes": 40.0000000000393,
+          "max_method_spread": 3.930011871489114e-11
+        },
+        "dataset_group": "stress_american_cross_method",
+        "dataset_origin": "option-test/option_stress_dataset.json"
+      }
+    },
+    {
+      "id": "stress_american_put_low_rate",
+      "api": "math.american_ju_quadratic_price",
+      "input": {
+        "spot": 100.0,
+        "strike": 110.0,
+        "years": 0.75,
+        "rate": 0.0001,
+        "dividend_yield": 0.0,
+        "volatility": 0.3,
+        "option_right": "put"
+      },
+      "expected": {
+        "value": 16.563863140907927
+      },
+      "tolerance": 0.05,
+      "source": {
+        "dataset_case_id": "stress_american_put_low_rate",
+        "original_inputs": {
+          "model": "american_black_scholes_merton",
+          "option_type": "put",
+          "spot": 100.0,
+          "strike": 110.0,
+          "time_to_expiry": 0.75,
+          "risk_free_rate": 0.0001,
+          "dividend_yield": 0.0,
+          "volatility": 0.3
+        },
+        "original_expected": {
+          "reference_price": 16.564747103378817,
+          "european_price": 16.56428541328003,
+          "minimum_early_exercise_premium": 0.00046169009878838096
+        },
+        "original_validation": {
+          "quantlib_barone_adesi_whaley": 16.564420370043067,
+          "quantlib_bjerksund_stensland": 16.56428541328004,
+          "quantlib_ju_quadratic": 16.563863140907927,
+          "quantlib_fd_black_scholes": 16.564747103378817,
+          "max_method_spread": 0.0008839624708905092
+        },
+        "dataset_group": "stress_american_cross_method",
+        "dataset_origin": "option-test/option_stress_dataset.json"
+      }
+    },
+    {
+      "id": "stress_american_call_near_expiry",
+      "api": "math.american_ju_quadratic_price",
+      "input": {
+        "spot": 100.0,
+        "strike": 100.0,
+        "years": 0.038356164383561646,
+        "rate": 0.02,
+        "dividend_yield": 0.08,
+        "volatility": 0.35,
+        "option_right": "call"
+      },
+      "expected": {
+        "value": 2.6461631358678517
+      },
+      "tolerance": 0.05,
+      "source": {
+        "dataset_case_id": "stress_american_call_near_expiry",
+        "original_inputs": {
+          "model": "american_black_scholes_merton",
+          "option_type": "call",
+          "spot": 100.0,
+          "strike": 100.0,
+          "time_to_expiry": 0.038356164383561646,
+          "risk_free_rate": 0.02,
+          "dividend_yield": 0.08,
+          "volatility": 0.35
+        },
+        "original_expected": {
+          "reference_price": 2.64780868211488,
+          "european_price": 2.6155291748552716,
+          "minimum_early_exercise_premium": 0.032279507259608486
+        },
+        "original_validation": {
+          "quantlib_barone_adesi_whaley": 2.6439867042453704,
+          "quantlib_bjerksund_stensland": 2.638466395800194,
+          "quantlib_ju_quadratic": 2.6461631358678517,
+          "quantlib_fd_black_scholes": 2.64780868211488,
+          "max_method_spread": 0.009342286314685921
+        },
+        "dataset_group": "stress_american_cross_method",
+        "dataset_origin": "option-test/option_stress_dataset.json"
+      }
+    }
+  ]
+}

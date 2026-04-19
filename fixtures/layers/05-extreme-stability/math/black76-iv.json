@@ -1,0 +1,280 @@
+{
+  "fixture": "math/black76-iv",
+  "layer": {
+    "id": "05-extreme-stability",
+    "label": "Extreme Stability",
+    "status": "integrated",
+    "source_dataset": "option_extreme_stability_dataset.json",
+    "source_case_count": 38,
+    "purpose": "A harder floating-point stability hardening layer."
+  },
+  "oracle": {
+    "tier": "A+/B",
+    "layer_id": "05-extreme-stability",
+    "layer_label": "Extreme Stability",
+    "status": "integrated",
+    "dataset_origin": "option-test/option_extreme_stability_dataset.json",
+    "purpose": "Black-76 implied-volatility regression cases.",
+    "split_from": "fixtures/math/black76-iv.json"
+  },
+  "cases": [
+    {
+      "id": "xblack_001_iv",
+      "api": "math.black76_implied_volatility_from_price",
+      "input": {
+        "target_price": 0.020879876866312572,
+        "forward": 100.0,
+        "strike": 100.0,
+        "years": 0.0027397260273972603,
+        "rate": 0.03,
+        "option_right": "call",
+        "lower_bound": 1e-06,
+        "upper_bound": 5.0,
+        "tolerance": 1e-12
+      },
+      "expected": {
+        "value": 0.01
+      },
+      "tolerance": 1e-07,
+      "source": {
+        "dataset_origin": "option-test/option_extreme_stability_dataset.json",
+        "dataset_group": "extreme_black76_exact",
+        "dataset_case_id": "xblack_001",
+        "original_inputs": {
+          "model": "black_76",
+          "option_type": "call",
+          "forward": 100.0,
+          "strike": 100.0,
+          "time_to_expiry": 0.0027397260273972603,
+          "risk_free_rate": 0.03,
+          "volatility": 0.01
+        },
+        "original_expected": {
+          "price": 0.020879876866312572
+        },
+        "original_validation": {
+          "quantlib": 0.020879876866312572,
+          "abs_diff_local_vs_quantlib": 0.0
+        },
+        "original_tolerance": {
+          "price_abs": 1e-10
+        }
+      }
+    },
+    {
+      "id": "xblack_002_iv",
+      "api": "math.black76_implied_volatility_from_price",
+      "input": {
+        "target_price": 2.5054479910590164,
+        "forward": 100.0,
+        "strike": 100.0,
+        "years": 0.0027397260273972603,
+        "rate": -0.01,
+        "option_right": "put",
+        "lower_bound": 1e-06,
+        "upper_bound": 5.0,
+        "tolerance": 1e-12
+      },
+      "expected": {
+        "value": 1.2
+      },
+      "tolerance": 1e-07,
+      "source": {
+        "dataset_origin": "option-test/option_extreme_stability_dataset.json",
+        "dataset_group": "extreme_black76_exact",
+        "dataset_case_id": "xblack_002",
+        "original_inputs": {
+          "model": "black_76",
+          "option_type": "put",
+          "forward": 100.0,
+          "strike": 100.0,
+          "time_to_expiry": 0.0027397260273972603,
+          "risk_free_rate": -0.01,
+          "volatility": 1.2
+        },
+        "original_expected": {
+          "price": 2.5054479910590164
+        },
+        "original_validation": {
+          "quantlib": 2.5054479910590244,
+          "abs_diff_local_vs_quantlib": 7.993605777301127e-15
+        },
+        "original_tolerance": {
+          "price_abs": 1e-10
+        }
+      }
+    },
+    {
+      "id": "xblack_003_iv",
+      "api": "math.black76_implied_volatility_from_price",
+      "input": {
+        "target_price": 155.76015661580612,
+        "forward": 300.0,
+        "strike": 100.0,
+        "years": 5.0,
+        "rate": 0.05,
+        "option_right": "call",
+        "lower_bound": 1e-06,
+        "upper_bound": 5.0,
+        "tolerance": 1e-12
+      },
+      "expected": {
+        "value": 0.08
+      },
+      "tolerance": 1e-07,
+      "source": {
+        "dataset_origin": "option-test/option_extreme_stability_dataset.json",
+        "dataset_group": "extreme_black76_exact",
+        "dataset_case_id": "xblack_003",
+        "original_inputs": {
+          "model": "black_76",
+          "option_type": "call",
+          "forward": 300.0,
+          "strike": 100.0,
+          "time_to_expiry": 5.0,
+          "risk_free_rate": 0.05,
+          "volatility": 0.08
+        },
+        "original_expected": {
+          "price": 155.76015661580612
+        },
+        "original_validation": {
+          "quantlib": 155.76015661580612,
+          "abs_diff_local_vs_quantlib": 0.0
+        },
+        "original_tolerance": {
+          "price_abs": 1e-10
+        }
+      }
+    },
+    {
+      "id": "xblack_004_iv",
+      "api": "math.black76_implied_volatility_from_price",
+      "input": {
+        "target_price": 67.48763824846218,
+        "forward": 40.0,
+        "strike": 100.0,
+        "years": 5.0,
+        "rate": 0.0,
+        "option_right": "put",
+        "lower_bound": 1e-06,
+        "upper_bound": 5.0,
+        "tolerance": 1e-12
+      },
+      "expected": {
+        "value": 0.5
+      },
+      "tolerance": 1e-07,
+      "source": {
+        "dataset_origin": "option-test/option_extreme_stability_dataset.json",
+        "dataset_group": "extreme_black76_exact",
+        "dataset_case_id": "xblack_004",
+        "original_inputs": {
+          "model": "black_76",
+          "option_type": "put",
+          "forward": 40.0,
+          "strike": 100.0,
+          "time_to_expiry": 5.0,
+          "risk_free_rate": 0.0,
+          "volatility": 0.5
+        },
+        "original_expected": {
+          "price": 67.48763824846218
+        },
+        "original_validation": {
+          "quantlib": 67.48763824846219,
+          "abs_diff_local_vs_quantlib": 1.4210854715202004e-14
+        },
+        "original_tolerance": {
+          "price_abs": 1e-10
+        }
+      }
+    },
+    {
+      "id": "xblack_005_iv",
+      "api": "math.black76_implied_volatility_from_price",
+      "input": {
+        "target_price": 28.3076884637698,
+        "forward": 100.0,
+        "strike": 180.0,
+        "years": 3.0,
+        "rate": 0.02,
+        "option_right": "call",
+        "lower_bound": 1e-06,
+        "upper_bound": 5.0,
+        "tolerance": 1e-12
+      },
+      "expected": {
+        "value": 0.7
+      },
+      "tolerance": 1e-07,
+      "source": {
+        "dataset_origin": "option-test/option_extreme_stability_dataset.json",
+        "dataset_group": "extreme_black76_exact",
+        "dataset_case_id": "xblack_005",
+        "original_inputs": {
+          "model": "black_76",
+          "option_type": "call",
+          "forward": 100.0,
+          "strike": 180.0,
+          "time_to_expiry": 3.0,
+          "risk_free_rate": 0.02,
+          "volatility": 0.7
+        },
+        "original_expected": {
+          "price": 28.3076884637698
+        },
+        "original_validation": {
+          "quantlib": 28.307688463769804,
+          "abs_diff_local_vs_quantlib": 3.552713678800501e-15
+        },
+        "original_tolerance": {
+          "price_abs": 1e-10
+        }
+      }
+    },
+    {
+      "id": "xblack_006_iv",
+      "api": "math.black76_implied_volatility_from_price",
+      "input": {
+        "target_price": 4.1570075922245734e-05,
+        "forward": 180.0,
+        "strike": 100.0,
+        "years": 3.0,
+        "rate": 0.02,
+        "option_right": "put",
+        "lower_bound": 1e-06,
+        "upper_bound": 5.0,
+        "tolerance": 1e-12
+      },
+      "expected": {
+        "value": 0.08
+      },
+      "tolerance": 1e-07,
+      "source": {
+        "dataset_origin": "option-test/option_extreme_stability_dataset.json",
+        "dataset_group": "extreme_black76_exact",
+        "dataset_case_id": "xblack_006",
+        "original_inputs": {
+          "model": "black_76",
+          "option_type": "put",
+          "forward": 180.0,
+          "strike": 100.0,
+          "time_to_expiry": 3.0,
+          "risk_free_rate": 0.02,
+          "volatility": 0.08
+        },
+        "original_expected": {
+          "price": 4.1570075922245734e-05
+        },
+        "original_validation": {
+          "quantlib": 4.157007592829717e-05,
+          "abs_diff_local_vs_quantlib": 6.051433768146375e-15
+        },
+        "original_tolerance": {
+          "price_abs": 1e-10
+        }
+      }
+    }
+  ]
+}

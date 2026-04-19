@@ -1,0 +1,268 @@
+{
+  "fixture": "math/black76-iv",
+  "layer": {
+    "id": "03-stress",
+    "label": "Stress",
+    "status": "integrated",
+    "source_dataset": "option_stress_dataset.json",
+    "source_case_count": 38,
+    "purpose": "The numerical stability stress layer for pathological scenarios."
+  },
+  "oracle": {
+    "tier": "A/B",
+    "layer_id": "03-stress",
+    "layer_label": "Stress",
+    "status": "integrated",
+    "dataset_origin": "option-test/option_stress_dataset.json",
+    "purpose": "Black-76 implied-volatility regression cases.",
+    "split_from": "fixtures/math/black76-iv.json"
+  },
+  "cases": [
+    {
+      "id": "stress_black76_short_atm_call_iv",
+      "api": "math.black76_implied_volatility_from_price",
+      "input": {
+        "target_price": 0.2311168797352572,
+        "forward": 100.0,
+        "strike": 100.0,
+        "years": 0.000273972602739726,
+        "rate": -0.005,
+        "option_right": "call",
+        "lower_bound": 0.0001,
+        "upper_bound": 5.0,
+        "tolerance": 1e-12
+      },
+      "expected": {
+        "value": 0.35
+      },
+      "tolerance": 1e-10,
+      "source": {
+        "dataset_origin": "option-test/option_stress_dataset.json",
+        "dataset_group": "stress_black76_exact",
+        "dataset_case_id": "stress_black76_short_atm_call",
+        "original_inputs": {
+          "model": "black_76",
+          "option_type": "call",
+          "forward": 100.0,
+          "strike": 100.0,
+          "time_to_expiry": 0.000273972602739726,
+          "risk_free_rate": -0.005,
+          "volatility": 0.35
+        },
+        "original_expected": {
+          "price": 0.2311168797352572
+        },
+        "original_validation": {
+          "quantlib_black_formula": 0.23111687973525857,
+          "py_vollib_black": 0.23111687973525724,
+          "max_abs_diff": 1.3600232051658168e-15
+        }
+      }
+    },
+    {
+      "id": "stress_black76_short_atm_put_iv",
+      "api": "math.black76_implied_volatility_from_price",
+      "input": {
+        "target_price": 0.2311168797352572,
+        "forward": 100.0,
+        "strike": 100.0,
+        "years": 0.000273972602739726,
+        "rate": -0.005,
+        "option_right": "put",
+        "lower_bound": 0.0001,
+        "upper_bound": 5.0,
+        "tolerance": 1e-12
+      },
+      "expected": {
+        "value": 0.35
+      },
+      "tolerance": 1e-10,
+      "source": {
+        "dataset_origin": "option-test/option_stress_dataset.json",
+        "dataset_group": "stress_black76_exact",
+        "dataset_case_id": "stress_black76_short_atm_put",
+        "original_inputs": {
+          "model": "black_76",
+          "option_type": "put",
+          "forward": 100.0,
+          "strike": 100.0,
+          "time_to_expiry": 0.000273972602739726,
+          "risk_free_rate": -0.005,
+          "volatility": 0.35
+        },
+        "original_expected": {
+          "price": 0.2311168797352572
+        },
+        "original_validation": {
+          "quantlib_black_formula": 0.23111687973525857,
+          "py_vollib_black": 0.23111687973525724,
+          "max_abs_diff": 1.3600232051658168e-15
+        }
+      }
+    },
+    {
+      "id": "stress_black76_tiny_vol_call_iv",
+      "api": "math.black76_implied_volatility_from_price",
+      "input": {
+        "target_price": 1.9702238792061253,
+        "forward": 102.0,
+        "strike": 100.0,
+        "years": 1.0,
+        "rate": 0.015,
+        "option_right": "call",
+        "lower_bound": 0.0001,
+        "upper_bound": 5.0,
+        "tolerance": 1e-12
+      },
+      "expected": {
+        "value": 0.0001
+      },
+      "tolerance": 1e-10,
+      "source": {
+        "dataset_origin": "option-test/option_stress_dataset.json",
+        "dataset_group": "stress_black76_exact",
+        "dataset_case_id": "stress_black76_tiny_vol_call",
+        "original_inputs": {
+          "model": "black_76",
+          "option_type": "call",
+          "forward": 102.0,
+          "strike": 100.0,
+          "time_to_expiry": 1.0,
+          "risk_free_rate": 0.015,
+          "volatility": 0.0001
+        },
+        "original_expected": {
+          "price": 1.9702238792061253
+        },
+        "original_validation": {
+          "quantlib_black_formula": 1.970223879206128,
+          "py_vollib_black": 1.9702238792061253,
+          "max_abs_diff": 2.6645352591003757e-15
+        }
+      }
+    },
+    {
+      "id": "stress_black76_huge_vol_put_iv",
+      "api": "math.black76_implied_volatility_from_price",
+      "input": {
+        "target_price": 92.69515805325085,
+        "forward": 100.0,
+        "strike": 100.0,
+        "years": 3.0,
+        "rate": 0.015,
+        "option_right": "put",
+        "lower_bound": 0.0001,
+        "upper_bound": 5.0,
+        "tolerance": 1e-12
+      },
+      "expected": {
+        "value": 2.5
+      },
+      "tolerance": 1e-10,
+      "source": {
+        "dataset_origin": "option-test/option_stress_dataset.json",
+        "dataset_group": "stress_black76_exact",
+        "dataset_case_id": "stress_black76_huge_vol_put",
+        "original_inputs": {
+          "model": "black_76",
+          "option_type": "put",
+          "forward": 100.0,
+          "strike": 100.0,
+          "time_to_expiry": 3.0,
+          "risk_free_rate": 0.015,
+          "volatility": 2.5
+        },
+        "original_expected": {
+          "price": 92.69515805325085
+        },
+        "original_validation": {
+          "quantlib_black_formula": 92.69515805325086,
+          "py_vollib_black": 92.69515805325084,
+          "max_abs_diff": 1.4210854715202004e-14
+        }
+      }
+    },
+    {
+      "id": "stress_black76_far_otm_call_iv",
+      "api": "math.black76_implied_volatility_from_price",
+      "input": {
+        "target_price": 1.0762308074128936e-06,
+        "forward": 60.0,
+        "strike": 120.0,
+        "years": 0.5,
+        "rate": 0.01,
+        "option_right": "call",
+        "lower_bound": 0.0001,
+        "upper_bound": 5.0,
+        "tolerance": 1e-12
+      },
+      "expected": {
+        "value": 0.2
+      },
+      "tolerance": 1e-10,
+      "source": {
+        "dataset_origin": "option-test/option_stress_dataset.json",
+        "dataset_group": "stress_black76_exact",
+        "dataset_case_id": "stress_black76_far_otm_call",
+        "original_inputs": {
+          "model": "black_76",
+          "option_type": "call",
+          "forward": 60.0,
+          "strike": 120.0,
+          "time_to_expiry": 0.5,
+          "risk_free_rate": 0.01,
+          "volatility": 0.2
+        },
+        "original_expected": {
+          "price": 1.0762308074128936e-06
+        },
+        "original_validation": {
+          "quantlib_black_formula": 1.0762308032023864e-06,
+          "py_vollib_black": 1.0762308074128951e-06,
+          "max_abs_diff": 4.210507183660455e-15
+        }
+      }
+    },
+    {
+      "id": "stress_black76_far_itm_put_iv",
+      "api": "math.black76_implied_volatility_from_price",
+      "input": {
+        "target_price": 59.700749827791746,
+        "forward": 60.0,
+        "strike": 120.0,
+        "years": 0.5,
+        "rate": 0.01,
+        "option_right": "put",
+        "lower_bound": 0.0001,
+        "upper_bound": 5.0,
+        "tolerance": 1e-12
+      },
+      "expected": {
+        "value": 0.2
+      },
+      "tolerance": 1e-10,
+      "source": {
+        "dataset_origin": "option-test/option_stress_dataset.json",
+        "dataset_group": "stress_black76_exact",
+        "dataset_case_id": "stress_black76_far_itm_put",
+        "original_inputs": {
+          "model": "black_76",
+          "option_type": "put",
+          "forward": 60.0,
+          "strike": 120.0,
+          "time_to_expiry": 0.5,
+          "risk_free_rate": 0.01,
+          "volatility": 0.2
+        },
+        "original_expected": {
+          "price": 59.700749827791746
+        },
+        "original_validation": {
+          "quantlib_black_formula": 59.700749827791746,
+          "py_vollib_black": 59.700749827791746,
+          "max_abs_diff": 0.0
+        }
+      }
+    }
+  ]
+}

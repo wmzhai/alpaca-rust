@@ -1,0 +1,145 @@
+{
+  "version": 1,
+  "support_paths": [
+    "fixtures/support/analysis/analysis-functions.json",
+    "fixtures/support/contracts/occ-contracts.json",
+    "fixtures/support/execution-quote/execution-quote.json",
+    "fixtures/support/expiration-selection/expiration-selection.json",
+    "fixtures/support/greeks/pineify-black-scholes-greeks.json",
+    "fixtures/support/iv/pineify-implied-volatility.json",
+    "fixtures/support/models/core-models.json",
+    "fixtures/support/numeric/numeric-functions.json",
+    "fixtures/support/payoff/payoff-functions.json",
+    "fixtures/support/pricing/pineify-black-scholes-pricing.json",
+    "fixtures/support/pricing/value-components.json",
+    "fixtures/support/probability/expiry-range-probability.json",
+    "fixtures/support/urls/optionstrat-roundtrip.json"
+  ],
+  "layers": [
+    {
+      "id": "01-validated",
+      "label": "Validated",
+      "status": "integrated",
+      "source_dataset": "option_validated_dataset.json",
+      "source_case_count": 20,
+      "tier": "A",
+      "purpose": "The most basic and reliable closed-form regression layer.",
+      "fixture_paths": [
+        "fixtures/layers/01-validated/greeks/bsm-greeks.json",
+        "fixtures/layers/01-validated/iv/bsm-roundtrip.json",
+        "fixtures/layers/01-validated/math/black76-greeks.json",
+        "fixtures/layers/01-validated/math/black76-iv.json",
+        "fixtures/layers/01-validated/math/black76-pricing.json",
+        "fixtures/layers/01-validated/pricing/bsm-pricing.json"
+      ]
+    },
+    {
+      "id": "02-reference",
+      "label": "Reference",
+      "status": "integrated",
+      "source_dataset": "option_reference_dataset.json",
+      "source_case_count": 48,
+      "tier": "A",
+      "purpose": "The primary day-to-day regression layer with balanced model coverage.",
+      "fixture_paths": [
+        "fixtures/layers/02-reference/greeks/bsm-greeks.json",
+        "fixtures/layers/02-reference/iv/bsm-roundtrip.json",
+        "fixtures/layers/02-reference/math/american-baw-pricing.json",
+        "fixtures/layers/02-reference/math/american-bjerksund-stensland-1993-pricing.json",
+        "fixtures/layers/02-reference/math/american-ju-quadratic-pricing.json",
+        "fixtures/layers/02-reference/math/bachelier-greeks.json",
+        "fixtures/layers/02-reference/math/bachelier-iv.json",
+        "fixtures/layers/02-reference/math/bachelier-pricing.json",
+        "fixtures/layers/02-reference/math/black76-iv.json",
+        "fixtures/layers/02-reference/math/black76-pricing.json",
+        "fixtures/layers/02-reference/pricing/bsm-pricing.json"
+      ]
+    },
+    {
+      "id": "03-stress",
+      "label": "Stress",
+      "status": "integrated",
+      "source_dataset": "option_stress_dataset.json",
+      "source_case_count": 38,
+      "tier": "A/B",
+      "purpose": "The numerical stability stress layer for pathological scenarios.",
+      "fixture_paths": [
+        "fixtures/layers/03-stress/greeks/bsm-greeks.json",
+        "fixtures/layers/03-stress/iv/bsm-roundtrip.json",
+        "fixtures/layers/03-stress/math/american-baw-pricing.json",
+        "fixtures/layers/03-stress/math/american-bjerksund-stensland-1993-pricing.json",
+        "fixtures/layers/03-stress/math/american-ju-quadratic-pricing.json",
+        "fixtures/layers/03-stress/math/american-tree-pricing.json",
+        "fixtures/layers/03-stress/math/bachelier-greeks.json",
+        "fixtures/layers/03-stress/math/bachelier-iv.json",
+        "fixtures/layers/03-stress/math/bachelier-pricing.json",
+        "fixtures/layers/03-stress/math/black76-iv.json",
+        "fixtures/layers/03-stress/math/black76-pricing.json",
+        "fixtures/layers/03-stress/pricing/bsm-pricing.json",
+        "fixtures/layers/03-stress/pricing/bsm-put-call-parity.json"
+      ]
+    },
+    {
+      "id": "04-american-benchmark",
+      "label": "American Benchmark",
+      "status": "integrated",
+      "source_dataset": "option_american_benchmark_dataset.json",
+      "source_case_count": 14,
+      "tier": "B+",
+      "purpose": "American vanilla benchmarks with continuous yield.",
+      "fixture_paths": [
+        "fixtures/layers/04-american-benchmark/math/american-baw-pricing.json",
+        "fixtures/layers/04-american-benchmark/math/american-bjerksund-stensland-1993-pricing.json",
+        "fixtures/layers/04-american-benchmark/math/american-ju-quadratic-pricing.json",
+        "fixtures/layers/04-american-benchmark/math/american-tree-pricing.json"
+      ]
+    },
+    {
+      "id": "05-extreme-stability",
+      "label": "Extreme Stability",
+      "status": "integrated",
+      "source_dataset": "option_extreme_stability_dataset.json",
+      "source_case_count": 38,
+      "tier": "A+/B",
+      "purpose": "A harder floating-point stability hardening layer.",
+      "fixture_paths": [
+        "fixtures/layers/05-extreme-stability/iv/bsm-roundtrip.json",
+        "fixtures/layers/05-extreme-stability/math/american-baw-pricing.json",
+        "fixtures/layers/05-extreme-stability/math/american-bjerksund-stensland-1993-pricing.json",
+        "fixtures/layers/05-extreme-stability/math/american-ju-quadratic-pricing.json",
+        "fixtures/layers/05-extreme-stability/math/american-tree-pricing.json",
+        "fixtures/layers/05-extreme-stability/math/bachelier-iv.json",
+        "fixtures/layers/05-extreme-stability/math/bachelier-pricing.json",
+        "fixtures/layers/05-extreme-stability/math/black76-iv.json",
+        "fixtures/layers/05-extreme-stability/math/black76-pricing.json",
+        "fixtures/layers/05-extreme-stability/pricing/bsm-pricing.json",
+        "fixtures/layers/05-extreme-stability/pricing/bsm-put-call-parity.json"
+      ]
+    },
+    {
+      "id": "06-discrete-dividend-american",
+      "label": "Discrete Dividend American",
+      "status": "integrated",
+      "source_dataset": "option_discrete_dividend_american_dataset.json",
+      "source_case_count": 12,
+      "tier": "B+",
+      "purpose": "American vanilla benchmarks with fixed cash dividends, pending implementation.",
+      "fixture_paths": [
+        "fixtures/layers/06-discrete-dividend-american/math/american-discrete-dividend-pricing.json"
+      ]
+    },
+    {
+      "id": "07-exotics-analytic",
+      "label": "Exotics Analytic",
+      "status": "integrated",
+      "source_dataset": "option_exotics_analytic_dataset.json",
+      "source_case_count": 24,
+      "tier": "A",
+      "purpose": "Analytic barrier / geometric Asian benchmarks, pending implementation.",
+      "fixture_paths": [
+        "fixtures/layers/07-exotics-analytic/math/barrier-pricing.json",
+        "fixtures/layers/07-exotics-analytic/math/geometric-asian-pricing.json"
+      ]
+    }
+  ]
+}

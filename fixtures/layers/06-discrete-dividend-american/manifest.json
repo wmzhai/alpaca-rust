@@ -1,0 +1,12 @@
+{
+  "layer_id": "06-discrete-dividend-american",
+  "label": "Discrete Dividend American",
+  "status": "integrated",
+  "source_dataset": "option_discrete_dividend_american_dataset.json",
+  "source_case_count": 12,
+  "tier": "B+",
+  "purpose": "American vanilla benchmarks with fixed cash dividends, pending implementation.",
+  "fixture_paths": [
+    "fixtures/layers/06-discrete-dividend-american/math/american-discrete-dividend-pricing.json"
+  ]
+}

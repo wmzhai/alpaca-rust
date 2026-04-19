@@ -1,0 +1,15 @@
+{
+  "layer_id": "04-american-benchmark",
+  "label": "American Benchmark",
+  "status": "integrated",
+  "source_dataset": "option_american_benchmark_dataset.json",
+  "source_case_count": 14,
+  "tier": "B+",
+  "purpose": "American vanilla benchmarks with continuous yield.",
+  "fixture_paths": [
+    "fixtures/layers/04-american-benchmark/math/american-baw-pricing.json",
+    "fixtures/layers/04-american-benchmark/math/american-bjerksund-stensland-1993-pricing.json",
+    "fixtures/layers/04-american-benchmark/math/american-ju-quadratic-pricing.json",
+    "fixtures/layers/04-american-benchmark/math/american-tree-pricing.json"
+  ]
+}

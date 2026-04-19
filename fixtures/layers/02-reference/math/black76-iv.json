@@ -1,0 +1,268 @@
+{
+  "fixture": "math/black76-iv",
+  "layer": {
+    "id": "02-reference",
+    "label": "Reference",
+    "status": "integrated",
+    "source_dataset": "option_reference_dataset.json",
+    "source_case_count": 48,
+    "purpose": "The primary day-to-day regression layer with balanced model coverage."
+  },
+  "oracle": {
+    "tier": "A",
+    "layer_id": "02-reference",
+    "layer_label": "Reference",
+    "status": "integrated",
+    "dataset_origin": "option-test/option_reference_dataset.json",
+    "purpose": "Black-76 implied-volatility regression cases.",
+    "split_from": "fixtures/math/black76-iv.json"
+  },
+  "cases": [
+    {
+      "id": "black76_001_iv",
+      "api": "math.black76_implied_volatility_from_price",
+      "input": {
+        "target_price": 5.5532708386879825,
+        "forward": 100.0,
+        "strike": 100.0,
+        "years": 0.5,
+        "rate": 0.03,
+        "option_right": "call",
+        "lower_bound": 0.0001,
+        "upper_bound": 5.0,
+        "tolerance": 1e-12
+      },
+      "expected": {
+        "value": 0.2
+      },
+      "tolerance": 1e-10,
+      "source": {
+        "dataset_origin": "option-test/option_reference_dataset.json",
+        "dataset_group": "black76_exact",
+        "dataset_case_id": "black76_001",
+        "original_inputs": {
+          "model": "black_76",
+          "option_type": "call",
+          "forward": 100.0,
+          "strike": 100.0,
+          "time_to_expiry": 0.5,
+          "risk_free_rate": 0.03,
+          "volatility": 0.2
+        },
+        "original_expected": {
+          "price": 5.5532708386879825
+        },
+        "original_validation": {
+          "quantlib_black_formula": 5.553270838687985,
+          "py_vollib_black": 5.553270838687984,
+          "max_abs_diff": 2.6645352591003757e-15
+        }
+      }
+    },
+    {
+      "id": "black76_002_iv",
+      "api": "math.black76_implied_volatility_from_price",
+      "input": {
+        "target_price": 5.5532708386879825,
+        "forward": 100.0,
+        "strike": 100.0,
+        "years": 0.5,
+        "rate": 0.03,
+        "option_right": "put",
+        "lower_bound": 0.0001,
+        "upper_bound": 5.0,
+        "tolerance": 1e-12
+      },
+      "expected": {
+        "value": 0.2
+      },
+      "tolerance": 1e-10,
+      "source": {
+        "dataset_origin": "option-test/option_reference_dataset.json",
+        "dataset_group": "black76_exact",
+        "dataset_case_id": "black76_002",
+        "original_inputs": {
+          "model": "black_76",
+          "option_type": "put",
+          "forward": 100.0,
+          "strike": 100.0,
+          "time_to_expiry": 0.5,
+          "risk_free_rate": 0.03,
+          "volatility": 0.2
+        },
+        "original_expected": {
+          "price": 5.5532708386879825
+        },
+        "original_validation": {
+          "quantlib_black_formula": 5.553270838687985,
+          "py_vollib_black": 5.553270838687984,
+          "max_abs_diff": 2.6645352591003757e-15
+        }
+      }
+    },
+    {
+      "id": "black76_003_iv",
+      "api": "math.black76_implied_volatility_from_price",
+      "input": {
+        "target_price": 12.59390506398353,
+        "forward": 95.0,
+        "strike": 100.0,
+        "years": 1.25,
+        "rate": 0.01,
+        "option_right": "call",
+        "lower_bound": 0.0001,
+        "upper_bound": 5.0,
+        "tolerance": 1e-12
+      },
+      "expected": {
+        "value": 0.35
+      },
+      "tolerance": 1e-10,
+      "source": {
+        "dataset_origin": "option-test/option_reference_dataset.json",
+        "dataset_group": "black76_exact",
+        "dataset_case_id": "black76_003",
+        "original_inputs": {
+          "model": "black_76",
+          "option_type": "call",
+          "forward": 95.0,
+          "strike": 100.0,
+          "time_to_expiry": 1.25,
+          "risk_free_rate": 0.01,
+          "volatility": 0.35
+        },
+        "original_expected": {
+          "price": 12.59390506398353
+        },
+        "original_validation": {
+          "quantlib_black_formula": 12.59390506398352,
+          "py_vollib_black": 12.593905063983525,
+          "max_abs_diff": 1.0658141036401503e-14
+        }
+      }
+    },
+    {
+      "id": "black76_004_iv",
+      "api": "math.black76_implied_volatility_from_price",
+      "input": {
+        "target_price": 13.353718065584019,
+        "forward": 105.0,
+        "strike": 100.0,
+        "years": 1.25,
+        "rate": 0.01,
+        "option_right": "put",
+        "lower_bound": 0.0001,
+        "upper_bound": 5.0,
+        "tolerance": 1e-12
+      },
+      "expected": {
+        "value": 0.35
+      },
+      "tolerance": 1e-10,
+      "source": {
+        "dataset_origin": "option-test/option_reference_dataset.json",
+        "dataset_group": "black76_exact",
+        "dataset_case_id": "black76_004",
+        "original_inputs": {
+          "model": "black_76",
+          "option_type": "put",
+          "forward": 105.0,
+          "strike": 100.0,
+          "time_to_expiry": 1.25,
+          "risk_free_rate": 0.01,
+          "volatility": 0.35
+        },
+        "original_expected": {
+          "price": 13.353718065584019
+        },
+        "original_validation": {
+          "quantlib_black_formula": 13.353718065584024,
+          "py_vollib_black": 13.353718065584015,
+          "max_abs_diff": 5.329070518200751e-15
+        }
+      }
+    },
+    {
+      "id": "black76_005_iv",
+      "api": "math.black76_implied_volatility_from_price",
+      "input": {
+        "target_price": 5.540611606877189,
+        "forward": 72.0,
+        "strike": 80.0,
+        "years": 0.25,
+        "rate": 0.05,
+        "option_right": "call",
+        "lower_bound": 0.0001,
+        "upper_bound": 5.0,
+        "tolerance": 1e-12
+      },
+      "expected": {
+        "value": 0.6
+      },
+      "tolerance": 1e-10,
+      "source": {
+        "dataset_origin": "option-test/option_reference_dataset.json",
+        "dataset_group": "black76_exact",
+        "dataset_case_id": "black76_005",
+        "original_inputs": {
+          "model": "black_76",
+          "option_type": "call",
+          "forward": 72.0,
+          "strike": 80.0,
+          "time_to_expiry": 0.25,
+          "risk_free_rate": 0.05,
+          "volatility": 0.6
+        },
+        "original_expected": {
+          "price": 5.540611606877189
+        },
+        "original_validation": {
+          "quantlib_black_formula": 5.540611606877192,
+          "py_vollib_black": 5.540611606877189,
+          "max_abs_diff": 3.552713678800501e-15
+        }
+      }
+    },
+    {
+      "id": "black76_006_iv",
+      "api": "math.black76_implied_volatility_from_price",
+      "input": {
+        "target_price": 7.640697272389753,
+        "forward": 130.0,
+        "strike": 120.0,
+        "years": 2.0,
+        "rate": 0.04,
+        "option_right": "put",
+        "lower_bound": 0.0001,
+        "upper_bound": 5.0,
+        "tolerance": 1e-12
+      },
+      "expected": {
+        "value": 0.18
+      },
+      "tolerance": 1e-10,
+      "source": {
+        "dataset_origin": "option-test/option_reference_dataset.json",
+        "dataset_group": "black76_exact",
+        "dataset_case_id": "black76_006",
+        "original_inputs": {
+          "model": "black_76",
+          "option_type": "put",
+          "forward": 130.0,
+          "strike": 120.0,
+          "time_to_expiry": 2.0,
+          "risk_free_rate": 0.04,
+          "volatility": 0.18
+        },
+        "original_expected": {
+          "price": 7.640697272389753
+        },
+        "original_validation": {
+          "quantlib_black_formula": 7.640697272389757,
+          "py_vollib_black": 7.640697272389756,
+          "max_abs_diff": 4.440892098500626e-15
+        }
+      }
+    }
+  ]
+}

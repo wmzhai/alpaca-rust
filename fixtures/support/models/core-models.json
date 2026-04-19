@@ -1,0 +1,127 @@
+{
+  "fixture": "core-models",
+  "cases": [
+    {
+      "id": "snapshot-shape",
+      "api": "model.option_snapshot",
+      "input": {
+        "as_of": "2025-02-06 11:30:04",
+        "contract": {
+          "underlying_symbol": "SPY",
+          "expiration_date": "2025-03-21",
+          "strike": 600.0,
+          "option_right": "call",
+          "occ_symbol": "SPY250321C00600000"
+        },
+        "quote": {
+          "bid": 2.45,
+          "ask": 2.55,
+          "mark": 2.5,
+          "last": 2.53
+        },
+        "greeks": {
+          "delta": 0.31,
+          "gamma": 0.02,
+          "vega": 0.09,
+          "theta": -0.03,
+          "rho": 0.02
+        },
+        "implied_volatility": 0.19,
+        "underlying_price": 609.12
+      },
+      "expected": {
+        "valid": true
+      }
+    },
+    {
+    "id": "position-shape",
+    "api": "model.option_position",
+    "input": {
+      "contract": "SPY250321C00600000",
+      "qty": 2,
+      "avg_cost": "2.50",
+      "leg_type": "longcall",
+      "snapshot": {
+        "as_of": "2025-02-06 11:30:04",
+        "contract": {
+          "underlying_symbol": "SPY",
+          "expiration_date": "2025-03-21",
+          "strike": 600.0,
+          "option_right": "call",
+          "occ_symbol": "SPY250321C00600000"
+        },
+        "quote": {
+          "bid": 2.45,
+          "ask": 2.55,
+          "mark": 2.5,
+          "last": 2.53
+        },
+        "greeks": null,
+        "implied_volatility": null,
+        "underlying_price": null
+      }
+    },
+      "expected": {
+        "valid": true
+      }
+    },
+    {
+      "id": "chain-record-shape",
+      "api": "model.option_chain_record",
+      "input": {
+        "as_of": "2025-02-06 11:30:04",
+        "underlying_symbol": "SPY",
+        "occ_symbol": "SPY250321C00600000",
+        "expiration_date": "2025-03-21",
+        "option_right": "call",
+        "strike": 600.0,
+        "underlying_price": 609.12,
+        "bid": 2.45,
+        "ask": 2.55,
+        "mark": 2.5,
+        "last": 2.53,
+        "implied_volatility": 0.19,
+        "delta": 0.31,
+        "gamma": 0.02,
+        "vega": 0.09,
+        "theta": -0.03,
+        "rho": 0.02
+      },
+      "expected": {
+        "valid": true
+      }
+    },
+    {
+      "id": "chain-shape",
+      "api": "model.option_chain",
+      "input": {
+        "underlying_symbol": "SPY",
+        "as_of": "2025-02-06 11:30:04",
+        "snapshots": [
+          {
+            "as_of": "2025-02-06 11:30:04",
+            "contract": {
+              "underlying_symbol": "SPY",
+              "expiration_date": "2025-03-21",
+              "strike": 600.0,
+              "option_right": "call",
+              "occ_symbol": "SPY250321C00600000"
+            },
+            "quote": {
+              "bid": 2.45,
+              "ask": 2.55,
+              "mark": 2.5,
+              "last": 2.53
+            },
+            "greeks": null,
+            "implied_volatility": null,
+            "underlying_price": 609.12
+          }
+        ]
+      },
+      "expected": {
+        "valid": true
+      }
+    }
+  ]
+}

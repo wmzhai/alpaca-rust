@@ -1,0 +1,646 @@
+{
+  "fixture": "math/barrier-pricing",
+  "layer": {
+    "id": "07-exotics-analytic",
+    "label": "Exotics Analytic",
+    "status": "integrated",
+    "source_dataset": "option_exotics_analytic_dataset.json",
+    "source_case_count": 24,
+    "purpose": "Analytic barrier / geometric Asian benchmarks, pending implementation."
+  },
+  "oracle": {
+    "tier": "A",
+    "layer_id": "07-exotics-analytic",
+    "layer_label": "Exotics Analytic",
+    "status": "integrated",
+    "dataset_origin": "option-test/option_exotics_analytic_dataset.json",
+    "purpose": "Continuous-monitoring single-barrier analytic benchmark cases.",
+    "dataset_group": "continuous_barrier_exact"
+  },
+  "cases": [
+    {
+      "id": "bar_001",
+      "api": "math.barrier.price",
+      "input": {
+        "spot": 100.0,
+        "strike": 100.0,
+        "barrier": 90.0,
+        "rebate": 0.0,
+        "years": 1.0,
+        "rate": 0.03,
+        "dividend_yield": 0.01,
+        "volatility": 0.25,
+        "option_right": "call",
+        "barrier_type": "down_out"
+      },
+      "expected": {
+        "value": 7.837362722616744
+      },
+      "tolerance": 1e-10,
+      "source": {
+        "dataset_origin": "option-test/option_exotics_analytic_dataset.json",
+        "dataset_group": "continuous_barrier_exact",
+        "dataset_case_id": "bar_001",
+        "original_inputs": {
+          "model": "barrier_black_scholes_merton",
+          "id": "bar_001",
+          "option_type": "call",
+          "barrier_type": "down_out",
+          "spot": 100.0,
+          "strike": 100.0,
+          "barrier": 90.0,
+          "rebate": 0.0,
+          "time_to_expiry": 1.0,
+          "risk_free_rate": 0.03,
+          "dividend_yield": 0.01,
+          "volatility": 0.25
+        },
+        "original_expected": {
+          "price": 7.837362722616744
+        },
+        "original_validation": {
+          "quantlib_analytic_barrier": 7.837362722616744,
+          "quantlib_fd_barrier": 7.837348217690059,
+          "quantlib_crr_barrier": 7.837290030424627,
+          "abs_diff_analytic_vs_fd": 1.4504926684644204e-05,
+          "abs_diff_analytic_vs_crr": 7.269219211725186e-05
+        },
+        "original_tolerance": {
+          "price_abs": 1e-10
+        }
+      }
+    },
+    {
+      "id": "bar_002",
+      "api": "math.barrier.price",
+      "input": {
+        "spot": 100.0,
+        "strike": 95.0,
+        "barrier": 85.0,
+        "rebate": 0.0,
+        "years": 0.75,
+        "rate": 0.02,
+        "dividend_yield": 0.0,
+        "volatility": 0.2,
+        "option_right": "put",
+        "barrier_type": "down_out"
+      },
+      "expected": {
+        "value": 0.3208545487207841
+      },
+      "tolerance": 1e-10,
+      "source": {
+        "dataset_origin": "option-test/option_exotics_analytic_dataset.json",
+        "dataset_group": "continuous_barrier_exact",
+        "dataset_case_id": "bar_002",
+        "original_inputs": {
+          "model": "barrier_black_scholes_merton",
+          "id": "bar_002",
+          "option_type": "put",
+          "barrier_type": "down_out",
+          "spot": 100.0,
+          "strike": 95.0,
+          "barrier": 85.0,
+          "rebate": 0.0,
+          "time_to_expiry": 0.75,
+          "risk_free_rate": 0.02,
+          "dividend_yield": 0.0,
+          "volatility": 0.2
+        },
+        "original_expected": {
+          "price": 0.3208545487207841
+        },
+        "original_validation": {
+          "quantlib_analytic_barrier": 0.3208545487207841,
+          "quantlib_fd_barrier": 0.3214317785570606,
+          "quantlib_crr_barrier": 0.3206062662440254,
+          "abs_diff_analytic_vs_fd": 0.0005772298362765049,
+          "abs_diff_analytic_vs_crr": 0.00024828247675873216
+        },
+        "original_tolerance": {
+          "price_abs": 1e-10
+        }
+      }
+    },
+    {
+      "id": "bar_003",
+      "api": "math.barrier.price",
+      "input": {
+        "spot": 100.0,
+        "strike": 95.0,
+        "barrier": 120.0,
+        "rebate": 0.0,
+        "years": 1.25,
+        "rate": 0.04,
+        "dividend_yield": 0.01,
+        "volatility": 0.22,
+        "option_right": "call",
+        "barrier_type": "up_out"
+      },
+      "expected": {
+        "value": 1.3746489792232013
+      },
+      "tolerance": 1e-10,
+      "source": {
+        "dataset_origin": "option-test/option_exotics_analytic_dataset.json",
+        "dataset_group": "continuous_barrier_exact",
+        "dataset_case_id": "bar_003",
+        "original_inputs": {
+          "model": "barrier_black_scholes_merton",
+          "id": "bar_003",
+          "option_type": "call",
+          "barrier_type": "up_out",
+          "spot": 100.0,
+          "strike": 95.0,
+          "barrier": 120.0,
+          "rebate": 0.0,
+          "time_to_expiry": 1.25,
+          "risk_free_rate": 0.04,
+          "dividend_yield": 0.01,
+          "volatility": 0.22
+        },
+        "original_expected": {
+          "price": 1.3746489792232013
+        },
+        "original_validation": {
+          "quantlib_analytic_barrier": 1.3746489792232013,
+          "quantlib_fd_barrier": 1.376002725553501,
+          "quantlib_crr_barrier": 1.3750895003992787,
+          "abs_diff_analytic_vs_fd": 0.001353746330299721,
+          "abs_diff_analytic_vs_crr": 0.00044052117607740193
+        },
+        "original_tolerance": {
+          "price_abs": 1e-10
+        }
+      }
+    },
+    {
+      "id": "bar_004",
+      "api": "math.barrier.price",
+      "input": {
+        "spot": 100.0,
+        "strike": 105.0,
+        "barrier": 125.0,
+        "rebate": 0.0,
+        "years": 0.5,
+        "rate": 0.01,
+        "dividend_yield": 0.02,
+        "volatility": 0.3,
+        "option_right": "put",
+        "barrier_type": "up_out"
+      },
+      "expected": {
+        "value": 11.336596666418728
+      },
+      "tolerance": 1e-10,
+      "source": {
+        "dataset_origin": "option-test/option_exotics_analytic_dataset.json",
+        "dataset_group": "continuous_barrier_exact",
+        "dataset_case_id": "bar_004",
+        "original_inputs": {
+          "model": "barrier_black_scholes_merton",
+          "id": "bar_004",
+          "option_type": "put",
+          "barrier_type": "up_out",
+          "spot": 100.0,
+          "strike": 105.0,
+          "barrier": 125.0,
+          "rebate": 0.0,
+          "time_to_expiry": 0.5,
+          "risk_free_rate": 0.01,
+          "dividend_yield": 0.02,
+          "volatility": 0.3
+        },
+        "original_expected": {
+          "price": 11.336596666418728
+        },
+        "original_validation": {
+          "quantlib_analytic_barrier": 11.336596666418728,
+          "quantlib_fd_barrier": 11.336557116447334,
+          "quantlib_crr_barrier": 11.33675754226827,
+          "abs_diff_analytic_vs_fd": 3.954997139388183e-05,
+          "abs_diff_analytic_vs_crr": 0.00016087584954149747
+        },
+        "original_tolerance": {
+          "price_abs": 1e-10
+        }
+      }
+    },
+    {
+      "id": "bar_005",
+      "api": "math.barrier.price",
+      "input": {
+        "spot": 100.0,
+        "strike": 100.0,
+        "barrier": 92.0,
+        "rebate": 0.0,
+        "years": 1.0,
+        "rate": 0.025,
+        "dividend_yield": 0.0,
+        "volatility": 0.18,
+        "option_right": "call",
+        "barrier_type": "down_in"
+      },
+      "expected": {
+        "value": 1.9157872754626015
+      },
+      "tolerance": 1e-10,
+      "source": {
+        "dataset_origin": "option-test/option_exotics_analytic_dataset.json",
+        "dataset_group": "continuous_barrier_exact",
+        "dataset_case_id": "bar_005",
+        "original_inputs": {
+          "model": "barrier_black_scholes_merton",
+          "id": "bar_005",
+          "option_type": "call",
+          "barrier_type": "down_in",
+          "spot": 100.0,
+          "strike": 100.0,
+          "barrier": 92.0,
+          "rebate": 0.0,
+          "time_to_expiry": 1.0,
+          "risk_free_rate": 0.025,
+          "dividend_yield": 0.0,
+          "volatility": 0.18
+        },
+        "original_expected": {
+          "price": 1.9157872754626015
+        },
+        "original_validation": {
+          "quantlib_analytic_barrier": 1.9157872754626015,
+          "quantlib_fd_barrier": 1.9159328136806177,
+          "quantlib_crr_barrier": 1.915411049015231,
+          "abs_diff_analytic_vs_fd": 0.0001455382180162168,
+          "abs_diff_analytic_vs_crr": 0.00037622644737056454
+        },
+        "original_tolerance": {
+          "price_abs": 1e-10
+        }
+      }
+    },
+    {
+      "id": "bar_006",
+      "api": "math.barrier.price",
+      "input": {
+        "spot": 100.0,
+        "strike": 90.0,
+        "barrier": 88.0,
+        "rebate": 0.0,
+        "years": 1.5,
+        "rate": 0.035,
+        "dividend_yield": 0.01,
+        "volatility": 0.27,
+        "option_right": "put",
+        "barrier_type": "down_in"
+      },
+      "expected": {
+        "value": 6.619221199728555
+      },
+      "tolerance": 1e-10,
+      "source": {
+        "dataset_origin": "option-test/option_exotics_analytic_dataset.json",
+        "dataset_group": "continuous_barrier_exact",
+        "dataset_case_id": "bar_006",
+        "original_inputs": {
+          "model": "barrier_black_scholes_merton",
+          "id": "bar_006",
+          "option_type": "put",
+          "barrier_type": "down_in",
+          "spot": 100.0,
+          "strike": 90.0,
+          "barrier": 88.0,
+          "rebate": 0.0,
+          "time_to_expiry": 1.5,
+          "risk_free_rate": 0.035,
+          "dividend_yield": 0.01,
+          "volatility": 0.27
+        },
+        "original_expected": {
+          "price": 6.619221199728555
+        },
+        "original_validation": {
+          "quantlib_analytic_barrier": 6.619221199728555,
+          "quantlib_fd_barrier": 6.6191877035556095,
+          "quantlib_crr_barrier": 6.619618470817797,
+          "abs_diff_analytic_vs_fd": 3.34961729455685e-05,
+          "abs_diff_analytic_vs_crr": 0.00039727108924214605
+        },
+        "original_tolerance": {
+          "price_abs": 1e-10
+        }
+      }
+    },
+    {
+      "id": "bar_007",
+      "api": "math.barrier.price",
+      "input": {
+        "spot": 100.0,
+        "strike": 105.0,
+        "barrier": 115.0,
+        "rebate": 0.0,
+        "years": 0.75,
+        "rate": 0.03,
+        "dividend_yield": 0.0,
+        "volatility": 0.24,
+        "option_right": "call",
+        "barrier_type": "up_in"
+      },
+      "expected": {
+        "value": 6.999098615394914
+      },
+      "tolerance": 1e-10,
+      "source": {
+        "dataset_origin": "option-test/option_exotics_analytic_dataset.json",
+        "dataset_group": "continuous_barrier_exact",
+        "dataset_case_id": "bar_007",
+        "original_inputs": {
+          "model": "barrier_black_scholes_merton",
+          "id": "bar_007",
+          "option_type": "call",
+          "barrier_type": "up_in",
+          "spot": 100.0,
+          "strike": 105.0,
+          "barrier": 115.0,
+          "rebate": 0.0,
+          "time_to_expiry": 0.75,
+          "risk_free_rate": 0.03,
+          "dividend_yield": 0.0,
+          "volatility": 0.24
+        },
+        "original_expected": {
+          "price": 6.999098615394914
+        },
+        "original_validation": {
+          "quantlib_analytic_barrier": 6.999098615394914,
+          "quantlib_fd_barrier": 6.998692463865973,
+          "quantlib_crr_barrier": 6.999277540009892,
+          "abs_diff_analytic_vs_fd": 0.00040615152894041273,
+          "abs_diff_analytic_vs_crr": 0.00017892461497837076
+        },
+        "original_tolerance": {
+          "price_abs": 1e-10
+        }
+      }
+    },
+    {
+      "id": "bar_008",
+      "api": "math.barrier.price",
+      "input": {
+        "spot": 100.0,
+        "strike": 100.0,
+        "barrier": 118.0,
+        "rebate": 0.0,
+        "years": 1.25,
+        "rate": 0.02,
+        "dividend_yield": 0.0,
+        "volatility": 0.26,
+        "option_right": "put",
+        "barrier_type": "up_in"
+      },
+      "expected": {
+        "value": 1.6744089346058408
+      },
+      "tolerance": 1e-10,
+      "source": {
+        "dataset_origin": "option-test/option_exotics_analytic_dataset.json",
+        "dataset_group": "continuous_barrier_exact",
+        "dataset_case_id": "bar_008",
+        "original_inputs": {
+          "model": "barrier_black_scholes_merton",
+          "id": "bar_008",
+          "option_type": "put",
+          "barrier_type": "up_in",
+          "spot": 100.0,
+          "strike": 100.0,
+          "barrier": 118.0,
+          "rebate": 0.0,
+          "time_to_expiry": 1.25,
+          "risk_free_rate": 0.02,
+          "dividend_yield": 0.0,
+          "volatility": 0.26
+        },
+        "original_expected": {
+          "price": 1.6744089346058408
+        },
+        "original_validation": {
+          "quantlib_analytic_barrier": 1.6744089346058408,
+          "quantlib_fd_barrier": 1.674519577561421,
+          "quantlib_crr_barrier": 1.673935788858991,
+          "abs_diff_analytic_vs_fd": 0.00011064295558016468,
+          "abs_diff_analytic_vs_crr": 0.0004731457468498679
+        },
+        "original_tolerance": {
+          "price_abs": 1e-10
+        }
+      }
+    },
+    {
+      "id": "bar_009",
+      "api": "math.barrier.price",
+      "input": {
+        "spot": 100.0,
+        "strike": 110.0,
+        "barrier": 98.0,
+        "rebate": 0.0,
+        "years": 0.25,
+        "rate": 0.05,
+        "dividend_yield": 0.0,
+        "volatility": 0.4,
+        "option_right": "call",
+        "barrier_type": "down_out"
+      },
+      "expected": {
+        "value": 1.3177884948871457
+      },
+      "tolerance": 1e-10,
+      "source": {
+        "dataset_origin": "option-test/option_exotics_analytic_dataset.json",
+        "dataset_group": "continuous_barrier_exact",
+        "dataset_case_id": "bar_009",
+        "original_inputs": {
+          "model": "barrier_black_scholes_merton",
+          "id": "bar_009",
+          "option_type": "call",
+          "barrier_type": "down_out",
+          "spot": 100.0,
+          "strike": 110.0,
+          "barrier": 98.0,
+          "rebate": 0.0,
+          "time_to_expiry": 0.25,
+          "risk_free_rate": 0.05,
+          "dividend_yield": 0.0,
+          "volatility": 0.4
+        },
+        "original_expected": {
+          "price": 1.3177884948871457
+        },
+        "original_validation": {
+          "quantlib_analytic_barrier": 1.3177884948871457,
+          "quantlib_fd_barrier": 1.3177840687296527,
+          "quantlib_crr_barrier": 1.317774756331618,
+          "abs_diff_analytic_vs_fd": 4.426157492964933e-06,
+          "abs_diff_analytic_vs_crr": 1.3738555527664786e-05
+        },
+        "original_tolerance": {
+          "price_abs": 1e-10
+        }
+      }
+    },
+    {
+      "id": "bar_010",
+      "api": "math.barrier.price",
+      "input": {
+        "spot": 100.0,
+        "strike": 100.0,
+        "barrier": 103.0,
+        "rebate": 0.0,
+        "years": 0.2,
+        "rate": 0.03,
+        "dividend_yield": 0.0,
+        "volatility": 0.35,
+        "option_right": "put",
+        "barrier_type": "up_out"
+      },
+      "expected": {
+        "value": 2.368228591360107
+      },
+      "tolerance": 1e-10,
+      "source": {
+        "dataset_origin": "option-test/option_exotics_analytic_dataset.json",
+        "dataset_group": "continuous_barrier_exact",
+        "dataset_case_id": "bar_010",
+        "original_inputs": {
+          "model": "barrier_black_scholes_merton",
+          "id": "bar_010",
+          "option_type": "put",
+          "barrier_type": "up_out",
+          "spot": 100.0,
+          "strike": 100.0,
+          "barrier": 103.0,
+          "rebate": 0.0,
+          "time_to_expiry": 0.2,
+          "risk_free_rate": 0.03,
+          "dividend_yield": 0.0,
+          "volatility": 0.35
+        },
+        "original_expected": {
+          "price": 2.368228591360107
+        },
+        "original_validation": {
+          "quantlib_analytic_barrier": 2.368228591360107,
+          "quantlib_fd_barrier": 2.3682248453673767,
+          "quantlib_crr_barrier": 2.3682609296333093,
+          "abs_diff_analytic_vs_fd": 3.745992730230796e-06,
+          "abs_diff_analytic_vs_crr": 3.233827320237026e-05
+        },
+        "original_tolerance": {
+          "price_abs": 1e-10
+        }
+      }
+    },
+    {
+      "id": "bar_011",
+      "api": "math.barrier.price",
+      "input": {
+        "spot": 100.0,
+        "strike": 100.0,
+        "barrier": 101.0,
+        "rebate": 0.0,
+        "years": 0.15,
+        "rate": 0.02,
+        "dividend_yield": 0.0,
+        "volatility": 0.5,
+        "option_right": "call",
+        "barrier_type": "up_in"
+      },
+      "expected": {
+        "value": 7.870701507349387
+      },
+      "tolerance": 1e-10,
+      "source": {
+        "dataset_origin": "option-test/option_exotics_analytic_dataset.json",
+        "dataset_group": "continuous_barrier_exact",
+        "dataset_case_id": "bar_011",
+        "original_inputs": {
+          "model": "barrier_black_scholes_merton",
+          "id": "bar_011",
+          "option_type": "call",
+          "barrier_type": "up_in",
+          "spot": 100.0,
+          "strike": 100.0,
+          "barrier": 101.0,
+          "rebate": 0.0,
+          "time_to_expiry": 0.15,
+          "risk_free_rate": 0.02,
+          "dividend_yield": 0.0,
+          "volatility": 0.5
+        },
+        "original_expected": {
+          "price": 7.870701507349387
+        },
+        "original_validation": {
+          "quantlib_analytic_barrier": 7.870701507349387,
+          "quantlib_fd_barrier": 7.870812961169269,
+          "quantlib_crr_barrier": 7.871013844529415,
+          "abs_diff_analytic_vs_fd": 0.00011145381988253433,
+          "abs_diff_analytic_vs_crr": 0.0003123371800279884
+        },
+        "original_tolerance": {
+          "price_abs": 1e-10
+        }
+      }
+    },
+    {
+      "id": "bar_012",
+      "api": "math.barrier.price",
+      "input": {
+        "spot": 100.0,
+        "strike": 105.0,
+        "barrier": 99.0,
+        "rebate": 0.0,
+        "years": 0.18,
+        "rate": 0.015,
+        "dividend_yield": 0.0,
+        "volatility": 0.45,
+        "option_right": "put",
+        "barrier_type": "down_in"
+      },
+      "expected": {
+        "value": 10.380282802166757
+      },
+      "tolerance": 1e-10,
+      "source": {
+        "dataset_origin": "option-test/option_exotics_analytic_dataset.json",
+        "dataset_group": "continuous_barrier_exact",
+        "dataset_case_id": "bar_012",
+        "original_inputs": {
+          "model": "barrier_black_scholes_merton",
+          "id": "bar_012",
+          "option_type": "put",
+          "barrier_type": "down_in",
+          "spot": 100.0,
+          "strike": 105.0,
+          "barrier": 99.0,
+          "rebate": 0.0,
+          "time_to_expiry": 0.18,
+          "risk_free_rate": 0.015,
+          "dividend_yield": 0.0,
+          "volatility": 0.45
+        },
+        "original_expected": {
+          "price": 10.380282802166757
+        },
+        "original_validation": {
+          "quantlib_analytic_barrier": 10.380282802166757,
+          "quantlib_fd_barrier": 10.380346615200802,
+          "quantlib_crr_barrier": 10.380498644882522,
+          "abs_diff_analytic_vs_fd": 6.38130340444576e-05,
+          "abs_diff_analytic_vs_crr": 0.00021584271576458036
+        },
+        "original_tolerance": {
+          "price_abs": 1e-10
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,17 @@
+{
+  "layer_id": "01-validated",
+  "label": "Validated",
+  "status": "integrated",
+  "source_dataset": "option_validated_dataset.json",
+  "source_case_count": 20,
+  "tier": "A",
+  "purpose": "The most basic and reliable closed-form regression layer.",
+  "fixture_paths": [
+    "fixtures/layers/01-validated/greeks/bsm-greeks.json",
+    "fixtures/layers/01-validated/iv/bsm-roundtrip.json",
+    "fixtures/layers/01-validated/math/black76-greeks.json",
+    "fixtures/layers/01-validated/math/black76-iv.json",
+    "fixtures/layers/01-validated/math/black76-pricing.json",
+    "fixtures/layers/01-validated/pricing/bsm-pricing.json"
+  ]
+}

@@ -1,0 +1,814 @@
+{
+  "fixture": "greeks/bsm-greeks",
+  "layer": {
+    "id": "03-stress",
+    "label": "Stress",
+    "status": "integrated",
+    "source_dataset": "option_stress_dataset.json",
+    "source_case_count": 38,
+    "purpose": "The numerical stability stress layer for pathological scenarios."
+  },
+  "oracle": {
+    "tier": "A/B",
+    "layer_id": "03-stress",
+    "layer_label": "Stress",
+    "status": "integrated",
+    "dataset_origin": "option-test/option_stress_dataset.json",
+    "purpose": "Black-Scholes-Merton greeks regression cases.",
+    "dataset_group": "stress_bsm_exact"
+  },
+  "cases": [
+    {
+      "id": "stress_bsm_short_atm_call",
+      "api": "pricing.greeks_black_scholes",
+      "input": {
+        "spot": 100.0,
+        "strike": 100.0,
+        "years": 0.000273972602739726,
+        "rate": 0.02,
+        "dividend_yield": 0.0,
+        "volatility": 0.2,
+        "option_right": "call"
+      },
+      "expected": {
+        "delta": 0.5013206655097159,
+        "gamma": 1.2051028754037738,
+        "vega": 0.006603303426869993,
+        "theta": -0.6630700537022404,
+        "rho": 0.013698555076204894
+      },
+      "tolerance": 1e-08,
+      "source": {
+        "dataset_origin": "option-test/option_stress_dataset.json",
+        "dataset_group": "stress_bsm_exact",
+        "dataset_case_id": "stress_bsm_short_atm_call",
+        "original_inputs": {
+          "model": "black_scholes_merton",
+          "option_type": "call",
+          "spot": 100.0,
+          "strike": 100.0,
+          "time_to_expiry": 0.000273972602739726,
+          "risk_free_rate": 0.02,
+          "dividend_yield": 0.0,
+          "volatility": 0.2
+        },
+        "original_expected": {
+          "price": 0.13234052282371556,
+          "delta": 0.5013206655097159,
+          "gamma": 1.2051028754037738,
+          "vega": 0.6603303426869993,
+          "theta": -242.02056960131773,
+          "rho": 0.013698555076204894
+        },
+        "original_validation": {
+          "quantlib_black_calculator": {
+            "price": 0.13234052282371406,
+            "delta": 0.501320665509724,
+            "gamma": 1.2051028754037736,
+            "vega": 0.6603303426869994,
+            "theta": -242.02056960130886,
+            "rho": 0.013698555076205357
+          },
+          "py_vollib_price": 0.13234052282371936,
+          "put_call_parity_rhs": 0.0005479437042623658,
+          "max_abs_diff": 8.86757334228605e-12
+        },
+        "original_tolerance": {
+          "price_abs": 1e-10,
+          "greeks_abs": 1e-08
+        },
+        "normalization": {
+          "vega": "divide by 100 to convert from per 1.0 volatility unit to per 1% volatility change",
+          "theta": "divide by 365 to convert from per year to per calendar day",
+          "rho": "no conversion; source and alpaca-option both use per 1.0 rate unit"
+        }
+      }
+    },
+    {
+      "id": "stress_bsm_short_atm_put",
+      "api": "pricing.greeks_black_scholes",
+      "input": {
+        "spot": 100.0,
+        "strike": 100.0,
+        "years": 0.000273972602739726,
+        "rate": 0.02,
+        "dividend_yield": 0.0,
+        "volatility": 0.2,
+        "option_right": "put"
+      },
+      "expected": {
+        "delta": -0.4986793344902842,
+        "gamma": 1.2051028754037738,
+        "vega": 0.006603303426869993,
+        "theta": -0.6575906316717585,
+        "rho": -0.013698555076204894
+      },
+      "tolerance": 1e-08,
+      "source": {
+        "dataset_origin": "option-test/option_stress_dataset.json",
+        "dataset_group": "stress_bsm_exact",
+        "dataset_case_id": "stress_bsm_short_atm_put",
+        "original_inputs": {
+          "model": "black_scholes_merton",
+          "option_type": "put",
+          "spot": 100.0,
+          "strike": 100.0,
+          "time_to_expiry": 0.000273972602739726,
+          "risk_free_rate": 0.02,
+          "dividend_yield": 0.0,
+          "volatility": 0.2
+        },
+        "original_expected": {
+          "price": 0.1317925791194531,
+          "delta": -0.4986793344902842,
+          "gamma": 1.2051028754037738,
+          "vega": 0.6603303426869993,
+          "theta": -240.02058056019183,
+          "rho": -0.013698555076204894
+        },
+        "original_validation": {
+          "quantlib_black_calculator": {
+            "price": 0.13179257911944312,
+            "delta": -0.49867933449027213,
+            "gamma": 1.2051028754037736,
+            "vega": 0.6603303426869994,
+            "theta": -240.02058056020059,
+            "rho": -0.013698555076204572
+          },
+          "py_vollib_price": 0.13179257911945552,
+          "put_call_parity_rhs": 0.0005479437042623658,
+          "max_abs_diff": 8.753886504564434e-12
+        },
+        "original_tolerance": {
+          "price_abs": 1e-10,
+          "greeks_abs": 1e-08
+        },
+        "normalization": {
+          "vega": "divide by 100 to convert from per 1.0 volatility unit to per 1% volatility change",
+          "theta": "divide by 365 to convert from per year to per calendar day",
+          "rho": "no conversion; source and alpaca-option both use per 1.0 rate unit"
+        }
+      }
+    },
+    {
+      "id": "stress_bsm_deep_itm_call",
+      "api": "pricing.greeks_black_scholes",
+      "input": {
+        "spot": 250.0,
+        "strike": 100.0,
+        "years": 1.5,
+        "rate": 0.03,
+        "dividend_yield": 0.0,
+        "volatility": 0.18,
+        "option_right": "call"
+      },
+      "expected": {
+        "delta": 0.999996102353336,
+        "gamma": 3.3070188977531915e-07,
+        "vega": 5.580594389958511e-05,
+        "theta": -0.00785834702558626,
+        "rho": 143.3980914337794
+      },
+      "tolerance": 1e-08,
+      "source": {
+        "dataset_origin": "option-test/option_stress_dataset.json",
+        "dataset_group": "stress_bsm_exact",
+        "dataset_case_id": "stress_bsm_deep_itm_call",
+        "original_inputs": {
+          "model": "black_scholes_merton",
+          "option_type": "call",
+          "spot": 250.0,
+          "strike": 100.0,
+          "time_to_expiry": 1.5,
+          "risk_free_rate": 0.03,
+          "dividend_yield": 0.0,
+          "volatility": 0.18
+        },
+        "original_expected": {
+          "price": 154.40029796581442,
+          "delta": 0.999996102353336,
+          "gamma": 3.3070188977531915e-07,
+          "vega": 0.005580594389958511,
+          "theta": -2.868296664338985,
+          "rho": 143.3980914337794
+        },
+        "original_validation": {
+          "quantlib_black_calculator": {
+            "price": 154.40029796581442,
+            "delta": 0.999996102353336,
+            "gamma": 3.3070188977532593e-07,
+            "vega": 0.005580594389958638,
+            "theta": -2.8682966643389913,
+            "rho": 143.39809143377937
+          },
+          "py_vollib_price": 154.40029796581442,
+          "put_call_parity_rhs": 154.40025181669,
+          "max_abs_diff": 2.842170943040401e-14
+        },
+        "original_tolerance": {
+          "price_abs": 1e-10,
+          "greeks_abs": 1e-08
+        },
+        "normalization": {
+          "vega": "divide by 100 to convert from per 1.0 volatility unit to per 1% volatility change",
+          "theta": "divide by 365 to convert from per year to per calendar day",
+          "rho": "no conversion; source and alpaca-option both use per 1.0 rate unit"
+        }
+      }
+    },
+    {
+      "id": "stress_bsm_deep_otm_put",
+      "api": "pricing.greeks_black_scholes",
+      "input": {
+        "spot": 250.0,
+        "strike": 100.0,
+        "years": 1.5,
+        "rate": 0.03,
+        "dividend_yield": 0.0,
+        "volatility": 0.18,
+        "option_right": "put"
+      },
+      "expected": {
+        "delta": -3.897646663977992e-06,
+        "gamma": 3.3070188977531915e-07,
+        "vega": 5.580594389958511e-05,
+        "theta": -8.33476273111243e-07,
+        "rho": -0.0015308411855953494
+      },
+      "tolerance": 1e-08,
+      "source": {
+        "dataset_origin": "option-test/option_stress_dataset.json",
+        "dataset_group": "stress_bsm_exact",
+        "dataset_case_id": "stress_bsm_deep_otm_put",
+        "original_inputs": {
+          "model": "black_scholes_merton",
+          "option_type": "put",
+          "spot": 250.0,
+          "strike": 100.0,
+          "time_to_expiry": 1.5,
+          "risk_free_rate": 0.03,
+          "dividend_yield": 0.0,
+          "volatility": 0.18
+        },
+        "original_expected": {
+          "price": 4.614912440240158e-05,
+          "delta": -3.897646663977992e-06,
+          "gamma": 3.3070188977531915e-07,
+          "vega": 0.005580594389958511,
+          "theta": -0.0003042188396856037,
+          "rho": -0.0015308411855953494
+        },
+        "original_validation": {
+          "quantlib_black_calculator": {
+            "price": 4.6149124400927264e-05,
+            "delta": -3.897646663975158e-06,
+            "gamma": 3.3070188977532593e-07,
+            "vega": 0.005580594389958638,
+            "theta": -0.0003042188396856759,
+            "rho": -0.0015308411855920721
+          },
+          "py_vollib_price": 4.614912440240188e-05,
+          "put_call_parity_rhs": 154.40025181669,
+          "max_abs_diff": 3.277326326989183e-15
+        },
+        "original_tolerance": {
+          "price_abs": 1e-10,
+          "greeks_abs": 1e-08
+        },
+        "normalization": {
+          "vega": "divide by 100 to convert from per 1.0 volatility unit to per 1% volatility change",
+          "theta": "divide by 365 to convert from per year to per calendar day",
+          "rho": "no conversion; source and alpaca-option both use per 1.0 rate unit"
+        }
+      }
+    },
+    {
+      "id": "stress_bsm_tiny_vol_call",
+      "api": "pricing.greeks_black_scholes",
+      "input": {
+        "spot": 100.0,
+        "strike": 95.0,
+        "years": 0.75,
+        "rate": 0.01,
+        "dividend_yield": 0.0,
+        "volatility": 0.0001,
+        "option_right": "call"
+      },
+      "expected": {
+        "delta": 1.0,
+        "gamma": 0.0,
+        "vega": 0.0,
+        "theta": -0.00258329219747447,
+        "rho": 70.71762390586362
+      },
+      "tolerance": 1e-08,
+      "source": {
+        "dataset_origin": "option-test/option_stress_dataset.json",
+        "dataset_group": "stress_bsm_exact",
+        "dataset_case_id": "stress_bsm_tiny_vol_call",
+        "original_inputs": {
+          "model": "black_scholes_merton",
+          "option_type": "call",
+          "spot": 100.0,
+          "strike": 95.0,
+          "time_to_expiry": 0.75,
+          "risk_free_rate": 0.01,
+          "dividend_yield": 0.0,
+          "volatility": 0.0001
+        },
+        "original_expected": {
+          "price": 5.709834792181849,
+          "delta": 1.0,
+          "gamma": 0.0,
+          "vega": 0.0,
+          "theta": -0.9429016520781816,
+          "rho": 70.71762390586362
+        },
+        "original_validation": {
+          "quantlib_black_calculator": {
+            "price": 5.709834792181845,
+            "delta": 0.9999999999999997,
+            "gamma": 0.0,
+            "vega": 0.0,
+            "theta": -0.942901652078172,
+            "rho": 70.7176239058636
+          },
+          "py_vollib_price": 5.709834792181857,
+          "put_call_parity_rhs": 5.7098347921818515,
+          "max_abs_diff": 1.4210854715202004e-14
+        },
+        "original_tolerance": {
+          "price_abs": 1e-10,
+          "greeks_abs": 1e-08
+        },
+        "normalization": {
+          "vega": "divide by 100 to convert from per 1.0 volatility unit to per 1% volatility change",
+          "theta": "divide by 365 to convert from per year to per calendar day",
+          "rho": "no conversion; source and alpaca-option both use per 1.0 rate unit"
+        }
+      }
+    },
+    {
+      "id": "stress_bsm_huge_vol_put",
+      "api": "pricing.greeks_black_scholes",
+      "input": {
+        "spot": 100.0,
+        "strike": 100.0,
+        "years": 2.0,
+        "rate": 0.01,
+        "dividend_yield": 0.0,
+        "volatility": 3.0,
+        "option_right": "put"
+      },
+      "expected": {
+        "delta": -0.016750198132656623,
+        "gamma": 9.812133731819073e-05,
+        "vega": 0.05887280239091444,
+        "theta": -0.009457722239475776,
+        "rho": -192.6783123819849
+      },
+      "tolerance": 1e-08,
+      "source": {
+        "dataset_origin": "option-test/option_stress_dataset.json",
+        "dataset_group": "stress_bsm_exact",
+        "dataset_case_id": "stress_bsm_huge_vol_put",
+        "original_inputs": {
+          "model": "black_scholes_merton",
+          "option_type": "put",
+          "spot": 100.0,
+          "strike": 100.0,
+          "time_to_expiry": 2.0,
+          "risk_free_rate": 0.01,
+          "dividend_yield": 0.0,
+          "volatility": 3.0
+        },
+        "original_expected": {
+          "price": 94.66413637772679,
+          "delta": -0.016750198132656623,
+          "gamma": 9.812133731819073e-05,
+          "vega": 5.887280239091444,
+          "theta": -3.4520686174086586,
+          "rho": -192.6783123819849
+        },
+        "original_validation": {
+          "quantlib_black_calculator": {
+            "price": 94.6641363777268,
+            "delta": -0.016750198132656543,
+            "gamma": 9.812133731819069e-05,
+            "vega": 5.8872802390914405,
+            "theta": -3.4520686174086554,
+            "rho": -192.6783123819849
+          },
+          "py_vollib_price": 94.66413637772679,
+          "put_call_parity_rhs": 1.980132669324476,
+          "max_abs_diff": 1.4210854715202004e-14
+        },
+        "original_tolerance": {
+          "price_abs": 1e-10,
+          "greeks_abs": 1e-08
+        },
+        "normalization": {
+          "vega": "divide by 100 to convert from per 1.0 volatility unit to per 1% volatility change",
+          "theta": "divide by 365 to convert from per year to per calendar day",
+          "rho": "no conversion; source and alpaca-option both use per 1.0 rate unit"
+        }
+      }
+    },
+    {
+      "id": "stress_bsm_negative_rate_call",
+      "api": "pricing.greeks_black_scholes",
+      "input": {
+        "spot": 100.0,
+        "strike": 100.0,
+        "years": 1.0,
+        "rate": -0.015,
+        "dividend_yield": 0.0,
+        "volatility": 0.25,
+        "option_right": "call"
+      },
+      "expected": {
+        "delta": 0.5259129998718738,
+        "gamma": 0.01592401617514869,
+        "vega": 0.3981004043787172,
+        "theta": -0.011853868764093308,
+        "rho": 43.30619705599387
+      },
+      "tolerance": 1e-08,
+      "source": {
+        "dataset_origin": "option-test/option_stress_dataset.json",
+        "dataset_group": "stress_bsm_exact",
+        "dataset_case_id": "stress_bsm_negative_rate_call",
+        "original_inputs": {
+          "model": "black_scholes_merton",
+          "option_type": "call",
+          "spot": 100.0,
+          "strike": 100.0,
+          "time_to_expiry": 1.0,
+          "risk_free_rate": -0.015,
+          "dividend_yield": 0.0,
+          "volatility": 0.25
+        },
+        "original_expected": {
+          "price": 9.285102931193512,
+          "delta": 0.5259129998718738,
+          "gamma": 0.01592401617514869,
+          "vega": 39.81004043787172,
+          "theta": -4.326662098894057,
+          "rho": 43.30619705599387
+        },
+        "original_validation": {
+          "quantlib_black_calculator": {
+            "price": 9.285102931193506,
+            "delta": 0.5259129998718735,
+            "gamma": 0.015924016175148683,
+            "vega": 39.81004043787172,
+            "theta": -4.326662098894048,
+            "rho": 43.30619705599382
+          },
+          "py_vollib_price": 9.285102931193515,
+          "put_call_parity_rhs": -1.5113064615718912,
+          "max_abs_diff": 4.973799150320701e-14
+        },
+        "original_tolerance": {
+          "price_abs": 1e-10,
+          "greeks_abs": 1e-08
+        },
+        "normalization": {
+          "vega": "divide by 100 to convert from per 1.0 volatility unit to per 1% volatility change",
+          "theta": "divide by 365 to convert from per year to per calendar day",
+          "rho": "no conversion; source and alpaca-option both use per 1.0 rate unit"
+        }
+      }
+    },
+    {
+      "id": "stress_bsm_negative_rate_put",
+      "api": "pricing.greeks_black_scholes",
+      "input": {
+        "spot": 100.0,
+        "strike": 100.0,
+        "years": 1.0,
+        "rate": -0.015,
+        "dividend_yield": 0.0,
+        "volatility": 0.25,
+        "option_right": "put"
+      },
+      "expected": {
+        "delta": -0.4740870001281262,
+        "gamma": 0.01592401617514869,
+        "vega": 0.3981004043787172,
+        "theta": -0.016025566289911333,
+        "rho": -58.20510940557803
+      },
+      "tolerance": 1e-08,
+      "source": {
+        "dataset_origin": "option-test/option_stress_dataset.json",
+        "dataset_group": "stress_bsm_exact",
+        "dataset_case_id": "stress_bsm_negative_rate_put",
+        "original_inputs": {
+          "model": "black_scholes_merton",
+          "option_type": "put",
+          "spot": 100.0,
+          "strike": 100.0,
+          "time_to_expiry": 1.0,
+          "risk_free_rate": -0.015,
+          "dividend_yield": 0.0,
+          "volatility": 0.25
+        },
+        "original_expected": {
+          "price": 10.796409392765408,
+          "delta": -0.4740870001281262,
+          "gamma": 0.01592401617514869,
+          "vega": 39.81004043787172,
+          "theta": -5.849331695817636,
+          "rho": -58.20510940557803
+        },
+        "original_validation": {
+          "quantlib_black_calculator": {
+            "price": 10.796409392765412,
+            "delta": -0.4740870001281265,
+            "gamma": 0.015924016175148683,
+            "vega": 39.81004043787172,
+            "theta": -5.84933169581764,
+            "rho": -58.20510940557806
+          },
+          "py_vollib_price": 10.796409392765407,
+          "put_call_parity_rhs": -1.5113064615718912,
+          "max_abs_diff": 2.842170943040401e-14
+        },
+        "original_tolerance": {
+          "price_abs": 1e-10,
+          "greeks_abs": 1e-08
+        },
+        "normalization": {
+          "vega": "divide by 100 to convert from per 1.0 volatility unit to per 1% volatility change",
+          "theta": "divide by 365 to convert from per year to per calendar day",
+          "rho": "no conversion; source and alpaca-option both use per 1.0 rate unit"
+        }
+      }
+    },
+    {
+      "id": "stress_bsm_high_dividend_call",
+      "api": "pricing.greeks_black_scholes",
+      "input": {
+        "spot": 100.0,
+        "strike": 100.0,
+        "years": 1.0,
+        "rate": 0.02,
+        "dividend_yield": 0.08,
+        "volatility": 0.3,
+        "option_right": "call"
+      },
+      "expected": {
+        "delta": 0.443152335596487,
+        "gamma": 0.012260336340638304,
+        "vega": 0.3678100902191491,
+        "theta": -0.007353120263895927,
+        "rho": 35.59781139033364
+      },
+      "tolerance": 1e-08,
+      "source": {
+        "dataset_origin": "option-test/option_stress_dataset.json",
+        "dataset_group": "stress_bsm_exact",
+        "dataset_case_id": "stress_bsm_high_dividend_call",
+        "original_inputs": {
+          "model": "black_scholes_merton",
+          "option_type": "call",
+          "spot": 100.0,
+          "strike": 100.0,
+          "time_to_expiry": 1.0,
+          "risk_free_rate": 0.02,
+          "dividend_yield": 0.08,
+          "volatility": 0.3
+        },
+        "original_expected": {
+          "price": 8.717422169315057,
+          "delta": 0.443152335596487,
+          "gamma": 0.012260336340638304,
+          "vega": 36.78100902191491,
+          "theta": -2.6838888963220136,
+          "rho": 35.59781139033364
+        },
+        "original_validation": {
+          "quantlib_black_calculator": {
+            "price": 8.717422169315057,
+            "delta": 0.44315233559648676,
+            "gamma": 0.012260336340638304,
+            "vega": 36.781009021914905,
+            "theta": -2.68388889632201,
+            "rho": 35.59781139033362
+          },
+          "py_vollib_price": 8.71742216931505,
+          "put_call_parity_rhs": -5.708232692011947,
+          "max_abs_diff": 2.1316282072803006e-14
+        },
+        "original_tolerance": {
+          "price_abs": 1e-10,
+          "greeks_abs": 1e-08
+        },
+        "normalization": {
+          "vega": "divide by 100 to convert from per 1.0 volatility unit to per 1% volatility change",
+          "theta": "divide by 365 to convert from per year to per calendar day",
+          "rho": "no conversion; source and alpaca-option both use per 1.0 rate unit"
+        }
+      }
+    },
+    {
+      "id": "stress_bsm_high_dividend_put",
+      "api": "pricing.greeks_black_scholes",
+      "input": {
+        "spot": 100.0,
+        "strike": 100.0,
+        "years": 1.0,
+        "rate": 0.02,
+        "dividend_yield": 0.08,
+        "volatility": 0.3,
+        "option_right": "put"
+      },
+      "expected": {
+        "delta": -0.4799640107901488,
+        "gamma": 0.012260336340638304,
+        "vega": 0.3678100902191491,
+        "theta": -0.02221485567342901,
+        "rho": -62.42205594034189
+      },
+      "tolerance": 1e-08,
+      "source": {
+        "dataset_origin": "option-test/option_stress_dataset.json",
+        "dataset_group": "stress_bsm_exact",
+        "dataset_case_id": "stress_bsm_high_dividend_put",
+        "original_inputs": {
+          "model": "black_scholes_merton",
+          "option_type": "put",
+          "spot": 100.0,
+          "strike": 100.0,
+          "time_to_expiry": 1.0,
+          "risk_free_rate": 0.02,
+          "dividend_yield": 0.08,
+          "volatility": 0.3
+        },
+        "original_expected": {
+          "price": 14.425654861327008,
+          "delta": -0.4799640107901488,
+          "gamma": 0.012260336340638304,
+          "vega": 36.78100902191491,
+          "theta": -8.108422320801589,
+          "rho": -62.42205594034189
+        },
+        "original_validation": {
+          "quantlib_black_calculator": {
+            "price": 14.425654861327015,
+            "delta": -0.4799640107901489,
+            "gamma": 0.012260336340638304,
+            "vega": 36.781009021914905,
+            "theta": -8.108422320801594,
+            "rho": -62.422055940341906
+          },
+          "py_vollib_price": 14.425654861327008,
+          "put_call_parity_rhs": -5.708232692011947,
+          "max_abs_diff": 1.4210854715202004e-14
+        },
+        "original_tolerance": {
+          "price_abs": 1e-10,
+          "greeks_abs": 1e-08
+        },
+        "normalization": {
+          "vega": "divide by 100 to convert from per 1.0 volatility unit to per 1% volatility change",
+          "theta": "divide by 365 to convert from per year to per calendar day",
+          "rho": "no conversion; source and alpaca-option both use per 1.0 rate unit"
+        }
+      }
+    },
+    {
+      "id": "stress_bsm_far_otm_call",
+      "api": "pricing.greeks_black_scholes",
+      "input": {
+        "spot": 50.0,
+        "strike": 120.0,
+        "years": 0.25,
+        "rate": 0.02,
+        "dividend_yield": 0.0,
+        "volatility": 0.15,
+        "option_right": "call"
+      },
+      "expected": {
+        "delta": 2.9670505750894337e-31,
+        "gamma": 9.220757375466707e-31,
+        "vega": 8.644460039500038e-31,
+        "theta": -7.185808581295441e-32,
+        "rho": 3.6852650403530446e-30
+      },
+      "tolerance": 1e-08,
+      "source": {
+        "dataset_origin": "option-test/option_stress_dataset.json",
+        "dataset_group": "stress_bsm_exact",
+        "dataset_case_id": "stress_bsm_far_otm_call",
+        "original_inputs": {
+          "model": "black_scholes_merton",
+          "option_type": "call",
+          "spot": 50.0,
+          "strike": 120.0,
+          "time_to_expiry": 0.25,
+          "risk_free_rate": 0.02,
+          "dividend_yield": 0.0,
+          "volatility": 0.15
+        },
+        "original_expected": {
+          "price": 9.419271403499127e-32,
+          "delta": 2.9670505750894337e-31,
+          "gamma": 9.220757375466707e-31,
+          "vega": 8.644460039500039e-29,
+          "theta": -2.622820132172836e-29,
+          "rho": 3.6852650403530446e-30
+        },
+        "original_validation": {
+          "quantlib_black_calculator": {
+            "price": 9.419271403482008e-32,
+            "delta": 2.967050575084253e-31,
+            "gamma": 9.220757375451084e-31,
+            "vega": 8.64446003948512e-29,
+            "theta": -2.62282013216839e-29,
+            "rho": 3.685265040346578e-30
+          },
+          "py_vollib_price": 9.419271403498964e-32,
+          "put_call_parity_rhs": -69.40149750312187,
+          "max_abs_diff": 1.4918783970587732e-40
+        },
+        "original_tolerance": {
+          "price_abs": 1e-10,
+          "greeks_abs": 1e-08
+        },
+        "normalization": {
+          "vega": "divide by 100 to convert from per 1.0 volatility unit to per 1% volatility change",
+          "theta": "divide by 365 to convert from per year to per calendar day",
+          "rho": "no conversion; source and alpaca-option both use per 1.0 rate unit"
+        }
+      }
+    },
+    {
+      "id": "stress_bsm_far_itm_put",
+      "api": "pricing.greeks_black_scholes",
+      "input": {
+        "spot": 50.0,
+        "strike": 120.0,
+        "years": 0.25,
+        "rate": 0.02,
+        "dividend_yield": 0.0,
+        "volatility": 0.15,
+        "option_right": "put"
+      },
+      "expected": {
+        "delta": -1.0,
+        "gamma": 9.220757375466707e-31,
+        "vega": 8.644460039500038e-31,
+        "theta": 0.00654254780839024,
+        "rho": -29.85037437578047
+      },
+      "tolerance": 1e-08,
+      "source": {
+        "dataset_origin": "option-test/option_stress_dataset.json",
+        "dataset_group": "stress_bsm_exact",
+        "dataset_case_id": "stress_bsm_far_itm_put",
+        "original_inputs": {
+          "model": "black_scholes_merton",
+          "option_type": "put",
+          "spot": 50.0,
+          "strike": 120.0,
+          "time_to_expiry": 0.25,
+          "risk_free_rate": 0.02,
+          "dividend_yield": 0.0,
+          "volatility": 0.15
+        },
+        "original_expected": {
+          "price": 69.40149750312187,
+          "delta": -1.0,
+          "gamma": 9.220757375466707e-31,
+          "vega": 8.644460039500039e-29,
+          "theta": 2.3880299500624376,
+          "rho": -29.85037437578047
+        },
+        "original_validation": {
+          "quantlib_black_calculator": {
+            "price": 69.40149750312187,
+            "delta": -0.9999999999999999,
+            "gamma": 9.220757375451084e-31,
+            "vega": 8.64446003948512e-29,
+            "theta": 2.388029950062415,
+            "rho": -29.85037437578047
+          },
+          "py_vollib_price": 69.40149750312187,
+          "put_call_parity_rhs": -69.40149750312187,
+          "max_abs_diff": 2.2648549702353193e-14
+        },
+        "original_tolerance": {
+          "price_abs": 1e-10,
+          "greeks_abs": 1e-08
+        },
+        "normalization": {
+          "vega": "divide by 100 to convert from per 1.0 volatility unit to per 1% volatility change",
+          "theta": "divide by 365 to convert from per year to per calendar day",
+          "rho": "no conversion; source and alpaca-option both use per 1.0 rate unit"
+        }
+      }
+    }
+  ]
+}

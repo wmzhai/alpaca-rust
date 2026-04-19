@@ -1,0 +1,242 @@
+{
+  "fixture": "math/bachelier-iv",
+  "layer": {
+    "id": "05-extreme-stability",
+    "label": "Extreme Stability",
+    "status": "integrated",
+    "source_dataset": "option_extreme_stability_dataset.json",
+    "source_case_count": 38,
+    "purpose": "A harder floating-point stability hardening layer."
+  },
+  "oracle": {
+    "tier": "A+/B",
+    "layer_id": "05-extreme-stability",
+    "layer_label": "Extreme Stability",
+    "status": "integrated",
+    "dataset_origin": "option-test/option_extreme_stability_dataset.json",
+    "purpose": "Bachelier implied-volatility regression cases.",
+    "split_from": "fixtures/math/bachelier-iv.json"
+  },
+  "cases": [
+    {
+      "id": "xbach_001_iv",
+      "api": "math.bachelier_implied_volatility_from_price",
+      "input": {
+        "target_price": 1.044085387474162e-05,
+        "forward": 0.01,
+        "strike": 0.01,
+        "years": 0.0027397260273972603,
+        "rate": -0.002,
+        "option_right": "call",
+        "lower_bound": 0.0,
+        "upper_bound": 100.0,
+        "tolerance": 1e-12
+      },
+      "expected": {
+        "value": 0.0005
+      },
+      "tolerance": 1e-10,
+      "source": {
+        "dataset_origin": "option-test/option_extreme_stability_dataset.json",
+        "dataset_group": "extreme_bachelier_exact",
+        "dataset_case_id": "xbach_001",
+        "original_inputs": {
+          "model": "bachelier",
+          "option_type": "call",
+          "forward": 0.01,
+          "strike": 0.01,
+          "time_to_expiry": 0.0027397260273972603,
+          "risk_free_rate": -0.002,
+          "normal_volatility": 0.0005
+        },
+        "original_expected": {
+          "price": 1.044085387474162e-05
+        },
+        "original_validation": {
+          "quantlib": 1.044085387474162e-05,
+          "abs_diff_local_vs_quantlib": 0.0
+        },
+        "original_tolerance": {
+          "price_abs": 1e-10
+        },
+        "iv_roundtrip_note": "Included only when the target price remains above discounted intrinsic so normal volatility stays identifiable."
+      }
+    },
+    {
+      "id": "xbach_002_iv",
+      "api": "math.bachelier_implied_volatility_from_price",
+      "input": {
+        "target_price": 0.006698220949962971,
+        "forward": -0.002,
+        "strike": 0.0,
+        "years": 2.0,
+        "rate": 0.0,
+        "option_right": "put",
+        "lower_bound": 0.0,
+        "upper_bound": 100.0,
+        "tolerance": 1e-12
+      },
+      "expected": {
+        "value": 0.01
+      },
+      "tolerance": 1e-10,
+      "source": {
+        "dataset_origin": "option-test/option_extreme_stability_dataset.json",
+        "dataset_group": "extreme_bachelier_exact",
+        "dataset_case_id": "xbach_002",
+        "original_inputs": {
+          "model": "bachelier",
+          "option_type": "put",
+          "forward": -0.002,
+          "strike": 0.0,
+          "time_to_expiry": 2.0,
+          "risk_free_rate": 0.0,
+          "normal_volatility": 0.01
+        },
+        "original_expected": {
+          "price": 0.006698220949962971
+        },
+        "original_validation": {
+          "quantlib": 0.0066982209499629715,
+          "abs_diff_local_vs_quantlib": 8.673617379884035e-19
+        },
+        "original_tolerance": {
+          "price_abs": 1e-10
+        },
+        "iv_roundtrip_note": "Included only when the target price remains above discounted intrinsic so normal volatility stays identifiable."
+      }
+    },
+    {
+      "id": "xbach_004_iv",
+      "api": "math.bachelier_implied_volatility_from_price",
+      "input": {
+        "target_price": 52.23603735397496,
+        "forward": 50.0,
+        "strike": 100.0,
+        "years": 10.0,
+        "rate": 0.01,
+        "option_right": "put",
+        "lower_bound": 0.0,
+        "upper_bound": 100.0,
+        "tolerance": 1e-12
+      },
+      "expected": {
+        "value": 20.0
+      },
+      "tolerance": 1e-10,
+      "source": {
+        "dataset_origin": "option-test/option_extreme_stability_dataset.json",
+        "dataset_group": "extreme_bachelier_exact",
+        "dataset_case_id": "xbach_004",
+        "original_inputs": {
+          "model": "bachelier",
+          "option_type": "put",
+          "forward": 50.0,
+          "strike": 100.0,
+          "time_to_expiry": 10.0,
+          "risk_free_rate": 0.01,
+          "normal_volatility": 20.0
+        },
+        "original_expected": {
+          "price": 52.23603735397496
+        },
+        "original_validation": {
+          "quantlib": 52.236037353974965,
+          "abs_diff_local_vs_quantlib": 7.105427357601002e-15
+        },
+        "original_tolerance": {
+          "price_abs": 1e-10
+        },
+        "iv_roundtrip_note": "Included only when the target price remains above discounted intrinsic so normal volatility stays identifiable."
+      }
+    },
+    {
+      "id": "xbach_005_iv",
+      "api": "math.bachelier_implied_volatility_from_price",
+      "input": {
+        "target_price": 0.21850968611841587,
+        "forward": 100.0,
+        "strike": 100.0,
+        "years": 30.0,
+        "rate": 0.0,
+        "option_right": "call",
+        "lower_bound": 0.0,
+        "upper_bound": 100.0,
+        "tolerance": 1e-12
+      },
+      "expected": {
+        "value": 0.1
+      },
+      "tolerance": 1e-10,
+      "source": {
+        "dataset_origin": "option-test/option_extreme_stability_dataset.json",
+        "dataset_group": "extreme_bachelier_exact",
+        "dataset_case_id": "xbach_005",
+        "original_inputs": {
+          "model": "bachelier",
+          "option_type": "call",
+          "forward": 100.0,
+          "strike": 100.0,
+          "time_to_expiry": 30.0,
+          "risk_free_rate": 0.0,
+          "normal_volatility": 0.1
+        },
+        "original_expected": {
+          "price": 0.21850968611841587
+        },
+        "original_validation": {
+          "quantlib": 0.21850968611841587,
+          "abs_diff_local_vs_quantlib": 0.0
+        },
+        "original_tolerance": {
+          "price_abs": 1e-10
+        },
+        "iv_roundtrip_note": "Included only when the target price remains above discounted intrinsic so normal volatility stays identifiable."
+      }
+    },
+    {
+      "id": "xbach_006_iv",
+      "api": "math.bachelier_implied_volatility_from_price",
+      "input": {
+        "target_price": 35.78750206621326,
+        "forward": 100.0,
+        "strike": 120.0,
+        "years": 30.0,
+        "rate": 0.02,
+        "option_right": "put",
+        "lower_bound": 0.0,
+        "upper_bound": 100.0,
+        "tolerance": 1e-12
+      },
+      "expected": {
+        "value": 25.0
+      },
+      "tolerance": 1e-10,
+      "source": {
+        "dataset_origin": "option-test/option_extreme_stability_dataset.json",
+        "dataset_group": "extreme_bachelier_exact",
+        "dataset_case_id": "xbach_006",
+        "original_inputs": {
+          "model": "bachelier",
+          "option_type": "put",
+          "forward": 100.0,
+          "strike": 120.0,
+          "time_to_expiry": 30.0,
+          "risk_free_rate": 0.02,
+          "normal_volatility": 25.0
+        },
+        "original_expected": {
+          "price": 35.78750206621326
+        },
+        "original_validation": {
+          "quantlib": 35.78750206621326,
+          "abs_diff_local_vs_quantlib": 0.0
+        },
+        "original_tolerance": {
+          "price_abs": 1e-10
+        },
+        "iv_roundtrip_note": "Included only when the target price remains above discounted intrinsic so normal volatility stays identifiable."
+      }
+    }
+  ]
+}

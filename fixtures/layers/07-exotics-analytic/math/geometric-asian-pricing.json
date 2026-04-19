@@ -1,0 +1,574 @@
+{
+  "fixture": "math/geometric-asian-pricing",
+  "layer": {
+    "id": "07-exotics-analytic",
+    "label": "Exotics Analytic",
+    "status": "integrated",
+    "source_dataset": "option_exotics_analytic_dataset.json",
+    "source_case_count": 24,
+    "purpose": "Analytic barrier / geometric Asian benchmarks, pending implementation."
+  },
+  "oracle": {
+    "tier": "A",
+    "layer_id": "07-exotics-analytic",
+    "layer_label": "Exotics Analytic",
+    "status": "integrated",
+    "dataset_origin": "option-test/option_exotics_analytic_dataset.json",
+    "purpose": "Continuous geometric-average Asian analytic benchmark cases.",
+    "dataset_group": "continuous_geometric_asian_exact"
+  },
+  "cases": [
+    {
+      "id": "gasian_001",
+      "api": "math.geometric_asian.price",
+      "input": {
+        "spot": 100.0,
+        "strike": 100.0,
+        "years": 1.0,
+        "rate": 0.03,
+        "dividend_yield": 0.01,
+        "volatility": 0.25,
+        "option_right": "call",
+        "average_style": "continuous"
+      },
+      "expected": {
+        "value": 5.832754647851443
+      },
+      "tolerance": 1e-10,
+      "source": {
+        "dataset_origin": "option-test/option_exotics_analytic_dataset.json",
+        "dataset_group": "continuous_geometric_asian_exact",
+        "dataset_case_id": "gasian_001",
+        "original_inputs": {
+          "model": "geometric_asian_black_scholes_merton",
+          "average_style": "continuous",
+          "id": "gasian_001",
+          "option_type": "call",
+          "spot": 100.0,
+          "strike": 100.0,
+          "time_to_expiry": 1.0,
+          "risk_free_rate": 0.03,
+          "dividend_yield": 0.01,
+          "volatility": 0.25
+        },
+        "original_expected": {
+          "price": 5.832754647851443
+        },
+        "original_validation": {
+          "local_closed_form": 5.832754647851443,
+          "quantlib_analytic_continuous_geometric": 5.832754647851419,
+          "abs_diff_local_vs_quantlib": 2.398081733190338e-14
+        },
+        "original_tolerance": {
+          "price_abs": 1e-10
+        }
+      }
+    },
+    {
+      "id": "gasian_002",
+      "api": "math.geometric_asian.price",
+      "input": {
+        "spot": 100.0,
+        "strike": 95.0,
+        "years": 0.75,
+        "rate": 0.02,
+        "dividend_yield": 0.0,
+        "volatility": 0.2,
+        "option_right": "put",
+        "average_style": "continuous"
+      },
+      "expected": {
+        "value": 1.7225309618397164
+      },
+      "tolerance": 1e-10,
+      "source": {
+        "dataset_origin": "option-test/option_exotics_analytic_dataset.json",
+        "dataset_group": "continuous_geometric_asian_exact",
+        "dataset_case_id": "gasian_002",
+        "original_inputs": {
+          "model": "geometric_asian_black_scholes_merton",
+          "average_style": "continuous",
+          "id": "gasian_002",
+          "option_type": "put",
+          "spot": 100.0,
+          "strike": 95.0,
+          "time_to_expiry": 0.75,
+          "risk_free_rate": 0.02,
+          "dividend_yield": 0.0,
+          "volatility": 0.2
+        },
+        "original_expected": {
+          "price": 1.7225309618397164
+        },
+        "original_validation": {
+          "local_closed_form": 1.7225309618397164,
+          "quantlib_analytic_continuous_geometric": 1.7238797024069392,
+          "abs_diff_local_vs_quantlib": 0.0013487405672227837
+        },
+        "original_tolerance": {
+          "price_abs": 1e-10
+        }
+      }
+    },
+    {
+      "id": "gasian_003",
+      "api": "math.geometric_asian.price",
+      "input": {
+        "spot": 80.0,
+        "strike": 85.0,
+        "years": 2.0,
+        "rate": 0.05,
+        "dividend_yield": 0.02,
+        "volatility": 0.3,
+        "option_right": "call",
+        "average_style": "continuous"
+      },
+      "expected": {
+        "value": 5.740893608532235
+      },
+      "tolerance": 1e-10,
+      "source": {
+        "dataset_origin": "option-test/option_exotics_analytic_dataset.json",
+        "dataset_group": "continuous_geometric_asian_exact",
+        "dataset_case_id": "gasian_003",
+        "original_inputs": {
+          "model": "geometric_asian_black_scholes_merton",
+          "average_style": "continuous",
+          "id": "gasian_003",
+          "option_type": "call",
+          "spot": 80.0,
+          "strike": 85.0,
+          "time_to_expiry": 2.0,
+          "risk_free_rate": 0.05,
+          "dividend_yield": 0.02,
+          "volatility": 0.3
+        },
+        "original_expected": {
+          "price": 5.740893608532235
+        },
+        "original_validation": {
+          "local_closed_form": 5.740893608532235,
+          "quantlib_analytic_continuous_geometric": 5.740893608532229,
+          "abs_diff_local_vs_quantlib": 6.217248937900877e-15
+        },
+        "original_tolerance": {
+          "price_abs": 1e-10
+        }
+      }
+    },
+    {
+      "id": "gasian_004",
+      "api": "math.geometric_asian.price",
+      "input": {
+        "spot": 120.0,
+        "strike": 110.0,
+        "years": 1.5,
+        "rate": 0.01,
+        "dividend_yield": 0.03,
+        "volatility": 0.18,
+        "option_right": "put",
+        "average_style": "continuous"
+      },
+      "expected": {
+        "value": 2.672934809908218
+      },
+      "tolerance": 1e-10,
+      "source": {
+        "dataset_origin": "option-test/option_exotics_analytic_dataset.json",
+        "dataset_group": "continuous_geometric_asian_exact",
+        "dataset_case_id": "gasian_004",
+        "original_inputs": {
+          "model": "geometric_asian_black_scholes_merton",
+          "average_style": "continuous",
+          "id": "gasian_004",
+          "option_type": "put",
+          "spot": 120.0,
+          "strike": 110.0,
+          "time_to_expiry": 1.5,
+          "risk_free_rate": 0.01,
+          "dividend_yield": 0.03,
+          "volatility": 0.18
+        },
+        "original_expected": {
+          "price": 2.672934809908218
+        },
+        "original_validation": {
+          "local_closed_form": 2.672934809908218,
+          "quantlib_analytic_continuous_geometric": 2.6757023889837557,
+          "abs_diff_local_vs_quantlib": 0.002767579075537707
+        },
+        "original_tolerance": {
+          "price_abs": 1e-10
+        }
+      }
+    },
+    {
+      "id": "gasian_005",
+      "api": "math.geometric_asian.price",
+      "input": {
+        "spot": 60.0,
+        "strike": 65.0,
+        "years": 0.5,
+        "rate": 0.04,
+        "dividend_yield": 0.0,
+        "volatility": 0.4,
+        "option_right": "call",
+        "average_style": "continuous"
+      },
+      "expected": {
+        "value": 2.072113148469446
+      },
+      "tolerance": 1e-10,
+      "source": {
+        "dataset_origin": "option-test/option_exotics_analytic_dataset.json",
+        "dataset_group": "continuous_geometric_asian_exact",
+        "dataset_case_id": "gasian_005",
+        "original_inputs": {
+          "model": "geometric_asian_black_scholes_merton",
+          "average_style": "continuous",
+          "id": "gasian_005",
+          "option_type": "call",
+          "spot": 60.0,
+          "strike": 65.0,
+          "time_to_expiry": 0.5,
+          "risk_free_rate": 0.04,
+          "dividend_yield": 0.0,
+          "volatility": 0.4
+        },
+        "original_expected": {
+          "price": 2.072113148469446
+        },
+        "original_validation": {
+          "local_closed_form": 2.072113148469446,
+          "quantlib_analytic_continuous_geometric": 2.0671518564596045,
+          "abs_diff_local_vs_quantlib": 0.0049612920098414115
+        },
+        "original_tolerance": {
+          "price_abs": 1e-10
+        }
+      }
+    },
+    {
+      "id": "gasian_006",
+      "api": "math.geometric_asian.price",
+      "input": {
+        "spot": 150.0,
+        "strike": 140.0,
+        "years": 1.25,
+        "rate": 0.025,
+        "dividend_yield": 0.01,
+        "volatility": 0.22,
+        "option_right": "put",
+        "average_style": "continuous"
+      },
+      "expected": {
+        "value": 3.8489182917907185
+      },
+      "tolerance": 1e-10,
+      "source": {
+        "dataset_origin": "option-test/option_exotics_analytic_dataset.json",
+        "dataset_group": "continuous_geometric_asian_exact",
+        "dataset_case_id": "gasian_006",
+        "original_inputs": {
+          "model": "geometric_asian_black_scholes_merton",
+          "average_style": "continuous",
+          "id": "gasian_006",
+          "option_type": "put",
+          "spot": 150.0,
+          "strike": 140.0,
+          "time_to_expiry": 1.25,
+          "risk_free_rate": 0.025,
+          "dividend_yield": 0.01,
+          "volatility": 0.22
+        },
+        "original_expected": {
+          "price": 3.8489182917907185
+        },
+        "original_validation": {
+          "local_closed_form": 3.8489182917907185,
+          "quantlib_analytic_continuous_geometric": 3.847173192256216,
+          "abs_diff_local_vs_quantlib": 0.0017450995345025255
+        },
+        "original_tolerance": {
+          "price_abs": 1e-10
+        }
+      }
+    },
+    {
+      "id": "gasian_007",
+      "api": "math.geometric_asian.price",
+      "input": {
+        "spot": 100.0,
+        "strike": 120.0,
+        "years": 3.0,
+        "rate": 0.03,
+        "dividend_yield": 0.0,
+        "volatility": 0.35,
+        "option_right": "call",
+        "average_style": "continuous"
+      },
+      "expected": {
+        "value": 7.1475840473851235
+      },
+      "tolerance": 1e-10,
+      "source": {
+        "dataset_origin": "option-test/option_exotics_analytic_dataset.json",
+        "dataset_group": "continuous_geometric_asian_exact",
+        "dataset_case_id": "gasian_007",
+        "original_inputs": {
+          "model": "geometric_asian_black_scholes_merton",
+          "average_style": "continuous",
+          "id": "gasian_007",
+          "option_type": "call",
+          "spot": 100.0,
+          "strike": 120.0,
+          "time_to_expiry": 3.0,
+          "risk_free_rate": 0.03,
+          "dividend_yield": 0.0,
+          "volatility": 0.35
+        },
+        "original_expected": {
+          "price": 7.1475840473851235
+        },
+        "original_validation": {
+          "local_closed_form": 7.1475840473851235,
+          "quantlib_analytic_continuous_geometric": 7.147584047385099,
+          "abs_diff_local_vs_quantlib": 2.4868995751603507e-14
+        },
+        "original_tolerance": {
+          "price_abs": 1e-10
+        }
+      }
+    },
+    {
+      "id": "gasian_008",
+      "api": "math.geometric_asian.price",
+      "input": {
+        "spot": 100.0,
+        "strike": 80.0,
+        "years": 2.5,
+        "rate": 0.02,
+        "dividend_yield": 0.015,
+        "volatility": 0.28,
+        "option_right": "put",
+        "average_style": "continuous"
+      },
+      "expected": {
+        "value": 2.4387312080804664
+      },
+      "tolerance": 1e-10,
+      "source": {
+        "dataset_origin": "option-test/option_exotics_analytic_dataset.json",
+        "dataset_group": "continuous_geometric_asian_exact",
+        "dataset_case_id": "gasian_008",
+        "original_inputs": {
+          "model": "geometric_asian_black_scholes_merton",
+          "average_style": "continuous",
+          "id": "gasian_008",
+          "option_type": "put",
+          "spot": 100.0,
+          "strike": 80.0,
+          "time_to_expiry": 2.5,
+          "risk_free_rate": 0.02,
+          "dividend_yield": 0.015,
+          "volatility": 0.28
+        },
+        "original_expected": {
+          "price": 2.4387312080804664
+        },
+        "original_validation": {
+          "local_closed_form": 2.4387312080804664,
+          "quantlib_analytic_continuous_geometric": 2.4370531232270163,
+          "abs_diff_local_vs_quantlib": 0.0016780848534501125
+        },
+        "original_tolerance": {
+          "price_abs": 1e-10
+        }
+      }
+    },
+    {
+      "id": "gasian_009",
+      "api": "math.geometric_asian.price",
+      "input": {
+        "spot": 95.0,
+        "strike": 100.0,
+        "years": 0.25,
+        "rate": 0.06,
+        "dividend_yield": 0.0,
+        "volatility": 0.5,
+        "option_right": "call",
+        "average_style": "continuous"
+      },
+      "expected": {
+        "value": 3.4917978896472155
+      },
+      "tolerance": 1e-10,
+      "source": {
+        "dataset_origin": "option-test/option_exotics_analytic_dataset.json",
+        "dataset_group": "continuous_geometric_asian_exact",
+        "dataset_case_id": "gasian_009",
+        "original_inputs": {
+          "model": "geometric_asian_black_scholes_merton",
+          "average_style": "continuous",
+          "id": "gasian_009",
+          "option_type": "call",
+          "spot": 95.0,
+          "strike": 100.0,
+          "time_to_expiry": 0.25,
+          "risk_free_rate": 0.06,
+          "dividend_yield": 0.0,
+          "volatility": 0.5
+        },
+        "original_expected": {
+          "price": 3.4917978896472155
+        },
+        "original_validation": {
+          "local_closed_form": 3.4917978896472155,
+          "quantlib_analytic_continuous_geometric": 3.4845652079480613,
+          "abs_diff_local_vs_quantlib": 0.007232681699154142
+        },
+        "original_tolerance": {
+          "price_abs": 1e-10
+        }
+      }
+    },
+    {
+      "id": "gasian_010",
+      "api": "math.geometric_asian.price",
+      "input": {
+        "spot": 105.0,
+        "strike": 100.0,
+        "years": 0.33,
+        "rate": 0.01,
+        "dividend_yield": 0.0,
+        "volatility": 0.12,
+        "option_right": "put",
+        "average_style": "continuous"
+      },
+      "expected": {
+        "value": 0.20256442850114886
+      },
+      "tolerance": 1e-10,
+      "source": {
+        "dataset_origin": "option-test/option_exotics_analytic_dataset.json",
+        "dataset_group": "continuous_geometric_asian_exact",
+        "dataset_case_id": "gasian_010",
+        "original_inputs": {
+          "model": "geometric_asian_black_scholes_merton",
+          "average_style": "continuous",
+          "id": "gasian_010",
+          "option_type": "put",
+          "spot": 105.0,
+          "strike": 100.0,
+          "time_to_expiry": 0.33,
+          "risk_free_rate": 0.01,
+          "dividend_yield": 0.0,
+          "volatility": 0.12
+        },
+        "original_expected": {
+          "price": 0.20256442850114886
+        },
+        "original_validation": {
+          "local_closed_form": 0.20256442850114886,
+          "quantlib_analytic_continuous_geometric": 0.2012422910894884,
+          "abs_diff_local_vs_quantlib": 0.0013221374116604567
+        },
+        "original_tolerance": {
+          "price_abs": 1e-10
+        }
+      }
+    },
+    {
+      "id": "gasian_011",
+      "api": "math.geometric_asian.price",
+      "input": {
+        "spot": 100.0,
+        "strike": 100.0,
+        "years": 5.0,
+        "rate": 0.015,
+        "dividend_yield": 0.005,
+        "volatility": 0.18,
+        "option_right": "call",
+        "average_style": "continuous"
+      },
+      "expected": {
+        "value": 9.178087316634082
+      },
+      "tolerance": 1e-10,
+      "source": {
+        "dataset_origin": "option-test/option_exotics_analytic_dataset.json",
+        "dataset_group": "continuous_geometric_asian_exact",
+        "dataset_case_id": "gasian_011",
+        "original_inputs": {
+          "model": "geometric_asian_black_scholes_merton",
+          "average_style": "continuous",
+          "id": "gasian_011",
+          "option_type": "call",
+          "spot": 100.0,
+          "strike": 100.0,
+          "time_to_expiry": 5.0,
+          "risk_free_rate": 0.015,
+          "dividend_yield": 0.005,
+          "volatility": 0.18
+        },
+        "original_expected": {
+          "price": 9.178087316634082
+        },
+        "original_validation": {
+          "local_closed_form": 9.178087316634082,
+          "quantlib_analytic_continuous_geometric": 9.178087316634068,
+          "abs_diff_local_vs_quantlib": 1.4210854715202004e-14
+        },
+        "original_tolerance": {
+          "price_abs": 1e-10
+        }
+      }
+    },
+    {
+      "id": "gasian_012",
+      "api": "math.geometric_asian.price",
+      "input": {
+        "spot": 70.0,
+        "strike": 90.0,
+        "years": 1.8,
+        "rate": 0.045,
+        "dividend_yield": 0.0,
+        "volatility": 0.33,
+        "option_right": "put",
+        "average_style": "continuous"
+      },
+      "expected": {
+        "value": 18.797174951163633
+      },
+      "tolerance": 1e-10,
+      "source": {
+        "dataset_origin": "option-test/option_exotics_analytic_dataset.json",
+        "dataset_group": "continuous_geometric_asian_exact",
+        "dataset_case_id": "gasian_012",
+        "original_inputs": {
+          "model": "geometric_asian_black_scholes_merton",
+          "average_style": "continuous",
+          "id": "gasian_012",
+          "option_type": "put",
+          "spot": 70.0,
+          "strike": 90.0,
+          "time_to_expiry": 1.8,
+          "risk_free_rate": 0.045,
+          "dividend_yield": 0.0,
+          "volatility": 0.33
+        },
+        "original_expected": {
+          "price": 18.797174951163633
+        },
+        "original_validation": {
+          "local_closed_form": 18.797174951163633,
+          "quantlib_analytic_continuous_geometric": 18.797174951163633,
+          "abs_diff_local_vs_quantlib": 0.0
+        },
+        "original_tolerance": {
+          "price_abs": 1e-10
+        }
+      }
+    }
+  ]
+}

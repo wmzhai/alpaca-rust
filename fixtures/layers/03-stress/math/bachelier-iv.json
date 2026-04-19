@@ -1,0 +1,268 @@
+{
+  "fixture": "math/bachelier-iv",
+  "layer": {
+    "id": "03-stress",
+    "label": "Stress",
+    "status": "integrated",
+    "source_dataset": "option_stress_dataset.json",
+    "source_case_count": 38,
+    "purpose": "The numerical stability stress layer for pathological scenarios."
+  },
+  "oracle": {
+    "tier": "A/B",
+    "layer_id": "03-stress",
+    "layer_label": "Stress",
+    "status": "integrated",
+    "dataset_origin": "option-test/option_stress_dataset.json",
+    "purpose": "Bachelier implied-volatility regression cases.",
+    "split_from": "fixtures/math/bachelier-iv.json"
+  },
+  "cases": [
+    {
+      "id": "stress_bachelier_negative_forward_call_iv",
+      "api": "math.bachelier_implied_volatility_from_price",
+      "input": {
+        "target_price": 0.00722189281370144,
+        "forward": -0.005,
+        "strike": -0.01,
+        "years": 2.0,
+        "rate": -0.002,
+        "option_right": "call",
+        "lower_bound": 0.0,
+        "upper_bound": 1.0,
+        "tolerance": 1e-12
+      },
+      "expected": {
+        "value": 0.0075
+      },
+      "tolerance": 1e-10,
+      "source": {
+        "dataset_origin": "option-test/option_stress_dataset.json",
+        "dataset_group": "stress_bachelier_exact",
+        "dataset_case_id": "stress_bachelier_negative_forward_call",
+        "original_inputs": {
+          "model": "bachelier",
+          "option_type": "call",
+          "forward": -0.005,
+          "strike": -0.01,
+          "time_to_expiry": 2.0,
+          "risk_free_rate": -0.002,
+          "normal_volatility": 0.0075
+        },
+        "original_expected": {
+          "price": 0.00722189281370144
+        },
+        "original_validation": {
+          "quantlib_bachelier_black_formula": 0.00722189281370144,
+          "max_abs_diff": 0.0
+        },
+        "formula_source": "Analytical Bachelier/normal model formulas, with price cross-checked by option-test against QuantLib."
+      }
+    },
+    {
+      "id": "stress_bachelier_negative_forward_put_iv",
+      "api": "math.bachelier_implied_volatility_from_price",
+      "input": {
+        "target_price": 0.00722189281370144,
+        "forward": -0.005,
+        "strike": 0.0,
+        "years": 2.0,
+        "rate": -0.002,
+        "option_right": "put",
+        "lower_bound": 0.0,
+        "upper_bound": 1.0,
+        "tolerance": 1e-12
+      },
+      "expected": {
+        "value": 0.0075
+      },
+      "tolerance": 1e-10,
+      "source": {
+        "dataset_origin": "option-test/option_stress_dataset.json",
+        "dataset_group": "stress_bachelier_exact",
+        "dataset_case_id": "stress_bachelier_negative_forward_put",
+        "original_inputs": {
+          "model": "bachelier",
+          "option_type": "put",
+          "forward": -0.005,
+          "strike": 0.0,
+          "time_to_expiry": 2.0,
+          "risk_free_rate": -0.002,
+          "normal_volatility": 0.0075
+        },
+        "original_expected": {
+          "price": 0.00722189281370144
+        },
+        "original_validation": {
+          "quantlib_bachelier_black_formula": 0.00722189281370144,
+          "max_abs_diff": 0.0
+        },
+        "formula_source": "Analytical Bachelier/normal model formulas, with price cross-checked by option-test against QuantLib."
+      }
+    },
+    {
+      "id": "stress_bachelier_short_atm_call_iv",
+      "api": "math.bachelier_implied_volatility_from_price",
+      "input": {
+        "target_price": 3.3016698047268274e-05,
+        "forward": 0.01,
+        "strike": 0.01,
+        "years": 0.000273972602739726,
+        "rate": 0.0,
+        "option_right": "call",
+        "lower_bound": 0.0,
+        "upper_bound": 1.0,
+        "tolerance": 1e-12
+      },
+      "expected": {
+        "value": 0.005
+      },
+      "tolerance": 1e-10,
+      "source": {
+        "dataset_origin": "option-test/option_stress_dataset.json",
+        "dataset_group": "stress_bachelier_exact",
+        "dataset_case_id": "stress_bachelier_short_atm_call",
+        "original_inputs": {
+          "model": "bachelier",
+          "option_type": "call",
+          "forward": 0.01,
+          "strike": 0.01,
+          "time_to_expiry": 0.000273972602739726,
+          "risk_free_rate": 0.0,
+          "normal_volatility": 0.005
+        },
+        "original_expected": {
+          "price": 3.3016698047268274e-05
+        },
+        "original_validation": {
+          "quantlib_bachelier_black_formula": 3.3016698047268274e-05,
+          "max_abs_diff": 0.0
+        },
+        "formula_source": "Analytical Bachelier/normal model formulas, with price cross-checked by option-test against QuantLib."
+      }
+    },
+    {
+      "id": "stress_bachelier_huge_normal_vol_put_iv",
+      "api": "math.bachelier_implied_volatility_from_price",
+      "input": {
+        "target_price": 15.798909535478096,
+        "forward": 100.0,
+        "strike": 100.0,
+        "years": 1.0,
+        "rate": 0.01,
+        "option_right": "put",
+        "lower_bound": 0.0,
+        "upper_bound": 160.0,
+        "tolerance": 1e-12
+      },
+      "expected": {
+        "value": 40.0
+      },
+      "tolerance": 1e-10,
+      "source": {
+        "dataset_origin": "option-test/option_stress_dataset.json",
+        "dataset_group": "stress_bachelier_exact",
+        "dataset_case_id": "stress_bachelier_huge_normal_vol_put",
+        "original_inputs": {
+          "model": "bachelier",
+          "option_type": "put",
+          "forward": 100.0,
+          "strike": 100.0,
+          "time_to_expiry": 1.0,
+          "risk_free_rate": 0.01,
+          "normal_volatility": 40.0
+        },
+        "original_expected": {
+          "price": 15.798909535478096
+        },
+        "original_validation": {
+          "quantlib_bachelier_black_formula": 15.798909535478098,
+          "max_abs_diff": 1.7763568394002505e-15
+        },
+        "formula_source": "Analytical Bachelier/normal model formulas, with price cross-checked by option-test against QuantLib."
+      }
+    },
+    {
+      "id": "stress_bachelier_far_otm_call_iv",
+      "api": "math.bachelier_implied_volatility_from_price",
+      "input": {
+        "target_price": 5.895818819921629e-13,
+        "forward": 80.0,
+        "strike": 120.0,
+        "years": 0.5,
+        "rate": 0.01,
+        "option_right": "call",
+        "lower_bound": 0.0,
+        "upper_bound": 32.0,
+        "tolerance": 1e-12
+      },
+      "expected": {
+        "value": 8.0
+      },
+      "tolerance": 1e-10,
+      "source": {
+        "dataset_origin": "option-test/option_stress_dataset.json",
+        "dataset_group": "stress_bachelier_exact",
+        "dataset_case_id": "stress_bachelier_far_otm_call",
+        "original_inputs": {
+          "model": "bachelier",
+          "option_type": "call",
+          "forward": 80.0,
+          "strike": 120.0,
+          "time_to_expiry": 0.5,
+          "risk_free_rate": 0.01,
+          "normal_volatility": 8.0
+        },
+        "original_expected": {
+          "price": 5.895818819921629e-13
+        },
+        "original_validation": {
+          "quantlib_bachelier_black_formula": 5.895818816081178e-13,
+          "max_abs_diff": 3.8404515559125646e-22
+        },
+        "formula_source": "Analytical Bachelier/normal model formulas, with price cross-checked by option-test against QuantLib."
+      }
+    },
+    {
+      "id": "stress_bachelier_far_itm_put_iv",
+      "api": "math.bachelier_implied_volatility_from_price",
+      "input": {
+        "target_price": 39.80049916770788,
+        "forward": 80.0,
+        "strike": 120.0,
+        "years": 0.5,
+        "rate": 0.01,
+        "option_right": "put",
+        "lower_bound": 0.0,
+        "upper_bound": 32.0,
+        "tolerance": 1e-12
+      },
+      "expected": {
+        "value": 8.0
+      },
+      "tolerance": 1e-10,
+      "source": {
+        "dataset_origin": "option-test/option_stress_dataset.json",
+        "dataset_group": "stress_bachelier_exact",
+        "dataset_case_id": "stress_bachelier_far_itm_put",
+        "original_inputs": {
+          "model": "bachelier",
+          "option_type": "put",
+          "forward": 80.0,
+          "strike": 120.0,
+          "time_to_expiry": 0.5,
+          "risk_free_rate": 0.01,
+          "normal_volatility": 8.0
+        },
+        "original_expected": {
+          "price": 39.80049916770788
+        },
+        "original_validation": {
+          "quantlib_bachelier_black_formula": 39.800499167707876,
+          "max_abs_diff": 7.105427357601002e-15
+        },
+        "formula_source": "Analytical Bachelier/normal model formulas, with price cross-checked by option-test against QuantLib."
+      }
+    }
+  ]
+}

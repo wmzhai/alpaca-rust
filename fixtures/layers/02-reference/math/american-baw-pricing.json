@@ -1,0 +1,280 @@
+{
+  "fixture": "math/american-baw-pricing",
+  "layer": {
+    "id": "02-reference",
+    "label": "Reference",
+    "status": "integrated",
+    "source_dataset": "option_reference_dataset.json",
+    "source_case_count": 48,
+    "purpose": "The primary day-to-day regression layer with balanced model coverage."
+  },
+  "oracle": {
+    "tier": "A",
+    "layer_id": "02-reference",
+    "layer_label": "Reference",
+    "status": "integrated",
+    "dataset_origin": "option-test/option_reference_dataset.json",
+    "purpose": "Barone-Adesi-Whaley pricing regression cases.",
+    "split_from": "fixtures/math/american-baw-pricing.json"
+  },
+  "cases": [
+    {
+      "id": "am_baw_001",
+      "api": "math.american_barone_adesi_whaley_price",
+      "input": {
+        "spot": 90.0,
+        "strike": 100.0,
+        "years": 0.1,
+        "rate": 0.1,
+        "dividend_yield": 0.1,
+        "volatility": 0.15,
+        "option_right": "call"
+      },
+      "expected": {
+        "value": 0.0206
+      },
+      "tolerance": 0.005,
+      "source": {
+        "dataset_case_id": "am_baw_001",
+        "original_inputs": {
+          "model": "american_black_scholes_merton",
+          "pricing_method": "barone_adesi_whaley",
+          "option_type": "call",
+          "spot": 90.0,
+          "strike": 100.0,
+          "time_to_expiry": 0.1,
+          "risk_free_rate": 0.1,
+          "dividend_yield": 0.1,
+          "volatility": 0.15
+        },
+        "original_expected": {
+          "price": 0.0206
+        },
+        "original_validation": {
+          "quantlib_barone_adesi_whaley": 0.02063559552254959,
+          "quantlib_fd_black_scholes": 0.02050242586964131,
+          "abs_diff_reference_vs_baw": 3.559552254958978e-05,
+          "abs_diff_reference_vs_fd": 9.75741303586887e-05,
+          "source_note": "Reference value is from Haug-derived QuantLib regression data, not from an exact closed form."
+        },
+        "dataset_origin": "option-test/option_reference_dataset.json",
+        "dataset_group": "american_baw_literature"
+      }
+    },
+    {
+      "id": "am_baw_002",
+      "api": "math.american_barone_adesi_whaley_price",
+      "input": {
+        "spot": 100.0,
+        "strike": 100.0,
+        "years": 0.1,
+        "rate": 0.1,
+        "dividend_yield": 0.1,
+        "volatility": 0.25,
+        "option_right": "call"
+      },
+      "expected": {
+        "value": 3.128
+      },
+      "tolerance": 0.005,
+      "source": {
+        "dataset_case_id": "am_baw_002",
+        "original_inputs": {
+          "model": "american_black_scholes_merton",
+          "pricing_method": "barone_adesi_whaley",
+          "option_type": "call",
+          "spot": 100.0,
+          "strike": 100.0,
+          "time_to_expiry": 0.1,
+          "risk_free_rate": 0.1,
+          "dividend_yield": 0.1,
+          "volatility": 0.25
+        },
+        "original_expected": {
+          "price": 3.128
+        },
+        "original_validation": {
+          "quantlib_barone_adesi_whaley": 3.1276831552523814,
+          "quantlib_fd_black_scholes": 3.1268706444672327,
+          "abs_diff_reference_vs_baw": 0.0003168447476187275,
+          "abs_diff_reference_vs_fd": 0.0011293555327673843,
+          "source_note": "Reference value is from Haug-derived QuantLib regression data, not from an exact closed form."
+        },
+        "dataset_origin": "option-test/option_reference_dataset.json",
+        "dataset_group": "american_baw_literature"
+      }
+    },
+    {
+      "id": "am_baw_003",
+      "api": "math.american_barone_adesi_whaley_price",
+      "input": {
+        "spot": 110.0,
+        "strike": 100.0,
+        "years": 0.5,
+        "rate": 0.1,
+        "dividend_yield": 0.1,
+        "volatility": 0.35,
+        "option_right": "call"
+      },
+      "expected": {
+        "value": 15.5689
+      },
+      "tolerance": 0.005,
+      "source": {
+        "dataset_case_id": "am_baw_003",
+        "original_inputs": {
+          "model": "american_black_scholes_merton",
+          "pricing_method": "barone_adesi_whaley",
+          "option_type": "call",
+          "spot": 110.0,
+          "strike": 100.0,
+          "time_to_expiry": 0.5,
+          "risk_free_rate": 0.1,
+          "dividend_yield": 0.1,
+          "volatility": 0.35
+        },
+        "original_expected": {
+          "price": 15.5689
+        },
+        "original_validation": {
+          "quantlib_barone_adesi_whaley": 15.568427652606703,
+          "quantlib_fd_black_scholes": 15.538892780528439,
+          "abs_diff_reference_vs_baw": 0.0004723473932966016,
+          "abs_diff_reference_vs_fd": 0.030007219471560376,
+          "source_note": "Reference value is from Haug-derived QuantLib regression data, not from an exact closed form."
+        },
+        "dataset_origin": "option-test/option_reference_dataset.json",
+        "dataset_group": "american_baw_literature"
+      }
+    },
+    {
+      "id": "am_baw_004",
+      "api": "math.american_barone_adesi_whaley_price",
+      "input": {
+        "spot": 90.0,
+        "strike": 100.0,
+        "years": 0.1,
+        "rate": 0.1,
+        "dividend_yield": 0.1,
+        "volatility": 0.15,
+        "option_right": "put"
+      },
+      "expected": {
+        "value": 10.0
+      },
+      "tolerance": 0.005,
+      "source": {
+        "dataset_case_id": "am_baw_004",
+        "original_inputs": {
+          "model": "american_black_scholes_merton",
+          "pricing_method": "barone_adesi_whaley",
+          "option_type": "put",
+          "spot": 90.0,
+          "strike": 100.0,
+          "time_to_expiry": 0.1,
+          "risk_free_rate": 0.1,
+          "dividend_yield": 0.1,
+          "volatility": 0.15
+        },
+        "original_expected": {
+          "price": 10.0
+        },
+        "original_validation": {
+          "quantlib_barone_adesi_whaley": 10.0,
+          "quantlib_fd_black_scholes": 10.000553380041262,
+          "abs_diff_reference_vs_baw": 0.0,
+          "abs_diff_reference_vs_fd": 0.0005533800412624856,
+          "source_note": "Reference value is from Haug-derived QuantLib regression data, not from an exact closed form."
+        },
+        "dataset_origin": "option-test/option_reference_dataset.json",
+        "dataset_group": "american_baw_literature"
+      }
+    },
+    {
+      "id": "am_baw_005",
+      "api": "math.american_barone_adesi_whaley_price",
+      "input": {
+        "spot": 100.0,
+        "strike": 100.0,
+        "years": 0.5,
+        "rate": 0.1,
+        "dividend_yield": 0.1,
+        "volatility": 0.25,
+        "option_right": "put"
+      },
+      "expected": {
+        "value": 6.8014
+      },
+      "tolerance": 0.005,
+      "source": {
+        "dataset_case_id": "am_baw_005",
+        "original_inputs": {
+          "model": "american_black_scholes_merton",
+          "pricing_method": "barone_adesi_whaley",
+          "option_type": "put",
+          "spot": 100.0,
+          "strike": 100.0,
+          "time_to_expiry": 0.5,
+          "risk_free_rate": 0.1,
+          "dividend_yield": 0.1,
+          "volatility": 0.25
+        },
+        "original_expected": {
+          "price": 6.8014
+        },
+        "original_validation": {
+          "quantlib_barone_adesi_whaley": 6.801341336908289,
+          "quantlib_fd_black_scholes": 6.775160680384363,
+          "abs_diff_reference_vs_baw": 5.866309171143058e-05,
+          "abs_diff_reference_vs_fd": 0.026239319615637413,
+          "source_note": "Reference value is from Haug-derived QuantLib regression data, not from an exact closed form."
+        },
+        "dataset_origin": "option-test/option_reference_dataset.json",
+        "dataset_group": "american_baw_literature"
+      }
+    },
+    {
+      "id": "am_baw_006",
+      "api": "math.american_barone_adesi_whaley_price",
+      "input": {
+        "spot": 110.0,
+        "strike": 100.0,
+        "years": 0.5,
+        "rate": 0.1,
+        "dividend_yield": 0.1,
+        "volatility": 0.35,
+        "option_right": "put"
+      },
+      "expected": {
+        "value": 5.8823
+      },
+      "tolerance": 0.005,
+      "source": {
+        "dataset_case_id": "am_baw_006",
+        "original_inputs": {
+          "model": "american_black_scholes_merton",
+          "pricing_method": "barone_adesi_whaley",
+          "option_type": "put",
+          "spot": 110.0,
+          "strike": 100.0,
+          "time_to_expiry": 0.5,
+          "risk_free_rate": 0.1,
+          "dividend_yield": 0.1,
+          "volatility": 0.35
+        },
+        "original_expected": {
+          "price": 5.8823
+        },
+        "original_validation": {
+          "quantlib_barone_adesi_whaley": 5.882189756794545,
+          "quantlib_fd_black_scholes": 5.8457110049924585,
+          "abs_diff_reference_vs_baw": 0.00011024320545516275,
+          "abs_diff_reference_vs_fd": 0.036588995007541314,
+          "source_note": "Reference value is from Haug-derived QuantLib regression data, not from an exact closed form."
+        },
+        "dataset_origin": "option-test/option_reference_dataset.json",
+        "dataset_group": "american_baw_literature"
+      }
+    }
+  ]
+}

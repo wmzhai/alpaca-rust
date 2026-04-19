@@ -1,0 +1,292 @@
+{
+  "fixture": "iv/bsm-roundtrip",
+  "layer": {
+    "id": "05-extreme-stability",
+    "label": "Extreme Stability",
+    "status": "integrated",
+    "source_dataset": "option_extreme_stability_dataset.json",
+    "source_case_count": 38,
+    "purpose": "A harder floating-point stability hardening layer."
+  },
+  "oracle": {
+    "tier": "A+/B",
+    "layer_id": "05-extreme-stability",
+    "layer_label": "Extreme Stability",
+    "status": "integrated",
+    "dataset_origin": "option-test/option_extreme_stability_dataset.json",
+    "purpose": "Black-Scholes-Merton implied-volatility roundtrip cases.",
+    "dataset_group": "extreme_implied_volatility_roundtrip"
+  },
+  "cases": [
+    {
+      "id": "xiv_001",
+      "api": "pricing.implied_volatility_from_price",
+      "input": {
+        "target_price": 0.025247061178141905,
+        "spot": 100.0,
+        "strike": 100.0,
+        "years": 0.0027397260273972603,
+        "rate": 0.03,
+        "dividend_yield": 0.0,
+        "option_right": "call",
+        "lower_bound": 1e-06,
+        "upper_bound": 5.0,
+        "tolerance": 1e-15,
+        "max_iterations": 256
+      },
+      "expected": {
+        "value": 0.01
+      },
+      "tolerance": 1e-10,
+      "source": {
+        "dataset_origin": "option-test/option_extreme_stability_dataset.json",
+        "dataset_group": "extreme_implied_volatility_roundtrip",
+        "dataset_case_id": "xiv_001",
+        "original_inputs": {
+          "model": "black_scholes_merton",
+          "option_type": "call",
+          "spot": 100.0,
+          "strike": 100.0,
+          "time_to_expiry": 0.0027397260273972603,
+          "risk_free_rate": 0.03,
+          "dividend_yield": 0.0,
+          "target_price": 0.025247061178141905
+        },
+        "original_expected": {
+          "implied_volatility": 0.01
+        },
+        "original_validation": {
+          "target_price": 0.025247061178141905
+        },
+        "original_tolerance": {
+          "abs": 1e-10
+        }
+      }
+    },
+    {
+      "id": "xiv_002",
+      "api": "pricing.implied_volatility_from_price",
+      "input": {
+        "target_price": 2.5067837903630092,
+        "spot": 100.0,
+        "strike": 100.0,
+        "years": 0.0027397260273972603,
+        "rate": -0.01,
+        "dividend_yield": 0.0,
+        "option_right": "put",
+        "lower_bound": 1e-06,
+        "upper_bound": 5.0,
+        "tolerance": 1e-15,
+        "max_iterations": 256
+      },
+      "expected": {
+        "value": 1.2
+      },
+      "tolerance": 1e-10,
+      "source": {
+        "dataset_origin": "option-test/option_extreme_stability_dataset.json",
+        "dataset_group": "extreme_implied_volatility_roundtrip",
+        "dataset_case_id": "xiv_002",
+        "original_inputs": {
+          "model": "black_scholes_merton",
+          "option_type": "put",
+          "spot": 100.0,
+          "strike": 100.0,
+          "time_to_expiry": 0.0027397260273972603,
+          "risk_free_rate": -0.01,
+          "dividend_yield": 0.0,
+          "target_price": 2.5067837903630092
+        },
+        "original_expected": {
+          "implied_volatility": 1.2
+        },
+        "original_validation": {
+          "target_price": 2.5067837903630092
+        },
+        "original_tolerance": {
+          "abs": 1e-10
+        }
+      }
+    },
+    {
+      "id": "xiv_003",
+      "api": "pricing.implied_volatility_from_price",
+      "input": {
+        "target_price": 130.65325629560832,
+        "spot": 250.0,
+        "strike": 100.0,
+        "years": 10.0,
+        "rate": 0.03,
+        "dividend_yield": 0.02,
+        "option_right": "call",
+        "lower_bound": 1e-06,
+        "upper_bound": 5.0,
+        "tolerance": 1e-15,
+        "max_iterations": 256
+      },
+      "expected": {
+        "value": 0.12
+      },
+      "tolerance": 1e-10,
+      "source": {
+        "dataset_origin": "option-test/option_extreme_stability_dataset.json",
+        "dataset_group": "extreme_implied_volatility_roundtrip",
+        "dataset_case_id": "xiv_003",
+        "original_inputs": {
+          "model": "black_scholes_merton",
+          "option_type": "call",
+          "spot": 250.0,
+          "strike": 100.0,
+          "time_to_expiry": 10.0,
+          "risk_free_rate": 0.03,
+          "dividend_yield": 0.02,
+          "target_price": 130.65325629560832
+        },
+        "original_expected": {
+          "implied_volatility": 0.12
+        },
+        "original_validation": {
+          "target_price": 130.65325629560832
+        },
+        "original_tolerance": {
+          "abs": 1e-10
+        }
+      }
+    },
+    {
+      "id": "xiv_004",
+      "api": "pricing.implied_volatility_from_price",
+      "input": {
+        "target_price": 82.82455065952182,
+        "spot": 25.0,
+        "strike": 100.0,
+        "years": 5.0,
+        "rate": 0.0,
+        "dividend_yield": 0.0,
+        "option_right": "put",
+        "lower_bound": 1e-06,
+        "upper_bound": 5.0,
+        "tolerance": 1e-15,
+        "max_iterations": 256
+      },
+      "expected": {
+        "value": 0.75
+      },
+      "tolerance": 1e-10,
+      "source": {
+        "dataset_origin": "option-test/option_extreme_stability_dataset.json",
+        "dataset_group": "extreme_implied_volatility_roundtrip",
+        "dataset_case_id": "xiv_004",
+        "original_inputs": {
+          "model": "black_scholes_merton",
+          "option_type": "put",
+          "spot": 25.0,
+          "strike": 100.0,
+          "time_to_expiry": 5.0,
+          "risk_free_rate": 0.0,
+          "dividend_yield": 0.0,
+          "target_price": 82.82455065952182
+        },
+        "original_expected": {
+          "implied_volatility": 0.75
+        },
+        "original_validation": {
+          "target_price": 82.82455065952182
+        },
+        "original_tolerance": {
+          "abs": 1e-10
+        }
+      }
+    },
+    {
+      "id": "xiv_005",
+      "api": "pricing.implied_volatility_from_price",
+      "input": {
+        "target_price": 18.07872347642102,
+        "spot": 100.0,
+        "strike": 180.0,
+        "years": 3.0,
+        "rate": -0.005,
+        "dividend_yield": 0.01,
+        "option_right": "call",
+        "lower_bound": 1e-06,
+        "upper_bound": 5.0,
+        "tolerance": 1e-15,
+        "max_iterations": 256
+      },
+      "expected": {
+        "value": 0.55
+      },
+      "tolerance": 1e-10,
+      "source": {
+        "dataset_origin": "option-test/option_extreme_stability_dataset.json",
+        "dataset_group": "extreme_implied_volatility_roundtrip",
+        "dataset_case_id": "xiv_005",
+        "original_inputs": {
+          "model": "black_scholes_merton",
+          "option_type": "call",
+          "spot": 100.0,
+          "strike": 180.0,
+          "time_to_expiry": 3.0,
+          "risk_free_rate": -0.005,
+          "dividend_yield": 0.01,
+          "target_price": 18.07872347642102
+        },
+        "original_expected": {
+          "implied_volatility": 0.55
+        },
+        "original_validation": {
+          "target_price": 18.07872347642102
+        },
+        "original_tolerance": {
+          "abs": 1e-10
+        }
+      }
+    },
+    {
+      "id": "xiv_006",
+      "api": "pricing.implied_volatility_from_price",
+      "input": {
+        "target_price": 1.1724199811966353e-08,
+        "spot": 180.0,
+        "strike": 100.0,
+        "years": 3.0,
+        "rate": 0.07,
+        "dividend_yield": 0.0,
+        "option_right": "put",
+        "lower_bound": 1e-06,
+        "upper_bound": 5.0,
+        "tolerance": 1e-15,
+        "max_iterations": 256
+      },
+      "expected": {
+        "value": 0.08
+      },
+      "tolerance": 1e-10,
+      "source": {
+        "dataset_origin": "option-test/option_extreme_stability_dataset.json",
+        "dataset_group": "extreme_implied_volatility_roundtrip",
+        "dataset_case_id": "xiv_006",
+        "original_inputs": {
+          "model": "black_scholes_merton",
+          "option_type": "put",
+          "spot": 180.0,
+          "strike": 100.0,
+          "time_to_expiry": 3.0,
+          "risk_free_rate": 0.07,
+          "dividend_yield": 0.0,
+          "target_price": 1.1724199811966353e-08
+        },
+        "original_expected": {
+          "implied_volatility": 0.08
+        },
+        "original_validation": {
+          "target_price": 1.1724199811966353e-08
+        },
+        "original_tolerance": {
+          "abs": 1e-10
+        }
+      }
+    }
+  ]
+}

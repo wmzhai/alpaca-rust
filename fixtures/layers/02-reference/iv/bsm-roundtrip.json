@@ -1,0 +1,322 @@
+{
+  "fixture": "iv/bsm-roundtrip",
+  "layer": {
+    "id": "02-reference",
+    "label": "Reference",
+    "status": "integrated",
+    "source_dataset": "option_reference_dataset.json",
+    "source_case_count": 48,
+    "purpose": "The primary day-to-day regression layer with balanced model coverage."
+  },
+  "oracle": {
+    "tier": "A",
+    "layer_id": "02-reference",
+    "layer_label": "Reference",
+    "status": "integrated",
+    "dataset_origin": "option-test/option_reference_dataset.json",
+    "purpose": "Black-Scholes-Merton implied-volatility roundtrip cases.",
+    "dataset_group": "implied_volatility_roundtrip"
+  },
+  "cases": [
+    {
+      "id": "iv_001",
+      "api": "pricing.implied_volatility_from_price",
+      "input": {
+        "target_price": 5.8760242338276045,
+        "spot": 100.0,
+        "strike": 100.0,
+        "years": 0.5,
+        "rate": 0.01,
+        "dividend_yield": 0.0,
+        "option_right": "call",
+        "lower_bound": 1e-06,
+        "upper_bound": 5.0,
+        "tolerance": 1e-12,
+        "max_iterations": 256
+      },
+      "expected": {
+        "value": 0.2
+      },
+      "tolerance": 1e-10,
+      "source": {
+        "dataset_origin": "option-test/option_reference_dataset.json",
+        "dataset_group": "implied_volatility_roundtrip",
+        "dataset_case_id": "iv_001",
+        "original_inputs": {
+          "option_type": "call",
+          "spot": 100.0,
+          "strike": 100.0,
+          "time_to_expiry": 0.5,
+          "risk_free_rate": 0.01,
+          "dividend_yield": 0.0,
+          "target_price": 5.8760242338276045
+        },
+        "original_expected": {
+          "implied_volatility": 0.2
+        },
+        "original_validation": {
+          "formula_source": "constructed from exact Black/Black-Scholes-Merton price",
+          "references": {
+            "py_vollib": 0.2,
+            "quantlib_black_formula": 0.20000091418383328
+          },
+          "max_abs_diff_vs_expected": 9.141838332726859e-07
+        },
+        "original_tolerance": {
+          "abs": 1e-10,
+          "metric": "implied_volatility"
+        }
+      }
+    },
+    {
+      "id": "iv_002",
+      "api": "pricing.implied_volatility_from_price",
+      "input": {
+        "target_price": 5.377272153095836,
+        "spot": 100.0,
+        "strike": 100.0,
+        "years": 0.5,
+        "rate": 0.01,
+        "dividend_yield": 0.0,
+        "option_right": "put",
+        "lower_bound": 1e-06,
+        "upper_bound": 5.0,
+        "tolerance": 1e-12,
+        "max_iterations": 256
+      },
+      "expected": {
+        "value": 0.2
+      },
+      "tolerance": 1e-10,
+      "source": {
+        "dataset_origin": "option-test/option_reference_dataset.json",
+        "dataset_group": "implied_volatility_roundtrip",
+        "dataset_case_id": "iv_002",
+        "original_inputs": {
+          "option_type": "put",
+          "spot": 100.0,
+          "strike": 100.0,
+          "time_to_expiry": 0.5,
+          "risk_free_rate": 0.01,
+          "dividend_yield": 0.0,
+          "target_price": 5.377272153095836
+        },
+        "original_expected": {
+          "implied_volatility": 0.2
+        },
+        "original_validation": {
+          "formula_source": "constructed from exact Black/Black-Scholes-Merton price",
+          "references": {
+            "py_vollib": 0.20000000000000015,
+            "quantlib_black_formula": 0.2000009141838326
+          },
+          "max_abs_diff_vs_expected": 9.141838325787965e-07
+        },
+        "original_tolerance": {
+          "abs": 1e-10,
+          "metric": "implied_volatility"
+        }
+      }
+    },
+    {
+      "id": "iv_003",
+      "api": "pricing.implied_volatility_from_price",
+      "input": {
+        "target_price": 12.532725522998595,
+        "spot": 100.0,
+        "strike": 110.0,
+        "years": 1.25,
+        "rate": 0.03,
+        "dividend_yield": 0.01,
+        "option_right": "call",
+        "lower_bound": 1e-06,
+        "upper_bound": 5.0,
+        "tolerance": 1e-12,
+        "max_iterations": 256
+      },
+      "expected": {
+        "value": 0.35
+      },
+      "tolerance": 1e-10,
+      "source": {
+        "dataset_origin": "option-test/option_reference_dataset.json",
+        "dataset_group": "implied_volatility_roundtrip",
+        "dataset_case_id": "iv_003",
+        "original_inputs": {
+          "option_type": "call",
+          "spot": 100.0,
+          "strike": 110.0,
+          "time_to_expiry": 1.25,
+          "risk_free_rate": 0.03,
+          "dividend_yield": 0.01,
+          "target_price": 12.532725522998595
+        },
+        "original_expected": {
+          "implied_volatility": 0.35
+        },
+        "original_validation": {
+          "formula_source": "constructed from exact Black/Black-Scholes-Merton price",
+          "references": {
+            "py_vollib": 0.34999999999999987,
+            "quantlib_black_formula": 0.34999999999999987
+          },
+          "max_abs_diff_vs_expected": 1.1102230246251565e-16
+        },
+        "original_tolerance": {
+          "abs": 1e-10,
+          "metric": "implied_volatility"
+        }
+      }
+    },
+    {
+      "id": "iv_004",
+      "api": "pricing.implied_volatility_from_price",
+      "input": {
+        "target_price": 9.12745104531875,
+        "spot": 100.0,
+        "strike": 90.0,
+        "years": 1.25,
+        "rate": 0.03,
+        "dividend_yield": 0.01,
+        "option_right": "put",
+        "lower_bound": 1e-06,
+        "upper_bound": 5.0,
+        "tolerance": 1e-12,
+        "max_iterations": 256
+      },
+      "expected": {
+        "value": 0.35
+      },
+      "tolerance": 1e-10,
+      "source": {
+        "dataset_origin": "option-test/option_reference_dataset.json",
+        "dataset_group": "implied_volatility_roundtrip",
+        "dataset_case_id": "iv_004",
+        "original_inputs": {
+          "option_type": "put",
+          "spot": 100.0,
+          "strike": 90.0,
+          "time_to_expiry": 1.25,
+          "risk_free_rate": 0.03,
+          "dividend_yield": 0.01,
+          "target_price": 9.12745104531875
+        },
+        "original_expected": {
+          "implied_volatility": 0.35
+        },
+        "original_validation": {
+          "formula_source": "constructed from exact Black/Black-Scholes-Merton price",
+          "references": {
+            "py_vollib": 0.35,
+            "quantlib_black_formula": 0.34999965472776806
+          },
+          "max_abs_diff_vs_expected": 3.4527223191638257e-07
+        },
+        "original_tolerance": {
+          "abs": 1e-10,
+          "metric": "implied_volatility"
+        }
+      }
+    },
+    {
+      "id": "iv_005",
+      "api": "pricing.implied_volatility_from_price",
+      "input": {
+        "target_price": 5.09754771772616,
+        "spot": 42.0,
+        "strike": 40.0,
+        "years": 0.75,
+        "rate": 0.04,
+        "dividend_yield": 0.08,
+        "option_right": "call",
+        "lower_bound": 1e-06,
+        "upper_bound": 5.0,
+        "tolerance": 1e-12,
+        "max_iterations": 256
+      },
+      "expected": {
+        "value": 0.35
+      },
+      "tolerance": 1e-10,
+      "source": {
+        "dataset_origin": "option-test/option_reference_dataset.json",
+        "dataset_group": "implied_volatility_roundtrip",
+        "dataset_case_id": "iv_005",
+        "original_inputs": {
+          "option_type": "call",
+          "spot": 42.0,
+          "strike": 40.0,
+          "time_to_expiry": 0.75,
+          "risk_free_rate": 0.04,
+          "dividend_yield": 0.08,
+          "target_price": 5.09754771772616
+        },
+        "original_expected": {
+          "implied_volatility": 0.35
+        },
+        "original_validation": {
+          "formula_source": "constructed from exact Black/Black-Scholes-Merton price",
+          "references": {
+            "py_vollib": 0.3500000000000001,
+            "quantlib_black_formula": 0.35000077288458276
+          },
+          "max_abs_diff_vs_expected": 7.728845827781328e-07
+        },
+        "original_tolerance": {
+          "abs": 1e-10,
+          "metric": "implied_volatility"
+        }
+      }
+    },
+    {
+      "id": "iv_006",
+      "api": "pricing.implied_volatility_from_price",
+      "input": {
+        "target_price": 4.0869538286353535,
+        "spot": 75.0,
+        "strike": 70.0,
+        "years": 0.5,
+        "rate": 0.1,
+        "dividend_yield": 0.05,
+        "option_right": "put",
+        "lower_bound": 1e-06,
+        "upper_bound": 5.0,
+        "tolerance": 1e-12,
+        "max_iterations": 256
+      },
+      "expected": {
+        "value": 0.35
+      },
+      "tolerance": 1e-10,
+      "source": {
+        "dataset_origin": "option-test/option_reference_dataset.json",
+        "dataset_group": "implied_volatility_roundtrip",
+        "dataset_case_id": "iv_006",
+        "original_inputs": {
+          "option_type": "put",
+          "spot": 75.0,
+          "strike": 70.0,
+          "time_to_expiry": 0.5,
+          "risk_free_rate": 0.1,
+          "dividend_yield": 0.05,
+          "target_price": 4.0869538286353535
+        },
+        "original_expected": {
+          "implied_volatility": 0.35
+        },
+        "original_validation": {
+          "formula_source": "constructed from exact Black/Black-Scholes-Merton price",
+          "references": {
+            "py_vollib": 0.35000000000000003,
+            "quantlib_black_formula": 0.35000085902226985
+          },
+          "max_abs_diff_vs_expected": 8.590222698723338e-07
+        },
+        "original_tolerance": {
+          "abs": 1e-10,
+          "metric": "implied_volatility"
+        }
+      }
+    }
+  ]
+}

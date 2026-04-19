@@ -1,0 +1,24 @@
+{
+  "layer_id": "03-stress",
+  "label": "Stress",
+  "status": "integrated",
+  "source_dataset": "option_stress_dataset.json",
+  "source_case_count": 38,
+  "tier": "A/B",
+  "purpose": "The numerical stability stress layer for pathological scenarios.",
+  "fixture_paths": [
+    "fixtures/layers/03-stress/greeks/bsm-greeks.json",
+    "fixtures/layers/03-stress/iv/bsm-roundtrip.json",
+    "fixtures/layers/03-stress/math/american-baw-pricing.json",
+    "fixtures/layers/03-stress/math/american-bjerksund-stensland-1993-pricing.json",
+    "fixtures/layers/03-stress/math/american-ju-quadratic-pricing.json",
+    "fixtures/layers/03-stress/math/american-tree-pricing.json",
+    "fixtures/layers/03-stress/math/bachelier-greeks.json",
+    "fixtures/layers/03-stress/math/bachelier-iv.json",
+    "fixtures/layers/03-stress/math/bachelier-pricing.json",
+    "fixtures/layers/03-stress/math/black76-iv.json",
+    "fixtures/layers/03-stress/math/black76-pricing.json",
+    "fixtures/layers/03-stress/pricing/bsm-pricing.json",
+    "fixtures/layers/03-stress/pricing/bsm-put-call-parity.json"
+  ]
+}

@@ -1,0 +1,778 @@
+{
+  "fixture": "math/american-ju-quadratic-pricing",
+  "layer": {
+    "id": "04-american-benchmark",
+    "label": "American Benchmark",
+    "status": "integrated",
+    "source_dataset": "option_american_benchmark_dataset.json",
+    "source_case_count": 14,
+    "purpose": "American vanilla benchmarks with continuous yield."
+  },
+  "oracle": {
+    "tier": "B+",
+    "layer_id": "04-american-benchmark",
+    "layer_label": "American Benchmark",
+    "status": "integrated",
+    "dataset_origin": "option-test/option_american_benchmark_dataset.json",
+    "purpose": "Ju quadratic pricing regression cases.",
+    "split_from": "fixtures/math/american-ju-quadratic-pricing.json"
+  },
+  "cases": [
+    {
+      "id": "am_fd_001",
+      "api": "math.american_ju_quadratic_price",
+      "input": {
+        "spot": 100.0,
+        "strike": 100.0,
+        "years": 0.25,
+        "rate": 0.05,
+        "dividend_yield": 0.0,
+        "volatility": 0.2,
+        "option_right": "put"
+      },
+      "expected": {
+        "value": 3.467154751945263
+      },
+      "tolerance": 0.006,
+      "source": {
+        "dataset_origin": "option-test/option_american_benchmark_dataset.json",
+        "dataset_group": "american_fd_high_precision_reference",
+        "dataset_case_id": "am_fd_001",
+        "original_inputs": {
+          "model": "american_black_scholes_merton",
+          "option_type": "put",
+          "spot": 100.0,
+          "strike": 100.0,
+          "time_to_expiry": 0.25,
+          "risk_free_rate": 0.05,
+          "dividend_yield": 0.0,
+          "volatility": 0.2
+        },
+        "original_expected": {
+          "reference_price": 3.475538111398243,
+          "european_price": 3.372777178991008,
+          "minimum_early_exercise_premium": 0.10276093240723494
+        },
+        "original_validation": {
+          "benchmark_family": "high_precision_fd",
+          "quantlib_fd_reference": 3.475538111398243,
+          "quantlib_fd_higher_resolution": 3.4756233654838504,
+          "quantlib_crr_3000": 3.475557933829632,
+          "quantlib_barone_adesi_whaley": 3.4680160125271726,
+          "quantlib_bjerksund_stensland": 3.426797278528758,
+          "quantlib_ju_quadratic": 3.467154751945263,
+          "local_richardson_crr_4000": 3.4798583165793353,
+          "abs_diff_local_vs_fd": 0.00432020518109244,
+          "abs_diff_fd_levels": 8.525408560755565e-05,
+          "abs_diff_crr_vs_fd": 1.982243138920481e-05,
+          "early_exercise_premium": 0.10276093240723494
+        },
+        "original_tolerance": {
+          "price_abs_vs_fd": 0.006
+        }
+      }
+    },
+    {
+      "id": "am_fd_002",
+      "api": "math.american_ju_quadratic_price",
+      "input": {
+        "spot": 80.0,
+        "strike": 100.0,
+        "years": 1.0,
+        "rate": 0.03,
+        "dividend_yield": 0.0,
+        "volatility": 0.25,
+        "option_right": "put"
+      },
+      "expected": {
+        "value": 20.86070799785431
+      },
+      "tolerance": 0.006,
+      "source": {
+        "dataset_origin": "option-test/option_american_benchmark_dataset.json",
+        "dataset_group": "american_fd_high_precision_reference",
+        "dataset_case_id": "am_fd_002",
+        "original_inputs": {
+          "model": "american_black_scholes_merton",
+          "option_type": "put",
+          "spot": 80.0,
+          "strike": 100.0,
+          "time_to_expiry": 1.0,
+          "risk_free_rate": 0.03,
+          "dividend_yield": 0.0,
+          "volatility": 0.25
+        },
+        "original_expected": {
+          "reference_price": 20.882481357086576,
+          "european_price": 19.810228575990934,
+          "minimum_early_exercise_premium": 1.0722527810956421
+        },
+        "original_validation": {
+          "benchmark_family": "high_precision_fd",
+          "quantlib_fd_reference": 20.882481357086576,
+          "quantlib_fd_higher_resolution": 20.88277582891652,
+          "quantlib_crr_3000": 20.883430079426276,
+          "quantlib_barone_adesi_whaley": 20.785911677903012,
+          "quantlib_bjerksund_stensland": 20.81017941611614,
+          "quantlib_ju_quadratic": 20.86070799785431,
+          "local_richardson_crr_4000": 20.882996817479363,
+          "abs_diff_local_vs_fd": 0.0005154603927870482,
+          "abs_diff_fd_levels": 0.00029447182994601917,
+          "abs_diff_crr_vs_fd": 0.0009487223397002253,
+          "early_exercise_premium": 1.0722527810956421
+        },
+        "original_tolerance": {
+          "price_abs_vs_fd": 0.006
+        }
+      }
+    },
+    {
+      "id": "am_fd_003",
+      "api": "math.american_ju_quadratic_price",
+      "input": {
+        "spot": 100.0,
+        "strike": 100.0,
+        "years": 1.0,
+        "rate": 0.03,
+        "dividend_yield": 0.08,
+        "volatility": 0.2,
+        "option_right": "call"
+      },
+      "expected": {
+        "value": 5.9750699360458865
+      },
+      "tolerance": 0.006,
+      "source": {
+        "dataset_origin": "option-test/option_american_benchmark_dataset.json",
+        "dataset_group": "american_fd_high_precision_reference",
+        "dataset_case_id": "am_fd_003",
+        "original_inputs": {
+          "model": "american_black_scholes_merton",
+          "option_type": "call",
+          "spot": 100.0,
+          "strike": 100.0,
+          "time_to_expiry": 1.0,
+          "risk_free_rate": 0.03,
+          "dividend_yield": 0.08,
+          "volatility": 0.2
+        },
+        "original_expected": {
+          "reference_price": 5.991099246526604,
+          "european_price": 5.408803434415653,
+          "minimum_early_exercise_premium": 0.5822958121109512
+        },
+        "original_validation": {
+          "benchmark_family": "high_precision_fd",
+          "quantlib_fd_reference": 5.991099246526604,
+          "quantlib_fd_higher_resolution": 5.991405018711161,
+          "quantlib_crr_3000": 5.991527969169706,
+          "quantlib_barone_adesi_whaley": 6.010558584287467,
+          "quantlib_bjerksund_stensland": 5.898388622305616,
+          "quantlib_ju_quadratic": 5.9750699360458865,
+          "local_richardson_crr_4000": 5.991799446055928,
+          "abs_diff_local_vs_fd": 0.000700199529323875,
+          "abs_diff_fd_levels": 0.0003057721845571848,
+          "abs_diff_crr_vs_fd": 0.0004287226431021196,
+          "early_exercise_premium": 0.5822958121109512
+        },
+        "original_tolerance": {
+          "price_abs_vs_fd": 0.006
+        }
+      }
+    },
+    {
+      "id": "am_fd_004",
+      "api": "math.american_ju_quadratic_price",
+      "input": {
+        "spot": 120.0,
+        "strike": 100.0,
+        "years": 0.5,
+        "rate": 0.01,
+        "dividend_yield": 0.12,
+        "volatility": 0.25,
+        "option_right": "call"
+      },
+      "expected": {
+        "value": 20.0
+      },
+      "tolerance": 0.006,
+      "source": {
+        "dataset_origin": "option-test/option_american_benchmark_dataset.json",
+        "dataset_group": "american_fd_high_precision_reference",
+        "dataset_case_id": "am_fd_004",
+        "original_inputs": {
+          "model": "american_black_scholes_merton",
+          "option_type": "call",
+          "spot": 120.0,
+          "strike": 100.0,
+          "time_to_expiry": 0.5,
+          "risk_free_rate": 0.01,
+          "dividend_yield": 0.12,
+          "volatility": 0.25
+        },
+        "original_expected": {
+          "reference_price": 19.999999867546773,
+          "european_price": 16.0925005073792,
+          "minimum_early_exercise_premium": 3.9074993601675736
+        },
+        "original_validation": {
+          "benchmark_family": "high_precision_fd",
+          "quantlib_fd_reference": 19.999999867546773,
+          "quantlib_fd_higher_resolution": 20.00000000701607,
+          "quantlib_crr_3000": 20.0,
+          "quantlib_barone_adesi_whaley": 20.0,
+          "quantlib_bjerksund_stensland": 20.0,
+          "quantlib_ju_quadratic": 20.0,
+          "local_richardson_crr_4000": 20.000000000000583,
+          "abs_diff_local_vs_fd": 1.324538096980632e-07,
+          "abs_diff_fd_levels": 1.3946929655617168e-07,
+          "abs_diff_crr_vs_fd": 1.3245322705301987e-07,
+          "early_exercise_premium": 3.9074993601675736
+        },
+        "original_tolerance": {
+          "price_abs_vs_fd": 0.006
+        }
+      }
+    },
+    {
+      "id": "am_fd_005",
+      "api": "math.american_ju_quadratic_price",
+      "input": {
+        "spot": 80.0,
+        "strike": 100.0,
+        "years": 2.0,
+        "rate": 0.06,
+        "dividend_yield": 0.1,
+        "volatility": 0.3,
+        "option_right": "call"
+      },
+      "expected": {
+        "value": 4.884401142514846
+      },
+      "tolerance": 0.006,
+      "source": {
+        "dataset_origin": "option-test/option_american_benchmark_dataset.json",
+        "dataset_group": "american_fd_high_precision_reference",
+        "dataset_case_id": "am_fd_005",
+        "original_inputs": {
+          "model": "american_black_scholes_merton",
+          "option_type": "call",
+          "spot": 80.0,
+          "strike": 100.0,
+          "time_to_expiry": 2.0,
+          "risk_free_rate": 0.06,
+          "dividend_yield": 0.1,
+          "volatility": 0.3
+        },
+        "original_expected": {
+          "reference_price": 4.8667579740064495,
+          "european_price": 4.4504538574857495,
+          "minimum_early_exercise_premium": 0.4163041165207
+        },
+        "original_validation": {
+          "benchmark_family": "high_precision_fd",
+          "quantlib_fd_reference": 4.8667579740064495,
+          "quantlib_fd_higher_resolution": 4.86713421116656,
+          "quantlib_crr_3000": 4.8681013741726655,
+          "quantlib_barone_adesi_whaley": 5.057972920847535,
+          "quantlib_bjerksund_stensland": 4.799009426398515,
+          "quantlib_ju_quadratic": 4.884401142514846,
+          "local_richardson_crr_4000": 4.867626210072542,
+          "abs_diff_local_vs_fd": 0.0008682360660925426,
+          "abs_diff_fd_levels": 0.0003762371601103709,
+          "abs_diff_crr_vs_fd": 0.0013434001662160355,
+          "early_exercise_premium": 0.4163041165207
+        },
+        "original_tolerance": {
+          "price_abs_vs_fd": 0.006
+        }
+      }
+    },
+    {
+      "id": "am_fd_006",
+      "api": "math.american_ju_quadratic_price",
+      "input": {
+        "spot": 95.0,
+        "strike": 100.0,
+        "years": 0.019178082191780823,
+        "rate": 0.04,
+        "dividend_yield": 0.12,
+        "volatility": 0.5,
+        "option_right": "call"
+      },
+      "expected": {
+        "value": 0.8657743348921824
+      },
+      "tolerance": 0.006,
+      "source": {
+        "dataset_origin": "option-test/option_american_benchmark_dataset.json",
+        "dataset_group": "american_fd_high_precision_reference",
+        "dataset_case_id": "am_fd_006",
+        "original_inputs": {
+          "model": "american_black_scholes_merton",
+          "option_type": "call",
+          "spot": 95.0,
+          "strike": 100.0,
+          "time_to_expiry": 0.019178082191780823,
+          "risk_free_rate": 0.04,
+          "dividend_yield": 0.12,
+          "volatility": 0.5
+        },
+        "original_expected": {
+          "reference_price": 0.86612863932454,
+          "european_price": 0.8639921532745838,
+          "minimum_early_exercise_premium": 0.002136486049956199
+        },
+        "original_validation": {
+          "benchmark_family": "high_precision_fd",
+          "quantlib_fd_reference": 0.86612863932454,
+          "quantlib_fd_higher_resolution": 0.8661449066993947,
+          "quantlib_crr_3000": 0.8662452254051182,
+          "quantlib_barone_adesi_whaley": 0.8661276083016157,
+          "quantlib_bjerksund_stensland": 0.8643575823950918,
+          "quantlib_ju_quadratic": 0.8657743348921824,
+          "local_richardson_crr_4000": 0.8660300518196734,
+          "abs_diff_local_vs_fd": 9.85875048665763e-05,
+          "abs_diff_fd_levels": 1.6267374854717076e-05,
+          "abs_diff_crr_vs_fd": 0.00011658608057818487,
+          "early_exercise_premium": 0.002136486049956199
+        },
+        "original_tolerance": {
+          "price_abs_vs_fd": 0.006
+        }
+      }
+    },
+    {
+      "id": "am_fd_007",
+      "api": "math.american_ju_quadratic_price",
+      "input": {
+        "spot": 105.0,
+        "strike": 100.0,
+        "years": 0.0821917808219178,
+        "rate": 0.08,
+        "dividend_yield": 0.02,
+        "volatility": 0.6,
+        "option_right": "put"
+      },
+      "expected": {
+        "value": 4.610318728122242
+      },
+      "tolerance": 0.006,
+      "source": {
+        "dataset_origin": "option-test/option_american_benchmark_dataset.json",
+        "dataset_group": "american_fd_high_precision_reference",
+        "dataset_case_id": "am_fd_007",
+        "original_inputs": {
+          "model": "american_black_scholes_merton",
+          "option_type": "put",
+          "spot": 105.0,
+          "strike": 100.0,
+          "time_to_expiry": 0.0821917808219178,
+          "risk_free_rate": 0.08,
+          "dividend_yield": 0.02,
+          "volatility": 0.6
+        },
+        "original_expected": {
+          "reference_price": 4.614119850841107,
+          "european_price": 4.593007738825008,
+          "minimum_early_exercise_premium": 0.021112112016099083
+        },
+        "original_validation": {
+          "benchmark_family": "high_precision_fd",
+          "quantlib_fd_reference": 4.614119850841107,
+          "quantlib_fd_higher_resolution": 4.614178232880507,
+          "quantlib_crr_3000": 4.614520654427887,
+          "quantlib_barone_adesi_whaley": 4.611687686669081,
+          "quantlib_bjerksund_stensland": 4.601468526308565,
+          "quantlib_ju_quadratic": 4.610318728122242,
+          "local_richardson_crr_4000": 4.614826098140119,
+          "abs_diff_local_vs_fd": 0.0007062472990115864,
+          "abs_diff_fd_levels": 5.838203939934061e-05,
+          "abs_diff_crr_vs_fd": 0.00040080358677929695,
+          "early_exercise_premium": 0.021112112016099083
+        },
+        "original_tolerance": {
+          "price_abs_vs_fd": 0.006
+        }
+      }
+    },
+    {
+      "id": "am_fd_008",
+      "api": "math.american_ju_quadratic_price",
+      "input": {
+        "spot": 50.0,
+        "strike": 80.0,
+        "years": 1.0,
+        "rate": 0.03,
+        "dividend_yield": 0.0,
+        "volatility": 0.05,
+        "option_right": "put"
+      },
+      "expected": {
+        "value": 30.0
+      },
+      "tolerance": 0.006,
+      "source": {
+        "dataset_origin": "option-test/option_american_benchmark_dataset.json",
+        "dataset_group": "american_fd_high_precision_reference",
+        "dataset_case_id": "am_fd_008",
+        "original_inputs": {
+          "model": "american_black_scholes_merton",
+          "option_type": "put",
+          "spot": 50.0,
+          "strike": 80.0,
+          "time_to_expiry": 1.0,
+          "risk_free_rate": 0.03,
+          "dividend_yield": 0.0,
+          "volatility": 0.05
+        },
+        "original_expected": {
+          "reference_price": 30.000000000000473,
+          "european_price": 27.635642683880647,
+          "minimum_early_exercise_premium": 2.3643573161198255
+        },
+        "original_validation": {
+          "benchmark_family": "high_precision_fd",
+          "quantlib_fd_reference": 30.000000000000473,
+          "quantlib_fd_higher_resolution": 30.00000000000006,
+          "quantlib_crr_3000": 30.0,
+          "quantlib_barone_adesi_whaley": 30.0,
+          "quantlib_bjerksund_stensland": 30.0,
+          "quantlib_ju_quadratic": 30.0,
+          "local_richardson_crr_4000": 30.000000000000377,
+          "abs_diff_local_vs_fd": 9.592326932761353e-14,
+          "abs_diff_fd_levels": 4.121147867408581e-13,
+          "abs_diff_crr_vs_fd": 4.725109192804666e-13,
+          "early_exercise_premium": 2.3643573161198255
+        },
+        "original_tolerance": {
+          "price_abs_vs_fd": 0.006
+        }
+      }
+    },
+    {
+      "id": "am_fd_009",
+      "api": "math.american_ju_quadratic_price",
+      "input": {
+        "spot": 150.0,
+        "strike": 100.0,
+        "years": 1.0,
+        "rate": 0.02,
+        "dividend_yield": 0.15,
+        "volatility": 0.4,
+        "option_right": "call"
+      },
+      "expected": {
+        "value": 50.0
+      },
+      "tolerance": 0.006,
+      "source": {
+        "dataset_origin": "option-test/option_american_benchmark_dataset.json",
+        "dataset_group": "american_fd_high_precision_reference",
+        "dataset_case_id": "am_fd_009",
+        "original_inputs": {
+          "model": "american_black_scholes_merton",
+          "option_type": "call",
+          "spot": 150.0,
+          "strike": 100.0,
+          "time_to_expiry": 1.0,
+          "risk_free_rate": 0.02,
+          "dividend_yield": 0.15,
+          "volatility": 0.4
+        },
+        "original_expected": {
+          "reference_price": 50.00000000665103,
+          "european_price": 37.5667224868166,
+          "minimum_early_exercise_premium": 12.433277519834427
+        },
+        "original_validation": {
+          "benchmark_family": "high_precision_fd",
+          "quantlib_fd_reference": 50.00000000665103,
+          "quantlib_fd_higher_resolution": 49.99999999998942,
+          "quantlib_crr_3000": 50.0,
+          "quantlib_barone_adesi_whaley": 50.0,
+          "quantlib_bjerksund_stensland": 50.0,
+          "quantlib_ju_quadratic": 50.0,
+          "local_richardson_crr_4000": 50.000000000001506,
+          "abs_diff_local_vs_fd": 6.649521822055249e-09,
+          "abs_diff_fd_levels": 6.661608153990528e-09,
+          "abs_diff_crr_vs_fd": 6.65102817265506e-09,
+          "early_exercise_premium": 12.433277519834427
+        },
+        "original_tolerance": {
+          "price_abs_vs_fd": 0.006
+        }
+      }
+    },
+    {
+      "id": "am_fd_010",
+      "api": "math.american_ju_quadratic_price",
+      "input": {
+        "spot": 100.0,
+        "strike": 120.0,
+        "years": 0.0027397260273972603,
+        "rate": 0.03,
+        "dividend_yield": 0.0,
+        "volatility": 0.8,
+        "option_right": "put"
+      },
+      "expected": {
+        "value": 20.0
+      },
+      "tolerance": 0.006,
+      "source": {
+        "dataset_origin": "option-test/option_american_benchmark_dataset.json",
+        "dataset_group": "american_fd_high_precision_reference",
+        "dataset_case_id": "am_fd_010",
+        "original_inputs": {
+          "model": "american_black_scholes_merton",
+          "option_type": "put",
+          "spot": 100.0,
+          "strike": 120.0,
+          "time_to_expiry": 0.0027397260273972603,
+          "risk_free_rate": 0.03,
+          "dividend_yield": 0.0,
+          "volatility": 0.8
+        },
+        "original_expected": {
+          "reference_price": 20.00000000000272,
+          "european_price": 19.990143891199054,
+          "minimum_early_exercise_premium": 0.009856108803667496
+        },
+        "original_validation": {
+          "benchmark_family": "high_precision_fd",
+          "quantlib_fd_reference": 20.00000000000272,
+          "quantlib_fd_higher_resolution": 20.00000000000003,
+          "quantlib_crr_3000": 20.0,
+          "quantlib_barone_adesi_whaley": 20.0,
+          "quantlib_bjerksund_stensland": 20.0,
+          "quantlib_ju_quadratic": 20.0,
+          "local_richardson_crr_4000": 19.999999999999375,
+          "abs_diff_local_vs_fd": 3.346656285430072e-12,
+          "abs_diff_fd_levels": 2.6929569685307797e-12,
+          "abs_diff_crr_vs_fd": 2.7213786779611837e-12,
+          "early_exercise_premium": 0.009856108803667496
+        },
+        "original_tolerance": {
+          "price_abs_vs_fd": 0.006
+        }
+      }
+    },
+    {
+      "id": "am_fd_011",
+      "api": "math.american_ju_quadratic_price",
+      "input": {
+        "spot": 90.0,
+        "strike": 100.0,
+        "years": 2.0,
+        "rate": 0.08,
+        "dividend_yield": 0.0,
+        "volatility": 0.2,
+        "option_right": "put"
+      },
+      "expected": {
+        "value": 11.353253142786143
+      },
+      "tolerance": 0.006,
+      "source": {
+        "dataset_origin": "option-test/option_american_benchmark_dataset.json",
+        "dataset_group": "american_fd_high_precision_reference",
+        "dataset_case_id": "am_fd_011",
+        "original_inputs": {
+          "model": "american_black_scholes_merton",
+          "option_type": "put",
+          "spot": 90.0,
+          "strike": 100.0,
+          "time_to_expiry": 2.0,
+          "risk_free_rate": 0.08,
+          "dividend_yield": 0.0,
+          "volatility": 0.2
+        },
+        "original_expected": {
+          "reference_price": 11.354838235928586,
+          "european_price": 7.64174567563137,
+          "minimum_early_exercise_premium": 3.7130925602972162
+        },
+        "original_validation": {
+          "benchmark_family": "high_precision_fd",
+          "quantlib_fd_reference": 11.354838235928586,
+          "quantlib_fd_higher_resolution": 11.355978531514836,
+          "quantlib_crr_3000": 11.357340965992503,
+          "quantlib_barone_adesi_whaley": 11.29522719395371,
+          "quantlib_bjerksund_stensland": 11.322198618492878,
+          "quantlib_ju_quadratic": 11.353253142786143,
+          "local_richardson_crr_4000": 11.357543444928522,
+          "abs_diff_local_vs_fd": 0.002705208999936204,
+          "abs_diff_fd_levels": 0.0011402955862500619,
+          "abs_diff_crr_vs_fd": 0.0025027300639166583,
+          "early_exercise_premium": 3.7130925602972162
+        },
+        "original_tolerance": {
+          "price_abs_vs_fd": 0.006
+        }
+      }
+    },
+    {
+      "id": "am_fd_012",
+      "api": "math.american_ju_quadratic_price",
+      "input": {
+        "spot": 110.0,
+        "strike": 100.0,
+        "years": 2.0,
+        "rate": 0.02,
+        "dividend_yield": 0.08,
+        "volatility": 0.15,
+        "option_right": "call"
+      },
+      "expected": {
+        "value": 10.610409721239746
+      },
+      "tolerance": 0.006,
+      "source": {
+        "dataset_origin": "option-test/option_american_benchmark_dataset.json",
+        "dataset_group": "american_fd_high_precision_reference",
+        "dataset_case_id": "am_fd_012",
+        "original_inputs": {
+          "model": "american_black_scholes_merton",
+          "option_type": "call",
+          "spot": 110.0,
+          "strike": 100.0,
+          "time_to_expiry": 2.0,
+          "risk_free_rate": 0.02,
+          "dividend_yield": 0.08,
+          "volatility": 0.15
+        },
+        "original_expected": {
+          "reference_price": 10.60910406216419,
+          "european_price": 6.899297163845198,
+          "minimum_early_exercise_premium": 3.709806898318993
+        },
+        "original_validation": {
+          "benchmark_family": "high_precision_fd",
+          "quantlib_fd_reference": 10.60910406216419,
+          "quantlib_fd_higher_resolution": 10.61010136419028,
+          "quantlib_crr_3000": 10.61119794319603,
+          "quantlib_barone_adesi_whaley": 10.529221493882275,
+          "quantlib_bjerksund_stensland": 10.58868534245541,
+          "quantlib_ju_quadratic": 10.610409721239746,
+          "local_richardson_crr_4000": 10.611630085296817,
+          "abs_diff_local_vs_fd": 0.002526023132626065,
+          "abs_diff_fd_levels": 0.0009973020260893861,
+          "abs_diff_crr_vs_fd": 0.002093881031839828,
+          "early_exercise_premium": 3.709806898318993
+        },
+        "original_tolerance": {
+          "price_abs_vs_fd": 0.006
+        }
+      }
+    },
+    {
+      "id": "am_fd_013",
+      "api": "math.american_ju_quadratic_price",
+      "input": {
+        "spot": 140.0,
+        "strike": 100.0,
+        "years": 1.0,
+        "rate": 0.05,
+        "dividend_yield": 0.0,
+        "volatility": 0.4,
+        "option_right": "put"
+      },
+      "expected": {
+        "value": 4.153189157110333
+      },
+      "tolerance": 0.006,
+      "source": {
+        "dataset_origin": "option-test/option_american_benchmark_dataset.json",
+        "dataset_group": "american_fd_high_precision_reference",
+        "dataset_case_id": "am_fd_013",
+        "original_inputs": {
+          "model": "american_black_scholes_merton",
+          "option_type": "put",
+          "spot": 140.0,
+          "strike": 100.0,
+          "time_to_expiry": 1.0,
+          "risk_free_rate": 0.05,
+          "dividend_yield": 0.0,
+          "volatility": 0.4
+        },
+        "original_expected": {
+          "reference_price": 4.153170631184145,
+          "european_price": 4.048886680816533,
+          "minimum_early_exercise_premium": 0.10428395036761184
+        },
+        "original_validation": {
+          "benchmark_family": "high_precision_fd",
+          "quantlib_fd_reference": 4.153170631184145,
+          "quantlib_fd_higher_resolution": 4.1533309106381555,
+          "quantlib_crr_3000": 4.152887477335261,
+          "quantlib_barone_adesi_whaley": 4.219396888525142,
+          "quantlib_bjerksund_stensland": 4.102150390602841,
+          "quantlib_ju_quadratic": 4.153189157110333,
+          "local_richardson_crr_4000": 4.153507118071568,
+          "abs_diff_local_vs_fd": 0.0003364868874227156,
+          "abs_diff_fd_levels": 0.00016027945401031474,
+          "abs_diff_crr_vs_fd": 0.00028315384888433215,
+          "early_exercise_premium": 0.10428395036761184
+        },
+        "original_tolerance": {
+          "price_abs_vs_fd": 0.006
+        }
+      }
+    },
+    {
+      "id": "am_fd_014",
+      "api": "math.american_ju_quadratic_price",
+      "input": {
+        "spot": 100.0,
+        "strike": 110.0,
+        "years": 0.5,
+        "rate": 0.04,
+        "dividend_yield": 0.09,
+        "volatility": 0.35,
+        "option_right": "call"
+      },
+      "expected": {
+        "value": 5.175471972989948
+      },
+      "tolerance": 0.015,
+      "source": {
+        "dataset_origin": "option-test/option_american_benchmark_dataset.json",
+        "dataset_group": "american_fd_high_precision_reference",
+        "dataset_case_id": "am_fd_014",
+        "original_inputs": {
+          "model": "american_black_scholes_merton",
+          "option_type": "call",
+          "spot": 100.0,
+          "strike": 110.0,
+          "time_to_expiry": 0.5,
+          "risk_free_rate": 0.04,
+          "dividend_yield": 0.09,
+          "volatility": 0.35
+        },
+        "original_expected": {
+          "reference_price": 5.186417266432402,
+          "european_price": 5.058755138146491,
+          "minimum_early_exercise_premium": 0.12766212828591073
+        },
+        "original_validation": {
+          "benchmark_family": "high_precision_fd",
+          "quantlib_fd_reference": 5.186417266432402,
+          "quantlib_fd_higher_resolution": 5.186595750726587,
+          "quantlib_crr_3000": 5.187511104454056,
+          "quantlib_barone_adesi_whaley": 5.216587013782986,
+          "quantlib_bjerksund_stensland": 5.130523587039756,
+          "quantlib_ju_quadratic": 5.175471972989948,
+          "local_richardson_crr_4000": 5.197011611933797,
+          "abs_diff_local_vs_fd": 0.01059434550139482,
+          "abs_diff_fd_levels": 0.0001784842941852105,
+          "abs_diff_crr_vs_fd": 0.001093838021653859,
+          "early_exercise_premium": 0.12766212828591073
+        },
+        "original_tolerance": {
+          "price_abs_vs_fd": 0.015
+        }
+      }
+    }
+  ]
+}

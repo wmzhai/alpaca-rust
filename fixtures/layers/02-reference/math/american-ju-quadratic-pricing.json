@@ -1,0 +1,400 @@
+{
+  "fixture": "math/american-ju-quadratic-pricing",
+  "layer": {
+    "id": "02-reference",
+    "label": "Reference",
+    "status": "integrated",
+    "source_dataset": "option_reference_dataset.json",
+    "source_case_count": 48,
+    "purpose": "The primary day-to-day regression layer with balanced model coverage."
+  },
+  "oracle": {
+    "tier": "A",
+    "layer_id": "02-reference",
+    "layer_label": "Reference",
+    "status": "integrated",
+    "dataset_origin": "option-test/option_reference_dataset.json",
+    "purpose": "Ju quadratic pricing regression cases.",
+    "split_from": "fixtures/math/american-ju-quadratic-pricing.json"
+  },
+  "cases": [
+    {
+      "id": "am_ju_001",
+      "api": "math.american_ju_quadratic_price",
+      "input": {
+        "spot": 40.0,
+        "strike": 35.0,
+        "years": 0.0833,
+        "rate": 0.0488,
+        "dividend_yield": 0.0,
+        "volatility": 0.2,
+        "option_right": "put"
+      },
+      "expected": {
+        "value": 0.006
+      },
+      "tolerance": 0.08,
+      "source": {
+        "dataset_case_id": "am_ju_001",
+        "original_inputs": {
+          "model": "american_black_scholes_merton",
+          "pricing_method": "ju_quadratic",
+          "option_type": "put",
+          "spot": 40.0,
+          "strike": 35.0,
+          "time_to_expiry": 0.0833,
+          "risk_free_rate": 0.0488,
+          "dividend_yield": 0.0,
+          "volatility": 0.2
+        },
+        "original_expected": {
+          "price": 0.006
+        },
+        "original_validation": {
+          "quantlib_ju_quadratic": 0.006262649460897035,
+          "quantlib_fd_black_scholes": 0.006202024876044845,
+          "abs_diff_reference_vs_ju": 0.00026264946089703516,
+          "abs_diff_reference_vs_fd": 0.0002020248760448446
+        },
+        "dataset_origin": "option-test/option_reference_dataset.json",
+        "dataset_group": "american_ju_quadratic_literature"
+      }
+    },
+    {
+      "id": "am_ju_002",
+      "api": "math.american_ju_quadratic_price",
+      "input": {
+        "spot": 40.0,
+        "strike": 40.0,
+        "years": 0.3333,
+        "rate": 0.0488,
+        "dividend_yield": 0.0,
+        "volatility": 0.2,
+        "option_right": "put"
+      },
+      "expected": {
+        "value": 1.576
+      },
+      "tolerance": 0.08,
+      "source": {
+        "dataset_case_id": "am_ju_002",
+        "original_inputs": {
+          "model": "american_black_scholes_merton",
+          "pricing_method": "ju_quadratic",
+          "option_type": "put",
+          "spot": 40.0,
+          "strike": 40.0,
+          "time_to_expiry": 0.3333,
+          "risk_free_rate": 0.0488,
+          "dividend_yield": 0.0,
+          "volatility": 0.2
+        },
+        "original_expected": {
+          "price": 1.576
+        },
+        "original_validation": {
+          "quantlib_ju_quadratic": 1.5755904662078346,
+          "quantlib_fd_black_scholes": 1.5798140867381494,
+          "abs_diff_reference_vs_ju": 0.0004095337921654618,
+          "abs_diff_reference_vs_fd": 0.0038140867381493138
+        },
+        "dataset_origin": "option-test/option_reference_dataset.json",
+        "dataset_group": "american_ju_quadratic_literature"
+      }
+    },
+    {
+      "id": "am_ju_003",
+      "api": "math.american_ju_quadratic_price",
+      "input": {
+        "spot": 40.0,
+        "strike": 45.0,
+        "years": 0.5833,
+        "rate": 0.0488,
+        "dividend_yield": 0.0,
+        "volatility": 0.2,
+        "option_right": "put"
+      },
+      "expected": {
+        "value": 5.26
+      },
+      "tolerance": 0.08,
+      "source": {
+        "dataset_case_id": "am_ju_003",
+        "original_inputs": {
+          "model": "american_black_scholes_merton",
+          "pricing_method": "ju_quadratic",
+          "option_type": "put",
+          "spot": 40.0,
+          "strike": 45.0,
+          "time_to_expiry": 0.5833,
+          "risk_free_rate": 0.0488,
+          "dividend_yield": 0.0,
+          "volatility": 0.2
+        },
+        "original_expected": {
+          "price": 5.26
+        },
+        "original_validation": {
+          "quantlib_ju_quadratic": 5.259977527590033,
+          "quantlib_fd_black_scholes": 5.266831484208895,
+          "abs_diff_reference_vs_ju": 2.2472409966667328e-05,
+          "abs_diff_reference_vs_fd": 0.006831484208895233
+        },
+        "dataset_origin": "option-test/option_reference_dataset.json",
+        "dataset_group": "american_ju_quadratic_literature"
+      }
+    },
+    {
+      "id": "am_ju_004",
+      "api": "math.american_ju_quadratic_price",
+      "input": {
+        "spot": 40.0,
+        "strike": 35.0,
+        "years": 0.3333,
+        "rate": 0.0488,
+        "dividend_yield": 0.0,
+        "volatility": 0.3,
+        "option_right": "put"
+      },
+      "expected": {
+        "value": 0.697
+      },
+      "tolerance": 0.08,
+      "source": {
+        "dataset_case_id": "am_ju_004",
+        "original_inputs": {
+          "model": "american_black_scholes_merton",
+          "pricing_method": "ju_quadratic",
+          "option_type": "put",
+          "spot": 40.0,
+          "strike": 35.0,
+          "time_to_expiry": 0.3333,
+          "risk_free_rate": 0.0488,
+          "dividend_yield": 0.0,
+          "volatility": 0.3
+        },
+        "original_expected": {
+          "price": 0.697
+        },
+        "original_validation": {
+          "quantlib_ju_quadratic": 0.6968083173067928,
+          "quantlib_fd_black_scholes": 0.6975361223875159,
+          "abs_diff_reference_vs_ju": 0.00019168269320712916,
+          "abs_diff_reference_vs_fd": 0.0005361223875159915
+        },
+        "dataset_origin": "option-test/option_reference_dataset.json",
+        "dataset_group": "american_ju_quadratic_literature"
+      }
+    },
+    {
+      "id": "am_ju_005",
+      "api": "math.american_ju_quadratic_price",
+      "input": {
+        "spot": 40.0,
+        "strike": 40.0,
+        "years": 0.5833,
+        "rate": 0.0488,
+        "dividend_yield": 0.0,
+        "volatility": 0.3,
+        "option_right": "put"
+      },
+      "expected": {
+        "value": 3.161
+      },
+      "tolerance": 0.08,
+      "source": {
+        "dataset_case_id": "am_ju_005",
+        "original_inputs": {
+          "model": "american_black_scholes_merton",
+          "pricing_method": "ju_quadratic",
+          "option_type": "put",
+          "spot": 40.0,
+          "strike": 40.0,
+          "time_to_expiry": 0.5833,
+          "risk_free_rate": 0.0488,
+          "dividend_yield": 0.0,
+          "volatility": 0.3
+        },
+        "original_expected": {
+          "price": 3.161
+        },
+        "original_validation": {
+          "quantlib_ju_quadratic": 3.160568624546557,
+          "quantlib_fd_black_scholes": 3.1695988378636843,
+          "abs_diff_reference_vs_ju": 0.00043137545344285044,
+          "abs_diff_reference_vs_fd": 0.008598837863684317
+        },
+        "dataset_origin": "option-test/option_reference_dataset.json",
+        "dataset_group": "american_ju_quadratic_literature"
+      }
+    },
+    {
+      "id": "am_ju_006",
+      "api": "math.american_ju_quadratic_price",
+      "input": {
+        "spot": 40.0,
+        "strike": 45.0,
+        "years": 0.3333,
+        "rate": 0.0488,
+        "dividend_yield": 0.0,
+        "volatility": 0.4,
+        "option_right": "put"
+      },
+      "expected": {
+        "value": 6.501
+      },
+      "tolerance": 0.08,
+      "source": {
+        "dataset_case_id": "am_ju_006",
+        "original_inputs": {
+          "model": "american_black_scholes_merton",
+          "pricing_method": "ju_quadratic",
+          "option_type": "put",
+          "spot": 40.0,
+          "strike": 45.0,
+          "time_to_expiry": 0.3333,
+          "risk_free_rate": 0.0488,
+          "dividend_yield": 0.0,
+          "volatility": 0.4
+        },
+        "original_expected": {
+          "price": 6.501
+        },
+        "original_validation": {
+          "quantlib_ju_quadratic": 6.501383411782529,
+          "quantlib_fd_black_scholes": 6.50980567692141,
+          "abs_diff_reference_vs_ju": 0.0003834117825283201,
+          "abs_diff_reference_vs_fd": 0.008805676921409322
+        },
+        "dataset_origin": "option-test/option_reference_dataset.json",
+        "dataset_group": "american_ju_quadratic_literature"
+      }
+    },
+    {
+      "id": "am_ju_007",
+      "api": "math.american_ju_quadratic_price",
+      "input": {
+        "spot": 80.0,
+        "strike": 100.0,
+        "years": 3.0,
+        "rate": 0.03,
+        "dividend_yield": 0.07,
+        "volatility": 0.2,
+        "option_right": "call"
+      },
+      "expected": {
+        "value": 2.605
+      },
+      "tolerance": 0.08,
+      "source": {
+        "dataset_case_id": "am_ju_007",
+        "original_inputs": {
+          "model": "american_black_scholes_merton",
+          "pricing_method": "ju_quadratic",
+          "option_type": "call",
+          "spot": 80.0,
+          "strike": 100.0,
+          "time_to_expiry": 3.0,
+          "risk_free_rate": 0.03,
+          "dividend_yield": 0.07,
+          "volatility": 0.2
+        },
+        "original_expected": {
+          "price": 2.605
+        },
+        "original_validation": {
+          "quantlib_ju_quadratic": 2.604605840105515,
+          "quantlib_fd_black_scholes": 2.579397527418765,
+          "abs_diff_reference_vs_ju": 0.00039415989448476907,
+          "abs_diff_reference_vs_fd": 0.02560247258123516
+        },
+        "dataset_origin": "option-test/option_reference_dataset.json",
+        "dataset_group": "american_ju_quadratic_literature"
+      }
+    },
+    {
+      "id": "am_ju_008",
+      "api": "math.american_ju_quadratic_price",
+      "input": {
+        "spot": 100.0,
+        "strike": 100.0,
+        "years": 3.0,
+        "rate": 0.03,
+        "dividend_yield": 0.07,
+        "volatility": 0.2,
+        "option_right": "call"
+      },
+      "expected": {
+        "value": 9.065
+      },
+      "tolerance": 0.08,
+      "source": {
+        "dataset_case_id": "am_ju_008",
+        "original_inputs": {
+          "model": "american_black_scholes_merton",
+          "pricing_method": "ju_quadratic",
+          "option_type": "call",
+          "spot": 100.0,
+          "strike": 100.0,
+          "time_to_expiry": 3.0,
+          "risk_free_rate": 0.03,
+          "dividend_yield": 0.07,
+          "volatility": 0.2
+        },
+        "original_expected": {
+          "price": 9.065
+        },
+        "original_validation": {
+          "quantlib_ju_quadratic": 9.064909551128466,
+          "quantlib_fd_black_scholes": 9.06484791700163,
+          "abs_diff_reference_vs_ju": 9.044887153386583e-05,
+          "abs_diff_reference_vs_fd": 0.00015208299836899641
+        },
+        "dataset_origin": "option-test/option_reference_dataset.json",
+        "dataset_group": "american_ju_quadratic_literature"
+      }
+    },
+    {
+      "id": "am_ju_009",
+      "api": "math.american_ju_quadratic_price",
+      "input": {
+        "spot": 120.0,
+        "strike": 100.0,
+        "years": 3.0,
+        "rate": 1e-05,
+        "dividend_yield": 0.07,
+        "volatility": 0.3,
+        "option_right": "call"
+      },
+      "expected": {
+        "value": 24.786
+      },
+      "tolerance": 0.08,
+      "source": {
+        "dataset_case_id": "am_ju_009",
+        "original_inputs": {
+          "model": "american_black_scholes_merton",
+          "pricing_method": "ju_quadratic",
+          "option_type": "call",
+          "spot": 120.0,
+          "strike": 100.0,
+          "time_to_expiry": 3.0,
+          "risk_free_rate": 1e-05,
+          "dividend_yield": 0.07,
+          "volatility": 0.3
+        },
+        "original_expected": {
+          "price": 24.786
+        },
+        "original_validation": {
+          "quantlib_ju_quadratic": 24.786506733093944,
+          "quantlib_fd_black_scholes": 24.78835316466619,
+          "abs_diff_reference_vs_ju": 0.0005067330939425574,
+          "abs_diff_reference_vs_fd": 0.0023531646661894
+        },
+        "dataset_origin": "option-test/option_reference_dataset.json",
+        "dataset_group": "american_ju_quadratic_literature"
+      }
+    }
+  ]
+}

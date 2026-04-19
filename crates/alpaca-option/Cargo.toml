@@ -21,3 +21,6 @@ chrono.workspace = true
 rust_decimal.workspace = true
 serde.workspace = true
 ts-rs.workspace = true
+
+[dev-dependencies]
+serde_json.workspace = true

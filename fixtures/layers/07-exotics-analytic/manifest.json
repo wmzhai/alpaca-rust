@@ -1,0 +1,13 @@
+{
+  "layer_id": "07-exotics-analytic",
+  "label": "Exotics Analytic",
+  "status": "integrated",
+  "source_dataset": "option_exotics_analytic_dataset.json",
+  "source_case_count": 24,
+  "tier": "A",
+  "purpose": "Analytic barrier / geometric Asian benchmarks, pending implementation.",
+  "fixture_paths": [
+    "fixtures/layers/07-exotics-analytic/math/barrier-pricing.json",
+    "fixtures/layers/07-exotics-analytic/math/geometric-asian-pricing.json"
+  ]
+}

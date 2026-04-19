@@ -1,0 +1,142 @@
+{
+  "fixture": "occ-contracts",
+  "cases": [
+    {
+      "id": "normalize-display-symbol",
+      "api": "contract.normalize_underlying_symbol",
+      "input": {
+        "symbol": "BRK.B"
+      },
+      "expected": {
+        "value": "BRKB"
+      }
+    },
+    {
+      "id": "build-spy-call",
+      "api": "contract.build_occ_symbol",
+      "input": {
+        "underlying_symbol": "SPY",
+        "expiration_date": "2025-03-21",
+        "strike": 600.0,
+        "option_right": "call"
+      },
+      "expected": {
+        "value": "SPY250321C00600000"
+      }
+    },
+    {
+      "id": "build-brkb-put",
+      "api": "contract.build_occ_symbol",
+      "input": {
+        "underlying_symbol": "BRKB",
+        "expiration_date": "2025-06-20",
+        "strike": 480.0,
+        "option_right": "put"
+      },
+      "expected": {
+        "value": "BRKB250620P00480000"
+      }
+    },
+    {
+      "id": "build-brk-b-display-put",
+      "api": "contract.build_occ_symbol",
+      "input": {
+        "underlying_symbol": "BRK.B",
+        "expiration_date": "2025-06-20",
+        "strike": 480.0,
+        "option_right": "put"
+      },
+      "expected": {
+        "value": "BRKB250620P00480000"
+      }
+    },
+    {
+      "id": "parse-spy-call",
+      "api": "contract.parse_occ_symbol",
+      "input": {
+        "occ_symbol": "SPY250321C00600000"
+      },
+      "expected": {
+        "underlying_symbol": "SPY",
+        "expiration_date": "2025-03-21",
+        "strike": 600.0,
+        "option_right": "call",
+        "occ_symbol": "SPY250321C00600000"
+      }
+    },
+    {
+      "id": "parse-brkb-put",
+      "api": "contract.parse_occ_symbol",
+      "input": {
+        "occ_symbol": "BRKB250620P00480000"
+      },
+      "expected": {
+        "underlying_symbol": "BRKB",
+        "expiration_date": "2025-06-20",
+        "strike": 480.0,
+        "option_right": "put",
+        "occ_symbol": "BRKB250620P00480000"
+      }
+    },
+    {
+      "id": "is-occ-symbol-false",
+      "api": "contract.is_occ_symbol",
+      "input": {
+        "occ_symbol": "SPY250321X00600000"
+      },
+      "expected": {
+        "value": false
+      }
+    },
+    {
+      "id": "parse-tsll1-adjusted",
+      "api": "contract.parse_occ_symbol",
+      "input": {
+        "occ_symbol": "TSLL1250321C00090000"
+      },
+      "expected": {
+        "underlying_symbol": "TSLL1",
+        "expiration_date": "2025-03-21",
+        "strike": 90.0,
+        "option_right": "call",
+        "occ_symbol": "TSLL1250321C00090000"
+      }
+    },
+    {
+      "id": "parse-or-null-invalid",
+      "api": "contract.parse_occ_symbol",
+      "input": {
+        "occ_symbol": "SPY250321X00600000"
+      },
+      "expected": {
+        "value": null
+      }
+    },
+    {
+      "id": "build-or-null-brk-b-display-put",
+      "api": "contract.build_occ_symbol",
+      "input": {
+        "underlying_symbol": "BRK.B",
+        "expiration_date": "2025-06-20",
+        "strike": "480",
+        "option_right": "p"
+      },
+      "expected": {
+        "value": "BRKB250620P00480000"
+      }
+    },
+    {
+      "id": "build-or-null-invalid-strike",
+      "api": "contract.build_occ_symbol",
+      "input": {
+        "underlying_symbol": "SPY",
+        "expiration_date": "2025-03-21",
+        "strike": "oops",
+        "option_right": "call"
+      },
+      "expected": {
+        "value": null
+      }
+    }
+  ]
+}

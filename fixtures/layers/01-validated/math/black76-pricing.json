@@ -1,0 +1,442 @@
+{
+  "fixture": "math/black76-pricing",
+  "layer": {
+    "id": "01-validated",
+    "label": "Validated",
+    "status": "integrated",
+    "source_dataset": "option_validated_dataset.json",
+    "source_case_count": 20,
+    "purpose": "The most basic and reliable closed-form regression layer."
+  },
+  "oracle": {
+    "tier": "A",
+    "layer_id": "01-validated",
+    "layer_label": "Validated",
+    "status": "integrated",
+    "dataset_origin": "option-test/option_validated_dataset.json",
+    "purpose": "Black-76 pricing regression cases.",
+    "split_from": "fixtures/math/black76-pricing.json"
+  },
+  "cases": [
+    {
+      "id": "validated_black76_001",
+      "api": "math.black76_price",
+      "input": {
+        "forward": 100.0,
+        "strike": 100.0,
+        "years": 0.5,
+        "rate": 0.03,
+        "volatility": 0.2,
+        "option_right": "call"
+      },
+      "expected": {
+        "value": 5.5532708386879825
+      },
+      "tolerance": 1e-10,
+      "source": {
+        "dataset_origin": "option-test/option_validated_dataset.json",
+        "dataset_group": "validated_black76_prices_and_greeks",
+        "dataset_case_id": "validated_black76_001",
+        "original_inputs": {
+          "model": "black_76",
+          "option_type": "call",
+          "forward": 100.0,
+          "strike": 100.0,
+          "time_to_expiry": 0.5,
+          "risk_free_rate": 0.03,
+          "volatility": 0.2
+        },
+        "original_expected": {
+          "price": 5.5532708386879825,
+          "delta": 0.5203223239949712,
+          "gamma": 0.02772010778060747,
+          "vega": 27.72010778060747,
+          "theta": -5.377423430960854,
+          "rho": -2.776635419343993
+        },
+        "original_validation": {
+          "quantlib": {
+            "price": 5.553270838687985,
+            "delta": 0.5203223239949714,
+            "gamma": 0.02772010778060746,
+            "vega": 27.720107780607464
+          },
+          "py_vollib": {
+            "price": 5.553270838687984,
+            "delta": 0.5203223239949712,
+            "gamma": 0.02772010778060746,
+            "vega": 27.720107780607467,
+            "theta": -5.377423430960852,
+            "rho": -2.776635419343992
+          },
+          "blackscholes_python": {
+            "price": 5.553270838687986,
+            "delta": 0.5203223239949712,
+            "gamma": 0.02772010778060747,
+            "vega": 27.72010778060747,
+            "theta": -5.377423430960854,
+            "rho": -2.776635419343993
+          },
+          "max_abs_diff_price_all_sources": 3.552713678800501e-15,
+          "max_abs_diff_greeks_delta_gamma_vega": 7.105427357601002e-15,
+          "max_abs_diff_theta_rho_vollib_blackscholes": 1.7763568394002505e-15
+        },
+        "units": {
+          "vega": "raw dPrice/dSigma for 1.0 volatility unit",
+          "theta": "raw dPrice/dT per year",
+          "rho": "raw dPrice/dr for 1.0 rate unit"
+        }
+      }
+    },
+    {
+      "id": "validated_black76_002",
+      "api": "math.black76_price",
+      "input": {
+        "forward": 100.0,
+        "strike": 100.0,
+        "years": 0.5,
+        "rate": 0.03,
+        "volatility": 0.2,
+        "option_right": "put"
+      },
+      "expected": {
+        "value": 5.5532708386879825
+      },
+      "tolerance": 1e-10,
+      "source": {
+        "dataset_origin": "option-test/option_validated_dataset.json",
+        "dataset_group": "validated_black76_prices_and_greeks",
+        "dataset_case_id": "validated_black76_002",
+        "original_inputs": {
+          "model": "black_76",
+          "option_type": "put",
+          "forward": 100.0,
+          "strike": 100.0,
+          "time_to_expiry": 0.5,
+          "risk_free_rate": 0.03,
+          "volatility": 0.2
+        },
+        "original_expected": {
+          "price": 5.5532708386879825,
+          "delta": -0.4647896156080914,
+          "gamma": 0.02772010778060747,
+          "vega": 27.72010778060747,
+          "theta": -5.377423430960854,
+          "rho": -2.776635419343993
+        },
+        "original_validation": {
+          "quantlib": {
+            "price": 5.553270838687985,
+            "delta": -0.4647896156080913,
+            "gamma": 0.02772010778060746,
+            "vega": 27.720107780607464
+          },
+          "py_vollib": {
+            "price": 5.553270838687984,
+            "delta": -0.4647896156080914,
+            "gamma": 0.02772010778060746,
+            "vega": 27.720107780607467,
+            "theta": -5.377423430960852,
+            "rho": -2.776635419343992
+          },
+          "blackscholes_python": {
+            "price": 5.553270838687986,
+            "delta": -0.4647896156080914,
+            "gamma": 0.02772010778060747,
+            "vega": 27.72010778060747,
+            "theta": -5.377423430960854,
+            "rho": -2.776635419343993
+          },
+          "max_abs_diff_price_all_sources": 3.552713678800501e-15,
+          "max_abs_diff_greeks_delta_gamma_vega": 7.105427357601002e-15,
+          "max_abs_diff_theta_rho_vollib_blackscholes": 1.7763568394002505e-15
+        },
+        "units": {
+          "vega": "raw dPrice/dSigma for 1.0 volatility unit",
+          "theta": "raw dPrice/dT per year",
+          "rho": "raw dPrice/dr for 1.0 rate unit"
+        }
+      }
+    },
+    {
+      "id": "validated_black76_003",
+      "api": "math.black76_price",
+      "input": {
+        "forward": 95.0,
+        "strike": 100.0,
+        "years": 1.25,
+        "rate": 0.01,
+        "volatility": 0.35,
+        "option_right": "call"
+      },
+      "expected": {
+        "value": 12.59390506398353
+      },
+      "tolerance": 1e-10,
+      "source": {
+        "dataset_origin": "option-test/option_validated_dataset.json",
+        "dataset_group": "validated_black76_prices_and_greeks",
+        "dataset_case_id": "validated_black76_003",
+        "original_inputs": {
+          "model": "black_76",
+          "option_type": "call",
+          "forward": 95.0,
+          "strike": 100.0,
+          "time_to_expiry": 1.25,
+          "risk_free_rate": 0.01,
+          "volatility": 0.35
+        },
+        "original_expected": {
+          "price": 12.59390506398353,
+          "delta": 0.519213151495915,
+          "gamma": 0.010576189470776817,
+          "vega": 41.75942311352035,
+          "theta": -5.7203801852530125,
+          "rho": -15.742381329979404
+        },
+        "original_validation": {
+          "quantlib": {
+            "price": 12.59390506398352,
+            "delta": 0.5192131514959151,
+            "gamma": 0.010576189470776817,
+            "vega": 41.75942311352034
+          },
+          "py_vollib": {
+            "price": 12.593905063983525,
+            "delta": 0.519213151495915,
+            "gamma": 0.010576189470776817,
+            "vega": 41.75942311352035,
+            "theta": -5.7203801852530125,
+            "rho": -15.742381329979407
+          },
+          "blackscholes_python": {
+            "price": 12.593905063983522,
+            "delta": 0.519213151495915,
+            "gamma": 0.010576189470776817,
+            "vega": 41.75942311352035,
+            "theta": -5.7203801852530125,
+            "rho": -15.742381329979404
+          },
+          "max_abs_diff_price_all_sources": 1.0658141036401503e-14,
+          "max_abs_diff_greeks_delta_gamma_vega": 7.105427357601002e-15,
+          "max_abs_diff_theta_rho_vollib_blackscholes": 3.552713678800501e-15
+        },
+        "units": {
+          "vega": "raw dPrice/dSigma for 1.0 volatility unit",
+          "theta": "raw dPrice/dT per year",
+          "rho": "raw dPrice/dr for 1.0 rate unit"
+        }
+      }
+    },
+    {
+      "id": "validated_black76_004",
+      "api": "math.black76_price",
+      "input": {
+        "forward": 105.0,
+        "strike": 100.0,
+        "years": 1.25,
+        "rate": 0.01,
+        "volatility": 0.35,
+        "option_right": "put"
+      },
+      "expected": {
+        "value": 13.353718065584019
+      },
+      "tolerance": 1e-10,
+      "source": {
+        "dataset_origin": "option-test/option_validated_dataset.json",
+        "dataset_group": "validated_black76_prices_and_greeks",
+        "dataset_case_id": "validated_black76_004",
+        "original_inputs": {
+          "model": "black_76",
+          "option_type": "put",
+          "forward": 105.0,
+          "strike": 100.0,
+          "time_to_expiry": 1.25,
+          "risk_free_rate": 0.01,
+          "volatility": 0.35
+        },
+        "original_expected": {
+          "price": 13.353718065584019,
+          "delta": -0.3697051660704597,
+          "gamma": 0.009109319779835881,
+          "vega": 43.938234625552134,
+          "theta": -6.017815666921457,
+          "rho": -16.692147581980027
+        },
+        "original_validation": {
+          "quantlib": {
+            "price": 13.353718065584024,
+            "delta": -0.3697051660704597,
+            "gamma": 0.00910931977983588,
+            "vega": 43.93823462555214
+          },
+          "py_vollib": {
+            "price": 13.353718065584015,
+            "delta": -0.3697051660704597,
+            "gamma": 0.009109319779835881,
+            "vega": 43.938234625552134,
+            "theta": -6.017815666921457,
+            "rho": -16.69214758198002
+          },
+          "blackscholes_python": {
+            "price": 13.35371806558402,
+            "delta": -0.3697051660704597,
+            "gamma": 0.009109319779835881,
+            "vega": 43.938234625552134,
+            "theta": -6.017815666921457,
+            "rho": -16.692147581980027
+          },
+          "max_abs_diff_price_all_sources": 5.329070518200751e-15,
+          "max_abs_diff_greeks_delta_gamma_vega": 7.105427357601002e-15,
+          "max_abs_diff_theta_rho_vollib_blackscholes": 7.105427357601002e-15
+        },
+        "units": {
+          "vega": "raw dPrice/dSigma for 1.0 volatility unit",
+          "theta": "raw dPrice/dT per year",
+          "rho": "raw dPrice/dr for 1.0 rate unit"
+        }
+      }
+    },
+    {
+      "id": "validated_black76_005",
+      "api": "math.black76_price",
+      "input": {
+        "forward": 72.0,
+        "strike": 80.0,
+        "years": 0.25,
+        "rate": 0.05,
+        "volatility": 0.6,
+        "option_right": "call"
+      },
+      "expected": {
+        "value": 5.540611606877189
+      },
+      "tolerance": 1e-10,
+      "source": {
+        "dataset_origin": "option-test/option_validated_dataset.json",
+        "dataset_group": "validated_black76_prices_and_greeks",
+        "dataset_case_id": "validated_black76_005",
+        "original_inputs": {
+          "model": "black_76",
+          "option_type": "call",
+          "forward": 72.0,
+          "strike": 80.0,
+          "time_to_expiry": 0.25,
+          "risk_free_rate": 0.05,
+          "volatility": 0.6
+        },
+        "original_expected": {
+          "price": 5.540611606877189,
+          "delta": 0.4150497407103691,
+          "gamma": 0.01787462957433739,
+          "vega": 13.899311957004752,
+          "theta": -16.402143768061844,
+          "rho": -1.3851529017192952
+        },
+        "original_validation": {
+          "quantlib": {
+            "price": 5.540611606877192,
+            "delta": 0.415049740710369,
+            "gamma": 0.01787462957433739,
+            "vega": 13.89931195700475
+          },
+          "py_vollib": {
+            "price": 5.540611606877189,
+            "delta": 0.4150497407103691,
+            "gamma": 0.01787462957433739,
+            "vega": 13.899311957004754,
+            "theta": -16.402143768061844,
+            "rho": -1.3851529017192972
+          },
+          "blackscholes_python": {
+            "price": 5.540611606877181,
+            "delta": 0.4150497407103691,
+            "gamma": 0.01787462957433739,
+            "vega": 13.899311957004752,
+            "theta": -16.402143768061844,
+            "rho": -1.3851529017192952
+          },
+          "max_abs_diff_price_all_sources": 7.993605777301127e-15,
+          "max_abs_diff_greeks_delta_gamma_vega": 1.7763568394002505e-15,
+          "max_abs_diff_theta_rho_vollib_blackscholes": 1.9984014443252818e-15
+        },
+        "units": {
+          "vega": "raw dPrice/dSigma for 1.0 volatility unit",
+          "theta": "raw dPrice/dT per year",
+          "rho": "raw dPrice/dr for 1.0 rate unit"
+        }
+      }
+    },
+    {
+      "id": "validated_black76_006",
+      "api": "math.black76_price",
+      "input": {
+        "forward": 130.0,
+        "strike": 120.0,
+        "years": 2.0,
+        "rate": 0.04,
+        "volatility": 0.18,
+        "option_right": "put"
+      },
+      "expected": {
+        "value": 7.640697272389753
+      },
+      "tolerance": 1e-10,
+      "source": {
+        "dataset_origin": "option-test/option_validated_dataset.json",
+        "dataset_group": "validated_black76_prices_and_greeks",
+        "dataset_case_id": "validated_black76_006",
+        "original_inputs": {
+          "model": "black_76",
+          "option_type": "put",
+          "forward": 130.0,
+          "strike": 120.0,
+          "time_to_expiry": 2.0,
+          "risk_free_rate": 0.04,
+          "volatility": 0.18
+        },
+        "original_expected": {
+          "price": 7.640697272389753,
+          "delta": -0.30402571159739533,
+          "gamma": 0.010094092216510918,
+          "vega": 61.412457045252424,
+          "theta": -2.4579326761407687,
+          "rho": -15.281394544779506
+        },
+        "original_validation": {
+          "quantlib": {
+            "price": 7.640697272389757,
+            "delta": -0.3040257115973952,
+            "gamma": 0.010094092216510912,
+            "vega": 61.412457045252395
+          },
+          "py_vollib": {
+            "price": 7.640697272389756,
+            "delta": -0.3040257115973952,
+            "gamma": 0.010094092216510918,
+            "vega": 61.412457045252424,
+            "theta": -2.457932676140768,
+            "rho": -15.281394544779515
+          },
+          "blackscholes_python": {
+            "price": 7.640697272389753,
+            "delta": -0.30402571159739533,
+            "gamma": 0.010094092216510918,
+            "vega": 61.412457045252424,
+            "theta": -2.4579326761407687,
+            "rho": -15.281394544779506
+          },
+          "max_abs_diff_price_all_sources": 4.440892098500626e-15,
+          "max_abs_diff_greeks_delta_gamma_vega": 2.842170943040401e-14,
+          "max_abs_diff_theta_rho_vollib_blackscholes": 8.881784197001252e-15
+        },
+        "units": {
+          "vega": "raw dPrice/dSigma for 1.0 volatility unit",
+          "theta": "raw dPrice/dT per year",
+          "rho": "raw dPrice/dr for 1.0 rate unit"
+        }
+      }
+    }
+  ]
+}

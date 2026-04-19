@@ -1,0 +1,318 @@
+{
+  "fixture": "optionstrat-roundtrip",
+  "cases": [
+    {
+      "id": "underlying-path-brk-b",
+      "api": "url.to_optionstrat_underlying_path",
+      "input": {
+        "symbol": "BRK.B"
+      },
+      "expected": {
+        "value": "BRK%2FB"
+      }
+    },
+    {
+      "id": "build-leg-fragment-short-put",
+      "api": "url.build_optionstrat_leg_fragment",
+      "input": {
+        "occ_symbol": "SPY250321P00580000",
+        "quantity": -1,
+        "premium_per_contract": 2.45
+      },
+      "expected": {
+        "value": "-.SPY250321P580x1@2.45"
+      }
+    },
+    {
+      "id": "build-leg-fragment-brk-b-short-put",
+      "api": "url.build_optionstrat_leg_fragment",
+      "input": {
+        "occ_symbol": "BRKB250620P00480000",
+        "quantity": -2,
+        "premium_per_contract": 12.34
+      },
+      "expected": {
+        "value": "-.BRKB250620P480x2@12.34"
+      }
+    },
+    {
+      "id": "build-stock-fragment-brk-b",
+      "api": "url.build_optionstrat_stock_fragment",
+      "input": {
+        "underlying_symbol": "BRK.B",
+        "quantity": 100,
+        "cost_per_share": 512.34
+      },
+      "expected": {
+        "value": "BRKBx100@512.34"
+      }
+    },
+    {
+      "id": "build-optionstrat-url",
+      "api": "url.build_optionstrat_url",
+      "input": {
+        "underlying_display_symbol": "SPY",
+        "legs": [
+          {
+            "occ_symbol": "SPY250321P00580000",
+            "quantity": -1,
+            "premium_per_contract": 2.45
+          },
+          {
+            "occ_symbol": "SPY250321P00560000",
+            "quantity": 1,
+            "premium_per_contract": 1.1
+          }
+        ]
+      },
+      "expected": {
+        "value": "https://optionstrat.com/build/custom/SPY/-.SPY250321P580x1@2.45,.SPY250321P560x1@1.10"
+      }
+    },
+    {
+      "id": "build-optionstrat-url-with-stock",
+      "api": "url.build_optionstrat_url",
+      "input": {
+        "underlying_display_symbol": "SPY",
+        "legs": [
+          {
+            "occ_symbol": "SPY250321P00580000",
+            "quantity": -1,
+            "premium_per_contract": 2.45
+          }
+        ],
+        "stocks": [
+          {
+            "underlying_symbol": "SPY",
+            "quantity": 100,
+            "cost_per_share": 530.12
+          }
+        ]
+      },
+      "expected": {
+        "value": "https://optionstrat.com/build/custom/SPY/-.SPY250321P580x1@2.45,SPYx100@530.12"
+      }
+    },
+    {
+      "id": "build-optionstrat-url-stock-only",
+      "api": "url.build_optionstrat_url",
+      "input": {
+        "underlying_display_symbol": "SPY",
+        "stocks": [
+          {
+            "underlying_symbol": "SPY",
+            "quantity": 100,
+            "cost_per_share": 530.12
+          }
+        ]
+      },
+      "expected": {
+        "value": "https://optionstrat.com/build/custom/SPY/SPYx100@530.12"
+      }
+    },
+    {
+      "id": "build-optionstrat-url-brk-b",
+      "api": "url.build_optionstrat_url",
+      "input": {
+        "underlying_display_symbol": "BRK.B",
+        "legs": [
+          {
+            "occ_symbol": "BRKB250620P00480000",
+            "quantity": -2,
+            "premium_per_contract": 12.34
+          }
+        ]
+      },
+      "expected": {
+        "value": "https://optionstrat.com/build/custom/BRK%2FB/-.BRKB250620P480x2@12.34"
+      }
+    },
+    {
+      "id": "parse-optionstrat-url",
+      "api": "url.parse_optionstrat_url",
+      "input": {
+        "url": "https://optionstrat.com/build/custom/SPY/-.SPY250321P580x1@2.45,.SPY250321P560x1@1.10"
+      },
+      "expected": {
+        "underlying_display_symbol": "SPY",
+        "leg_fragments": [
+          "-.SPY250321P580x1@2.45",
+          ".SPY250321P560x1@1.10"
+        ]
+      }
+    },
+    {
+      "id": "parse-optionstrat-url-brk-b",
+      "api": "url.parse_optionstrat_url",
+      "input": {
+        "url": "https://optionstrat.com/build/custom/BRK%2FB/-.BRKB250620P480x2@12.34"
+      },
+      "expected": {
+        "underlying_display_symbol": "BRK.B",
+        "leg_fragments": [
+          "-.BRKB250620P480x2@12.34"
+        ]
+      }
+    },
+    {
+      "id": "from-underlying-path-brk-b",
+      "api": "url.from_optionstrat_underlying_path",
+      "input": {
+        "path": "BRK%2FB"
+      },
+      "expected": {
+        "value": "BRK.B"
+      }
+    },
+    {
+      "id": "parse-optionstrat-leg-fragments",
+      "api": "url.parse_optionstrat_leg_fragments",
+      "input": {
+        "underlying_display_symbol": "SPY",
+        "leg_fragments": [
+          "-.SPY250321P580x1@2.45",
+          ".SPY250321P560x1@1.10"
+        ]
+      },
+      "expected": [
+        {
+          "contract": {
+            "underlying_symbol": "SPY",
+            "expiration_date": "2025-03-21",
+            "strike": 580.0,
+            "option_right": "put",
+            "occ_symbol": "SPY250321P00580000"
+          },
+          "order_side": "sell",
+          "ratio_quantity": 1,
+          "premium_per_contract": 2.45
+        },
+        {
+          "contract": {
+            "underlying_symbol": "SPY",
+            "expiration_date": "2025-03-21",
+            "strike": 560.0,
+            "option_right": "put",
+            "occ_symbol": "SPY250321P00560000"
+          },
+          "order_side": "buy",
+          "ratio_quantity": 1,
+          "premium_per_contract": 1.1
+        }
+      ]
+    },
+    {
+      "id": "parse-optionstrat-leg-fragments-brk-b",
+      "api": "url.parse_optionstrat_leg_fragments",
+      "input": {
+        "underlying_display_symbol": "BRK.B",
+        "leg_fragments": [
+          "-.BRKB250620P480x2@12.34"
+        ]
+      },
+      "expected": [
+        {
+          "contract": {
+            "underlying_symbol": "BRKB",
+            "expiration_date": "2025-06-20",
+            "strike": 480.0,
+            "option_right": "put",
+            "occ_symbol": "BRKB250620P00480000"
+          },
+          "order_side": "sell",
+          "ratio_quantity": 2,
+          "premium_per_contract": 12.34
+        }
+      ]
+    },
+    {
+      "id": "parse-optionstrat-leg-fragments-negative-premium",
+      "api": "url.parse_optionstrat_leg_fragments",
+      "input": {
+        "underlying_display_symbol": "SPY",
+        "leg_fragments": [
+          "-.SPY250321P580x1@-2.45",
+          ".SPY250321P560x1@-1.10"
+        ]
+      },
+      "expected": [
+        {
+          "contract": {
+            "underlying_symbol": "SPY",
+            "expiration_date": "2025-03-21",
+            "strike": 580.0,
+            "option_right": "put",
+            "occ_symbol": "SPY250321P00580000"
+          },
+          "order_side": "sell",
+          "ratio_quantity": 1,
+          "premium_per_contract": 2.45
+        },
+        {
+          "contract": {
+            "underlying_symbol": "SPY",
+            "expiration_date": "2025-03-21",
+            "strike": 560.0,
+            "option_right": "put",
+            "occ_symbol": "SPY250321P00560000"
+          },
+          "order_side": "buy",
+          "ratio_quantity": 1,
+          "premium_per_contract": 1.1
+        }
+      ]
+    },
+    {
+      "id": "build-leg-fragment-short-put",
+      "api": "url.build_optionstrat_leg_fragment",
+      "input": {
+        "occ_symbol": "SPY250321P00580000",
+        "quantity": -1,
+        "premium_per_contract": 2.45
+      },
+      "expected": {
+        "value": "-.SPY250321P580x1@2.45"
+      }
+    },
+    {
+      "id": "build-leg-fragment-invalid",
+      "api": "url.build_optionstrat_leg_fragment",
+      "input": {
+        "occ_symbol": "SPY250321X00580000",
+        "quantity": -1,
+        "premium_per_contract": 2.45
+      },
+      "expected": {
+        "value": null
+      }
+    },
+    {
+      "id": "build-optionstrat-url-brk-b",
+      "api": "url.build_optionstrat_url",
+      "input": {
+        "underlying_display_symbol": "BRK.B",
+        "legs": [
+          {
+            "occ_symbol": "BRKB250620P00480000",
+            "quantity": -2,
+            "premium_per_contract": 12.34
+          }
+        ]
+      },
+      "expected": {
+        "value": "https://optionstrat.com/build/custom/BRK%2FB/-.BRKB250620P480x2@12.34"
+      }
+    },
+    {
+      "id": "build-optionstrat-url-from-positions-empty",
+      "api": "url.build_optionstrat_url",
+      "input": {
+        "underlying_display_symbol": "SPY",
+        "legs": []
+      },
+      "expected": {
+        "value": null
+      }
+    }
+  ]
+}
