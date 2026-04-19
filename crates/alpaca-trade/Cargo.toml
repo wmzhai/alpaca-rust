@@ -14,8 +14,8 @@ keywords = ["alpaca", "trading", "paper-trading", "stocks"]
 categories = ["api-bindings", "asynchronous"]
 
 [dependencies]
-alpaca-core = { path = "../alpaca-core", version = "0.24.6" }
-alpaca-http = { package = "alpaca-rest-http", path = "../alpaca-http", version = "0.24.6" }
+alpaca-core = { path = "../alpaca-core", version = "0.24.7" }
+alpaca-http = { package = "alpaca-rest-http", path = "../alpaca-http", version = "0.24.7" }
 chrono = { workspace = true, features = ["serde"] }
 chrono-tz = "0.10"
 reqwest.workspace = true
@@ -30,8 +30,8 @@ ts-rs = { version = "11.1", features = ["chrono-impl", "serde-json-impl", "serde
 axum.workspace = true
 chrono.workspace = true
 chrono-tz = "0.10"
-alpaca-data = { path = "../alpaca-data", version = "0.24.6" }
-alpaca-mock = { path = "../alpaca-mock", version = "0.24.6" }
+alpaca-data = { path = "../alpaca-data", version = "0.24.7" }
+alpaca-mock = { path = "../alpaca-mock", version = "0.24.7" }
 dotenvy.workspace = true
 fs2 = "0.4"
 reqwest.workspace = true

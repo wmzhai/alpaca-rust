@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.24.7
+
+- Aligned the repository toolchain override with the published workspace floor by changing `rust-toolchain.toml` from `1.95.0` to `1.94.1` and installing `rustfmt` there as well.
+- Rolled the failed `v0.24.6` tag attempt forward into the next patch release so the release workflow can execute from a corrected tagged commit.
+
 ## v0.24.6
 
 - Lowered the library workspace `rust-version` floor from `1.95.0` to `1.94.1` after confirming the published Rust crates still build and pass their key tests on `1.94.1`.

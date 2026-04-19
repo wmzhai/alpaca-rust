@@ -6,7 +6,7 @@ For market data:
 
 ```toml
 [dependencies]
-alpaca-data = "0.24.6"
+alpaca-data = "0.24.7"
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
 ```
 
@@ -14,7 +14,7 @@ For trading:
 
 ```toml
 [dependencies]
-alpaca-trade = "0.24.6"
+alpaca-trade = "0.24.7"
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
 ```
 
@@ -22,21 +22,21 @@ For time and calendar semantics:
 
 ```toml
 [dependencies]
-alpaca-time = "0.24.6"
+alpaca-time = "0.24.7"
 ```
 
 For option semantics:
 
 ```toml
 [dependencies]
-alpaca-option = "0.24.6"
+alpaca-option = "0.24.7"
 ```
 
 For the high-level composition layer:
 
 ```toml
 [dependencies]
-alpaca-facade = "0.24.6"
+alpaca-facade = "0.24.7"
 ```
 
 For the mock server:
