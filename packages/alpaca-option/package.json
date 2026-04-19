@@ -5,7 +5,9 @@
   "type": "module",
   "main": "./src/index.ts",
   "scripts": {
-    "test": "node --import tsx --test ./tests/*.test.ts",
+    "test": "node --import tsx --test ./tests/canonical-models.test.ts ./tests/fixture-metadata-format.test.ts ./tests/numeric-search.test.ts ./tests/package-exports.test.ts ./tests/public-api-boundaries.test.ts ./tests/strategy-payoff.test.ts",
+    "test:fixtures": "node --import tsx --test ./tests/fixtures.test.ts",
+    "test:all": "pnpm test && pnpm test:fixtures",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "exports": {

@@ -3,6 +3,8 @@
   "private": true,
   "scripts": {
     "test:packages": "pnpm --filter @alpaca/time test && pnpm --filter @alpaca/option test",
+    "test:option-fixtures": "cargo test -p alpaca-option --test fixtures -- --include-ignored && pnpm --filter @alpaca/option test:fixtures",
+    "test:packages:full": "pnpm run test:packages && pnpm run test:option-fixtures",
     "typecheck:packages": "pnpm --filter @alpaca/time typecheck && pnpm --filter @alpaca/option typecheck",
     "build:website": "pnpm --dir website build"
   },
