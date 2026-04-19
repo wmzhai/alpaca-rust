@@ -22,7 +22,6 @@ async fn stocks_resource_reads_real_api_endpoints() {
     let service = env.data().expect("data config should exist");
     let client = Client::builder()
         .credentials(service.credentials().clone())
-        .base_url(service.base_url().clone())
         .build()
         .expect("client should build from live service config");
     let stocks = client.stocks();

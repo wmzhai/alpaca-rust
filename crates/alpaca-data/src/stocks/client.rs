@@ -184,8 +184,6 @@ impl StocksClient {
 
 impl fmt::Debug for StocksClient {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("StocksClient")
-            .field("base_url", self.inner.base_url())
-            .finish()
+        f.debug_struct("StocksClient").finish()
     }
 }

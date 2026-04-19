@@ -6,8 +6,7 @@ use alpaca_trade::{
     options_contracts::{ContractStatus, ContractType, ListRequest},
 };
 use live_support::{
-    AlpacaService, LiveHttpProbe, LiveTestEnv, OptionContractType, SampleRecorder,
-    discover_active_option_contract,
+    AlpacaService, LiveTestEnv, OptionContractType, SampleRecorder, discover_active_option_contract,
 };
 
 const UNDERLYING_SYMBOL: &str = "SPY";
@@ -32,16 +31,10 @@ async fn options_contracts_resource_reads_real_contract_list_and_single_contract
         .build()
         .expect("trade client should build from live service config");
     let recorder = SampleRecorder::from_live_env(&env);
-    let probe = LiveHttpProbe::new().expect("live probe should build");
-    let observed = discover_active_option_contract(
-        &probe,
-        data_service,
-        Some(&recorder),
-        UNDERLYING_SYMBOL,
-        200,
-    )
-    .await
-    .expect("a live option contract should be discoverable from real Alpaca data");
+    let observed =
+        discover_active_option_contract(data_service, Some(&recorder), UNDERLYING_SYMBOL, 200)
+            .await
+            .expect("a live option contract should be discoverable from real Alpaca data");
     let contract_type = match observed.contract_type {
         OptionContractType::Call => ContractType::Call,
         OptionContractType::Put => ContractType::Put,

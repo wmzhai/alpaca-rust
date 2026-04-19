@@ -57,7 +57,6 @@ The workspace uses separate environment variables for market data and trading:
 
 Optional overrides:
 
-- `ALPACA_DATA_BASE_URL`
 - `ALPACA_TRADE_BASE_URL`
 - `ALPACA_MOCK_LISTEN_ADDR`
 
@@ -76,7 +75,6 @@ use alpaca_data::Client;
 
 let client = Client::builder()
     .credentials_from_env()?
-    .base_url_from_env()?
     .build()?;
 # Ok::<(), alpaca_data::Error>(())
 ```

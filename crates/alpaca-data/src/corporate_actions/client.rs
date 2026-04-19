@@ -66,8 +66,6 @@ impl CorporateActionsClient {
 
 impl fmt::Debug for CorporateActionsClient {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("CorporateActionsClient")
-            .field("base_url", self.inner.base_url())
-            .finish()
+        f.debug_struct("CorporateActionsClient").finish()
     }
 }

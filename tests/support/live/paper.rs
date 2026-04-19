@@ -1,6 +1,6 @@
 use serde_json::json;
 
-use super::{JsonProbeResponse, LiveHttpProbe, SampleRecorder, ServiceConfig, SupportError};
+use super::{JsonProbeResponse, LiveHttpProbe, SampleRecorder, SupportError, TradeServiceConfig};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PaperClock {
@@ -18,11 +18,11 @@ pub struct PaperSessionState {
 
 pub async fn fetch_paper_clock(
     probe: &LiveHttpProbe,
-    service: &ServiceConfig,
+    service: &TradeServiceConfig,
     recorder: Option<&SampleRecorder>,
 ) -> Result<PaperClock, SupportError> {
     let response = probe
-        .get_json(service, "/v2/clock", Vec::<(String, String)>::new())
+        .get_trade_json(service, "/v2/clock", Vec::<(String, String)>::new())
         .await?;
     maybe_record_clock_sample(recorder, &response)?;
 
@@ -44,13 +44,13 @@ pub async fn fetch_paper_clock(
 
 pub async fn paper_market_session_state(
     probe: &LiveHttpProbe,
-    service: &ServiceConfig,
+    service: &TradeServiceConfig,
     recorder: Option<&SampleRecorder>,
 ) -> Result<PaperSessionState, SupportError> {
     let clock = fetch_paper_clock(probe, service, recorder).await?;
     let trading_day = trading_day_from_timestamp(&clock.timestamp)?;
     let response = probe
-        .get_json(
+        .get_trade_json(
             service,
             "/v2/calendar",
             [("start", trading_day.clone()), ("end", trading_day)],

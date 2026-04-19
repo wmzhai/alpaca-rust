@@ -90,8 +90,12 @@ impl Snapshot {
     #[must_use]
     pub fn timestamp(&self) -> Option<&str> {
         timestamp_parts(
-            self.latest_trade.as_ref().and_then(|trade| trade.t.as_deref()),
-            self.latest_quote.as_ref().and_then(|quote| quote.t.as_deref()),
+            self.latest_trade
+                .as_ref()
+                .and_then(|trade| trade.t.as_deref()),
+            self.latest_quote
+                .as_ref()
+                .and_then(|quote| quote.t.as_deref()),
             self.minute_bar.as_ref().and_then(|bar| bar.t.as_deref()),
             self.daily_bar.as_ref().and_then(|bar| bar.t.as_deref()),
             self.prev_daily_bar

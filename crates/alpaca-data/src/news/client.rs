@@ -62,8 +62,6 @@ impl NewsClient {
 
 impl fmt::Debug for NewsClient {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("NewsClient")
-            .field("base_url", self.inner.base_url())
-            .finish()
+        f.debug_struct("NewsClient").finish()
     }
 }

@@ -4,6 +4,7 @@ use std::fmt;
 pub enum SupportError {
     InvalidConfiguration(String),
     Core(alpaca_core::Error),
+    Data(alpaca_data::Error),
     Http(alpaca_http::Error),
     Io(std::io::Error),
     Json(serde_json::Error),
@@ -14,6 +15,7 @@ impl fmt::Display for SupportError {
         match self {
             Self::InvalidConfiguration(message) => write!(f, "invalid configuration: {message}"),
             Self::Core(error) => write!(f, "{error}"),
+            Self::Data(error) => write!(f, "{error}"),
             Self::Http(error) => write!(f, "{error}"),
             Self::Io(error) => write!(f, "{error}"),
             Self::Json(error) => write!(f, "{error}"),
@@ -26,6 +28,7 @@ impl std::error::Error for SupportError {
         match self {
             Self::InvalidConfiguration(_) => None,
             Self::Core(error) => Some(error),
+            Self::Data(error) => Some(error),
             Self::Http(error) => Some(error),
             Self::Io(error) => Some(error),
             Self::Json(error) => Some(error),
@@ -36,6 +39,12 @@ impl std::error::Error for SupportError {
 impl From<alpaca_core::Error> for SupportError {
     fn from(error: alpaca_core::Error) -> Self {
         Self::Core(error)
+    }
+}
+
+impl From<alpaca_data::Error> for SupportError {
+    fn from(error: alpaca_data::Error) -> Self {
+        Self::Data(error)
     }
 }
 

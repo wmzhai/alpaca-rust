@@ -33,11 +33,8 @@
 - `credentials(...)`
 - `api_key(...)`
 - `secret_key(...)`
-- `base_url(...)`
-- `base_url_str(...)`
 - `credentials_from_env(...)`
 - `credentials_from_env_names(...)`
-- `base_url_from_env(...)`
 - `timeout(...)`
 - `observer(...)`
 - `retry_config(...)`
@@ -132,7 +129,6 @@ Notes:
 
 - `ALPACA_DATA_API_KEY`
 - `ALPACA_DATA_SECRET_KEY`
-- `ALPACA_DATA_BASE_URL`
 
 ## Related Documents
 

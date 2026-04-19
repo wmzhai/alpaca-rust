@@ -31,7 +31,6 @@ use alpaca_data::Client;
 
 let client = Client::builder()
     .credentials_from_env()?
-    .base_url_from_env()?
     .build()?;
 # let _ = client;
 # Ok::<(), alpaca_data::Error>(())

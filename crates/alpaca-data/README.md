@@ -16,7 +16,6 @@ use alpaca_data::Client;
 
 let client = Client::builder()
     .credentials_from_env()?
-    .base_url_from_env()?
     .build()?;
 # let _ = client;
 # Ok::<(), alpaca_data::Error>(())
@@ -87,6 +86,5 @@ let client = Client::builder()
 
 - `ALPACA_DATA_API_KEY`
 - `ALPACA_DATA_SECRET_KEY`
-- `ALPACA_DATA_BASE_URL`
 
 See `docs/reference/alpaca-data.md` and <https://docs.rs/alpaca-data> for the full reference.

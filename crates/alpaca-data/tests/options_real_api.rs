@@ -10,7 +10,7 @@ use alpaca_data::{
     },
 };
 use live_support::{
-    AlpacaService, LiveHttpProbe, LiveTestEnv, OptionContractType, SampleRecorder,
+    AlpacaService, LiveTestEnv, OptionContractType, SampleRecorder,
     discover_active_option_contract, discover_option_contracts, full_day_window_from_timestamp,
 };
 
@@ -25,23 +25,16 @@ async fn options_resource_reads_real_api_endpoints() {
     let service = env.data().expect("data config should exist");
     let client = Client::builder()
         .credentials(service.credentials().clone())
-        .base_url(service.base_url().clone())
         .build()
         .expect("client should build from live service config");
     let options = client.options();
     let recorder = SampleRecorder::from_live_env(&env);
-    let probe = LiveHttpProbe::new().expect("live probe should build");
 
-    let contract = discover_contract(&probe, service, &recorder).await;
-    let nearby_contracts = discover_option_contracts(
-        &probe,
-        service,
-        Some(&recorder),
-        &contract.underlying_symbol,
-        8,
-    )
-    .await
-    .expect("should discover nearby option contracts");
+    let contract = discover_contract(service, &recorder).await;
+    let nearby_contracts =
+        discover_option_contracts(service, Some(&recorder), &contract.underlying_symbol, 8)
+            .await
+            .expect("should discover nearby option contracts");
     let symbols = nearby_contracts
         .iter()
         .take(2)
@@ -217,12 +210,10 @@ async fn options_snapshots_all_absorbs_multi_batch_contract_lists() {
     let service = env.data().expect("data config should exist");
     let client = Client::builder()
         .credentials(service.credentials().clone())
-        .base_url(service.base_url().clone())
         .build()
         .expect("client should build from live service config");
-    let probe = LiveHttpProbe::new().expect("live probe should build");
 
-    let contracts = discover_option_contracts(&probe, service, None, "SPY", 180)
+    let contracts = discover_option_contracts(service, None, "SPY", 180)
         .await
         .expect("should discover a broad SPY contract slice");
     let symbols = contracts
@@ -261,7 +252,6 @@ async fn options_chain_absorbs_brk_b_provider_symbol_rules() {
     let service = env.data().expect("data config should exist");
     let client = Client::builder()
         .credentials(service.credentials().clone())
-        .base_url(service.base_url().clone())
         .build()
         .expect("client should build from live service config");
 
@@ -298,16 +288,14 @@ async fn options_chain_absorbs_brk_b_provider_symbol_rules() {
 }
 
 async fn discover_contract(
-    probe: &LiveHttpProbe,
-    service: &live_support::ServiceConfig,
+    service: &live_support::DataServiceConfig,
     recorder: &SampleRecorder,
 ) -> live_support::ObservedOptionContract {
     let candidates = ["AAPL", "SPY", "QQQ"];
 
     for underlying_symbol in candidates {
         if let Ok(contract) =
-            discover_active_option_contract(probe, service, Some(recorder), underlying_symbol, 32)
-                .await
+            discover_active_option_contract(service, Some(recorder), underlying_symbol, 32).await
             && contract.reference_timestamp.is_some()
         {
             return contract;

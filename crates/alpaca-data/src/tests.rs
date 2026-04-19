@@ -19,7 +19,6 @@ async fn client_foundation_uses_real_data_api() {
     let service = env.data().expect("data config should exist");
     let client = Client::builder()
         .credentials(service.credentials().clone())
-        .base_url(service.base_url().clone())
         .build()
         .expect("client should build from live service config");
     let recorder = SampleRecorder::from_live_env(&env);

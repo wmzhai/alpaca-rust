@@ -18,9 +18,9 @@ Trading:
 
 If requests go to the wrong environment:
 
-- `alpaca-data` reads `ALPACA_DATA_BASE_URL`
 - `alpaca-trade` reads `ALPACA_TRADE_BASE_URL`
 - `alpaca-trade` defaults to paper trading unless you switch to `.live()`
+- `alpaca-data` always targets the production market data endpoint
 
 ## `alpaca-mock` Starts But Orders Fail
 

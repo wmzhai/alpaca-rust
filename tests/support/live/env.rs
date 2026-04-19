@@ -14,10 +14,7 @@ pub const TRADE_API_KEY_ENV: &str = "ALPACA_TRADE_API_KEY";
 pub const TRADE_SECRET_KEY_ENV: &str = "ALPACA_TRADE_SECRET_KEY";
 pub const LEGACY_KEY_ENV: &str = "APCA_API_KEY_ID";
 pub const LEGACY_SECRET_ENV: &str = "APCA_API_SECRET_KEY";
-pub const DATA_BASE_URL_ENV: &str = "ALPACA_DATA_BASE_URL";
-pub const LEGACY_DATA_BASE_URL_ENV: &str = "APCA_API_DATA_URL";
 pub const TRADE_BASE_URL_ENV: &str = "ALPACA_TRADE_BASE_URL";
-pub const DEFAULT_DATA_BASE_URL: &str = "https://data.alpaca.markets";
 pub const DEFAULT_TRADE_BASE_URL: &str = "https://paper-api.alpaca.markets";
 pub const DEFAULT_SAMPLE_ROOT_DIR: &str = ".local/live-samples";
 
@@ -31,12 +28,24 @@ pub enum AlpacaService {
 }
 
 #[derive(Debug, Clone)]
-pub struct ServiceConfig {
+pub struct DataServiceConfig {
+    credentials: Credentials,
+}
+
+impl DataServiceConfig {
+    #[must_use]
+    pub fn credentials(&self) -> &Credentials {
+        &self.credentials
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct TradeServiceConfig {
     credentials: Credentials,
     base_url: BaseUrl,
 }
 
-impl ServiceConfig {
+impl TradeServiceConfig {
     #[must_use]
     pub fn credentials(&self) -> &Credentials {
         &self.credentials
@@ -53,8 +62,8 @@ pub struct LiveTestEnv {
     workspace_root: PathBuf,
     sample_root: PathBuf,
     record_samples: bool,
-    data: Option<ServiceConfig>,
-    trade: Option<ServiceConfig>,
+    data: Option<DataServiceConfig>,
+    trade: Option<TradeServiceConfig>,
 }
 
 impl LiveTestEnv {
@@ -73,16 +82,14 @@ impl LiveTestEnv {
         process_values: HashMap<String, String>,
         dotenv_values: HashMap<String, String>,
     ) -> Result<Self, SupportError> {
-        let data = load_service_config(
+        let data = load_data_service_config(
             &process_values,
             &dotenv_values,
             &[DATA_API_KEY_ENV, LEGACY_KEY_ENV],
             &[DATA_SECRET_KEY_ENV, LEGACY_SECRET_ENV],
-            &[DATA_BASE_URL_ENV, LEGACY_DATA_BASE_URL_ENV],
-            DEFAULT_DATA_BASE_URL,
             "alpaca-data",
         )?;
-        let trade = load_service_config(
+        let trade = load_trade_service_config(
             &process_values,
             &dotenv_values,
             &[TRADE_API_KEY_ENV, LEGACY_KEY_ENV],
@@ -121,26 +128,22 @@ impl LiveTestEnv {
     }
 
     #[must_use]
-    pub fn data(&self) -> Option<&ServiceConfig> {
+    pub fn data(&self) -> Option<&DataServiceConfig> {
         self.data.as_ref()
     }
 
     #[must_use]
-    pub fn trade(&self) -> Option<&ServiceConfig> {
+    pub fn trade(&self) -> Option<&TradeServiceConfig> {
         self.trade.as_ref()
     }
 
     #[must_use]
-    pub fn service(&self, service: AlpacaService) -> Option<&ServiceConfig> {
-        match service {
-            AlpacaService::Data => self.data(),
-            AlpacaService::Trade => self.trade(),
-        }
-    }
-
-    #[must_use]
     pub fn skip_reason_for_service(&self, service: AlpacaService) -> Option<String> {
-        if self.service(service).is_some() {
+        let is_configured = match service {
+            AlpacaService::Data => self.data().is_some(),
+            AlpacaService::Trade => self.trade().is_some(),
+        };
+        if is_configured {
             return None;
         }
 
@@ -222,8 +225,6 @@ fn all_known_env_names() -> Vec<&'static str> {
         TRADE_SECRET_KEY_ENV,
         LEGACY_KEY_ENV,
         LEGACY_SECRET_ENV,
-        DATA_BASE_URL_ENV,
-        LEGACY_DATA_BASE_URL_ENV,
         TRADE_BASE_URL_ENV,
     ]
 }
@@ -238,7 +239,32 @@ fn collect_process_values(names: &[&str]) -> HashMap<String, String> {
         .collect()
 }
 
-fn load_service_config(
+fn load_data_service_config(
+    process_values: &HashMap<String, String>,
+    dotenv_values: &HashMap<String, String>,
+    api_key_names: &[&str],
+    secret_names: &[&str],
+    label: &str,
+) -> Result<Option<DataServiceConfig>, SupportError> {
+    let api_key = select_value(process_values, dotenv_values, api_key_names);
+    let secret_key = select_value(process_values, dotenv_values, secret_names);
+
+    let (api_key, secret_key) = match (api_key, secret_key) {
+        (None, None) => return Ok(None),
+        (Some(api_key), Some(secret_key)) => (api_key, secret_key),
+        _ => {
+            return Err(SupportError::InvalidConfiguration(format!(
+                "{label} credentials must provide both key and secret"
+            )));
+        }
+    };
+
+    Ok(Some(DataServiceConfig {
+        credentials: Credentials::new(api_key, secret_key)?,
+    }))
+}
+
+fn load_trade_service_config(
     process_values: &HashMap<String, String>,
     dotenv_values: &HashMap<String, String>,
     api_key_names: &[&str],
@@ -246,7 +272,7 @@ fn load_service_config(
     base_url_names: &[&str],
     default_base_url: &str,
     label: &str,
-) -> Result<Option<ServiceConfig>, SupportError> {
+) -> Result<Option<TradeServiceConfig>, SupportError> {
     let api_key = select_value(process_values, dotenv_values, api_key_names);
     let secret_key = select_value(process_values, dotenv_values, secret_names);
 
@@ -263,7 +289,7 @@ fn load_service_config(
     let base_url = select_value(process_values, dotenv_values, base_url_names)
         .unwrap_or_else(|| default_base_url.to_owned());
 
-    Ok(Some(ServiceConfig {
+    Ok(Some(TradeServiceConfig {
         credentials: Credentials::new(api_key, secret_key)?,
         base_url: BaseUrl::new(base_url)?,
     }))

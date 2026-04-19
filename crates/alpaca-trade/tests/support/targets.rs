@@ -230,7 +230,6 @@ async fn build_live_paper_harness(env: LiveTestEnv) -> Option<TradeTestHarness> 
         .expect("trade client should build from live service config");
     let data_client = DataClient::builder()
         .credentials(data_service.credentials().clone())
-        .base_url(data_service.base_url().clone())
         .build()
         .expect("data client should build from live service config");
 
@@ -253,7 +252,6 @@ async fn build_mock_harness(env: LiveTestEnv) -> Option<TradeTestHarness> {
     let data_service = env.data().expect("data config should exist").clone();
     let data_client = DataClient::builder()
         .credentials(data_service.credentials().clone())
-        .base_url(data_service.base_url().clone())
         .build()
         .expect("data client should build from live service config");
     let server = spawn_mock_server().await?;

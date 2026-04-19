@@ -1,9 +1,7 @@
 #[path = "../../../tests/support/live/mod.rs"]
 mod live_support;
 
-use live_support::{
-    AlpacaService, LiveHttpProbe, LiveTestEnv, SampleRecorder, discover_active_option_contract,
-};
+use live_support::{AlpacaService, LiveTestEnv, SampleRecorder, discover_active_option_contract};
 
 use alpaca_data::Client as DataClient;
 use alpaca_mock::{DEFAULT_STOCK_SYMBOL, LiveMarketDataBridge};
@@ -20,12 +18,10 @@ async fn market_data_bridge_reads_real_equity_and_option_snapshots() {
     let bridge = LiveMarketDataBridge::new(
         DataClient::builder()
             .credentials(service.credentials().clone())
-            .base_url(service.base_url().clone())
             .build()
             .expect("data client should build from live service config"),
     );
     let recorder = SampleRecorder::from_live_env(&env);
-    let probe = LiveHttpProbe::new().expect("live probe should build");
 
     let equity = bridge
         .equity_snapshot(DEFAULT_STOCK_SYMBOL)
@@ -46,7 +42,7 @@ async fn market_data_bridge_reads_real_equity_and_option_snapshots() {
         .expect("equity snapshot sample should record");
     assert_eq!(equity.asset_class, "us_equity");
 
-    let contract = discover_active_option_contract(&probe, service, Some(&recorder), "SPY", 8)
+    let contract = discover_active_option_contract(service, Some(&recorder), "SPY", 8)
         .await
         .expect("should discover a live option contract");
     let option = bridge

@@ -23,6 +23,7 @@ tokio.workspace = true
 url.workspace = true
 
 [dev-dependencies]
+alpaca-data = { path = "../alpaca-data", version = "0.24.5" }
 dotenvy.workspace = true
 reqwest.workspace = true
 rust_decimal.workspace = true

@@ -18,7 +18,6 @@ async fn news_resource_reads_real_api_endpoint() {
     let service = env.data().expect("data config should exist");
     let client = Client::builder()
         .credentials(service.credentials().clone())
-        .base_url(service.base_url().clone())
         .build()
         .expect("client should build from live service config");
     let news = client.news();

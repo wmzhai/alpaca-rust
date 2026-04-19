@@ -3574,7 +3574,6 @@ async fn build_recovery_test_client() -> Option<(TestServer, MockServerState, Tr
     let data_service = env.data().expect("data service should exist");
     let data_client = DataClient::builder()
         .credentials(data_service.credentials().clone())
-        .base_url(data_service.base_url().clone())
         .build()
         .expect("alpaca-data client should build");
     let state =

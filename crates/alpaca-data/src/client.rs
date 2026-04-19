@@ -16,9 +16,7 @@ use crate::{
 
 pub const DATA_API_KEY_ENV: &str = "ALPACA_DATA_API_KEY";
 pub const DATA_SECRET_KEY_ENV: &str = "ALPACA_DATA_SECRET_KEY";
-pub const DATA_BASE_URL_ENV: &str = "ALPACA_DATA_BASE_URL";
-pub const LEGACY_DATA_BASE_URL_ENV: &str = "APCA_API_DATA_URL";
-pub const DEFAULT_DATA_BASE_URL: &str = "https://data.alpaca.markets";
+const DEFAULT_DATA_BASE_URL: &str = "https://data.alpaca.markets";
 const APCA_API_KEY_HEADER: &str = "APCA-API-KEY-ID";
 const APCA_API_SECRET_HEADER: &str = "APCA-API-SECRET-KEY";
 const DEFAULT_TIMEOUT: Duration = Duration::from_secs(30);
@@ -43,7 +41,6 @@ pub(crate) struct ClientInner {
 pub struct ClientBuilder {
     api_key: Option<String>,
     secret_key: Option<String>,
-    base_url: Option<BaseUrl>,
     timeout: Option<Duration>,
     observer: Option<Arc<dyn TransportObserver>>,
     retry_config: RetryConfig,
@@ -61,15 +58,7 @@ impl Client {
     }
 
     pub fn from_env() -> Result<Self, Error> {
-        Self::builder()
-            .credentials_from_env()?
-            .base_url_from_env()?
-            .build()
-    }
-
-    #[must_use]
-    pub fn base_url(&self) -> &BaseUrl {
-        self.inner.base_url()
+        Self::builder().credentials_from_env()?.build()
     }
 
     #[must_use]
@@ -96,7 +85,6 @@ impl Client {
 impl fmt::Debug for Client {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("Client")
-            .field("base_url", self.inner.base_url())
             .field("http", &"HttpClient")
             .field("auth", &"[REDACTED]")
             .finish()
@@ -106,7 +94,6 @@ impl fmt::Debug for Client {
 impl fmt::Debug for ClientInner {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("ClientInner")
-            .field("base_url", &self.base_url)
             .field("http", &"HttpClient")
             .field("auth", &"[REDACTED]")
             .finish()
@@ -118,7 +105,6 @@ impl fmt::Debug for ClientBuilder {
         f.debug_struct("ClientBuilder")
             .field("api_key", &redacted_option(&self.api_key))
             .field("secret_key", &redacted_option(&self.secret_key))
-            .field("base_url", &self.base_url)
             .field("timeout", &self.timeout)
             .field(
                 "observer",
@@ -150,17 +136,6 @@ impl ClientBuilder {
         self
     }
 
-    #[must_use]
-    pub fn base_url(mut self, base_url: BaseUrl) -> Self {
-        self.base_url = Some(base_url);
-        self
-    }
-
-    pub fn base_url_str(mut self, base_url: impl AsRef<str>) -> Result<Self, Error> {
-        self.base_url = Some(BaseUrl::new(base_url.as_ref())?);
-        Ok(self)
-    }
-
     pub fn credentials_from_env(self) -> Result<Self, Error> {
         self.credentials_from_env_names(DATA_API_KEY_ENV, DATA_SECRET_KEY_ENV)
     }
@@ -176,19 +151,6 @@ impl ClientBuilder {
 
         if let Some(credentials) = env::credentials_from_env()? {
             self = self.credentials(credentials);
-        }
-
-        Ok(self)
-    }
-
-    pub fn base_url_from_env(mut self) -> Result<Self, Error> {
-        if let Some(base_url) = env::base_url_from_env_name(DATA_BASE_URL_ENV)? {
-            self.base_url = Some(base_url);
-            return Ok(self);
-        }
-
-        if let Some(base_url) = env::base_url_from_env_name(LEGACY_DATA_BASE_URL_ENV)? {
-            self.base_url = Some(base_url);
         }
 
         Ok(self)
@@ -229,10 +191,7 @@ impl ClientBuilder {
             }
         };
 
-        let base_url = match self.base_url {
-            Some(base_url) => base_url,
-            None => BaseUrl::new(DEFAULT_DATA_BASE_URL)?,
-        };
+        let base_url = BaseUrl::new(DEFAULT_DATA_BASE_URL)?;
         let auth = StaticHeaderAuthenticator::from_pairs([
             (APCA_API_KEY_HEADER, credentials.api_key()),
             (APCA_API_SECRET_HEADER, credentials.secret_key()),
@@ -307,11 +266,6 @@ impl ClientInner {
             .send_no_content(&self.base_url, request, Some(&self.auth))
             .await
             .map_err(Error::from)
-    }
-
-    #[must_use]
-    pub(crate) fn base_url(&self) -> &BaseUrl {
-        &self.base_url
     }
 }
 

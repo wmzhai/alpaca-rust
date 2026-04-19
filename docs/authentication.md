@@ -6,8 +6,6 @@
 
 - `ALPACA_DATA_API_KEY`
 - `ALPACA_DATA_SECRET_KEY`
-- optional `ALPACA_DATA_BASE_URL`
-- legacy base URL fallback: `APCA_API_DATA_URL`
 
 ## Trading
 
@@ -30,4 +28,4 @@ Optional runtime binding:
 
 - `alpaca_data::Client::from_env()`
 - `alpaca_trade::Client::from_env()`
-- `Client::builder().credentials_from_env()?.base_url_from_env()?`
+- `Client::builder().credentials_from_env()?`

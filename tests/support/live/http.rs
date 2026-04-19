@@ -1,8 +1,9 @@
+use alpaca_core::{BaseUrl, Credentials};
 use alpaca_http::{HttpClient, RequestParts, ResponseMeta, StaticHeaderAuthenticator};
 use reqwest::Method;
 use serde_json::Value;
 
-use super::{ServiceConfig, SupportError};
+use super::{SupportError, TradeServiceConfig};
 
 #[derive(Debug, Clone)]
 pub struct JsonProbeResponse {
@@ -42,9 +43,30 @@ impl LiveHttpProbe {
         Self { client }
     }
 
-    pub async fn get_json<I, K, V>(
+    pub async fn get_trade_json<I, K, V>(
         &self,
-        service: &ServiceConfig,
+        service: &TradeServiceConfig,
+        path: &str,
+        query: I,
+    ) -> Result<JsonProbeResponse, SupportError>
+    where
+        I: IntoIterator<Item = (K, V)>,
+        K: ToString,
+        V: ToString,
+    {
+        self.get_json_with_base_url(
+            service.credentials(),
+            service.base_url().clone(),
+            path,
+            query,
+        )
+        .await
+    }
+
+    async fn get_json_with_base_url<I, K, V>(
+        &self,
+        credentials: &Credentials,
+        base_url: BaseUrl,
         path: &str,
         query: I,
     ) -> Result<JsonProbeResponse, SupportError>
@@ -60,12 +82,12 @@ impl LiveHttpProbe {
                 .collect::<Vec<_>>(),
         );
         let auth = StaticHeaderAuthenticator::from_pairs([
-            ("APCA-API-KEY-ID", service.credentials().api_key()),
-            ("APCA-API-SECRET-KEY", service.credentials().secret_key()),
+            ("APCA-API-KEY-ID", credentials.api_key()),
+            ("APCA-API-SECRET-KEY", credentials.secret_key()),
         ])?;
         let response = self
             .client
-            .send_json::<Value>(service.base_url(), request, Some(&auth))
+            .send_json::<Value>(&base_url, request, Some(&auth))
             .await?;
         let (body, meta) = response.into_parts();
 

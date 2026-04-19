@@ -23,7 +23,6 @@ async fn live_support_real_api_reads_data_and_paper_endpoints() {
     let recorder = SampleRecorder::from_live_env(&env);
 
     let contract = discover_active_option_contract(
-        &probe,
         env.data().expect("data config should exist"),
         Some(&recorder),
         "SPY",
