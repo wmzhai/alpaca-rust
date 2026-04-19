@@ -28,6 +28,7 @@ mod error;
 mod pagination;
 mod symbols;
 
+pub mod cache;
 pub mod corporate_actions;
 pub mod news;
 pub mod options;

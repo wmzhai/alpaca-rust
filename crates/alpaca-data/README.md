@@ -28,6 +28,29 @@ let client = Client::builder()
 - `client.news()`
 - `client.corporate_actions()`
 
+## Raw Cache Convenience
+
+```rust
+use alpaca_data::cache::CachedClient;
+use alpaca_data::Client;
+
+let raw = Client::builder()
+    .credentials_from_env()?
+    .build()?;
+let cache = CachedClient::new(raw);
+# let _ = cache;
+# Ok::<(), alpaca_data::Error>(())
+```
+
+`alpaca_data::cache::CachedClient` is an opt-in convenience facade for:
+
+- cache-first stock snapshots
+- cache-first raw option snapshots
+- explicit stock bar subscriptions
+- explicit refresh / clear operations
+
+It does not own scheduling, business clocks, option-chain enrichment, or IV / Greeks calculations.
+
 ## Main API Surface
 
 ### Stocks
