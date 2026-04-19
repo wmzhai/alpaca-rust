@@ -1,0 +1,23 @@
+[package]
+name = "alpaca-option"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+
+[lib]
+path = "src/lib.rs"
+
+[features]
+default = []
+optworks-ts-export = []
+
+[dependencies]
+alpaca-core = { path = "../alpaca-core" }
+alpaca-time = { path = "../alpaca-time" }
+chrono.workspace = true
+rust_decimal.workspace = true
+serde.workspace = true
+ts-rs.workspace = true
