@@ -3,13 +3,16 @@ use std::sync::Arc;
 
 use alpaca_http::{NoContent, RequestParts};
 use reqwest::Method;
+use serde::Deserialize;
+use rust_decimal::Decimal;
+use rust_decimal::prelude::ToPrimitive;
 use std::collections::HashMap;
 
 use crate::client::ClientInner;
 use crate::positions::{
-    option_qty_map, reconcile_signed_positions, structure_quantity, CloseAllRequest,
-    ClosePositionBody, ClosePositionRequest, ClosePositionResult, DoNotExerciseAccepted,
-    ExercisePositionBody, Position,
+    reconcile_signed_positions, structure_quantity, CloseAllRequest, ClosePositionBody,
+    ClosePositionRequest, ClosePositionResult, DoNotExerciseAccepted, ExercisePositionBody,
+    Position,
 };
 use crate::{Error, positions::request};
 
@@ -34,8 +37,36 @@ impl PositionsClient {
     }
 
     pub async fn option_qty_map(&self) -> Result<HashMap<String, i32>, Error> {
-        let positions = self.list().await?;
-        Ok(option_qty_map(&positions))
+        #[derive(Debug, Deserialize)]
+        struct PositionQtyRow {
+            symbol: String,
+            #[serde(deserialize_with = "alpaca_core::decimal::deserialize_decimal_from_string_or_number")]
+            qty: Decimal,
+        }
+
+        let request =
+            RequestParts::new(Method::GET, "/v2/positions").with_operation("positions.option_qty_map");
+
+        let rows = self
+            .inner
+            .send_json::<Vec<PositionQtyRow>>(request)
+            .await
+            .map(|response| response.into_body())?;
+
+        let mut mapped = HashMap::new();
+        for row in rows {
+            let contract = row.symbol.trim();
+            if contract.len() <= 10 {
+                continue;
+            }
+
+            mapped.insert(
+                contract.to_string(),
+                row.qty.trunc().to_i32().unwrap_or(0),
+            );
+        }
+
+        Ok(mapped)
     }
 
     pub async fn structure_quantity<'a>(

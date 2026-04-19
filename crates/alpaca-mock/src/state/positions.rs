@@ -384,6 +384,42 @@ pub(crate) fn project_position(
     }
 }
 
+pub(crate) fn project_position_without_market(position: &InstrumentPosition) -> ProjectedPosition {
+    let qty = position.net_qty;
+    let avg_entry_price = position.avg_entry_price();
+    let current_price = avg_entry_price;
+    let lastday_price = avg_entry_price;
+    let market_value = (position.net_qty * current_price).round_dp(8);
+    let cost_basis = (position.net_qty * avg_entry_price).round_dp(8);
+    let unrealized_pl = Decimal::ZERO;
+    let unrealized_plpc = Decimal::ZERO;
+    let change_today = Decimal::ZERO;
+    let side = if position.net_qty >= Decimal::ZERO {
+        PositionSide::Long
+    } else {
+        PositionSide::Short
+    };
+
+    ProjectedPosition {
+        asset_id: position.instrument_identity.asset_id.clone(),
+        symbol: position.instrument_identity.symbol.clone(),
+        exchange: position.instrument_identity.exchange.clone(),
+        asset_class: position.instrument_identity.asset_class.clone(),
+        asset_marginable: position.instrument_identity.asset_marginable,
+        qty,
+        avg_entry_price,
+        side: side.as_str().to_owned(),
+        market_value,
+        cost_basis,
+        unrealized_pl,
+        unrealized_plpc,
+        current_price,
+        lastday_price,
+        change_today,
+        qty_available: qty.abs(),
+    }
+}
+
 fn ratio_or_zero(numerator: Decimal, denominator: Decimal) -> Decimal {
     if denominator == Decimal::ZERO {
         Decimal::ZERO

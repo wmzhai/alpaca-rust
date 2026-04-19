@@ -896,15 +896,14 @@ impl MockServerState {
                 .unwrap_or_default()
         };
 
-        let mut projected = Vec::with_capacity(open_positions.len());
-        for position in open_positions {
-            let snapshot = self
-                .instrument_snapshot(&position.instrument_identity.symbol)
-                .await?;
-            projected.push(public_position_from_projection(project_position(
-                &position, &snapshot,
-            )));
-        }
+        let mut projected = open_positions
+            .into_iter()
+            .map(|position| {
+                public_position_from_projection(positions::project_position_without_market(
+                    &position,
+                ))
+            })
+            .collect::<Vec<_>>();
         projected.sort_by(|left, right| left.symbol.cmp(&right.symbol));
 
         Ok(projected)
