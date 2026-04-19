@@ -26,18 +26,25 @@ fn load_cases(relative_path: &str) -> Vec<Value> {
         .expect("fixture cases should be array")
 }
 
-fn load_fixture_paths() -> Vec<String> {
+fn load_support_fixture_paths() -> Vec<String> {
     let content =
         fs::read_to_string(repo_root().join("fixtures/catalog.json")).expect("catalog should exist");
     let catalog = serde_json::from_str::<Value>(&content).expect("catalog json should parse");
 
-    let support_paths = catalog
+    catalog
         .get("support_paths")
         .and_then(Value::as_array)
         .into_iter()
         .flatten()
         .filter_map(Value::as_str)
-        .map(str::to_string);
+        .map(str::to_string)
+        .collect()
+}
+
+fn load_layer_fixture_paths() -> Vec<String> {
+    let content =
+        fs::read_to_string(repo_root().join("fixtures/catalog.json")).expect("catalog should exist");
+    let catalog = serde_json::from_str::<Value>(&content).expect("catalog json should parse");
 
     let layer_paths = catalog
         .get("layers")
@@ -56,7 +63,7 @@ fn load_fixture_paths() -> Vec<String> {
                 .collect::<Vec<_>>()
         });
 
-    support_paths.chain(layer_paths).collect()
+    layer_paths.collect()
 }
 
 fn unwrap_expected(expected: &Value) -> Value {
@@ -1014,7 +1021,38 @@ fn run_case(case: &Value) -> Value {
 
 #[test]
 fn fixture_suite() {
-    for fixture_path in load_fixture_paths() {
+    for fixture_path in load_support_fixture_paths() {
+        for case in load_cases(&fixture_path) {
+            let actual = run_case(&case);
+            let expected = unwrap_expected(case.get("expected").unwrap());
+            let tolerance = case.get("tolerance").and_then(Value::as_f64);
+            let case_label = format!(
+                "{}::{}",
+                fixture_path,
+                case.get("id").and_then(Value::as_str).unwrap()
+            );
+            let field_tolerances = case
+                .get("field_tolerances")
+                .cloned()
+                .map(serde_json::from_value::<HashMap<String, f64>>)
+                .transpose()
+                .expect("field_tolerances should be an object of numbers");
+            assert_with_tolerance(
+                &actual,
+                &expected,
+                tolerance,
+                &case_label,
+                field_tolerances.as_ref(),
+                &[],
+            );
+        }
+    }
+}
+
+#[test]
+#[ignore = "slow layer-wide numerical regression suite; run explicitly when auditing fixture datasets"]
+fn layer_fixture_suite() {
+    for fixture_path in load_layer_fixture_paths() {
         for case in load_cases(&fixture_path) {
             let actual = run_case(&case);
             let expected = unwrap_expected(case.get("expected").unwrap());

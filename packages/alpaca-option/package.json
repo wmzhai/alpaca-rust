@@ -4,6 +4,10 @@
   "version": "1.10.4",
   "type": "module",
   "main": "./src/index.ts",
+  "scripts": {
+    "test": "node --import tsx --test ./tests/*.test.ts",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
   "exports": {
     ".": "./src/index.ts",
     "./math/american": "./src/math/american.ts",

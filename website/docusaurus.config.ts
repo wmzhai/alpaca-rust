@@ -37,6 +37,22 @@ const config: Config = {
       } satisfies Preset.Options,
     ],
   ],
+  plugins: [
+    function disableBrokenWebpackBarPlugin() {
+      return {
+        name: 'disable-broken-webpackbar-plugin',
+        configureWebpack(webpackConfig: {plugins?: unknown[]}) {
+          if (Array.isArray(webpackConfig.plugins)) {
+            webpackConfig.plugins = webpackConfig.plugins.filter(
+              (plugin) => plugin?.constructor?.name !== 'WebpackBarPlugin',
+            );
+          }
+
+          return {};
+        },
+      };
+    },
+  ],
   themeConfig: {
     image: 'img/social-card.svg',
     navbar: {
