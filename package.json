@@ -1,0 +1,9 @@
+{
+  "name": "alpaca-rust-workspace",
+  "private": true,
+  "packageManager": "pnpm@10.32.1",
+  "workspaces": [
+    "packages/*",
+    "website"
+  ]
+}
