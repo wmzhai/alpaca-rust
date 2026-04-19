@@ -14,7 +14,7 @@ keywords = ["alpaca", "http", "sdk", "transport"]
 categories = ["api-bindings", "asynchronous"]
 
 [dependencies]
-alpaca-core = { path = "../alpaca-core", version = "0.24.8" }
+alpaca-core = { path = "../alpaca-core", version = "0.24.9" }
 reqwest.workspace = true
 serde.workspace = true
 serde_json.workspace = true

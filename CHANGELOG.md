@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.24.9
+
+- Verified the CI release path after the 0.24.8 manual bootstrap by publishing the full Rust workspace from the tag-driven GitHub Actions workflow.
+- Kept the release path focused on documentation generation, site publication, and crate publication rather than full Rust test execution.
+- Rolled the manual 0.24.8 bootstrap forward into the next patch release so the first Trusted Publishing run can ship from a clean version line.
+
 ## v0.24.8
 
 - Removed publish-time version pins from cross-crate `dev-dependencies` so release packaging no longer forms a registry cycle between `alpaca-rest-http`, `alpaca-data`, `alpaca-trade`, and `alpaca-mock`.

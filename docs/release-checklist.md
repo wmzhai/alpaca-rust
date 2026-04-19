@@ -4,8 +4,8 @@ This checklist defines the public release bar for `alpaca-rust`.
 
 ## Current Release Baseline
 
-- The current published release line is `v0.24.4`
-- The next minimal patch release should be `v0.24.8`
+- The current published release line is `v0.24.8`
+- The next minimal patch release should be `v0.24.9`
 - `.github/workflows/github-pages.yml` is the only release workflow
 - The release workflow triggers only on semantic version tags matching `v*.*.*`
 - crates.io Trusted Publishing must remain configured for all published Rust crates:
@@ -48,14 +48,14 @@ performs staged dry-runs inside the dependency-ordered publish loop.
 
 ## Minimal Patch Release Flow
 
-Use this flow for the next patch release, for example `v0.24.8`.
+Use this flow for the next patch release, for example `v0.24.9`.
 
 1. Update the release metadata on `master`
    - bump `[workspace.package].version` in `Cargo.toml`
    - bump all in-workspace dependency version pins in crate `Cargo.toml` files
    - bump the website package version in `website/package.json`
    - update versioned install snippets in `docs/getting-started.md` and `docs/installation.md`
-   - add a non-empty `## v0.24.8` section to `CHANGELOG.md`
+   - add a non-empty `## v0.24.9` section to `CHANGELOG.md`
    - ensure the three-layer crate list is consistent across `README.md`, `docs/`, generated docs metadata, and the website
    - regenerate docs metadata with `python3 tools/docs/generate-doc-site`
 
@@ -77,15 +77,15 @@ cargo publish --dry-run --locked --allow-dirty --no-verify -p alpaca-time
 
 ```bash
 git add Cargo.toml crates docs website CHANGELOG.md .github/workflows/github-pages.yml memory AGENTS.md design.md
-git commit -m "chore: prepare v0.24.8 release (v0.24.8)"
+git commit -m "chore: prepare v0.24.9 release (v0.24.9)"
 git push origin master
 ```
 
 4. Create and push the tag
 
 ```bash
-git tag v0.24.8
-git push origin v0.24.8
+git tag v0.24.9
+git push origin v0.24.9
 ```
 
 5. Watch the release workflow
@@ -98,15 +98,15 @@ gh run watch <run-id> --interval 10 --exit-status
 6. Verify the published artifacts
 
 ```bash
-gh release view v0.24.8 --json name,tagName,url --jq '.'
-curl -fsS https://crates.io/api/v1/crates/alpaca-core/0.24.8 >/dev/null
-curl -fsS https://crates.io/api/v1/crates/alpaca-rest-http/0.24.8 >/dev/null
-curl -fsS https://crates.io/api/v1/crates/alpaca-data/0.24.8 >/dev/null
-curl -fsS https://crates.io/api/v1/crates/alpaca-trade/0.24.8 >/dev/null
-curl -fsS https://crates.io/api/v1/crates/alpaca-mock/0.24.8 >/dev/null
-curl -fsS https://crates.io/api/v1/crates/alpaca-time/0.24.8 >/dev/null
-curl -fsS https://crates.io/api/v1/crates/alpaca-option/0.24.8 >/dev/null
-curl -fsS https://crates.io/api/v1/crates/alpaca-facade/0.24.8 >/dev/null
+gh release view v0.24.9 --json name,tagName,url --jq '.'
+curl -fsS https://crates.io/api/v1/crates/alpaca-core/0.24.9 >/dev/null
+curl -fsS https://crates.io/api/v1/crates/alpaca-rest-http/0.24.9 >/dev/null
+curl -fsS https://crates.io/api/v1/crates/alpaca-data/0.24.9 >/dev/null
+curl -fsS https://crates.io/api/v1/crates/alpaca-trade/0.24.9 >/dev/null
+curl -fsS https://crates.io/api/v1/crates/alpaca-mock/0.24.9 >/dev/null
+curl -fsS https://crates.io/api/v1/crates/alpaca-time/0.24.9 >/dev/null
+curl -fsS https://crates.io/api/v1/crates/alpaca-option/0.24.9 >/dev/null
+curl -fsS https://crates.io/api/v1/crates/alpaca-facade/0.24.9 >/dev/null
 curl -I -L https://wmzhai.github.io/alpaca-rust/
 ```
 
