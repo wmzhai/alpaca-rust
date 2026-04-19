@@ -2,6 +2,8 @@ use rust_decimal::Decimal;
 
 use alpaca_trade::orders::{OrderSide, PositionIntent};
 
+use super::market_data::InstrumentSnapshot;
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct ExecutionFact {
     pub(crate) sequence: u64,
@@ -13,6 +15,7 @@ pub(crate) struct ExecutionFact {
     pub(crate) position_intent: Option<PositionIntent>,
     pub(crate) qty: Decimal,
     pub(crate) price: Decimal,
+    pub(crate) market_snapshot: Option<InstrumentSnapshot>,
     pub(crate) occurred_at: String,
 }
 
@@ -28,6 +31,7 @@ impl ExecutionFact {
         position_intent: Option<PositionIntent>,
         qty: Decimal,
         price: Decimal,
+        market_snapshot: Option<InstrumentSnapshot>,
         occurred_at: String,
     ) -> Self {
         Self {
@@ -40,6 +44,7 @@ impl ExecutionFact {
             position_intent,
             qty,
             price,
+            market_snapshot,
             occurred_at,
         }
     }

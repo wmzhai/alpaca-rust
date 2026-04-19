@@ -406,7 +406,7 @@ impl MockServerState {
                 request_side: request_side.clone(),
             },
         );
-        record_create_effects(account, &order, &request_side);
+        record_create_effects(account, &order, &request_side, &market_quotes);
 
         Ok(order)
     }
@@ -780,7 +780,7 @@ impl MockServerState {
             Decimal::ZERO,
         );
         account.activities.push(replaced_event);
-        record_post_replace_effects(account, &replacement, &request_side);
+        record_post_replace_effects(account, &replacement, &request_side, &market_quotes);
 
         Ok(replacement)
     }
@@ -930,9 +930,12 @@ impl MockServerState {
                     MockStateError::NotFound(format!("position {symbol_or_asset_id} was not found"))
                 })?
         };
-        let snapshot = self
-            .instrument_snapshot(&position.instrument_identity.symbol)
-            .await?;
+        let snapshot = if let Some(snapshot) = position.market_snapshot.clone() {
+            snapshot
+        } else {
+            self.instrument_snapshot(&position.instrument_identity.symbol)
+                .await?
+        };
 
         Ok(public_position_from_projection(project_position(
             &position, &snapshot,
@@ -961,9 +964,12 @@ impl MockServerState {
                     MockStateError::NotFound(format!("position {symbol_or_asset_id} was not found"))
                 })?
         };
-        let snapshot = self
-            .instrument_snapshot(&position.instrument_identity.symbol)
-            .await?;
+        let snapshot = if let Some(snapshot) = position.market_snapshot.clone() {
+            snapshot
+        } else {
+            self.instrument_snapshot(&position.instrument_identity.symbol)
+                .await?
+        };
         let close_qty = resolve_close_qty(&position, &input)?;
         let request_side = if position.net_qty > Decimal::ZERO {
             OrderSide::Sell
@@ -1032,7 +1038,9 @@ impl MockServerState {
                 request_side: request_side.clone(),
             },
         );
-        apply_fill_effects(account, &order, &request_side);
+        let market_quotes =
+            HashMap::from([(position.instrument_identity.symbol.clone(), snapshot.clone())]);
+        apply_fill_effects(account, &order, &request_side, Some(&market_quotes));
 
         Ok(ClosePositionBody::from(order))
     }
@@ -1155,6 +1163,7 @@ impl MockServerState {
             Some(PositionIntent::SellToClose),
             option_qty,
             Decimal::ZERO,
+            position.market_snapshot.clone(),
             now.clone(),
         );
         let (underlying_side, position_intent) = match parsed.contract_type {
@@ -1171,6 +1180,7 @@ impl MockServerState {
             position_intent,
             share_qty,
             parsed.strike_price,
+            Some(InstrumentSnapshot::equity(parsed.strike_price, parsed.strike_price)),
             now.clone(),
         );
         account
@@ -1504,9 +1514,10 @@ fn record_create_effects(
     account: &mut VirtualAccountState,
     order: &Order,
     request_side: &OrderSide,
+    market_quotes: &HashMap<String, InstrumentSnapshot>,
 ) {
     if order.status == OrderStatus::Filled {
-        apply_fill_effects(account, order, request_side);
+        apply_fill_effects(account, order, request_side, Some(market_quotes));
     } else {
         let sequence = account.next_sequence();
         account.activities.push(ActivityEvent::new(
@@ -1528,9 +1539,10 @@ fn record_post_replace_effects(
     account: &mut VirtualAccountState,
     order: &Order,
     request_side: &OrderSide,
+    market_quotes: &HashMap<String, InstrumentSnapshot>,
 ) {
     if order.status == OrderStatus::Filled {
-        apply_fill_effects(account, order, request_side);
+        apply_fill_effects(account, order, request_side, Some(market_quotes));
     } else {
         let sequence = account.next_sequence();
         account.activities.push(ActivityEvent::new(
@@ -1548,7 +1560,12 @@ fn record_post_replace_effects(
     }
 }
 
-fn apply_fill_effects(account: &mut VirtualAccountState, order: &Order, request_side: &OrderSide) {
+fn apply_fill_effects(
+    account: &mut VirtualAccountState,
+    order: &Order,
+    request_side: &OrderSide,
+    market_quotes: Option<&HashMap<String, InstrumentSnapshot>>,
+) {
     let price = order
         .filled_avg_price
         .expect("filled mock order should always have filled_avg_price");
@@ -1559,7 +1576,8 @@ fn apply_fill_effects(account: &mut VirtualAccountState, order: &Order, request_
         .filled_at
         .clone()
         .unwrap_or_else(|| order.updated_at.clone());
-    let executions = execution_facts_from_order(account, order, request_side, &occurred_at);
+    let executions =
+        execution_facts_from_order(account, order, request_side, market_quotes, &occurred_at);
     for execution in executions {
         account.positions.apply_execution(&execution);
         account.executions.push(execution);
@@ -1598,6 +1616,7 @@ fn execution_facts_from_order(
     account: &mut VirtualAccountState,
     order: &Order,
     request_side: &OrderSide,
+    market_quotes: Option<&HashMap<String, InstrumentSnapshot>>,
     occurred_at: &str,
 ) -> Vec<ExecutionFact> {
     if order.order_class == OrderClass::Mleg {
@@ -1617,6 +1636,7 @@ fn execution_facts_from_order(
                             leg.position_intent.clone(),
                             leg.filled_qty,
                             leg.filled_avg_price.unwrap_or(Decimal::ZERO),
+                            market_quotes.and_then(|quotes| quotes.get(&leg.symbol).cloned()),
                             leg.filled_at
                                 .clone()
                                 .unwrap_or_else(|| occurred_at.to_owned()),
@@ -1637,6 +1657,7 @@ fn execution_facts_from_order(
         order.position_intent.clone(),
         order.filled_qty,
         order.filled_avg_price.unwrap_or(Decimal::ZERO),
+        market_quotes.and_then(|quotes| quotes.get(&order.symbol).cloned()),
         occurred_at.to_owned(),
     )]
 }
@@ -2600,7 +2621,7 @@ mod tests {
         assert_eq!(order.status, OrderStatus::Filled);
 
         let mut account = VirtualAccountState::new("mock-key");
-        apply_fill_effects(&mut account, &order, &OrderSide::Buy);
+        apply_fill_effects(&mut account, &order, &OrderSide::Buy, Some(&market_quotes));
 
         let positions = account.positions.list_open_positions();
         let short_position = positions
@@ -2617,6 +2638,62 @@ mod tests {
         assert_eq!(short_position.net_qty, Decimal::new(-4, 0));
         assert_eq!(projected.qty, Decimal::new(-4, 0));
         assert_eq!(projected.side, "short");
+    }
+
+    #[tokio::test]
+    async fn positions_reuse_frozen_snapshots_without_followup_market_fetches() {
+        let state = MockServerState::new().with_market_snapshot("AAPL", equity_snapshot());
+        let order = state
+            .create_order(
+                "mock-key",
+                CreateOrderInput {
+                    symbol: Some("AAPL".to_owned()),
+                    qty: Some(Decimal::ONE),
+                    side: Some(OrderSide::Buy),
+                    order_type: Some(OrderType::Market),
+                    ..CreateOrderInput::default()
+                },
+            )
+            .await
+            .expect("mock market order should fill");
+        assert_eq!(order.status, OrderStatus::Filled);
+
+        state
+            .inner
+            .market_data_overrides
+            .write()
+            .expect("market data overrides lock should not poison")
+            .clear();
+
+        let listed = state
+            .list_positions("mock-key")
+            .await
+            .expect("list_positions should use stored snapshots");
+        assert_eq!(listed.len(), 1);
+        assert_eq!(listed[0].current_price, equity_snapshot().mid_price());
+        assert_eq!(
+            listed[0].lastday_price,
+            equity_snapshot()
+                .previous_close
+                .expect("equity snapshot should include previous close")
+        );
+
+        let fetched = state
+            .get_position("mock-key", "AAPL")
+            .await
+            .expect("get_position should use stored snapshots");
+        assert_eq!(fetched.current_price, equity_snapshot().mid_price());
+
+        let closed = state
+            .close_position("mock-key", "AAPL", ClosePositionInput::default())
+            .await
+            .expect("close_position should use stored snapshots");
+        assert_eq!(
+            closed
+                .filled_avg_price
+                .expect("mock close should set filled_avg_price"),
+            equity_snapshot().mid_price()
+        );
     }
 }
 

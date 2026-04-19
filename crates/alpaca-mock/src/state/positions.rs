@@ -75,6 +75,7 @@ pub(crate) struct InstrumentPosition {
     pub(crate) instrument_identity: InstrumentIdentity,
     pub(crate) open_lots: Vec<OpenLot>,
     pub(crate) net_qty: Decimal,
+    pub(crate) market_snapshot: Option<InstrumentSnapshot>,
     pub(crate) last_update_at: String,
 }
 
@@ -84,6 +85,7 @@ impl InstrumentPosition {
             instrument_identity: InstrumentIdentity::new(asset_id, symbol, asset_class),
             open_lots: Vec::new(),
             net_qty: Decimal::ZERO,
+            market_snapshot: None,
             last_update_at: String::new(),
         }
     }
@@ -95,7 +97,13 @@ impl InstrumentPosition {
             .unwrap_or(Decimal::ZERO)
     }
 
-    fn open_long(&mut self, qty: Decimal, price: Decimal, occurred_at: &str) {
+    fn open_long(
+        &mut self,
+        qty: Decimal,
+        price: Decimal,
+        market_snapshot: Option<&InstrumentSnapshot>,
+        occurred_at: &str,
+    ) {
         if qty <= Decimal::ZERO {
             return;
         }
@@ -118,6 +126,7 @@ impl InstrumentPosition {
             opened_at: occurred_at.to_owned(),
         }];
         self.net_qty = next_qty;
+        self.market_snapshot = market_snapshot.cloned();
         self.last_update_at = occurred_at.to_owned();
     }
 
@@ -143,7 +152,13 @@ impl InstrumentPosition {
         self.last_update_at = occurred_at.to_owned();
     }
 
-    fn open_short(&mut self, qty: Decimal, price: Decimal, occurred_at: &str) {
+    fn open_short(
+        &mut self,
+        qty: Decimal,
+        price: Decimal,
+        market_snapshot: Option<&InstrumentSnapshot>,
+        occurred_at: &str,
+    ) {
         if qty <= Decimal::ZERO {
             return;
         }
@@ -166,6 +181,7 @@ impl InstrumentPosition {
             opened_at: occurred_at.to_owned(),
         }];
         self.net_qty = -next_qty;
+        self.market_snapshot = market_snapshot.cloned();
         self.last_update_at = occurred_at.to_owned();
     }
 
@@ -215,13 +231,23 @@ impl PositionBook {
 
             match execution.position_intent {
                 Some(PositionIntent::BuyToOpen) => {
-                    position.open_long(execution.qty, execution.price, &execution.occurred_at)
+                    position.open_long(
+                        execution.qty,
+                        execution.price,
+                        execution.market_snapshot.as_ref(),
+                        &execution.occurred_at,
+                    )
                 }
                 Some(PositionIntent::SellToClose) => {
                     position.close_long(execution.qty, &execution.occurred_at)
                 }
                 Some(PositionIntent::SellToOpen) => {
-                    position.open_short(execution.qty, execution.price, &execution.occurred_at)
+                    position.open_short(
+                        execution.qty,
+                        execution.price,
+                        execution.market_snapshot.as_ref(),
+                        &execution.occurred_at,
+                    )
                 }
                 Some(PositionIntent::BuyToClose) => {
                     position.close_short(execution.qty, &execution.occurred_at)
@@ -232,11 +258,17 @@ impl PositionBook {
                             let cover_qty = execution.qty.min(-position.net_qty);
                             position.close_short(cover_qty, &execution.occurred_at);
                             let open_qty = execution.qty - cover_qty;
-                            position.open_long(open_qty, execution.price, &execution.occurred_at);
+                            position.open_long(
+                                open_qty,
+                                execution.price,
+                                execution.market_snapshot.as_ref(),
+                                &execution.occurred_at,
+                            );
                         } else {
                             position.open_long(
                                 execution.qty,
                                 execution.price,
+                                execution.market_snapshot.as_ref(),
                                 &execution.occurred_at,
                             );
                         }
@@ -246,11 +278,17 @@ impl PositionBook {
                             let close_qty = execution.qty.min(position.net_qty);
                             position.close_long(close_qty, &execution.occurred_at);
                             let open_qty = execution.qty - close_qty;
-                            position.open_short(open_qty, execution.price, &execution.occurred_at);
+                            position.open_short(
+                                open_qty,
+                                execution.price,
+                                execution.market_snapshot.as_ref(),
+                                &execution.occurred_at,
+                            );
                         } else {
                             position.open_short(
                                 execution.qty,
                                 execution.price,
+                                execution.market_snapshot.as_ref(),
                                 &execution.occurred_at,
                             );
                         }
@@ -385,6 +423,10 @@ pub(crate) fn project_position(
 }
 
 pub(crate) fn project_position_without_market(position: &InstrumentPosition) -> ProjectedPosition {
+    if let Some(snapshot) = position.market_snapshot.as_ref() {
+        return project_position(position, snapshot);
+    }
+
     let qty = position.net_qty;
     let avg_entry_price = position.avg_entry_price();
     let current_price = avg_entry_price;
