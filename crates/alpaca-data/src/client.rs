@@ -21,6 +21,11 @@ pub const LEGACY_DATA_BASE_URL_ENV: &str = "APCA_API_DATA_URL";
 pub const DEFAULT_DATA_BASE_URL: &str = "https://data.alpaca.markets";
 const APCA_API_KEY_HEADER: &str = "APCA-API-KEY-ID";
 const APCA_API_SECRET_HEADER: &str = "APCA-API-SECRET-KEY";
+const DEFAULT_TIMEOUT: Duration = Duration::from_secs(30);
+const DEFAULT_MAX_IN_FLIGHT: usize = 50;
+const DEFAULT_POOL_MAX_IDLE_PER_HOST: usize = 50;
+const DEFAULT_POOL_IDLE_TIMEOUT: Duration = Duration::from_secs(90);
+const DEFAULT_TCP_KEEPALIVE: Duration = Duration::from_secs(60);
 
 #[derive(Clone)]
 pub struct Client {
@@ -40,7 +45,6 @@ pub struct ClientBuilder {
     secret_key: Option<String>,
     base_url: Option<BaseUrl>,
     timeout: Option<Duration>,
-    reqwest_client: Option<reqwest::Client>,
     observer: Option<Arc<dyn TransportObserver>>,
     retry_config: RetryConfig,
     max_in_flight: Option<usize>,
@@ -116,10 +120,6 @@ impl fmt::Debug for ClientBuilder {
             .field("secret_key", &redacted_option(&self.secret_key))
             .field("base_url", &self.base_url)
             .field("timeout", &self.timeout)
-            .field(
-                "reqwest_client",
-                &self.reqwest_client.as_ref().map(|_| "reqwest::Client"),
-            )
             .field(
                 "observer",
                 &self.observer.as_ref().map(|_| "TransportObserver"),
@@ -201,12 +201,6 @@ impl ClientBuilder {
     }
 
     #[must_use]
-    pub fn reqwest_client(mut self, reqwest_client: reqwest::Client) -> Self {
-        self.reqwest_client = Some(reqwest_client);
-        self
-    }
-
-    #[must_use]
     pub fn observer(mut self, observer: Arc<dyn TransportObserver>) -> Self {
         self.observer = Some(observer);
         self
@@ -225,12 +219,6 @@ impl ClientBuilder {
     }
 
     pub fn build(self) -> Result<Client, Error> {
-        if self.reqwest_client.is_some() && self.timeout.is_some() {
-            return Err(Error::InvalidConfiguration(
-                "reqwest_client owns timeout configuration; remove timeout(...) or configure timeout on the injected reqwest::Client".to_owned(),
-            ));
-        }
-
         let credentials = match (self.api_key, self.secret_key) {
             (Some(api_key), Some(secret_key)) => Credentials::new(api_key, secret_key)?,
             (None, None) => return Err(Error::MissingCredentials),
@@ -250,20 +238,18 @@ impl ClientBuilder {
             (APCA_API_SECRET_HEADER, credentials.secret_key()),
         ])?;
 
-        let mut http_builder = HttpClient::builder().retry_config(self.retry_config);
-        if let Some(timeout) = self.timeout {
-            http_builder = http_builder.timeout(timeout);
-        }
-        if let Some(reqwest_client) = self.reqwest_client {
-            http_builder = http_builder.reqwest_client(reqwest_client);
-        }
+        let timeout = self.timeout.unwrap_or(DEFAULT_TIMEOUT);
+        let reqwest_client = Self::build_reqwest_client(timeout)?;
+
+        let mut http_builder = HttpClient::builder()
+            .retry_config(self.retry_config)
+            .reqwest_client(reqwest_client);
         if let Some(observer) = self.observer {
             http_builder = http_builder.observer(observer);
         }
-        if let Some(max_in_flight) = self.max_in_flight {
-            http_builder =
-                http_builder.concurrency_limit(ConcurrencyLimit::new(Some(max_in_flight)));
-        }
+        http_builder = http_builder.concurrency_limit(ConcurrencyLimit::new(Some(
+            self.max_in_flight.unwrap_or(DEFAULT_MAX_IN_FLIGHT),
+        )));
 
         let http = http_builder.build()?;
 
@@ -274,6 +260,18 @@ impl ClientBuilder {
                 base_url,
             }),
         })
+    }
+
+    fn build_reqwest_client(timeout: Duration) -> Result<reqwest::Client, Error> {
+        reqwest::Client::builder()
+            .no_proxy()
+            .pool_max_idle_per_host(DEFAULT_POOL_MAX_IDLE_PER_HOST)
+            .pool_idle_timeout(DEFAULT_POOL_IDLE_TIMEOUT)
+            .tcp_keepalive(DEFAULT_TCP_KEEPALIVE)
+            .timeout(timeout)
+            .http1_only()
+            .build()
+            .map_err(|error| alpaca_http::Error::from_reqwest(error, None).into())
     }
 }
 

@@ -39,7 +39,6 @@
 - `credentials_from_env_names(...)`
 - `base_url_from_env(...)`
 - `timeout(...)`
-- `reqwest_client(...)`
 - `observer(...)`
 - `retry_config(...)`
 - `max_in_flight(...)`
