@@ -114,6 +114,29 @@ async fn trade_mainline_lifecycle_scenario(harness: &TradeTestHarness) {
     let opened_position = wait_for_position(harness, MAINLINE_SYMBOL).await;
     assert_eq!(opened_position.symbol, MAINLINE_SYMBOL);
     assert_eq!(opened_position.qty, opened.filled_qty);
+    let listed_positions = harness
+        .trade_client()
+        .positions()
+        .list()
+        .await
+        .expect("positions list should expose the opened position");
+    assert!(listed_positions.iter().any(|position| {
+        position.symbol == MAINLINE_SYMBOL && position.asset_id == opened_position.asset_id
+    }));
+    let position_by_symbol = harness
+        .trade_client()
+        .positions()
+        .get(MAINLINE_SYMBOL)
+        .await
+        .expect("position get by symbol should succeed during the lifecycle");
+    let position_by_asset_id = harness
+        .trade_client()
+        .positions()
+        .get(&opened_position.asset_id)
+        .await
+        .expect("position get by asset id should succeed during the lifecycle");
+    assert_eq!(position_by_symbol.asset_id, position_by_asset_id.asset_id);
+    assert_eq!(position_by_symbol.qty, opened.filled_qty);
 
     let fills_after_open =
         wait_for_fill_activity(harness, &opened.id, trading_day.as_deref()).await;
@@ -121,6 +144,11 @@ async fn trade_mainline_lifecycle_scenario(harness: &TradeTestHarness) {
         fills_after_open
             .iter()
             .any(|activity| activity.order_id.as_deref() == Some(&opened.id))
+    );
+    assert!(
+        fills_after_open
+            .iter()
+            .all(|activity| activity.activity_type == "FILL")
     );
 
     let cash_before_close = harness
@@ -170,6 +198,33 @@ async fn trade_mainline_lifecycle_scenario(harness: &TradeTestHarness) {
             .iter()
             .any(|activity| activity.order_id.as_deref() == Some(&closed.id))
     );
+    let fills_all = harness
+        .trade_client()
+        .activities()
+        .list_all(ActivitiesListRequest {
+            activity_types: Some(vec!["FILL".to_owned()]),
+            date: trading_day.clone(),
+            direction: Some(SortDirection::Desc),
+            page_size: Some(1),
+            ..ActivitiesListRequest::default()
+        })
+        .await
+        .expect("activities list_all should paginate the full lifecycle fills");
+    assert!(
+        fills_all
+            .iter()
+            .all(|activity| activity.activity_type == "FILL")
+    );
+    assert!(
+        fills_all
+            .iter()
+            .any(|activity| activity.order_id.as_deref() == Some(&opened.id))
+    );
+    assert!(
+        fills_all
+            .iter()
+            .any(|activity| activity.order_id.as_deref() == Some(&closed.id))
+    );
 
     let orders = harness
         .trade_client()
@@ -202,8 +257,10 @@ async fn trade_mainline_lifecycle_scenario(harness: &TradeTestHarness) {
                     "account_before": account_before,
                     "open_order": opened,
                     "open_position": opened_position,
+                    "position_by_symbol": position_by_symbol,
                     "close_order": closed,
                     "fills_after_close": fills_after_close,
+                    "fills_all": fills_all,
                     "account_after": account_after,
                 }),
             )
