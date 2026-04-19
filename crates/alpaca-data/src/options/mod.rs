@@ -5,7 +5,7 @@ mod model;
 mod request;
 mod response;
 
-pub use crate::symbols::options_underlying_symbol as underlying_symbol;
+pub use crate::symbols::options_underlying_symbol;
 pub use client::OptionsClient;
 pub use convenience::{ordered_snapshots, preferred_feed};
 pub use enums::{ContractType, OptionsFeed, Sort, TickType, TimeFrame};

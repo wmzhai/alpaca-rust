@@ -1,10 +1,9 @@
 use rust_decimal::Decimal;
 
-use alpaca_data::Client as DataClient;
 use alpaca_mock::{LiveMarketDataBridge, MockServerState, spawn_test_server_with_state};
 use alpaca_trade::{
     Client,
-    activities::ListRequest as ActivitiesListRequest,
+    activities::ListRequest,
     orders::{CreateRequest, OrderSide, OrderType, TimeInForce},
     positions::ClosePositionRequest,
 };
@@ -13,7 +12,7 @@ const MAINLINE_SYMBOL: &str = "SPY";
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let data_client = match DataClient::from_env() {
+    let data_client = match alpaca_data::Client::from_env() {
         Ok(client) => client,
         Err(error) => {
             eprintln!("Set ALPACA_DATA_* before running this example: {error}");
@@ -55,9 +54,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let fills = client
         .activities()
-        .list(ActivitiesListRequest {
+        .list(ListRequest {
             activity_types: Some(vec!["FILL".to_owned()]),
-            ..ActivitiesListRequest::default()
+            ..ListRequest::default()
         })
         .await?;
     println!(

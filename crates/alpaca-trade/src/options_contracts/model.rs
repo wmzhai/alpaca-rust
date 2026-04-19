@@ -1,7 +1,7 @@
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 
-use alpaca_core::Error as CoreError;
+use alpaca_core::Error;
 use alpaca_core::pagination::PaginatedResponse;
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -71,7 +71,7 @@ impl PaginatedResponse for ListResponse {
         self.next_page_token.as_deref()
     }
 
-    fn merge_page(&mut self, next: Self) -> Result<(), CoreError> {
+    fn merge_page(&mut self, next: Self) -> Result<(), Error> {
         self.option_contracts.extend(next.option_contracts);
         self.next_page_token = next.next_page_token;
         Ok(())

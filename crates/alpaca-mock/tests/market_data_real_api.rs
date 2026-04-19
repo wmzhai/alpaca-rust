@@ -3,7 +3,7 @@ mod live_support;
 
 use live_support::{AlpacaService, LiveTestEnv, SampleRecorder, discover_active_option_contract};
 
-use alpaca_data::Client as DataClient;
+use alpaca_data::Client;
 use alpaca_mock::{DEFAULT_STOCK_SYMBOL, LiveMarketDataBridge};
 
 #[tokio::test]
@@ -16,7 +16,7 @@ async fn market_data_bridge_reads_real_equity_and_option_snapshots() {
 
     let service = env.data().expect("data config should exist");
     let bridge = LiveMarketDataBridge::new(
-        DataClient::builder()
+        Client::builder()
             .credentials(service.credentials().clone())
             .build()
             .expect("data client should build from live service config"),

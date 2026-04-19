@@ -1,7 +1,7 @@
 use rust_decimal::Decimal;
 
 use alpaca_data::{
-    Client as DataClient,
+    Client,
     options::{SnapshotsRequest as OptionSnapshotsRequest, preferred_feed as preferred_option_feed},
     stocks::{SnapshotsRequest as StockSnapshotsRequest, preferred_feed as preferred_stock_feed},
 };
@@ -44,18 +44,18 @@ impl InstrumentSnapshot {
 
 #[derive(Debug, Clone)]
 pub struct LiveMarketDataBridge {
-    client: DataClient,
+    client: Client,
 }
 
 impl LiveMarketDataBridge {
     pub fn from_env() -> Result<Self, MarketDataBridgeError> {
         Ok(Self {
-            client: DataClient::from_env()?,
+            client: Client::from_env()?,
         })
     }
 
     pub fn from_env_optional() -> Result<Option<Self>, MarketDataBridgeError> {
-        match DataClient::from_env() {
+        match Client::from_env() {
             Ok(client) => Ok(Some(Self { client })),
             Err(alpaca_data::Error::MissingCredentials) => Ok(None),
             Err(error) => Err(error.into()),
@@ -63,7 +63,7 @@ impl LiveMarketDataBridge {
     }
 
     #[must_use]
-    pub fn new(client: DataClient) -> Self {
+    pub fn new(client: Client) -> Self {
         Self { client }
     }
 
@@ -91,7 +91,7 @@ impl LiveMarketDataBridge {
                 currency: None,
             })
             .await?;
-        let snapshot = snapshot.get(&alpaca_data::stocks::display_symbol(symbol)).cloned().ok_or_else(|| {
+        let snapshot = snapshot.get(&alpaca_data::stocks::display_stock_symbol(symbol)).cloned().ok_or_else(|| {
             MarketDataBridgeError::Unavailable(format!(
                 "stock snapshots response did not include {symbol}"
             ))

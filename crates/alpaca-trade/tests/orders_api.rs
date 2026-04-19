@@ -9,7 +9,7 @@ mod trade_state_support;
 
 use alpaca_data::{
     Client as DataClient,
-    options::{SnapshotsRequest, preferred_feed as preferred_option_feed},
+    options::{SnapshotsRequest, preferred_feed},
 };
 use alpaca_mock::{
     InjectedHttpFault, InstrumentSnapshot, LiveMarketDataBridge, MockServerState, TestServer,
@@ -3105,7 +3105,7 @@ async fn load_option_quotes(
         .options()
         .snapshots(SnapshotsRequest {
             symbols: symbols.to_vec(),
-            feed: Some(preferred_option_feed()),
+            feed: Some(preferred_feed()),
             limit: Some(symbols.len() as u32),
             page_token: None,
         })

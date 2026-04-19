@@ -1,7 +1,7 @@
 use chrono::NaiveDateTime;
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
-use serde_json::Value as JsonValue;
+use serde_json::Value;
 use ts_rs::TS;
 
 use crate::Error;
@@ -56,7 +56,7 @@ impl<'de> Deserialize<'de> for Execution {
     {
         use serde::de::Error as _;
 
-        let value = JsonValue::deserialize(deserializer)?;
+        let value = Value::deserialize(deserializer)?;
 
         if let Some(kind) = value.as_str() {
             return match kind {
@@ -73,7 +73,7 @@ impl<'de> Deserialize<'de> for Execution {
 
         let kind = object
             .get("type")
-            .and_then(JsonValue::as_str)
+            .and_then(Value::as_str)
             .ok_or_else(|| D::Error::custom("execution.type is required"))?;
 
         let decimal_required = |field: &str| -> Result<Decimal, D::Error> {

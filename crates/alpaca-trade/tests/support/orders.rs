@@ -5,7 +5,7 @@ use std::sync::OnceLock;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use alpaca_data::{
-    Client as DataClient,
+    Client,
     options::{ChainRequest, Snapshot, SnapshotsRequest, preferred_feed as preferred_option_feed},
     stocks::{SnapshotsRequest as StockSnapshotsRequest, preferred_feed as preferred_stock_feed},
 };
@@ -97,7 +97,7 @@ pub(crate) async fn clear_option_universe_cache() {
 }
 
 pub(crate) async fn non_marketable_buy_limit_price(
-    data_client: &DataClient,
+    data_client: &Client,
     underlying_symbol: &str,
 ) -> Result<Decimal, String> {
     Ok(stock_order_price_context(data_client, underlying_symbol)
@@ -106,7 +106,7 @@ pub(crate) async fn non_marketable_buy_limit_price(
 }
 
 pub(crate) async fn stock_order_price_context(
-    data_client: &DataClient,
+    data_client: &Client,
     underlying_symbol: &str,
 ) -> Result<StockOrderPriceContext, String> {
     let snapshot = data_client
@@ -119,7 +119,7 @@ pub(crate) async fn stock_order_price_context(
         .await
         .map_err(|error| format!("stock snapshot request failed: {error}"))?;
     let snapshot = snapshot
-        .get(&alpaca_data::stocks::display_symbol(underlying_symbol))
+        .get(&alpaca_data::stocks::display_stock_symbol(underlying_symbol))
         .cloned()
         .ok_or_else(|| format!("stock snapshots response did not include {underlying_symbol}"))?;
     let quote = snapshot.latest_quote.ok_or_else(|| {
@@ -150,7 +150,7 @@ pub(crate) async fn stock_order_price_context(
 }
 
 pub(crate) async fn discover_mleg_call_spread(
-    data_client: &DataClient,
+    data_client: &Client,
     underlying_symbol: &str,
 ) -> Result<MultiLegOrderContext, String> {
     let universe = discover_option_universe(data_client, underlying_symbol).await?;
@@ -160,7 +160,7 @@ pub(crate) async fn discover_mleg_call_spread(
 }
 
 pub(crate) async fn discover_mleg_put_spread(
-    data_client: &DataClient,
+    data_client: &Client,
     underlying_symbol: &str,
 ) -> Result<MultiLegOrderContext, String> {
     let universe = discover_option_universe(data_client, underlying_symbol).await?;
@@ -170,7 +170,7 @@ pub(crate) async fn discover_mleg_put_spread(
 }
 
 pub(crate) async fn discover_mleg_call_broken_wing_butterfly(
-    data_client: &DataClient,
+    data_client: &Client,
     underlying_symbol: &str,
 ) -> Result<MultiLegOrderContext, String> {
     let universe = discover_option_universe(data_client, underlying_symbol).await?;
@@ -180,7 +180,7 @@ pub(crate) async fn discover_mleg_call_broken_wing_butterfly(
 }
 
 pub(crate) async fn discover_distinct_mleg_call_spread_pair(
-    data_client: &DataClient,
+    data_client: &Client,
     underlying_symbol: &str,
 ) -> Result<(MultiLegOrderContext, MultiLegOrderContext), String> {
     let universe = discover_option_universe(data_client, underlying_symbol).await?;
@@ -190,7 +190,7 @@ pub(crate) async fn discover_distinct_mleg_call_spread_pair(
 }
 
 pub(crate) async fn discover_mleg_iron_condor(
-    data_client: &DataClient,
+    data_client: &Client,
     underlying_symbol: &str,
 ) -> Result<MultiLegOrderContext, String> {
     let universe = discover_option_universe(data_client, underlying_symbol).await?;
@@ -201,7 +201,7 @@ pub(crate) async fn discover_mleg_iron_condor(
 }
 
 pub(crate) async fn discover_single_leg_call(
-    data_client: &DataClient,
+    data_client: &Client,
     underlying_symbol: &str,
 ) -> Result<SingleLegOptionOrderContext, String> {
     let universe = discover_option_universe(data_client, underlying_symbol).await?;
@@ -222,7 +222,7 @@ pub(crate) async fn discover_single_leg_call(
 }
 
 pub(crate) async fn current_mleg_replacement_limit_price(
-    data_client: &DataClient,
+    data_client: &Client,
     legs: &[OptionLegRequest],
     request_side: OrderSide,
 ) -> Result<Decimal, String> {
@@ -259,7 +259,7 @@ fn option_universe_cache() -> &'static Mutex<HashMap<String, CachedOptionUnivers
 }
 
 async fn discover_option_universe(
-    data_client: &DataClient,
+    data_client: &Client,
     underlying_symbol: &str,
 ) -> Result<CachedOptionUniverse, String> {
     {
@@ -280,7 +280,7 @@ async fn discover_option_universe(
 }
 
 async fn fetch_option_universe(
-    data_client: &DataClient,
+    data_client: &Client,
     underlying_symbol: &str,
 ) -> Result<CachedOptionUniverse, String> {
     let spot = latest_stock_ask(data_client, underlying_symbol).await?;
@@ -317,7 +317,7 @@ async fn fetch_option_universe(
 }
 
 async fn latest_stock_ask(
-    data_client: &DataClient,
+    data_client: &Client,
     underlying_symbol: &str,
 ) -> Result<Decimal, String> {
     let snapshot = data_client
@@ -330,7 +330,7 @@ async fn latest_stock_ask(
         .await
         .map_err(|error| format!("stock snapshot request failed: {error}"))?;
     let snapshot = snapshot
-        .get(&alpaca_data::stocks::display_symbol(underlying_symbol))
+        .get(&alpaca_data::stocks::display_stock_symbol(underlying_symbol))
         .cloned()
         .ok_or_else(|| format!("stock snapshots response did not include {underlying_symbol}"))?;
     let quote = snapshot.latest_quote.ok_or_else(|| {

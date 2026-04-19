@@ -1,6 +1,6 @@
 use alpaca_data::{
     Client,
-    options::{ChainRequest, ordered_snapshots, preferred_feed as preferred_option_feed},
+    options::{ChainRequest, ordered_snapshots, preferred_feed},
 };
 use rust_decimal::Decimal;
 use serde_json::json;
@@ -41,7 +41,7 @@ pub async fn discover_option_contracts(
         .options()
         .chain_all(ChainRequest {
             underlying_symbol: underlying_symbol.to_owned(),
-            feed: Some(preferred_option_feed()),
+            feed: Some(preferred_feed()),
             limit: Some(limit.clamp(1, 1_000) as u32),
             ..ChainRequest::default()
         })

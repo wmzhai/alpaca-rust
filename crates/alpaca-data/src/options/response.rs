@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use alpaca_core::{Error as CoreError, pagination::PaginatedResponse};
+use alpaca_core::{Error, pagination::PaginatedResponse};
 use serde::{Deserialize, Serialize};
 
 use super::{Bar, Quote, Snapshot, Trade};
@@ -53,7 +53,7 @@ impl PaginatedResponse for BarsResponse {
         self.next_page_token.as_deref()
     }
 
-    fn merge_page(&mut self, next: Self) -> Result<(), CoreError> {
+    fn merge_page(&mut self, next: Self) -> Result<(), Error> {
         merge_batch_page(&mut self.bars, next.bars);
         self.next_page_token = next.next_page_token;
         Ok(())
@@ -69,7 +69,7 @@ impl PaginatedResponse for TradesResponse {
         self.next_page_token.as_deref()
     }
 
-    fn merge_page(&mut self, next: Self) -> Result<(), CoreError> {
+    fn merge_page(&mut self, next: Self) -> Result<(), Error> {
         merge_batch_page(&mut self.trades, next.trades);
         self.next_page_token = next.next_page_token;
         Ok(())
@@ -85,7 +85,7 @@ impl PaginatedResponse for SnapshotsResponse {
         self.next_page_token.as_deref()
     }
 
-    fn merge_page(&mut self, next: Self) -> Result<(), CoreError> {
+    fn merge_page(&mut self, next: Self) -> Result<(), Error> {
         merge_snapshot_page("options.snapshots_all", &mut self.snapshots, next.snapshots)?;
         self.next_page_token = next.next_page_token;
         Ok(())
@@ -101,7 +101,7 @@ impl PaginatedResponse for ChainResponse {
         self.next_page_token.as_deref()
     }
 
-    fn merge_page(&mut self, next: Self) -> Result<(), CoreError> {
+    fn merge_page(&mut self, next: Self) -> Result<(), Error> {
         merge_snapshot_page("options.chain_all", &mut self.snapshots, next.snapshots)?;
         self.next_page_token = next.next_page_token;
         Ok(())
@@ -125,10 +125,10 @@ pub(crate) fn merge_snapshot_page(
     operation: &str,
     current: &mut HashMap<String, Snapshot>,
     next: HashMap<String, Snapshot>,
-) -> Result<(), CoreError> {
+) -> Result<(), Error> {
     for (symbol, snapshot) in next {
         if current.insert(symbol.clone(), snapshot).is_some() {
-            return Err(CoreError::InvalidRequest(format!(
+            return Err(Error::InvalidRequest(format!(
                 "{operation} received duplicate symbol across pages: {symbol}"
             )));
         }

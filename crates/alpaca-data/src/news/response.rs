@@ -1,4 +1,4 @@
-use alpaca_core::{Error as CoreError, pagination::PaginatedResponse};
+use alpaca_core::{Error, pagination::PaginatedResponse};
 use serde::{Deserialize, Serialize};
 
 use super::NewsItem;
@@ -15,7 +15,7 @@ impl PaginatedResponse for ListResponse {
         self.next_page_token.as_deref()
     }
 
-    fn merge_page(&mut self, mut next: Self) -> Result<(), CoreError> {
+    fn merge_page(&mut self, mut next: Self) -> Result<(), Error> {
         self.news.append(&mut next.news);
         self.next_page_token = next.next_page_token;
         Ok(())

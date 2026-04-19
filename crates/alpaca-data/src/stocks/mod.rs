@@ -5,7 +5,7 @@ mod model;
 mod request;
 mod response;
 
-pub use crate::symbols::display_stock_symbol as display_symbol;
+pub use crate::symbols::display_stock_symbol;
 pub use client::StocksClient;
 pub use convenience::{BarPoint, ordered_snapshots, preferred_feed};
 pub use enums::{Adjustment, AuctionFeed, Currency, DataFeed, Sort, Tape, TickType, TimeFrame};

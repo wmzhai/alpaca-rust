@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use alpaca_core::{Error as CoreError, pagination::PaginatedResponse};
+use alpaca_core::{Error, pagination::PaginatedResponse};
 use serde::{Deserialize, Serialize};
 
 use super::{Bar, Currency, DailyAuction, Quote, Snapshot, Trade};
@@ -68,7 +68,7 @@ impl PaginatedResponse for BarsResponse {
         self.next_page_token.as_deref()
     }
 
-    fn merge_page(&mut self, next: Self) -> Result<(), CoreError> {
+    fn merge_page(&mut self, next: Self) -> Result<(), Error> {
         merge_batch_currency("stocks.bars_all", &mut self.currency, next.currency)?;
         merge_batch_page(&mut self.bars, next.bars);
         self.next_page_token = next.next_page_token;
@@ -85,7 +85,7 @@ impl PaginatedResponse for AuctionsResponse {
         self.next_page_token.as_deref()
     }
 
-    fn merge_page(&mut self, next: Self) -> Result<(), CoreError> {
+    fn merge_page(&mut self, next: Self) -> Result<(), Error> {
         merge_batch_currency("stocks.auctions_all", &mut self.currency, next.currency)?;
         merge_batch_page(&mut self.auctions, next.auctions);
         self.next_page_token = next.next_page_token;
@@ -102,7 +102,7 @@ impl PaginatedResponse for QuotesResponse {
         self.next_page_token.as_deref()
     }
 
-    fn merge_page(&mut self, next: Self) -> Result<(), CoreError> {
+    fn merge_page(&mut self, next: Self) -> Result<(), Error> {
         merge_batch_currency("stocks.quotes_all", &mut self.currency, next.currency)?;
         merge_batch_page(&mut self.quotes, next.quotes);
         self.next_page_token = next.next_page_token;
@@ -119,7 +119,7 @@ impl PaginatedResponse for TradesResponse {
         self.next_page_token.as_deref()
     }
 
-    fn merge_page(&mut self, next: Self) -> Result<(), CoreError> {
+    fn merge_page(&mut self, next: Self) -> Result<(), Error> {
         merge_batch_currency("stocks.trades_all", &mut self.currency, next.currency)?;
         merge_batch_page(&mut self.trades, next.trades);
         self.next_page_token = next.next_page_token;
@@ -135,9 +135,9 @@ fn merge_batch_currency(
     operation: &str,
     currency: &mut Option<Currency>,
     next_currency: Option<Currency>,
-) -> Result<(), CoreError> {
+) -> Result<(), Error> {
     match (currency.as_ref(), next_currency) {
-        (Some(current), Some(next)) if current != &next => Err(CoreError::InvalidRequest(format!(
+        (Some(current), Some(next)) if current != &next => Err(Error::InvalidRequest(format!(
             "{operation} received mismatched currency across pages: expected {}, got {}",
             current.as_str(),
             next.as_str()

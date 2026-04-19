@@ -5,8 +5,8 @@ use alpaca_data::{
     Client,
     stocks::{
         BarsRequest, ConditionCodesRequest, LatestBarsRequest, LatestQuotesRequest,
-        LatestTradesRequest, SnapshotsRequest, Tape, TickType, TimeFrame, display_symbol,
-        ordered_snapshots, preferred_feed as preferred_stock_feed,
+        LatestTradesRequest, SnapshotsRequest, Tape, TickType, TimeFrame, display_stock_symbol,
+        ordered_snapshots, preferred_feed,
     },
 };
 use live_support::{AlpacaService, LiveTestEnv, SampleRecorder};
@@ -30,7 +30,7 @@ async fn stocks_resource_reads_real_api_endpoints() {
     let latest_bars = stocks
         .latest_bars(LatestBarsRequest {
             symbols: vec!["AAPL".to_owned(), "MSFT".to_owned()],
-            feed: Some(preferred_stock_feed(false)),
+            feed: Some(preferred_feed(false)),
             currency: None,
         })
         .await
@@ -44,7 +44,7 @@ async fn stocks_resource_reads_real_api_endpoints() {
     let latest_quotes = stocks
         .latest_quotes(LatestQuotesRequest {
             symbols: vec!["AAPL".to_owned()],
-            feed: Some(preferred_stock_feed(false)),
+            feed: Some(preferred_feed(false)),
             currency: None,
         })
         .await
@@ -58,7 +58,7 @@ async fn stocks_resource_reads_real_api_endpoints() {
     let latest_trades = stocks
         .latest_trades(LatestTradesRequest {
             symbols: vec!["AAPL".to_owned()],
-            feed: Some(preferred_stock_feed(false)),
+            feed: Some(preferred_feed(false)),
             currency: None,
         })
         .await
@@ -72,7 +72,7 @@ async fn stocks_resource_reads_real_api_endpoints() {
     let snapshots = stocks
         .snapshots(SnapshotsRequest {
             symbols: vec!["AAPL".to_owned()],
-            feed: Some(preferred_stock_feed(false)),
+            feed: Some(preferred_feed(false)),
             currency: None,
         })
         .await
@@ -90,7 +90,7 @@ async fn stocks_resource_reads_real_api_endpoints() {
     let batch_snapshots = stocks
         .snapshots(SnapshotsRequest {
             symbols: vec!["AAPL".to_owned(), "brk/b".to_owned()],
-            feed: Some(preferred_stock_feed(false)),
+            feed: Some(preferred_feed(false)),
             currency: None,
         })
         .await
@@ -100,7 +100,7 @@ async fn stocks_resource_reads_real_api_endpoints() {
         .expect("snapshots sample should record");
     assert!(batch_snapshots.contains_key("AAPL"));
     assert!(batch_snapshots.contains_key("BRK.B"));
-    assert_eq!(display_symbol("brk/b"), "BRK.B");
+    assert_eq!(display_stock_symbol("brk/b"), "BRK.B");
     let ordered = ordered_snapshots(&batch_snapshots);
     assert_eq!(ordered.len(), batch_snapshots.len());
     assert!(ordered.windows(2).all(|pair| pair[0].0 <= pair[1].0));
@@ -119,7 +119,7 @@ async fn stocks_resource_reads_real_api_endpoints() {
     let brk_snapshots = stocks
         .snapshots(SnapshotsRequest {
             symbols: vec!["brk/b".to_owned()],
-            feed: Some(preferred_stock_feed(false)),
+            feed: Some(preferred_feed(false)),
             currency: None,
         })
         .await
@@ -137,7 +137,7 @@ async fn stocks_resource_reads_real_api_endpoints() {
             end: Some("2026-04-08T00:00:00Z".to_owned()),
             limit: Some(1),
             adjustment: None,
-            feed: Some(preferred_stock_feed(false)),
+            feed: Some(preferred_feed(false)),
             sort: None,
             asof: None,
             currency: None,
