@@ -6,7 +6,9 @@
 //! crates.
 
 pub mod options;
+pub mod data;
 
 pub use options::*;
+pub use data::*;
 
 pub type FacadeResult<T> = Result<T, anyhow::Error>;

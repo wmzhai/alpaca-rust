@@ -17,9 +17,12 @@ alpaca-trade = { path = "../alpaca-trade" }
 alpaca-time = { path = "../alpaca-time" }
 alpaca-option = { path = "../alpaca-option" }
 anyhow.workspace = true
+chrono.workspace = true
+futures.workspace = true
 rust_decimal.workspace = true
 serde.workspace = true
 tokio.workspace = true
+tracing.workspace = true
 
 [dev-dependencies]
 dotenvy.workspace = true

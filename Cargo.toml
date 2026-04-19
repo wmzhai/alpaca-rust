@@ -26,12 +26,14 @@ axum = "0.8"
 chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }
 chrono-tz = "0.10"
 dotenvy = "0.15"
+futures = "0.3"
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
 rust_decimal = { version = "1.41", default-features = false, features = ["serde-with-arbitrary-precision", "std"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1", features = ["arbitrary_precision"] }
 thiserror = "2"
 tokio = { version = "1", features = ["macros", "process", "rt-multi-thread", "sync", "time"] }
+tracing = "0.1"
 ts-rs = { version = "11.1", features = ["serde-compat"] }
 tower = { version = "0.5", features = ["util"] }
 url = "2"
