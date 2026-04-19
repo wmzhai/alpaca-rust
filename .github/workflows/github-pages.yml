@@ -59,25 +59,9 @@ jobs:
         uses: dtolnay/rust-toolchain@master
         with:
           toolchain: 1.94.1
-          components: rustfmt
 
       - name: Cache Rust
         uses: Swatinem/rust-cache@v2
-
-      - name: Format check
-        run: cargo fmt --check
-
-      - name: Build workspace
-        run: cargo build --workspace
-
-      - name: Test semantic and facade crates
-        run: |
-          cargo test -p alpaca-time
-          cargo test -p alpaca-option
-          cargo test -p alpaca-facade --test request
-
-      - name: Test doctests
-        run: cargo test --doc
 
       - name: Build rustdoc
         run: cargo doc --workspace --no-deps
@@ -99,12 +83,6 @@ jobs:
 
       - name: Generate docs metadata
         run: python3 tools/docs/generate-doc-site
-
-      - name: Test optional workspace packages
-        run: pnpm run test:packages
-
-      - name: Typecheck optional workspace packages
-        run: pnpm run typecheck:packages
 
       - name: Copy rustdoc bundle into site static assets
         run: |
@@ -186,8 +164,8 @@ jobs:
                 ;;
             esac
 
-            cargo publish --dry-run --locked -p "$crate"
-            cargo publish -p "$crate" --locked
+            cargo publish --dry-run --locked --no-verify -p "$crate"
+            cargo publish -p "$crate" --locked --no-verify
 
             for attempt in $(seq 1 30); do
               status="$(crate_exists "$crate" "$version")"

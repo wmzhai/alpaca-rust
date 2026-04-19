@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.24.8
+
+- Removed publish-time version pins from cross-crate `dev-dependencies` so release packaging no longer forms a registry cycle between `alpaca-rest-http`, `alpaca-data`, `alpaca-trade`, and `alpaca-mock`.
+- Simplified the release pipeline to focus on docs generation, site builds, and crate publication, leaving full Rust compilation and test coverage outside the release path.
+- Rolled the partially published `v0.24.7` attempt forward into the next patch release so all public crates can ship from one clean source version.
+
 ## v0.24.7
 
 - Aligned the repository toolchain override with the published workspace floor by changing `rust-toolchain.toml` from `1.95.0` to `1.94.1` and installing `rustfmt` there as well.

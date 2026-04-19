@@ -14,7 +14,7 @@ keywords = ["alpaca", "http", "sdk", "transport"]
 categories = ["api-bindings", "asynchronous"]
 
 [dependencies]
-alpaca-core = { path = "../alpaca-core", version = "0.24.7" }
+alpaca-core = { path = "../alpaca-core", version = "0.24.8" }
 reqwest.workspace = true
 serde.workspace = true
 serde_json.workspace = true
@@ -23,7 +23,7 @@ tokio.workspace = true
 url.workspace = true
 
 [dev-dependencies]
-alpaca-data = { path = "../alpaca-data", version = "0.24.7" }
+alpaca-data = { path = "../alpaca-data" }
 dotenvy.workspace = true
 reqwest.workspace = true
 rust_decimal.workspace = true

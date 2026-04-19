@@ -5,7 +5,7 @@
       "name": "alpaca-core",
       "path": "crates/alpaca-core",
       "layer": "foundation",
-      "version": "0.24.7",
+      "version": "0.24.8",
       "authors": [
         "Weiming Zhai <wmzhai@gmail.com>"
       ],
@@ -17,7 +17,7 @@
       "name": "alpaca-rest-http",
       "path": "crates/alpaca-http",
       "layer": "foundation",
-      "version": "0.24.7",
+      "version": "0.24.8",
       "authors": [
         "Weiming Zhai <wmzhai@gmail.com>"
       ],
@@ -29,7 +29,7 @@
       "name": "alpaca-data",
       "path": "crates/alpaca-data",
       "layer": "foundation",
-      "version": "0.24.7",
+      "version": "0.24.8",
       "authors": [
         "Weiming Zhai <wmzhai@gmail.com>"
       ],
@@ -41,7 +41,7 @@
       "name": "alpaca-trade",
       "path": "crates/alpaca-trade",
       "layer": "foundation",
-      "version": "0.24.7",
+      "version": "0.24.8",
       "authors": [
         "Weiming Zhai <wmzhai@gmail.com>"
       ],
@@ -53,7 +53,7 @@
       "name": "alpaca-mock",
       "path": "crates/alpaca-mock",
       "layer": "foundation",
-      "version": "0.24.7",
+      "version": "0.24.8",
       "authors": [
         "Weiming Zhai <wmzhai@gmail.com>"
       ],
@@ -65,7 +65,7 @@
       "name": "alpaca-time",
       "path": "crates/alpaca-time",
       "layer": "semantic",
-      "version": "0.24.7",
+      "version": "0.24.8",
       "authors": [
         "Weiming Zhai <wmzhai@gmail.com>"
       ],
@@ -77,7 +77,7 @@
       "name": "alpaca-option",
       "path": "crates/alpaca-option",
       "layer": "semantic",
-      "version": "0.24.7",
+      "version": "0.24.8",
       "authors": [
         "Weiming Zhai <wmzhai@gmail.com>"
       ],
@@ -89,7 +89,7 @@
       "name": "alpaca-facade",
       "path": "crates/alpaca-facade",
       "layer": "facade",
-      "version": "0.24.7",
+      "version": "0.24.8",
       "authors": [
         "Weiming Zhai <wmzhai@gmail.com>"
       ],
