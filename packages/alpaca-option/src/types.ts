@@ -223,8 +223,8 @@ export type OptionChainRecord = {
 };
 
 export type LiquidityOptionData = {
-  contract: string;
-  option_type: string;
+  occ_symbol: string;
+  option_right: string;
   strike: number;
   expiration_date: string;
   dte: number;
@@ -233,8 +233,8 @@ export type LiquidityOptionData = {
   liquidity?: boolean | null;
   bid: number;
   ask: number;
-  price: number;
-  iv: number;
+  mark: number;
+  implied_volatility: number;
 };
 
 export type LiquidityStats = {
@@ -248,8 +248,8 @@ export type LiquidityStats = {
 };
 
 export type LiquidityData = {
-  symbol: string;
-  timestamp: string;
+  underlying_symbol: string;
+  as_of: string;
   underlying_price: number;
   options: LiquidityOptionData[];
   stats: LiquidityStats;

@@ -8,9 +8,8 @@ use crate::types::OptionSnapshot;
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
 pub struct LiquidityOptionData {
-    pub contract: String,
-    #[serde(rename = "type")]
-    pub option_type: String,
+    pub occ_symbol: String,
+    pub option_right: String,
     pub strike: f64,
     pub expiration_date: String,
     pub dte: i32,
@@ -21,8 +20,8 @@ pub struct LiquidityOptionData {
     pub liquidity: Option<bool>,
     pub bid: f64,
     pub ask: f64,
-    pub price: f64,
-    pub iv: f64,
+    pub mark: f64,
+    pub implied_volatility: f64,
 }
 
 impl LiquidityOptionData {
@@ -30,8 +29,8 @@ impl LiquidityOptionData {
         let contract = snapshot::contract(snapshot)?;
 
         Some(Self {
-            contract: snapshot.occ_symbol().to_string(),
-            option_type: contract.option_right.as_str().to_string(),
+            occ_symbol: snapshot.occ_symbol().to_string(),
+            option_right: contract.option_right.as_str().to_string(),
             strike: contract.strike,
             expiration_date: contract.expiration_date,
             dte,
@@ -40,8 +39,8 @@ impl LiquidityOptionData {
             liquidity: snapshot::liquidity(snapshot),
             bid: snapshot.bid(),
             ask: snapshot.ask(),
-            price: snapshot.price(),
-            iv: snapshot.iv(),
+            mark: snapshot.price(),
+            implied_volatility: snapshot.iv(),
         })
     }
 }
@@ -116,8 +115,8 @@ impl LiquidityStats {
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
 pub struct LiquidityData {
-    pub symbol: String,
-    pub timestamp: String,
+    pub underlying_symbol: String,
+    pub as_of: String,
     pub underlying_price: f64,
     pub options: Vec<LiquidityOptionData>,
     pub stats: LiquidityStats,

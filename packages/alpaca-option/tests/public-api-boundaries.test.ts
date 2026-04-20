@@ -58,8 +58,8 @@ test('display.formatStrike keeps expected frontend shape', () => {
 
 test('liquidity types stay available from root exports', () => {
   const option: LiquidityOptionData = {
-    contract: 'SPY250321P00580000',
-    option_type: 'put',
+    occ_symbol: 'SPY250321P00580000',
+    option_right: 'put',
     strike: 580,
     expiration_date: '2025-03-21',
     dte: 43,
@@ -68,8 +68,8 @@ test('liquidity types stay available from root exports', () => {
     liquidity: true,
     bid: 2.15,
     ask: 2.35,
-    price: 2.25,
-    iv: 0.28,
+    mark: 2.25,
+    implied_volatility: 0.28,
   };
   const stats: LiquidityStats = {
     total_count: 1,
@@ -81,8 +81,8 @@ test('liquidity types stay available from root exports', () => {
     delta_range: [0.3, 0.3],
   };
   const data: LiquidityData = {
-    symbol: 'SPY',
-    timestamp: '2025-02-06 11:30:04',
+    underlying_symbol: 'SPY',
+    as_of: '2025-02-06 11:30:04',
     underlying_price: 600,
     options: [option],
     stats,
@@ -93,7 +93,7 @@ test('liquidity types stay available from root exports', () => {
     },
   };
 
-  assert.equal(response.results.SPY.options[0].contract, 'SPY250321P00580000');
+  assert.equal(response.results.SPY.options[0].occ_symbol, 'SPY250321P00580000');
 });
 
 test('display.contractDisplay absorbs raw contract display fields directly', () => {

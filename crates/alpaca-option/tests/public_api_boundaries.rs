@@ -428,17 +428,20 @@ fn liquidity_models_stay_in_bottom_library() {
     )
     .unwrap();
 
-    assert_eq!(data.option_type, "put");
+    assert_eq!(data.occ_symbol, "SPY250321P00580000");
+    assert_eq!(data.option_right, "put");
     assert_eq!(data.expiration_date, "2025-03-21");
     assert_eq!(data.dte, 43);
+    assert_eq!(data.mark, 2.25);
+    assert_eq!(data.implied_volatility, 0.28);
 
     let stats = LiquidityStats::from_options(std::slice::from_ref(&data));
     assert_eq!(stats.total_count, 1);
     assert_eq!(stats.dte_range, (43, 43));
 
     let payload = LiquidityData {
-        symbol: "SPY".to_string(),
-        timestamp: "2025-02-06 11:30:04".to_string(),
+        underlying_symbol: "SPY".to_string(),
+        as_of: "2025-02-06 11:30:04".to_string(),
         underlying_price: 600.0,
         options: vec![data],
         stats,
@@ -447,6 +450,8 @@ fn liquidity_models_stay_in_bottom_library() {
 
     let export = LiquidityData::export_to_string().unwrap();
     assert!(export.contains("type LiquidityData"));
+    assert!(export.contains("underlying_symbol: string"));
+    assert!(export.contains("as_of: string"));
     assert!(export.contains("underlying_price: number"));
 }
 
