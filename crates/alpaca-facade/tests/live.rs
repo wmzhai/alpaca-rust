@@ -250,8 +250,7 @@ async fn fetch_chain_builds_live_canonical_chain() {
     let chain = fetch_chain(
         &client,
         "SPY",
-        &OptionChainRequest::from_expiration_range(Some(&alpaca_time::clock::today()), None)
-            .with_underlying_price(underlying_price),
+        &OptionChainRequest::from_dte_range(0, 7, None, None),
         Some(0.04),
         Some(0.0),
     )
@@ -266,6 +265,7 @@ async fn fetch_chain_builds_live_canonical_chain() {
     );
     for snapshot in &chain.snapshots {
         assert_eq!(snapshot.contract.underlying_symbol, "SPY");
+        assert_underlying_price_close(snapshot.underlying_price, underlying_price);
     }
 }
 

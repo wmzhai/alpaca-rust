@@ -499,12 +499,14 @@ pub async fn fetch_chain(
         underlying_prices.insert(underlying_symbol.to_owned(), underlying_price);
     }
 
-    let snapshots = map_snapshots(
+    let snapshots = map_live_snapshots(
         &response.snapshots,
+        client,
         (!underlying_prices.is_empty()).then_some(&underlying_prices),
         risk_free_rate,
         dividend_yield,
-    )?;
+    )
+    .await?;
 
     let as_of = snapshots
         .iter()
