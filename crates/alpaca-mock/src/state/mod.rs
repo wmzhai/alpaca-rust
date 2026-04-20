@@ -1480,16 +1480,10 @@ fn apply_mleg_fill_rules(
     let mid = mleg_mid_price(order, request_side, market_quotes);
     let fill_price = mid.and_then(|mid| match order.r#type {
         OrderType::Market => Some(mid),
-        OrderType::Limit => match request_side {
-            OrderSide::Buy | OrderSide::Unspecified => order
-                .limit_price
-                .filter(|limit_price| *limit_price >= mid)
-                .map(|_| mid),
-            OrderSide::Sell => order
-                .limit_price
-                .filter(|limit_price| *limit_price <= mid)
-                .map(|_| mid),
-        },
+        OrderType::Limit => order
+            .limit_price
+            .filter(|limit_price| *limit_price >= mid)
+            .map(|_| mid),
         OrderType::Stop
         | OrderType::StopLimit
         | OrderType::TrailingStop
@@ -1575,7 +1569,11 @@ fn apply_fill_effects(
         .filled_avg_price
         .expect("filled mock order should always have filled_avg_price");
     let qty = order.filled_qty;
-    let cash_delta = signed_cash_delta(request_side, qty, price);
+    let cash_delta = if order.order_class == OrderClass::Mleg {
+        (-price * qty).round_dp(8)
+    } else {
+        signed_cash_delta(request_side, qty, price)
+    };
     account.cash_ledger.apply_delta(cash_delta);
     let occurred_at = order
         .filled_at
@@ -1729,7 +1727,7 @@ fn mock_asset_id(symbol: &str) -> String {
 
 fn mleg_mid_price(
     order: &Order,
-    request_side: &OrderSide,
+    _request_side: &OrderSide,
     market_quotes: &HashMap<String, InstrumentSnapshot>,
 ) -> Option<Decimal> {
     let raw_total = mleg_price_total(
@@ -1741,12 +1739,7 @@ fn mleg_mid_price(
         },
     )?;
 
-    let normalized_total = match request_side {
-        OrderSide::Buy | OrderSide::Unspecified => raw_total,
-        OrderSide::Sell => -raw_total,
-    };
-
-    Some(normalized_total.round_dp(2))
+    Some(raw_total.round_dp(2))
 }
 
 fn infer_request_side(
@@ -2381,6 +2374,71 @@ mod tests {
         }
     }
 
+    fn build_test_credit_mleg_order(order_type: OrderType, limit_price: Option<Decimal>) -> Order {
+        let now = "2026-04-09T12:00:00Z";
+        Order {
+            id: "mock-credit-parent-order".to_owned(),
+            client_order_id: "mock-credit-parent-client-order".to_owned(),
+            created_at: now.to_owned(),
+            updated_at: now.to_owned(),
+            submitted_at: now.to_owned(),
+            filled_at: None,
+            expired_at: None,
+            expires_at: expires_at_for(&TimeInForce::Day),
+            canceled_at: None,
+            failed_at: None,
+            replaced_at: None,
+            replaced_by: None,
+            replaces: None,
+            asset_id: String::new(),
+            symbol: String::new(),
+            asset_class: String::new(),
+            notional: None,
+            qty: Some(Decimal::ONE),
+            filled_qty: Decimal::ZERO,
+            filled_avg_price: None,
+            order_class: OrderClass::Mleg,
+            order_type: order_type.clone(),
+            r#type: order_type.clone(),
+            side: OrderSide::Unspecified,
+            position_intent: None,
+            time_in_force: TimeInForce::Day,
+            limit_price,
+            stop_price: None,
+            status: OrderStatus::New,
+            extended_hours: false,
+            legs: Some(build_leg_orders_from_requests(
+                &[
+                    OptionLegRequest {
+                        symbol: "OPT-CREDIT-BUY".to_owned(),
+                        ratio_qty: 1,
+                        side: Some(OrderSide::Buy),
+                        position_intent: None,
+                    },
+                    OptionLegRequest {
+                        symbol: "OPT-CREDIT-SELL".to_owned(),
+                        ratio_qty: 1,
+                        side: Some(OrderSide::Sell),
+                        position_intent: None,
+                    },
+                ],
+                Decimal::ONE,
+                order_type,
+                TimeInForce::Day,
+                now,
+                None,
+            )),
+            trail_percent: None,
+            trail_price: None,
+            hwm: None,
+            ratio_qty: None,
+            take_profit: None,
+            stop_loss: None,
+            subtag: None,
+            source: None,
+        }
+    }
+
     #[test]
     fn stock_single_leg_orders_use_mid_price_for_market_and_limit() {
         let snapshot = equity_snapshot();
@@ -2478,16 +2536,65 @@ mod tests {
         assert_eq!(resting_order.status, OrderStatus::New);
         assert_eq!(resting_order.filled_avg_price, None);
 
-        let mut sell_limit_order = build_test_mleg_order(OrderType::Limit, Some(-expected_mid));
-        apply_mleg_fill_rules(&mut sell_limit_order, &OrderSide::Sell, &market_quotes);
-        assert_eq!(sell_limit_order.status, OrderStatus::Filled);
-        assert_eq!(sell_limit_order.filled_avg_price, Some(-expected_mid));
+    }
 
-        let mut sell_resting_order =
-            build_test_mleg_order(OrderType::Limit, Some(-expected_mid + Decimal::new(1, 2)));
-        apply_mleg_fill_rules(&mut sell_resting_order, &OrderSide::Sell, &market_quotes);
-        assert_eq!(sell_resting_order.status, OrderStatus::New);
-        assert_eq!(sell_resting_order.filled_avg_price, None);
+    #[test]
+    fn credit_multi_leg_orders_keep_negative_mid_and_limit_direction() {
+        let market_quotes = HashMap::from([
+            (
+                "OPT-CREDIT-BUY".to_owned(),
+                InstrumentSnapshot::option(Decimal::new(100, 2), Decimal::new(140, 2)),
+            ),
+            (
+                "OPT-CREDIT-SELL".to_owned(),
+                InstrumentSnapshot::option(Decimal::new(300, 2), Decimal::new(340, 2)),
+            ),
+        ]);
+        let expected_mid = Decimal::new(-200, 2);
+
+        let mut market_order = build_test_credit_mleg_order(OrderType::Market, None);
+        apply_mleg_fill_rules(&mut market_order, &OrderSide::Sell, &market_quotes);
+        assert_eq!(market_order.status, OrderStatus::Filled);
+        assert_eq!(market_order.filled_avg_price, Some(expected_mid));
+
+        let mut marketable_limit =
+            build_test_credit_mleg_order(OrderType::Limit, Some(expected_mid + Decimal::new(1, 2)));
+        apply_mleg_fill_rules(&mut marketable_limit, &OrderSide::Sell, &market_quotes);
+        assert_eq!(marketable_limit.status, OrderStatus::Filled);
+        assert_eq!(marketable_limit.filled_avg_price, Some(expected_mid));
+
+        let mut aggressive_limit =
+            build_test_credit_mleg_order(OrderType::Limit, Some(expected_mid - Decimal::new(1, 2)));
+        apply_mleg_fill_rules(&mut aggressive_limit, &OrderSide::Sell, &market_quotes);
+        assert_eq!(aggressive_limit.status, OrderStatus::New);
+        assert_eq!(aggressive_limit.filled_avg_price, None);
+    }
+
+    #[test]
+    fn filled_credit_multi_leg_orders_increase_cash_balance() {
+        let market_quotes = HashMap::from([
+            (
+                "OPT-CREDIT-BUY".to_owned(),
+                InstrumentSnapshot::option(Decimal::new(100, 2), Decimal::new(140, 2)),
+            ),
+            (
+                "OPT-CREDIT-SELL".to_owned(),
+                InstrumentSnapshot::option(Decimal::new(300, 2), Decimal::new(340, 2)),
+            ),
+        ]);
+
+        let mut order = build_test_credit_mleg_order(OrderType::Market, None);
+        apply_mleg_fill_rules(&mut order, &OrderSide::Sell, &market_quotes);
+        assert_eq!(order.status, OrderStatus::Filled);
+
+        let mut account = VirtualAccountState::new("mock-key");
+        let starting_cash = account.cash_ledger.cash_balance();
+        apply_fill_effects(&mut account, &order, &OrderSide::Sell, Some(&market_quotes));
+
+        assert_eq!(
+            account.cash_ledger.cash_balance(),
+            starting_cash + Decimal::new(200, 2)
+        );
     }
 
     #[test]
