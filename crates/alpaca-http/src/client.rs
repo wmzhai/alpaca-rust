@@ -166,14 +166,39 @@ impl HttpClient {
                 attempt + 1,
                 started_at.elapsed(),
             );
-            let body = response.text().await.map_err(|error| {
-                let error_meta = ErrorMeta::from_response_meta(meta.clone(), String::new());
-                let error = Error::from_reqwest(error, Some(error_meta.clone()));
-                self.observer.on_error(&ErrorEvent {
-                    meta: Some(error_meta),
-                });
-                error
-            })?;
+            let body = match response.text().await {
+                Ok(body) => body,
+                Err(error) => {
+                    match self.retry_config.classify_transport_error(
+                        &request.method(),
+                        attempt,
+                        started_at.elapsed(),
+                    ) {
+                        RetryDecision::RetryAfter(wait) => {
+                            self.observer.on_retry(&RetryEvent {
+                                operation: request.operation().map(ToOwned::to_owned),
+                                method: request.method(),
+                                url: url.clone(),
+                                attempt: attempt + 1,
+                                status: Some(status),
+                                wait,
+                            });
+                            tokio::time::sleep(wait).await;
+                            attempt += 1;
+                            continue;
+                        }
+                        RetryDecision::DoNotRetry => {
+                            let error_meta =
+                                ErrorMeta::from_response_meta(meta.clone(), String::new());
+                            let error = Error::from_reqwest(error, Some(error_meta.clone()));
+                            self.observer.on_error(&ErrorEvent {
+                                meta: Some(error_meta),
+                            });
+                            return Err(error);
+                        }
+                    }
+                }
+            };
 
             match self.retry_config.classify_response(
                 &request.method(),
