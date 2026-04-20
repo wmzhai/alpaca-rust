@@ -17,6 +17,7 @@ use alpaca_mock::{
 };
 use alpaca_trade::{
     Client as TradeClient, Error,
+    activities::ListRequest as ActivitiesListRequest,
     orders::{
         CloseOptionLeg, CloseOptionLegsResult, CreateRequest, ListRequest, MarketCloseRecovery,
         OptionLegRequest, OptionQuote, OrderClass, OrderSide, OrderStatus, OrderType,
@@ -384,6 +385,67 @@ async fn orders_mock_mid_price_fill_contract() {
     verify_option_limit_fills_at_mid_on_create_and_replace(&client).await;
     verify_mleg_limit_fills_at_mid_on_create_and_replace(&client).await;
     verify_credit_mleg_limit_fills_at_mid_on_create_and_replace(&client).await;
+}
+
+#[tokio::test]
+async fn orders_mock_credit_mleg_reports_signed_fill_activity_and_cashflow() {
+    let (_server, client) = build_fixed_mid_price_mock_client().await;
+
+    let cash_before_create = account_cash(&client).await;
+    let created = submit_fixed_credit_mleg_limit(
+        &client,
+        fixed_credit_mleg_mid(),
+        "fixed-credit-flow-create",
+    )
+    .await;
+    let cash_after_create = account_cash(&client).await;
+    assert_eq!(
+        cash_after_create - cash_before_create,
+        Decimal::new(200, 2),
+        "credit mleg create should increase account cash by the signed parent fill value",
+    );
+    assert_credit_fill_activity(&client, &created.id).await;
+
+    let resting = submit_fixed_credit_mleg_limit(
+        &client,
+        fixed_credit_mleg_mid() - Decimal::new(1, 2),
+        "fixed-credit-flow-resting",
+    )
+    .await;
+    assert!(matches!(
+        resting.status,
+        OrderStatus::Accepted | OrderStatus::New
+    ));
+
+    let replacement = match client
+        .orders()
+        .replace_resolved(
+            &resting.id,
+            ReplaceRequest::from_submit_style(SubmitOrderStyle::Limit {
+                limit_price: fixed_credit_mleg_mid(),
+            }),
+        )
+        .await
+        .expect("fixed credit mleg replace should succeed")
+    {
+        ReplaceResolution::NewOrder(resolved) => resolved.order,
+        ReplaceResolution::OriginalOrderTerminal(resolved) => {
+            panic!(
+                "fixed credit mleg replace should produce a new order, got {:?}",
+                resolved.order.status
+            );
+        }
+    };
+    assert_eq!(replacement.status, OrderStatus::Filled);
+    assert_eq!(replacement.filled_avg_price, Some(fixed_credit_mleg_mid()));
+
+    let cash_after_replace = account_cash(&client).await;
+    assert_eq!(
+        cash_after_replace - cash_after_create,
+        Decimal::new(200, 2),
+        "credit mleg replace fill should increase account cash by the signed parent fill value",
+    );
+    assert_credit_fill_activity(&client, &replacement.id).await;
 }
 
 #[tokio::test]
@@ -873,7 +935,9 @@ async fn orders_close_option_legs_all_liquid_mock() {
         } => {
             assert_eq!(order.status, OrderStatus::Filled);
             assert!(
-                order.filled_avg_price.expect("filled close mleg should expose parent price")
+                order
+                    .filled_avg_price
+                    .expect("filled close mleg should expose parent price")
                     < Decimal::ZERO
             );
             assert!(cashflow > Decimal::ZERO);
@@ -3574,38 +3638,17 @@ async fn verify_mleg_limit_fills_at_mid_on_create_and_replace(client: &TradeClie
 }
 
 async fn verify_credit_mleg_limit_fills_at_mid_on_create_and_replace(client: &TradeClient) {
-    let legs = vec![
-        OptionLegRequest {
-            symbol: FIXED_MLEG_SELL_SYMBOL.to_owned(),
-            ratio_qty: 1,
-            side: Some(OrderSide::Buy),
-            position_intent: Some(PositionIntent::BuyToOpen),
-        },
-        OptionLegRequest {
-            symbol: FIXED_MLEG_BUY_SYMBOL.to_owned(),
-            ratio_qty: 1,
-            side: Some(OrderSide::Sell),
-            position_intent: Some(PositionIntent::SellToOpen),
-        },
-    ];
-
-    let created = client
-        .orders()
-        .create_resolved(
-            CreateRequest::mleg(
-                1,
-                SubmitOrderStyle::Limit {
-                    limit_price: fixed_credit_mleg_mid(),
-                },
-                legs.clone(),
-            )
-            .expect("fixed credit mleg mid request should build"),
-            WaitFor::Filled,
-        )
-        .await
-        .expect("fixed credit mleg mid-priced limit should fill");
+    let created = submit_fixed_credit_mleg_limit_resolved(
+        client,
+        fixed_credit_mleg_mid(),
+        "fixed-credit-mid",
+    )
+    .await;
     assert_eq!(created.order.status, OrderStatus::Filled);
-    assert_eq!(created.order.filled_avg_price, Some(fixed_credit_mleg_mid()));
+    assert_eq!(
+        created.order.filled_avg_price,
+        Some(fixed_credit_mleg_mid())
+    );
     let created_legs = created
         .order
         .legs
@@ -3615,20 +3658,12 @@ async fn verify_credit_mleg_limit_fills_at_mid_on_create_and_replace(client: &Tr
     assert_eq!(created_legs[0].filled_avg_price, Some(Decimal::new(120, 2)));
     assert_eq!(created_legs[1].filled_avg_price, Some(Decimal::new(320, 2)));
 
-    let resting = client
-        .orders()
-        .create(
-            CreateRequest::mleg(
-                1,
-                SubmitOrderStyle::Limit {
-                    limit_price: fixed_credit_mleg_mid() - Decimal::new(1, 2),
-                },
-                legs,
-            )
-            .expect("fixed resting credit mleg request should build"),
-        )
-        .await
-        .expect("fixed resting credit mleg limit should submit");
+    let resting = submit_fixed_credit_mleg_limit(
+        client,
+        fixed_credit_mleg_mid() - Decimal::new(1, 2),
+        "fixed-credit-resting",
+    )
+    .await;
     assert!(matches!(
         resting.status,
         OrderStatus::Accepted | OrderStatus::New
@@ -3668,6 +3703,93 @@ async fn verify_credit_mleg_limit_fills_at_mid_on_create_and_replace(client: &Tr
         replacement_legs[1].filled_avg_price,
         Some(Decimal::new(320, 2))
     );
+}
+
+fn fixed_credit_mleg_legs() -> Vec<OptionLegRequest> {
+    vec![
+        OptionLegRequest {
+            symbol: FIXED_MLEG_SELL_SYMBOL.to_owned(),
+            ratio_qty: 1,
+            side: Some(OrderSide::Buy),
+            position_intent: Some(PositionIntent::BuyToOpen),
+        },
+        OptionLegRequest {
+            symbol: FIXED_MLEG_BUY_SYMBOL.to_owned(),
+            ratio_qty: 1,
+            side: Some(OrderSide::Sell),
+            position_intent: Some(PositionIntent::SellToOpen),
+        },
+    ]
+}
+
+async fn submit_fixed_credit_mleg_limit(
+    client: &TradeClient,
+    limit_price: Decimal,
+    client_order_id_prefix: &str,
+) -> alpaca_trade::orders::Order {
+    let mut request = CreateRequest::mleg(
+        1,
+        SubmitOrderStyle::Limit { limit_price },
+        fixed_credit_mleg_legs(),
+    )
+    .expect("fixed credit mleg request should build");
+    request.client_order_id = Some(unique_client_order_id(client_order_id_prefix));
+    client
+        .orders()
+        .create(request)
+        .await
+        .expect("fixed credit mleg limit should submit")
+}
+
+async fn submit_fixed_credit_mleg_limit_resolved(
+    client: &TradeClient,
+    limit_price: Decimal,
+    client_order_id_prefix: &str,
+) -> alpaca_trade::orders::ResolvedOrder {
+    let mut request = CreateRequest::mleg(
+        1,
+        SubmitOrderStyle::Limit { limit_price },
+        fixed_credit_mleg_legs(),
+    )
+    .expect("fixed credit mleg request should build");
+    request.client_order_id = Some(unique_client_order_id(client_order_id_prefix));
+    client
+        .orders()
+        .create_resolved(request, WaitFor::Filled)
+        .await
+        .expect("fixed credit mleg limit should fill")
+}
+
+async fn account_cash(client: &TradeClient) -> Decimal {
+    client
+        .account()
+        .get()
+        .await
+        .expect("mock account should be readable")
+        .cash
+        .expect("mock account cash should be present")
+}
+
+async fn assert_credit_fill_activity(client: &TradeClient, order_id: &str) {
+    let fills = client
+        .activities()
+        .list_all(ActivitiesListRequest {
+            activity_types: Some(vec!["FILL".to_owned()]),
+            page_size: Some(100),
+            ..ActivitiesListRequest::default()
+        })
+        .await
+        .expect("mock fill activities should be readable");
+    let fill = fills
+        .into_iter()
+        .find(|activity| activity.order_id.as_deref() == Some(order_id))
+        .expect("credit mleg fill should emit a fill activity");
+    assert_eq!(fill.price, Some(fixed_credit_mleg_mid()));
+    assert_eq!(fill.qty, Some(Decimal::ONE));
+    assert_eq!(fill.side.as_deref(), Some("sell"));
+    assert_eq!(fill.order_status.as_deref(), Some("filled"));
+    assert_eq!(fill.leaves_qty, Some(Decimal::ZERO));
+    assert_eq!(fill.cum_qty, Some(Decimal::ONE));
 }
 
 async fn build_recovery_test_client() -> Option<(TestServer, MockServerState, TradeClient)> {
