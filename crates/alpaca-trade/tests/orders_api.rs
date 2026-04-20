@@ -87,6 +87,10 @@ fn fixed_mleg_mid() -> Decimal {
     Decimal::new(200, 2)
 }
 
+fn fixed_credit_mleg_mid() -> Decimal {
+    Decimal::new(-200, 2)
+}
+
 #[tokio::test]
 async fn orders_basic_lifecycle_live_paper() {
     let _guard = target_support::lock_live_paper_account().await;
@@ -379,6 +383,7 @@ async fn orders_mock_mid_price_fill_contract() {
     verify_stock_limit_fills_at_mid_on_create_and_replace(&client).await;
     verify_option_limit_fills_at_mid_on_create_and_replace(&client).await;
     verify_mleg_limit_fills_at_mid_on_create_and_replace(&client).await;
+    verify_credit_mleg_limit_fills_at_mid_on_create_and_replace(&client).await;
 }
 
 #[tokio::test]
@@ -867,7 +872,11 @@ async fn orders_close_option_legs_all_liquid_mock() {
             cashflow,
         } => {
             assert_eq!(order.status, OrderStatus::Filled);
-            assert!(cashflow != Decimal::ZERO);
+            assert!(
+                order.filled_avg_price.expect("filled close mleg should expose parent price")
+                    < Decimal::ZERO
+            );
+            assert!(cashflow > Decimal::ZERO);
             assert!(legs.iter().all(|leg| leg.filled_avg_price > Decimal::ZERO));
         }
         other => panic!("expected filled close result, got {other:?}"),
@@ -3561,6 +3570,103 @@ async fn verify_mleg_limit_fills_at_mid_on_create_and_replace(client: &TradeClie
     assert_eq!(
         replacement_legs[1].filled_avg_price,
         Some(Decimal::new(120, 2))
+    );
+}
+
+async fn verify_credit_mleg_limit_fills_at_mid_on_create_and_replace(client: &TradeClient) {
+    let legs = vec![
+        OptionLegRequest {
+            symbol: FIXED_MLEG_SELL_SYMBOL.to_owned(),
+            ratio_qty: 1,
+            side: Some(OrderSide::Buy),
+            position_intent: Some(PositionIntent::BuyToOpen),
+        },
+        OptionLegRequest {
+            symbol: FIXED_MLEG_BUY_SYMBOL.to_owned(),
+            ratio_qty: 1,
+            side: Some(OrderSide::Sell),
+            position_intent: Some(PositionIntent::SellToOpen),
+        },
+    ];
+
+    let created = client
+        .orders()
+        .create_resolved(
+            CreateRequest::mleg(
+                1,
+                SubmitOrderStyle::Limit {
+                    limit_price: fixed_credit_mleg_mid(),
+                },
+                legs.clone(),
+            )
+            .expect("fixed credit mleg mid request should build"),
+            WaitFor::Filled,
+        )
+        .await
+        .expect("fixed credit mleg mid-priced limit should fill");
+    assert_eq!(created.order.status, OrderStatus::Filled);
+    assert_eq!(created.order.filled_avg_price, Some(fixed_credit_mleg_mid()));
+    let created_legs = created
+        .order
+        .legs
+        .as_ref()
+        .expect("fixed filled credit mleg should include legs");
+    assert_eq!(created_legs.len(), 2);
+    assert_eq!(created_legs[0].filled_avg_price, Some(Decimal::new(120, 2)));
+    assert_eq!(created_legs[1].filled_avg_price, Some(Decimal::new(320, 2)));
+
+    let resting = client
+        .orders()
+        .create(
+            CreateRequest::mleg(
+                1,
+                SubmitOrderStyle::Limit {
+                    limit_price: fixed_credit_mleg_mid() - Decimal::new(1, 2),
+                },
+                legs,
+            )
+            .expect("fixed resting credit mleg request should build"),
+        )
+        .await
+        .expect("fixed resting credit mleg limit should submit");
+    assert!(matches!(
+        resting.status,
+        OrderStatus::Accepted | OrderStatus::New
+    ));
+
+    let replacement = match client
+        .orders()
+        .replace_resolved(
+            &resting.id,
+            ReplaceRequest::from_submit_style(SubmitOrderStyle::Limit {
+                limit_price: fixed_credit_mleg_mid(),
+            }),
+        )
+        .await
+        .expect("fixed credit mleg replace should succeed")
+    {
+        ReplaceResolution::NewOrder(resolved) => resolved.order,
+        ReplaceResolution::OriginalOrderTerminal(resolved) => {
+            panic!(
+                "fixed credit mleg replace should produce a new order, got {:?}",
+                resolved.order.status
+            );
+        }
+    };
+    assert_eq!(replacement.status, OrderStatus::Filled);
+    assert_eq!(replacement.filled_avg_price, Some(fixed_credit_mleg_mid()));
+    let replacement_legs = replacement
+        .legs
+        .as_ref()
+        .expect("fixed replaced credit mleg should include legs");
+    assert_eq!(replacement_legs.len(), 2);
+    assert_eq!(
+        replacement_legs[0].filled_avg_price,
+        Some(Decimal::new(120, 2))
+    );
+    assert_eq!(
+        replacement_legs[1].filled_avg_price,
+        Some(Decimal::new(320, 2))
     );
 }
 
