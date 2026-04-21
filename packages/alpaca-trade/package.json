@@ -1,0 +1,13 @@
+{
+  "name": "@alpaca/trade",
+  "private": true,
+  "version": "1.10.4",
+  "type": "module",
+  "main": "./src/index.ts",
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "exports": {
+    ".": "./src/index.ts"
+  }
+}

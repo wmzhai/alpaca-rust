@@ -9,6 +9,7 @@ use crate::Error;
 use super::{OrderStatus, OrderTerminalState, SubmitOrderStyle};
 
 #[derive(Debug, Clone, Serialize, PartialEq, Default, TS)]
+#[ts(export, export_to = "../../../packages/alpaca-trade/src/generated/")]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum Execution {
     #[default]
