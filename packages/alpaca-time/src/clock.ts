@@ -34,6 +34,27 @@ export function parseTimestamp(input: string): NyTimestampString {
   return formatTimestampParts(parseTimestampParts(input));
 }
 
+export function parseHhmm(input: string): HhmmString {
+  if (input.includes(':')) {
+    minutesFromHhmm(input);
+    return input;
+  }
+  if (!/^\d{4}$/.test(input)) {
+    fail('invalid_hhmm_compact', `invalid compact hhmm: ${input}`);
+  }
+  const canonical = `${input.slice(0, 2)}:${input.slice(2, 4)}`;
+  minutesFromHhmm(canonical);
+  return canonical;
+}
+
+export function compactHhmm(input: string): string {
+  return parseHhmm(input).replace(':', '');
+}
+
+export function minuteTimestamp(date: string, time: string): NyTimestampString {
+  return `${parseDate(date)} ${parseHhmm(time)}:00`;
+}
+
 export function parts(input = now()): TimestampParts {
   const canonical = parseTimestamp(input);
   const parsed = parseTimestampParts(canonical);

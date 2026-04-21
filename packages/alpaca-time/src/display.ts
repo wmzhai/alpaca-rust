@@ -1,4 +1,4 @@
-import { minutesFromHhmm, parseDate, parseTimestamp } from './clock';
+import { minutesFromHhmm, parseDate, parseHhmm, parseTimestamp } from './clock';
 import { fail } from './error';
 import {
   datePartsToUtcDate,
@@ -110,16 +110,7 @@ export function time(
 }
 
 export function hhmm(input: string): HhmmString {
-  if (input.includes(':')) {
-    minutesFromHhmm(input);
-    return input;
-  }
-  if (!/^\d{4}$/.test(input)) {
-    fail('invalid_hhmm_compact', `invalid compact hhmm: ${input}`);
-  }
-  const canonical = `${input.slice(0, 2)}:${input.slice(2, 4)}`;
-  minutesFromHhmm(canonical);
-  return canonical;
+  return parseHhmm(input);
 }
 
 export function duration(start: HhmmString, end: HhmmString): string {

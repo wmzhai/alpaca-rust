@@ -78,6 +78,44 @@ pub fn parse_timestamp(input: &str) -> TimeResult<String> {
     Ok(format_naive_timestamp(parse_naive_timestamp(input)?))
 }
 
+pub fn parse_hhmm(input: &str) -> TimeResult<String> {
+    if input.contains(':') {
+        minutes_from_hhmm(input)?;
+        return Ok(input.to_string());
+    }
+
+    if input.len() != 4 || !input.chars().all(|ch| ch.is_ascii_digit()) {
+        return Err(TimeError::new(
+            "invalid_hhmm_compact",
+            format!("invalid compact hhmm: {input}"),
+        ));
+    }
+
+    let hour = input[0..2].parse::<u32>().map_err(|_| {
+        TimeError::new(
+            "invalid_hhmm_compact",
+            format!("invalid compact hhmm: {input}"),
+        )
+    })?;
+    let minute = input[2..4].parse::<u32>().map_err(|_| {
+        TimeError::new(
+            "invalid_hhmm_compact",
+            format!("invalid compact hhmm: {input}"),
+        )
+    })?;
+
+    hhmm_string_from_parts(hour, minute)
+}
+
+pub fn compact_hhmm(input: &str) -> TimeResult<String> {
+    let hhmm = parse_hhmm(input)?;
+    Ok(hhmm.replace(':', ""))
+}
+
+pub fn minute_timestamp(date: &str, time: &str) -> TimeResult<String> {
+    Ok(format!("{} {}:00", parse_date(date)?, parse_hhmm(time)?))
+}
+
 pub fn parts(input: Option<&str>) -> TimeResult<TimestampParts> {
     let timestamp = parse_naive_timestamp(input.unwrap_or(&now()))?;
     Ok(TimestampParts {
@@ -245,8 +283,8 @@ mod tests {
     use std::cmp::Ordering;
 
     use super::{
-        compare_date_or_timestamp, first_date_or_timestamp, now, parse_date_or_timestamp,
-        parse_timestamp, parts, today, truncate_to_minute,
+        compact_hhmm, compare_date_or_timestamp, first_date_or_timestamp, minute_timestamp, now,
+        parse_date_or_timestamp, parse_hhmm, parse_timestamp, parts, today, truncate_to_minute,
     };
 
     #[test]
@@ -312,6 +350,18 @@ mod tests {
         let current = now();
         assert_eq!(parse_timestamp(&current).unwrap(), current);
         assert_eq!(today(), current[0..10].to_string());
+    }
+
+    #[test]
+    fn hhmm_helpers_accept_compact_and_colon_formats() {
+        assert_eq!(parse_hhmm("0931").unwrap(), "09:31");
+        assert_eq!(parse_hhmm("09:31").unwrap(), "09:31");
+        assert_eq!(compact_hhmm("09:31").unwrap(), "0931");
+        assert_eq!(compact_hhmm("0931").unwrap(), "0931");
+        assert_eq!(
+            minute_timestamp("2026-04-20", "0931").unwrap(),
+            "2026-04-20 09:31:00"
+        );
     }
 
     #[test]

@@ -1,6 +1,8 @@
 use chrono::Datelike;
 
-use crate::clock::{minutes_from_hhmm, parse_naive_date, parse_naive_timestamp, parse_timestamp};
+use crate::clock::{
+    minutes_from_hhmm, parse_hhmm, parse_naive_date, parse_naive_timestamp, parse_timestamp,
+};
 use crate::error::{TimeError, TimeResult};
 use crate::types::{DurationParts, WeekdayCode};
 
@@ -73,32 +75,7 @@ pub fn time(input: &str, precision: Option<&str>, date_style: Option<&str>) -> S
 }
 
 pub fn hhmm(input: &str) -> TimeResult<String> {
-    if input.contains(':') {
-        minutes_from_hhmm(input)?;
-        return Ok(input.to_string());
-    }
-
-    if input.len() != 4 || !input.chars().all(|ch| ch.is_ascii_digit()) {
-        return Err(TimeError::new(
-            "invalid_hhmm_compact",
-            format!("invalid compact hhmm: {input}"),
-        ));
-    }
-
-    let hour = input[0..2].parse::<u32>().map_err(|_| {
-        TimeError::new(
-            "invalid_hhmm_compact",
-            format!("invalid compact hhmm: {input}"),
-        )
-    })?;
-    let minute = input[2..4].parse::<u32>().map_err(|_| {
-        TimeError::new(
-            "invalid_hhmm_compact",
-            format!("invalid compact hhmm: {input}"),
-        )
-    })?;
-
-    crate::clock::hhmm_string_from_parts(hour, minute)
+    parse_hhmm(input)
 }
 
 pub fn duration(start: &str, end: &str) -> String {
