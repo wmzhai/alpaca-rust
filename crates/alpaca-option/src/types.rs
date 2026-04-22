@@ -452,23 +452,42 @@ impl OptionSnapshot {
     }
 }
 
-fn deserialize_position_snapshot<'de, D>(deserializer: D) -> Result<OptionSnapshot, D::Error>
-where
-    D: Deserializer<'de>,
-{
-    Ok(Option::<OptionSnapshot>::deserialize(deserializer)?.unwrap_or_default())
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[derive(Debug, Clone, PartialEq, Serialize, TS)]
 pub struct OptionPosition {
     pub contract: String,
-    #[serde(default, deserialize_with = "deserialize_position_snapshot")]
     pub snapshot: OptionSnapshot,
     pub qty: i32,
     #[serde(with = "alpaca_core::decimal::price_string_contract")]
     #[ts(type = "string")]
     pub avg_cost: Decimal,
     pub leg_type: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct OptionPositionWire {
+    contract: String,
+    #[serde(default)]
+    snapshot: Option<OptionSnapshot>,
+    qty: i32,
+    #[serde(with = "alpaca_core::decimal::price_string_contract")]
+    avg_cost: Decimal,
+    leg_type: String,
+}
+
+impl<'de> Deserialize<'de> for OptionPosition {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let wire = OptionPositionWire::deserialize(deserializer)?;
+        Ok(Self {
+            contract: wire.contract,
+            snapshot: wire.snapshot.unwrap_or_default(),
+            qty: wire.qty,
+            avg_cost: wire.avg_cost,
+            leg_type: wire.leg_type,
+        })
+    }
 }
 
 fn position_side_from_qty_and_leg_type(qty: i32, leg_type: &str) -> PositionSide {
