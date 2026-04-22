@@ -656,6 +656,21 @@ fn optionstrat_helpers_cover_query_hash_optional_premium_and_underlying_mismatch
     assert_eq!(parsed.underlying_display_symbol, "BRK.B");
     assert_eq!(parsed.leg_fragments, vec![".BRKB250620P480x1@1.23"]);
 
+    let parsed_double_calendar = url::parse_optionstrat_url(
+        "https://optionstrat.com/build/double-calendar/AVGO/.AVGO260821C430@31.67,-.AVGO260501C430@2.92,.AVGO260821P370@28.03,-.AVGO260501P370@3.24",
+    )
+    .unwrap();
+    assert_eq!(parsed_double_calendar.underlying_display_symbol, "AVGO");
+    assert_eq!(
+        parsed_double_calendar.leg_fragments,
+        vec![
+            ".AVGO260821C430@31.67",
+            "-.AVGO260501C430@2.92",
+            ".AVGO260821P370@28.03",
+            "-.AVGO260501P370@3.24",
+        ]
+    );
+
     let legs =
         url::parse_optionstrat_leg_fragments("BRK.B", &[".BRKB250620P480x1".to_string()]).unwrap();
     assert_eq!(legs.len(), 1);

@@ -155,6 +155,22 @@
       }
     },
     {
+      "id": "parse-optionstrat-url-double-calendar",
+      "api": "url.parse_optionstrat_url",
+      "input": {
+        "url": "https://optionstrat.com/build/double-calendar/AVGO/.AVGO260821C430@31.67,-.AVGO260501C430@2.92,.AVGO260821P370@28.03,-.AVGO260501P370@3.24"
+      },
+      "expected": {
+        "underlying_display_symbol": "AVGO",
+        "leg_fragments": [
+          ".AVGO260821C430@31.67",
+          "-.AVGO260501C430@2.92",
+          ".AVGO260821P370@28.03",
+          "-.AVGO260501P370@3.24"
+        ]
+      }
+    },
+    {
       "id": "from-underlying-path-brk-b",
       "api": "url.from_optionstrat_underlying_path",
       "input": {

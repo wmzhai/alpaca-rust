@@ -6,7 +6,7 @@ use crate::types::{
     ParsedOptionStratUrl, StrategyLegInput,
 };
 
-const OPTIONSTRAT_PREFIX: &str = "/build/custom/";
+const OPTIONSTRAT_BUILD_PREFIX: &str = "/build/";
 
 #[derive(Debug, Clone, PartialEq)]
 struct OptionStratLegFragmentInput {
@@ -181,32 +181,38 @@ pub fn merge_optionstrat_urls(
 
 pub fn parse_optionstrat_url(url: &str) -> OptionResult<ParsedOptionStratUrl> {
     let without_suffix = url.split(['?', '#']).next().unwrap_or(url);
-    let marker_index = without_suffix.find(OPTIONSTRAT_PREFIX).ok_or_else(|| {
-        OptionError::new(
-            "invalid_optionstrat_url",
-            format!("invalid optionstrat url: {url}"),
-        )
-    })?;
-    let rest = &without_suffix[marker_index + OPTIONSTRAT_PREFIX.len()..];
-    let (underlying_path, fragments) = rest.split_once('/').ok_or_else(|| {
-        OptionError::new(
-            "invalid_optionstrat_url",
-            format!("invalid optionstrat url: {url}"),
-        )
-    })?;
+    let marker_index = without_suffix
+        .find(OPTIONSTRAT_BUILD_PREFIX)
+        .ok_or_else(|| {
+            OptionError::new(
+                "invalid_optionstrat_url",
+                format!("invalid optionstrat url: {url}"),
+            )
+        })?;
+    let rest = &without_suffix[marker_index + OPTIONSTRAT_BUILD_PREFIX.len()..];
 
-    let leg_fragments = if fragments.is_empty() {
-        Vec::new()
-    } else {
-        fragments
-            .split(',')
-            .map(|fragment| fragment.to_string())
-            .collect()
-    };
+    let mut parts = rest.splitn(3, '/');
+    let strategy = parts.next().unwrap_or_default();
+    let underlying_path = parts.next().unwrap_or_default();
+    let fragments = parts.next().unwrap_or_default();
+
+    if strategy.is_empty() || underlying_path.is_empty() {
+        return Err(OptionError::new(
+            "invalid_optionstrat_url",
+            format!("invalid optionstrat url: {url}"),
+        ));
+    }
 
     Ok(ParsedOptionStratUrl {
         underlying_display_symbol: from_optionstrat_underlying_path(underlying_path),
-        leg_fragments,
+        leg_fragments: if fragments.is_empty() {
+            Vec::new()
+        } else {
+            fragments
+                .split(',')
+                .map(|fragment| fragment.to_string())
+                .collect()
+        },
     })
 }
 

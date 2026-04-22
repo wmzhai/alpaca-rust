@@ -10,7 +10,7 @@ import type {
   StrategyLegInput,
 } from './types';
 
-const OPTIONSTRAT_PREFIX = '/build/custom/';
+const OPTIONSTRAT_BUILD_PREFIX = '/build/';
 
 type ResolvedOptionstratLegInput = {
   occSymbol: string;
@@ -204,19 +204,17 @@ export function mergeOptionstratUrls(
 
 export function parseOptionstratUrl(url: string): ParsedOptionStratUrl {
   const withoutSuffix = url.split(/[?#]/, 1)[0] ?? url;
-  const markerIndex = withoutSuffix.indexOf(OPTIONSTRAT_PREFIX);
+  const markerIndex = withoutSuffix.indexOf(OPTIONSTRAT_BUILD_PREFIX);
   if (markerIndex < 0) {
     fail('invalid_optionstrat_url', `invalid optionstrat url: ${url}`);
   }
 
-  const rest = withoutSuffix.slice(markerIndex + OPTIONSTRAT_PREFIX.length);
-  const slashIndex = rest.indexOf('/');
-  if (slashIndex < 0) {
+  const rest = withoutSuffix.slice(markerIndex + OPTIONSTRAT_BUILD_PREFIX.length);
+  const [strategy, underlyingPath, fragments = ''] = rest.split('/', 3);
+  if (!strategy || !underlyingPath) {
     fail('invalid_optionstrat_url', `invalid optionstrat url: ${url}`);
   }
 
-  const underlyingPath = rest.slice(0, slashIndex);
-  const fragments = rest.slice(slashIndex + 1);
   return {
     underlyingDisplaySymbol: fromOptionstratUnderlyingPath(underlyingPath),
     legFragments: fragments ? fragments.split(',') : [],
