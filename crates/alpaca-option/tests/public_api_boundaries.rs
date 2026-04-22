@@ -677,6 +677,15 @@ fn optionstrat_helpers_cover_query_hash_optional_premium_and_underlying_mismatch
     assert_eq!(legs[0].premium_per_contract, None);
     assert_eq!(legs[0].ratio_quantity, 1);
 
+    let legs_without_qty = url::parse_optionstrat_leg_fragments(
+        "AVGO",
+        &[".AVGO260821C430@31.67".to_string()],
+    )
+    .unwrap();
+    assert_eq!(legs_without_qty.len(), 1);
+    assert_eq!(legs_without_qty[0].ratio_quantity, 1);
+    assert_eq!(legs_without_qty[0].premium_per_contract, Some(31.67));
+
     assert_error_code(
         url::parse_optionstrat_leg_fragments("SPY", &[".QQQ250620P480x1@1.23".to_string()])
             .unwrap_err(),

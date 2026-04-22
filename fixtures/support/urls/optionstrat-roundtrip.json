@@ -242,6 +242,30 @@
       ]
     },
     {
+      "id": "parse-optionstrat-leg-fragments-implicit-qty",
+      "api": "url.parse_optionstrat_leg_fragments",
+      "input": {
+        "underlying_display_symbol": "AVGO",
+        "leg_fragments": [
+          ".AVGO260821C430@31.67"
+        ]
+      },
+      "expected": [
+        {
+          "contract": {
+            "underlying_symbol": "AVGO",
+            "expiration_date": "2026-08-21",
+            "strike": 430.0,
+            "option_right": "call",
+            "occ_symbol": "AVGO260821C00430000"
+          },
+          "order_side": "buy",
+          "ratio_quantity": 1,
+          "premium_per_contract": 31.67
+        }
+      ]
+    },
+    {
       "id": "parse-optionstrat-leg-fragments-negative-premium",
       "api": "url.parse_optionstrat_leg_fragments",
       "input": {

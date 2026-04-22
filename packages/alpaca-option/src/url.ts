@@ -272,13 +272,9 @@ function parseOptionstratLegFragment(fragment: string, underlyingDisplaySymbol: 
 
   const [withoutPremium, premiumText] = body.split('@', 2);
   const xIndex = withoutPremium.lastIndexOf('x');
-  if (xIndex < 0) {
-    fail('invalid_optionstrat_leg_fragment', `invalid optionstrat leg fragment: ${fragment}`);
-  }
-
-  const compactContract = withoutPremium.slice(0, xIndex);
-  const quantityText = withoutPremium.slice(xIndex + 1);
-  const ratioQuantity = Number(quantityText);
+  const compactContract = xIndex < 0 ? withoutPremium : withoutPremium.slice(0, xIndex);
+  const quantityText = xIndex < 0 ? null : withoutPremium.slice(xIndex + 1);
+  const ratioQuantity = quantityText == null ? 1 : Number(quantityText);
   if (!Number.isInteger(ratioQuantity) || ratioQuantity <= 0) {
     fail('invalid_optionstrat_leg_fragment', `invalid optionstrat leg fragment: ${fragment}`);
   }

@@ -276,19 +276,18 @@ fn parse_optionstrat_leg_fragment(
         Some((body, premium)) => (body, Some(premium)),
         None => (compact_fragment, None),
     };
-    let (compact_contract, quantity_text) = body.rsplit_once('x').ok_or_else(|| {
-        OptionError::new(
-            "invalid_optionstrat_leg_fragment",
-            format!("invalid optionstrat leg fragment: {fragment}"),
-        )
-    })?;
-
-    let ratio_quantity = quantity_text.parse::<u32>().map_err(|_| {
-        OptionError::new(
-            "invalid_optionstrat_leg_fragment",
-            format!("invalid optionstrat leg fragment: {fragment}"),
-        )
-    })?;
+    let (compact_contract, ratio_quantity) = match body.rsplit_once('x') {
+        Some((compact_contract, quantity_text)) => {
+            let ratio_quantity = quantity_text.parse::<u32>().map_err(|_| {
+                OptionError::new(
+                    "invalid_optionstrat_leg_fragment",
+                    format!("invalid optionstrat leg fragment: {fragment}"),
+                )
+            })?;
+            (compact_contract, ratio_quantity)
+        }
+        None => (body, 1),
+    };
     if ratio_quantity == 0 {
         return Err(OptionError::new(
             "invalid_optionstrat_leg_fragment",
