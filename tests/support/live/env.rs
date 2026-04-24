@@ -70,8 +70,10 @@ impl LiveTestEnv {
     pub fn load() -> Result<Self, SupportError> {
         let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         let workspace_root = workspace_root_from_manifest_dir(&manifest_dir)?;
-        let dotenv_path = workspace_root.join(".env");
-        let dotenv_values = read_dotenv_file(&dotenv_path)?;
+        let dotenv_values = match find_dotenv_upward(&workspace_root)? {
+            Some(dotenv_path) => read_dotenv_file(&dotenv_path)?,
+            None => HashMap::new(),
+        };
         let process_values = collect_process_values(&all_known_env_names());
 
         Self::from_sources(workspace_root, process_values, dotenv_values)
@@ -205,6 +207,16 @@ pub fn read_dotenv_file(path: &Path) -> Result<HashMap<String, String>, SupportE
     Ok(values)
 }
 
+pub fn find_dotenv_upward(start: &Path) -> Result<Option<PathBuf>, SupportError> {
+    for candidate in start.ancestors() {
+        let path = candidate.join(".env");
+        if path.exists() {
+            return Ok(Some(path));
+        }
+    }
+    Ok(None)
+}
+
 pub fn parse_bool_flag(
     process_values: &HashMap<String, String>,
     dotenv_values: &HashMap<String, String>,
@@ -330,5 +342,30 @@ fn workspace_relative_path(workspace_root: &Path, value: &str) -> PathBuf {
         path
     } else {
         workspace_root.join(path)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn find_dotenv_upward_returns_first_parent_env() -> Result<(), SupportError> {
+        let temp =
+            std::env::temp_dir().join(format!("alpaca-live-env-test-{}", std::process::id()));
+        let workspace = temp.join("alpaca-rust");
+        let nested = workspace.join("crates/alpaca-data");
+        fs::create_dir_all(&nested).map_err(|error| {
+            SupportError::InvalidConfiguration(format!("failed to create temp dirs: {error}"))
+        })?;
+        fs::write(temp.join(".env"), "ALPACA_DATA_API_KEY=parent\n").map_err(|error| {
+            SupportError::InvalidConfiguration(format!("failed to write parent env: {error}"))
+        })?;
+
+        let found = find_dotenv_upward(&nested)?;
+
+        fs::remove_dir_all(&temp).ok();
+        assert_eq!(found, Some(temp.join(".env")));
+        Ok(())
     }
 }

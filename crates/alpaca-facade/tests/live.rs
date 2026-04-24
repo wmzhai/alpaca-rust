@@ -20,9 +20,17 @@ fn repo_root() -> PathBuf {
 }
 
 fn load_local_env() {
-    let dotenv_path = repo_root().join(".env");
-    dotenvy::from_path_override(dotenv_path)
-        .expect("alpaca-rust/.env should load for live adapter tests");
+    if let Some(dotenv_path) = find_dotenv_upward(&repo_root()) {
+        dotenvy::from_path_override(dotenv_path)
+            .expect("workspace .env should load for live adapter tests");
+    }
+}
+
+fn find_dotenv_upward(start: &std::path::Path) -> Option<PathBuf> {
+    start
+        .ancestors()
+        .map(|candidate| candidate.join(".env"))
+        .find(|path| path.exists())
 }
 
 fn assert_ny_timestamp(value: &str) {

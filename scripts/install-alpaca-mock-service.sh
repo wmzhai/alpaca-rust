@@ -74,6 +74,19 @@ dotenv_has_key() {
   dotenv_value "$dotenv_path" "$key" >/dev/null 2>&1
 }
 
+find_env_file() {
+  local dir
+  dir="$(cd "$1" && pwd)"
+  while [[ "$dir" != "/" ]]; do
+    if [[ -f "$dir/.env" ]]; then
+      printf '%s\n' "$dir/.env"
+      return 0
+    fi
+    dir="$(dirname "$dir")"
+  done
+  return 1
+}
+
 xml_escape() {
   local value="$1"
   value="${value//&/&amp;}"
@@ -277,7 +290,7 @@ main() {
 
   script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
   REPO_ROOT="$(cd -- "$script_dir/.." && pwd)"
-  ENV_FILE="$REPO_ROOT/.env"
+  ENV_FILE="$(find_env_file "$REPO_ROOT" || true)"
   BINARY_PATH="$REPO_ROOT/target/release/alpaca-mock"
   SERVICE_FILE_PATH=""
   STATUS_COMMAND=""
@@ -290,7 +303,7 @@ main() {
 
   [[ "$EUID" -ne 0 ]] || die "run this script as the target user, not with sudo"
   [[ -f "$REPO_ROOT/Cargo.toml" ]] || die "could not find workspace Cargo.toml at $REPO_ROOT/Cargo.toml"
-  [[ -f "$ENV_FILE" ]] || die "expected root .env at $ENV_FILE"
+  [[ -n "$ENV_FILE" && -f "$ENV_FILE" ]] || die "expected .env in $REPO_ROOT or one of its parent directories"
 
   dotenv_has_key "$ENV_FILE" "ALPACA_DATA_API_KEY" || die "expected ALPACA_DATA_API_KEY in $ENV_FILE"
   dotenv_has_key "$ENV_FILE" "ALPACA_DATA_SECRET_KEY" || die "expected ALPACA_DATA_SECRET_KEY in $ENV_FILE"
