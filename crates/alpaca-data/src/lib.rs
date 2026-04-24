@@ -36,6 +36,7 @@ pub mod stocks;
 
 pub use client::{Client, ClientBuilder, DATA_API_KEY_ENV, DATA_SECRET_KEY_ENV};
 pub use error::Error;
+pub use symbols::{display_stock_symbol, options_underlying_symbol};
 
 #[cfg(test)]
 mod tests;
