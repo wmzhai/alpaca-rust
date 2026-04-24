@@ -291,7 +291,6 @@ function juQuadraticPriceInner(input: {
     return baroneAdesiWhaleyPrice(input);
   }
 
-  const forwardPrice = input.spot * dividendDiscount / riskFreeDiscount;
   const forwardSk = sk * dividendDiscount / riskFreeDiscount;
   const alpha = -2 * Math.log(riskFreeDiscount) / variance;
   const beta = 2 * Math.log(dividendDiscount / riskFreeDiscount) / variance;

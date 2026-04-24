@@ -5,7 +5,6 @@ import type {
   BlackScholesImpliedVolatilityInput,
   BlackScholesInput,
   Greeks,
-  OptionContract,
   OptionRight,
 } from './types';
 

@@ -29,6 +29,15 @@ fn request_from_expiration_range_keeps_exact_dates() {
 }
 
 #[test]
+fn request_from_expiration_date_sets_exact_filter_only() {
+    let request = OptionChainRequest::from_expiration_date("2026-07-22");
+
+    assert_eq!(request.expiration_date(), Some("2026-07-22"));
+    assert_eq!(request.expiration_date_gte(), None);
+    assert_eq!(request.expiration_date_lte(), None);
+}
+
+#[test]
 fn request_with_strike_range_rounds_float_inputs() {
     let request = OptionChainRequest::new().with_strike_range(Some(430.126), Some(441.874));
 
@@ -69,6 +78,25 @@ fn request_covers_narrower_window_and_same_option_type() {
 }
 
 #[test]
+fn request_covers_exact_date_with_range() {
+    let cached = OptionChainRequest::from_expiration_range(Some("2026-07-01"), Some("2026-08-31"))
+        .with_option_type(OptionRight::Call);
+    let requested = OptionChainRequest::from_expiration_date("2026-07-15").with_option_type(OptionRight::Call);
+
+    assert!(cached.covers(&requested));
+    assert!(matches!(requested.expiration_date(), Some("2026-07-15")));
+}
+
+#[test]
+fn request_does_not_cover_different_exact_date() {
+    let cached = OptionChainRequest::from_expiration_date("2026-07-22");
+    let requested = OptionChainRequest::from_expiration_date("2026-07-23");
+
+    assert!(!cached.covers(&requested));
+    assert!(!requested.covers(&cached));
+}
+
+#[test]
 fn request_merge_expands_bounds_and_promotes_option_type_to_all_when_needed() {
     let mut merged =
         OptionChainRequest::from_expiration_range(Some("2026-04-24"), Some("2026-05-09"))
@@ -89,4 +117,18 @@ fn request_merge_expands_bounds_and_promotes_option_type_to_all_when_needed() {
     assert_eq!(merged.expiration_date_gte(), Some("2026-04-20"));
     assert_eq!(merged.expiration_date_lte(), Some("2026-05-16"));
     assert_eq!(merged.underlying_price(), Some(101.5));
+}
+
+#[test]
+fn request_merge_exact_with_range_expands_to_range() {
+    let mut merged =
+        OptionChainRequest::from_expiration_date("2026-07-22").with_option_type(OptionRight::Call);
+    merged.merge(
+        &OptionChainRequest::from_expiration_range(Some("2026-07-24"), Some("2026-07-25"))
+            .with_option_type(OptionRight::Call),
+    );
+
+    assert_eq!(merged.expiration_date(), None);
+    assert_eq!(merged.expiration_date_gte(), None);
+    assert_eq!(merged.expiration_date_lte(), None);
 }

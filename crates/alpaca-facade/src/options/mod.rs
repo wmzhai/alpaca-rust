@@ -45,6 +45,7 @@ pub struct OptionChainRequest {
     option_type: Option<OptionRight>,
     strike_price_gte: Option<Decimal>,
     strike_price_lte: Option<Decimal>,
+    expiration_date: Option<String>,
     expiration_date_gte: Option<String>,
     expiration_date_lte: Option<String>,
     underlying_price: Option<f64>,
@@ -57,6 +58,7 @@ impl OptionChainRequest {
             option_type: None,
             strike_price_gte: None,
             strike_price_lte: None,
+            expiration_date: None,
             expiration_date_gte: None,
             expiration_date_lte: None,
             underlying_price: None,
@@ -88,6 +90,11 @@ impl OptionChainRequest {
     }
 
     #[must_use]
+    pub fn from_expiration_date(expiration_date: &str) -> Self {
+        Self::new().with_expiration_date(expiration_date)
+    }
+
+    #[must_use]
     pub fn with_strike_range(
         mut self,
         strike_price_gte: Option<f64>,
@@ -104,8 +111,17 @@ impl OptionChainRequest {
         expiration_date_gte: Option<&str>,
         expiration_date_lte: Option<&str>,
     ) -> Self {
+        self.expiration_date = None;
         self.expiration_date_gte = expiration_date_gte.map(str::to_string);
         self.expiration_date_lte = expiration_date_lte.map(str::to_string);
+        self
+    }
+
+    #[must_use]
+    pub fn with_expiration_date(mut self, expiration_date: &str) -> Self {
+        self.expiration_date = Some(expiration_date.to_string());
+        self.expiration_date_gte = None;
+        self.expiration_date_lte = None;
         self
     }
 
@@ -130,6 +146,7 @@ impl OptionChainRequest {
         self.option_type.is_some()
             || self.strike_price_gte.is_some()
             || self.strike_price_lte.is_some()
+            || self.expiration_date.is_some()
             || self.expiration_date_gte.is_some()
             || self.expiration_date_lte.is_some()
     }
@@ -147,6 +164,11 @@ impl OptionChainRequest {
     #[must_use]
     pub fn strike_price_lte(&self) -> Option<Decimal> {
         self.strike_price_lte
+    }
+
+    #[must_use]
+    pub fn expiration_date(&self) -> Option<&str> {
+        self.expiration_date.as_deref()
     }
 
     #[must_use]
@@ -171,7 +193,7 @@ impl OptionChainRequest {
             r#type: provider_contract_type(self.option_type.as_ref()),
             strike_price_gte: self.strike_price_gte,
             strike_price_lte: self.strike_price_lte,
-            expiration_date: None,
+            expiration_date: self.expiration_date.clone(),
             expiration_date_gte: self.expiration_date_gte.clone(),
             expiration_date_lte: self.expiration_date_lte.clone(),
             root_symbol: None,
@@ -183,17 +205,32 @@ impl OptionChainRequest {
 
     #[must_use]
     pub fn covers(&self, requested: &Self) -> bool {
-        option_type_covers(&self.option_type, &requested.option_type)
-            && lower_bound_covers(self.strike_price_gte, requested.strike_price_gte)
-            && upper_bound_covers(self.strike_price_lte, requested.strike_price_lte)
-            && lower_bound_covers(
+        let expiration_covered = if requested.expiration_date.is_some() {
+            exact_or_range_covers(
+                self.expiration_date.as_deref(),
+                requested.expiration_date.as_deref(),
+                self.expiration_date_gte.as_deref(),
+                self.expiration_date_lte.as_deref(),
+            )
+        } else {
+            exact_or_range_covers(
+                self.expiration_date.as_deref(),
+                requested.expiration_date.as_deref(),
+                self.expiration_date_gte.as_deref(),
+                self.expiration_date_lte.as_deref(),
+            ) && lower_bound_covers(
                 self.expiration_date_gte.as_deref(),
                 requested.expiration_date_gte.as_deref(),
-            )
-            && upper_bound_covers(
+            ) && upper_bound_covers(
                 self.expiration_date_lte.as_deref(),
                 requested.expiration_date_lte.as_deref(),
             )
+        };
+
+        option_type_covers(&self.option_type, &requested.option_type)
+            && lower_bound_covers(self.strike_price_gte, requested.strike_price_gte)
+            && upper_bound_covers(self.strike_price_lte, requested.strike_price_lte)
+            && expiration_covered
     }
 
     pub fn merge(&mut self, other: &Self) {
@@ -203,14 +240,17 @@ impl OptionChainRequest {
 
         self.strike_price_gte = merged_lower_bound(self.strike_price_gte, other.strike_price_gte);
         self.strike_price_lte = merged_upper_bound(self.strike_price_lte, other.strike_price_lte);
-        self.expiration_date_gte = merged_lower_bound(
+        let (expiration_date, expiration_date_gte, expiration_date_lte) = merge_expiration_filters(
+            self.expiration_date.take(),
             self.expiration_date_gte.clone(),
-            other.expiration_date_gte.clone(),
-        );
-        self.expiration_date_lte = merged_upper_bound(
             self.expiration_date_lte.clone(),
+            other.expiration_date.clone(),
+            other.expiration_date_gte.clone(),
             other.expiration_date_lte.clone(),
         );
+        self.expiration_date = expiration_date;
+        self.expiration_date_gte = expiration_date_gte;
+        self.expiration_date_lte = expiration_date_lte;
 
         if self.underlying_price.is_none() {
             self.underlying_price = other.underlying_price;
@@ -223,6 +263,23 @@ fn option_type_covers(cached: &Option<OptionRight>, requested: &Option<OptionRig
         (None, _) => true,
         (Some(_), None) => false,
         (Some(cached), Some(requested)) => cached == requested,
+    }
+}
+
+fn exact_or_range_covers(
+    cached_exact: Option<&str>,
+    requested_exact: Option<&str>,
+    cached_gte: Option<&str>,
+    cached_lte: Option<&str>,
+) -> bool {
+    match (cached_exact, requested_exact) {
+        (Some(_), Some(_)) => cached_exact == requested_exact,
+        (Some(_), None) => false,
+        (None, Some(requested)) => {
+            lower_bound_covers(cached_gte, Some(requested))
+                && upper_bound_covers(cached_lte, Some(requested))
+        }
+        (None, None) => true,
     }
 }
 
@@ -273,6 +330,37 @@ where
         } else {
             incoming
         }),
+    }
+}
+
+fn merge_expiration_filters(
+    current_exact: Option<String>,
+    current_gte: Option<String>,
+    current_lte: Option<String>,
+    incoming_exact: Option<String>,
+    incoming_gte: Option<String>,
+    incoming_lte: Option<String>,
+) -> (Option<String>, Option<String>, Option<String>) {
+    let has_ranges = current_gte.is_some() || current_lte.is_some() || incoming_gte.is_some() || incoming_lte.is_some();
+    let mut exact_dates = Vec::new();
+    if let Some(date) = current_exact.as_deref() {
+        exact_dates.push(date);
+    }
+    if let Some(date) = incoming_exact.as_deref() {
+        exact_dates.push(date);
+    }
+
+    let mut merged_gte = merged_lower_bound(current_gte, incoming_gte);
+    let mut merged_lte = merged_upper_bound(current_lte, incoming_lte);
+    for date in &exact_dates {
+        merged_gte = merged_lower_bound(merged_gte, Some((*date).to_string()));
+        merged_lte = merged_upper_bound(merged_lte, Some((*date).to_string()));
+    }
+
+    match exact_dates.len() {
+        0 => (None, merged_gte, merged_lte),
+        1 if !has_ranges => (Some(exact_dates[0].to_string()), None, None),
+        _ => (None, merged_gte, merged_lte),
     }
 }
 
