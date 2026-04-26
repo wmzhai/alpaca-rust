@@ -14,9 +14,9 @@ keywords = ["alpaca", "mock-server", "trading", "testing"]
 categories = ["api-bindings", "development-tools"]
 
 [dependencies]
-alpaca-core = { path = "../alpaca-core", version = "0.24.9" }
-alpaca-data = { path = "../alpaca-data", version = "0.24.9" }
-alpaca-trade = { path = "../alpaca-trade", version = "0.24.9" }
+alpaca-core = { path = "../alpaca-core", version = "0.25.0" }
+alpaca-data = { path = "../alpaca-data", version = "0.25.0" }
+alpaca-trade = { path = "../alpaca-trade", version = "0.25.0" }
 axum.workspace = true
 chrono.workspace = true
 dotenvy.workspace = true

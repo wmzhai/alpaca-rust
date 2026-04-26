@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.25.0
+
+- Added exact option expiration request support so option-data callers can request a specific contract expiration instead of only range-style filtering.
+- Exported shared stock symbol helpers from `alpaca-trade` for downstream strategy and application code.
+- Improved live tooling dotenv discovery by walking parent directories for the workspace environment file.
+- Reduced generated TypeScript binding noise for option positions and tightened OptionStrat parsing around implicit quantities and non-custom build URLs.
+- Carried forward the release workflow guard fix so tag releases validate against `main`, matching the current repository default branch.
+
 ## v0.24.9
 
 - Verified the CI release path after the 0.24.8 manual bootstrap by publishing the full Rust workspace from the tag-driven GitHub Actions workflow.
