@@ -129,7 +129,7 @@ Wait for crates.io index visibility before publishing each dependent crate.
 - Release automation runs from `.github/workflows/github-pages.yml`
 - crates.io publication uses Trusted Publishing from GitHub Actions
 - staged `cargo publish --dry-run --no-verify` checks run immediately before each real publish in dependency order
-- GitHub Pages deploys from `main` pushes and from release tags
+- GitHub Pages deploys from release tags
 - GitHub Release creation runs only from the tag workflow path
 - First-time crates should be published manually once before relying on Trusted Publishing in CI
 

@@ -2,11 +2,8 @@ name: release
 
 on:
   push:
-    branches:
-      - main
     tags:
       - 'v*.*.*'
-  workflow_dispatch:
 
 env:
   CARGO_TERM_COLOR: always

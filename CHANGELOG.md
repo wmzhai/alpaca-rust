@@ -4,7 +4,7 @@
 
 - Bumped the full Rust workspace, website package metadata, and public install snippets to `0.25.1`.
 - Fixed stale documentation site examples that still showed older crate versions on Getting Started and Installation pages.
-- Allowed GitHub Pages to rebuild from `main` while keeping crates.io publication and GitHub Release creation tag-only.
+- Kept GitHub Pages deployment in the tag-only release flow while aligning release guards to `main`.
 - Added exact option expiration request support so option-data callers can request a specific contract expiration instead of only range-style filtering.
 - Exported shared stock symbol helpers from `alpaca-trade` for downstream strategy and application code.
 - Improved live tooling dotenv discovery by walking parent directories for the workspace environment file.
