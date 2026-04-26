@@ -1,18 +1,15 @@
 # Changelog
 
-## v0.25.0
+## v0.25.1
 
+- Bumped the full Rust workspace, website package metadata, and public install snippets to `0.25.1`.
+- Fixed stale documentation site examples that still showed older crate versions on Getting Started and Installation pages.
+- Allowed GitHub Pages to rebuild from `main` while keeping crates.io publication and GitHub Release creation tag-only.
 - Added exact option expiration request support so option-data callers can request a specific contract expiration instead of only range-style filtering.
 - Exported shared stock symbol helpers from `alpaca-trade` for downstream strategy and application code.
 - Improved live tooling dotenv discovery by walking parent directories for the workspace environment file.
 - Reduced generated TypeScript binding noise for option positions and tightened OptionStrat parsing around implicit quantities and non-custom build URLs.
 - Carried forward the release workflow guard fix so tag releases validate against `main`, matching the current repository default branch.
-
-## v0.24.9
-
-- Verified the CI release path after the 0.24.8 manual bootstrap by publishing the full Rust workspace from the tag-driven GitHub Actions workflow.
-- Kept the release path focused on documentation generation, site publication, and crate publication rather than full Rust test execution.
-- Rolled the manual 0.24.8 bootstrap forward into the next patch release so the first Trusted Publishing run can ship from a clean version line.
 
 ## v0.24.8
 
@@ -61,7 +58,7 @@
 
 - Migrated the public documentation site to the Docusaurus workspace layout with unified `alpaca-rust` branding and multi-crate docs.rs navigation.
 - Consolidated release automation into one tag-only GitHub Actions workflow that validates the workspace, publishes crates in dependency order, deploys GitHub Pages, and creates the GitHub Release.
-- Added release guards that require tags to point at `master` and match the workspace version before publish steps can run.
+- Added release guards that require tags to point at `main` and match the workspace version before publish steps can run.
 
 ## v0.23.8
 

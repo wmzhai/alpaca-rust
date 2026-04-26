@@ -37,5 +37,5 @@ It is a plus feature, not the primary published system surface.
 
 - [alpaca-facade](./alpaca-facade.md)
 - [Project Structure](../project-structure.md)
-- [alpaca-option spec](https://github.com/wmzhai/alpaca-rust/tree/master/spec/alpaca-option)
+- [alpaca-option spec](https://github.com/wmzhai/alpaca-rust/tree/main/spec/alpaca-option)
 - [docs.rs/alpaca-option](https://docs.rs/alpaca-option)

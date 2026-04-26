@@ -14,8 +14,8 @@ keywords = ["alpaca", "market-data", "stocks", "options"]
 categories = ["api-bindings", "asynchronous"]
 
 [dependencies]
-alpaca-core = { path = "../alpaca-core", version = "0.25.0" }
-alpaca-http = { package = "alpaca-rest-http", path = "../alpaca-http", version = "0.25.0" }
+alpaca-core = { path = "../alpaca-core", version = "0.25.1" }
+alpaca-http = { package = "alpaca-rest-http", path = "../alpaca-http", version = "0.25.1" }
 chrono.workspace = true
 reqwest.workspace = true
 rust_decimal.workspace = true

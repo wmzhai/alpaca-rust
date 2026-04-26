@@ -35,5 +35,5 @@
 - [alpaca-data](./alpaca-data.md)
 - [alpaca-option](./alpaca-option.md)
 - [alpaca-time](./alpaca-time.md)
-- [alpaca-facade spec](https://github.com/wmzhai/alpaca-rust/tree/master/spec/alpaca-facade)
+- [alpaca-facade spec](https://github.com/wmzhai/alpaca-rust/tree/main/spec/alpaca-facade)
 - [docs.rs/alpaca-facade](https://docs.rs/alpaca-facade)

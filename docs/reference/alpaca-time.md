@@ -33,5 +33,5 @@ It is a plus feature, not the primary published system surface.
 
 - [Project Structure](../project-structure.md)
 - [Testing Guide](../testing.md)
-- [alpaca-time spec](https://github.com/wmzhai/alpaca-rust/tree/master/spec/alpaca-time)
+- [alpaca-time spec](https://github.com/wmzhai/alpaca-rust/tree/main/spec/alpaca-time)
 - [docs.rs/alpaca-time](https://docs.rs/alpaca-time)

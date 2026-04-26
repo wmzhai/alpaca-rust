@@ -28,7 +28,7 @@ const config: Config = {
           path: '../docs',
           routeBasePath: 'docs',
           sidebarPath: './sidebars.ts',
-          editUrl: 'https://github.com/wmzhai/alpaca-rust/tree/master/',
+          editUrl: 'https://github.com/wmzhai/alpaca-rust/tree/main/',
         },
         blog: false,
         theme: {
