@@ -71,6 +71,59 @@ fn load_layer_fixture_paths() -> Vec<String> {
     layer_paths.collect()
 }
 
+fn fixture_requires_explicit_rate(api: &str) -> bool {
+    matches!(
+        api,
+        "analysis.strike_for_target_delta"
+            | "math.american.discrete_dividend_price"
+            | "math.american_barone_adesi_whaley_price"
+            | "math.american_bjerksund_stensland_1993_price"
+            | "math.american_ju_quadratic_price"
+            | "math.american_tree_price"
+            | "math.bachelier_greeks"
+            | "math.bachelier_implied_volatility_from_price"
+            | "math.bachelier_price"
+            | "math.barrier.price"
+            | "math.black76_greeks"
+            | "math.black76_implied_volatility_from_price"
+            | "math.black76_price"
+            | "math.geometric_asian.price"
+            | "payoff.strategy_break_even_points"
+            | "payoff.strategy_pnl"
+            | "pricing.black_scholes_put_call_parity"
+            | "pricing.greeks_black_scholes"
+            | "pricing.implied_volatility_from_price"
+            | "pricing.price_black_scholes"
+            | "probability.expiry_probability_in_range"
+    )
+}
+
+fn assert_rate_dependent_cases_have_explicit_rate(relative_path: &str) {
+    for case in load_cases(relative_path) {
+        let api = case
+            .get("api")
+            .and_then(Value::as_str)
+            .expect("fixture case should include api");
+
+        if !fixture_requires_explicit_rate(api) {
+            continue;
+        }
+
+        let id = case
+            .get("id")
+            .and_then(Value::as_str)
+            .unwrap_or("<missing id>");
+        let rate = case
+            .get("input")
+            .and_then(|input| input.get("rate"))
+            .and_then(Value::as_f64);
+        assert!(
+            rate.is_some_and(f64::is_finite),
+            "{relative_path}:{id} ({api}) must include finite input.rate"
+        );
+    }
+}
+
 fn unwrap_expected(expected: &Value) -> Value {
     expected
         .get("value")
@@ -707,7 +760,7 @@ fn run_case(case: &Value) -> Value {
         )
         .unwrap(),
         "probability.expiry_probability_in_range" => serde_json::to_value(
-            probability::expiry_probability_in_range(
+            probability::expiry_probability_in_range_with_rate(
                 input.get("spot").unwrap().as_f64().unwrap(),
                 input.get("lower_price").unwrap().as_f64().unwrap(),
                 input.get("upper_price").unwrap().as_f64().unwrap(),
@@ -1082,6 +1135,20 @@ fn run_case(case: &Value) -> Value {
             .unwrap()
         }
         other => panic!("Unhandled fixture api: {other}"),
+    }
+}
+
+#[test]
+fn rate_dependent_support_fixtures_use_explicit_rates() {
+    for fixture_path in load_support_fixture_paths() {
+        assert_rate_dependent_cases_have_explicit_rate(&fixture_path);
+    }
+}
+
+#[test]
+fn rate_dependent_layer_fixtures_use_explicit_rates() {
+    for fixture_path in load_layer_fixture_paths() {
+        assert_rate_dependent_cases_have_explicit_rate(&fixture_path);
     }
 }
 

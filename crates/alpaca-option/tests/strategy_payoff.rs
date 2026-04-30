@@ -6,6 +6,8 @@ use alpaca_option::{
 };
 use alpaca_time::expiration;
 
+const TEST_RISK_FREE_RATE: f64 = 0.03;
+
 fn contract(expiration_date: &str, strike: f64, option_right: OptionRight) -> OptionContract {
     let right_code = match option_right {
         OptionRight::Call => "C",
@@ -50,7 +52,7 @@ fn strategy_pnl_mixes_expired_and_unexpired_positions() {
         spot: 97.0,
         strike: 95.0,
         years: expiration::years("2025-04-24", Some(evaluation_time), None),
-        rate: 0.03,
+        rate: TEST_RISK_FREE_RATE,
         dividend_yield: 0.0,
         volatility: 0.25,
         option_right: OptionRight::Put,
@@ -63,7 +65,7 @@ fn strategy_pnl_mixes_expired_and_unexpired_positions() {
         underlying_price: 97.0,
         evaluation_time: evaluation_time.to_string(),
         entry_cost: None,
-        rate: 0.03,
+        rate: TEST_RISK_FREE_RATE,
         dividend_yield: None,
         long_volatility_shift: None,
     })
@@ -102,7 +104,7 @@ fn strategy_pnl_applies_volatility_shift_only_to_long_positions() {
         spot: 102.0,
         strike: 100.0,
         years,
-        rate: 0.03,
+        rate: TEST_RISK_FREE_RATE,
         dividend_yield: 0.0,
         volatility: 0.15,
         option_right: OptionRight::Call,
@@ -112,7 +114,7 @@ fn strategy_pnl_applies_volatility_shift_only_to_long_positions() {
         spot: 102.0,
         strike: 95.0,
         years,
-        rate: 0.03,
+        rate: TEST_RISK_FREE_RATE,
         dividend_yield: 0.0,
         volatility: 0.30,
         option_right: OptionRight::Put,
@@ -125,7 +127,7 @@ fn strategy_pnl_applies_volatility_shift_only_to_long_positions() {
         underlying_price: 102.0,
         evaluation_time: evaluation_time.to_string(),
         entry_cost: Some(150.0),
-        rate: 0.03,
+        rate: TEST_RISK_FREE_RATE,
         dividend_yield: None,
         long_volatility_shift: Some(-0.05),
     })
@@ -160,7 +162,7 @@ fn strategy_break_even_points_finds_credit_strangle_roots() {
         ],
         evaluation_time: "2025-03-21 16:00:00".to_string(),
         entry_cost: None,
-        rate: 0.03,
+        rate: TEST_RISK_FREE_RATE,
         dividend_yield: None,
         long_volatility_shift: None,
         lower_bound: 50.0,
@@ -190,7 +192,7 @@ fn strategy_pnl_requires_entry_cost_or_leg_costs() {
         underlying_price: 102.0,
         evaluation_time: "2025-03-20 11:30:04".to_string(),
         entry_cost: None,
-        rate: 0.03,
+        rate: TEST_RISK_FREE_RATE,
         dividend_yield: None,
         long_volatility_shift: None,
     })

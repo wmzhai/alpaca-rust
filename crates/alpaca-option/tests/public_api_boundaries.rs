@@ -16,10 +16,13 @@ use alpaca_option::types::{
 };
 use alpaca_option::url;
 use alpaca_option::{
-    LiquidityData, LiquidityOptionData, LiquidityStats, OptionError, PayoffLegInput,
+    DEFAULT_RISK_FREE_RATE, LiquidityData, LiquidityOptionData, LiquidityStats, OptionError,
+    PayoffLegInput,
 };
 use serde_json::json;
 use ts_rs::TS;
+
+const TEST_RISK_FREE_RATE: f64 = 0.03;
 
 fn assert_error_code(error: OptionError, expected: &str) {
     assert_eq!(error.code, expected, "unexpected error: {error}");
@@ -677,11 +680,9 @@ fn optionstrat_helpers_cover_query_hash_optional_premium_and_underlying_mismatch
     assert_eq!(legs[0].premium_per_contract, None);
     assert_eq!(legs[0].ratio_quantity, 1);
 
-    let legs_without_qty = url::parse_optionstrat_leg_fragments(
-        "AVGO",
-        &[".AVGO260821C430@31.67".to_string()],
-    )
-    .unwrap();
+    let legs_without_qty =
+        url::parse_optionstrat_leg_fragments("AVGO", &[".AVGO260821C430@31.67".to_string()])
+            .unwrap();
     assert_eq!(legs_without_qty.len(), 1);
     assert_eq!(legs_without_qty[0].ratio_quantity, 1);
     assert_eq!(legs_without_qty[0].premium_per_contract, Some(31.67));
@@ -1531,10 +1532,37 @@ fn payoff_and_probability_boundary_cases_are_explicit() {
         "invalid_payoff_input",
     );
     assert_error_code(
-        probability::expiry_probability_in_range(100.0, 105.0, 95.0, 0.1, 0.045, 0.0, 0.2)
-            .unwrap_err(),
+        probability::expiry_probability_in_range_with_rate(
+            100.0, 105.0, 95.0, 0.1, 0.045, 0.0, 0.2,
+        )
+        .unwrap_err(),
         "invalid_probability_input",
     );
+}
+
+#[test]
+fn default_risk_free_rate_is_runtime_default_not_test_oracle_input() {
+    assert_eq!(DEFAULT_RISK_FREE_RATE, 0.0368);
+
+    let default_input =
+        alpaca_option::BlackScholesInput::new(100.0, 100.0, 0.25, 0.0, 0.2, OptionRight::Call);
+    assert_eq!(default_input.rate, DEFAULT_RISK_FREE_RATE);
+
+    let test_input = default_input.with_rate(TEST_RISK_FREE_RATE);
+    assert_eq!(test_input.rate, TEST_RISK_FREE_RATE);
+
+    let default_iv_input = alpaca_option::BlackScholesImpliedVolatilityInput::new(
+        5.0,
+        100.0,
+        100.0,
+        0.25,
+        0.0,
+        OptionRight::Call,
+    );
+    assert_eq!(default_iv_input.rate, DEFAULT_RISK_FREE_RATE);
+
+    let test_iv_input = default_iv_input.with_rate(TEST_RISK_FREE_RATE);
+    assert_eq!(test_iv_input.rate, TEST_RISK_FREE_RATE);
 }
 
 #[test]
@@ -1557,7 +1585,7 @@ fn pricing_implied_volatility_uses_discounted_no_arbitrage_lower_bounds() {
             spot: 250.0,
             strike: 100.0,
             years: 10.0,
-            rate: 0.03,
+            rate: TEST_RISK_FREE_RATE,
             dividend_yield: 0.02,
             option_right: OptionRight::Call,
             lower_bound: Some(0.000001),

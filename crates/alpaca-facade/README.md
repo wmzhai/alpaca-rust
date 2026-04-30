@@ -6,7 +6,7 @@ lower-level `alpaca-rust` crates.
 Current public surface:
 
 - `AlpacaData` for cache-first raw market-data access plus option enrichment
-- `AlpacaDataConfig` for pricing assumptions such as risk-free rate and dividend yield
+- `AlpacaDataConfig` for facade-level pricing assumptions such as dividend yield
 - `OptionChainRequest` for reusable option-chain filters
 - bridge helpers such as `map_snapshot`, `map_live_snapshots`, and
   `resolve_positions_from_optionstrat_url`

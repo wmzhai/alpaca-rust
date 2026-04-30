@@ -45,7 +45,7 @@ This document defines the current adapter boundary exposed by `alpaca-facade`.
 
 | API | Returns | Semantics |
 | --- | --- | --- |
-| `map_snapshot(occ_symbol, snapshot, underlying_price?, risk_free_rate?, dividend_yield?)` | `OptionSnapshot` | maps a single Alpaca `Snapshot` into a core `OptionSnapshot` |
+| `map_snapshot(occ_symbol, snapshot, underlying_price?, dividend_yield?)` | `OptionSnapshot` | maps a single Alpaca `Snapshot` into a core `OptionSnapshot` |
 
 Current behavior:
 
@@ -60,7 +60,7 @@ Current behavior:
 
 | API | Returns | Semantics |
 | --- | --- | --- |
-| `map_snapshots(snapshots, underlying_prices?, risk_free_rate?, dividend_yield?)` | `OptionSnapshot[]` | batch-maps a provider snapshot map |
+| `map_snapshots(snapshots, underlying_prices?, dividend_yield?)` | `OptionSnapshot[]` | batch-maps a provider snapshot map |
 
 Current behavior:
 
@@ -73,7 +73,7 @@ Current behavior:
 
 | API | Returns | Semantics |
 | --- | --- | --- |
-| `map_live_snapshots(snapshots, client, underlying_prices?, risk_free_rate?, dividend_yield?)` | `OptionSnapshot[]` | batch-maps provider snapshots and pulls missing underlying stock snapshots when needed |
+| `map_live_snapshots(snapshots, client, underlying_prices?, dividend_yield?)` | `OptionSnapshot[]` | batch-maps provider snapshots and pulls missing underlying stock snapshots when needed |
 
 Current behavior:
 

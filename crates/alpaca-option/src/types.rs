@@ -4,6 +4,7 @@ use rust_decimal::prelude::ToPrimitive;
 use serde::{Deserialize, Deserializer, Serialize};
 use ts_rs::TS;
 
+use crate::DEFAULT_RISK_FREE_RATE;
 use crate::contract;
 use crate::error::{OptionError, OptionResult};
 
@@ -303,6 +304,32 @@ pub struct BlackScholesInput {
     pub option_right: OptionRight,
 }
 
+impl BlackScholesInput {
+    pub fn new(
+        spot: f64,
+        strike: f64,
+        years: f64,
+        dividend_yield: f64,
+        volatility: f64,
+        option_right: OptionRight,
+    ) -> Self {
+        Self {
+            spot,
+            strike,
+            years,
+            rate: DEFAULT_RISK_FREE_RATE,
+            dividend_yield,
+            volatility,
+            option_right,
+        }
+    }
+
+    pub fn with_rate(mut self, rate: f64) -> Self {
+        self.rate = rate;
+        self
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct BlackScholesImpliedVolatilityInput {
     pub target_price: f64,
@@ -316,6 +343,36 @@ pub struct BlackScholesImpliedVolatilityInput {
     pub upper_bound: Option<f64>,
     pub tolerance: Option<f64>,
     pub max_iterations: Option<usize>,
+}
+
+impl BlackScholesImpliedVolatilityInput {
+    pub fn new(
+        target_price: f64,
+        spot: f64,
+        strike: f64,
+        years: f64,
+        dividend_yield: f64,
+        option_right: OptionRight,
+    ) -> Self {
+        Self {
+            target_price,
+            spot,
+            strike,
+            years,
+            rate: DEFAULT_RISK_FREE_RATE,
+            dividend_yield,
+            option_right,
+            lower_bound: None,
+            upper_bound: None,
+            tolerance: None,
+            max_iterations: None,
+        }
+    }
+
+    pub fn with_rate(mut self, rate: f64) -> Self {
+        self.rate = rate;
+        self
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]

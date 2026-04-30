@@ -22,6 +22,8 @@ pub mod snapshot;
 pub mod types;
 pub mod url;
 
+pub const DEFAULT_RISK_FREE_RATE: f64 = 0.0368;
+
 pub use error::{OptionError, OptionResult};
 pub use liquidity::{LiquidityBatchResponse, LiquidityData, LiquidityOptionData, LiquidityStats};
 pub use types::{

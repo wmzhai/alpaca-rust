@@ -172,14 +172,8 @@ async fn map_snapshot_uses_live_alpaca_snapshot() {
     let stock_prices = fetch_live_stock_prices(&[symbol.as_str()]).await;
     let underlying_price = stock_prices.get(&symbol).copied();
 
-    let mapped = map_snapshot(
-        occ_symbol,
-        snapshot,
-        underlying_price,
-        Some(0.04),
-        Some(0.0),
-    )
-    .expect("live snapshot should map into core snapshot");
+    let mapped = map_snapshot(occ_symbol, snapshot, underlying_price, Some(0.0))
+        .expect("live snapshot should map into core snapshot");
 
     assert_eq!(mapped.contract.occ_symbol, *occ_symbol);
     assert_ny_timestamp(&mapped.as_of);
@@ -198,7 +192,7 @@ async fn map_snapshot_uses_live_alpaca_snapshot() {
 async fn map_snapshots_sorts_live_symbols() {
     let (symbol, snapshots) = discover_live_snapshots(8).await;
     let stock_prices = fetch_live_stock_prices(&[symbol.as_str()]).await;
-    let mapped = map_snapshots(&snapshots, Some(&stock_prices), Some(0.04), Some(0.0))
+    let mapped = map_snapshots(&snapshots, Some(&stock_prices), Some(0.0))
         .expect("live snapshots map should convert");
 
     assert!(mapped.len() >= 2, "need at least two live mapped snapshots");
@@ -231,7 +225,6 @@ async fn map_live_snapshots_fetches_underlying_prices() {
             .build()
             .expect("alpaca data client should build"),
         None,
-        Some(0.04),
         Some(0.0),
     )
     .await
@@ -259,7 +252,6 @@ async fn fetch_chain_builds_live_canonical_chain() {
         &client,
         "SPY",
         &OptionChainRequest::from_dte_range(0, 7, None, None),
-        Some(0.04),
         Some(0.0),
     )
     .await
@@ -412,7 +404,7 @@ async fn map_snapshots_accepts_brk_b_display_symbol_prices() {
         .copied()
         .expect("BRK.B stock price should exist");
 
-    let mapped = map_snapshots(&snapshots, Some(&stock_prices), Some(0.04), Some(0.0))
+    let mapped = map_snapshots(&snapshots, Some(&stock_prices), Some(0.0))
         .expect("BRK.B live snapshots should map");
 
     assert!(

@@ -1,3 +1,4 @@
+use crate::DEFAULT_RISK_FREE_RATE;
 use crate::error::{OptionError, OptionResult};
 use crate::numeric::normal_cdf;
 
@@ -25,6 +26,25 @@ fn ensure_positive(name: &str, value: f64) -> OptionResult<()> {
 }
 
 pub fn expiry_probability_in_range(
+    spot: f64,
+    lower_price: f64,
+    upper_price: f64,
+    years: f64,
+    dividend_yield: f64,
+    volatility: f64,
+) -> OptionResult<f64> {
+    expiry_probability_in_range_with_rate(
+        spot,
+        lower_price,
+        upper_price,
+        years,
+        DEFAULT_RISK_FREE_RATE,
+        dividend_yield,
+        volatility,
+    )
+}
+
+pub fn expiry_probability_in_range_with_rate(
     spot: f64,
     lower_price: f64,
     upper_price: f64,

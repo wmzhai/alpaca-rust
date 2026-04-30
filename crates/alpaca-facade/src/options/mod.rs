@@ -28,7 +28,6 @@ use rust_decimal::{Decimal, prelude::ToPrimitive};
 use serde::{Deserialize, Serialize};
 
 const GREEKS_EPSILON: f64 = 1e-10;
-const DEFAULT_RISK_FREE_RATE: f64 = 0.0362;
 const DEFAULT_DIVIDEND_YIELD: f64 = 0.0;
 const MAX_INFERRED_IV: f64 = 2.0;
 const MIN_TIME_YEARS: f64 = 0.0001;
@@ -341,7 +340,10 @@ fn merge_expiration_filters(
     incoming_gte: Option<String>,
     incoming_lte: Option<String>,
 ) -> (Option<String>, Option<String>, Option<String>) {
-    let has_ranges = current_gte.is_some() || current_lte.is_some() || incoming_gte.is_some() || incoming_lte.is_some();
+    let has_ranges = current_gte.is_some()
+        || current_lte.is_some()
+        || incoming_gte.is_some()
+        || incoming_lte.is_some();
     let mut exact_dates = Vec::new();
     if let Some(date) = current_exact.as_deref() {
         exact_dates.push(date);
@@ -481,7 +483,6 @@ fn repaired_greeks_and_iv(
     provider_greeks: Option<Greeks>,
     provider_iv: Option<f64>,
     underlying_price: Option<f64>,
-    risk_free_rate: Option<f64>,
     dividend_yield: Option<f64>,
 ) -> (Option<Greeks>, Option<f64>) {
     if !snapshot_needs_repair(provider_greeks.as_ref(), provider_iv) {
@@ -498,7 +499,6 @@ fn repaired_greeks_and_iv(
 
     let years =
         expiration::years(&contract.expiration_date, Some(&clock::now()), None).max(MIN_TIME_YEARS);
-    let risk_free_rate = risk_free_rate.unwrap_or(DEFAULT_RISK_FREE_RATE);
     let dividend_yield = dividend_yield.unwrap_or(DEFAULT_DIVIDEND_YIELD);
 
     let implied_volatility = if let Some(implied_volatility) = fallback_iv {
@@ -506,19 +506,14 @@ fn repaired_greeks_and_iv(
     } else {
         quote_price(quote).and_then(|option_price| {
             pricing::implied_volatility_from_price(
-                &alpaca_option::BlackScholesImpliedVolatilityInput {
-                    target_price: option_price,
-                    spot: underlying_price,
-                    strike: contract.strike,
+                &alpaca_option::BlackScholesImpliedVolatilityInput::new(
+                    option_price,
+                    underlying_price,
+                    contract.strike,
                     years,
-                    rate: risk_free_rate,
                     dividend_yield,
-                    option_right: contract.option_right.clone(),
-                    lower_bound: None,
-                    upper_bound: None,
-                    tolerance: None,
-                    max_iterations: None,
-                },
+                    contract.option_right.clone(),
+                ),
             )
             .ok()
             .map(|value| value.min(MAX_INFERRED_IV))
@@ -529,15 +524,14 @@ fn repaired_greeks_and_iv(
         return (fallback_greeks, fallback_iv);
     };
 
-    let mut greeks = match pricing::greeks_black_scholes(&alpaca_option::BlackScholesInput {
-        spot: underlying_price,
-        strike: contract.strike,
+    let mut greeks = match pricing::greeks_black_scholes(&alpaca_option::BlackScholesInput::new(
+        underlying_price,
+        contract.strike,
         years,
-        rate: risk_free_rate,
         dividend_yield,
-        volatility: implied_volatility,
-        option_right: contract.option_right.clone(),
-    }) {
+        implied_volatility,
+        contract.option_right.clone(),
+    )) {
         Ok(greeks) => greeks,
         Err(_) => return (fallback_greeks, Some(implied_volatility)),
     };
@@ -568,7 +562,6 @@ pub async fn fetch_chain(
     client: &Client,
     underlying_symbol: &str,
     request: &OptionChainRequest,
-    risk_free_rate: Option<f64>,
     dividend_yield: Option<f64>,
 ) -> OptionResult<OptionChain> {
     let response = client
@@ -591,7 +584,6 @@ pub async fn fetch_chain(
         &response.snapshots,
         client,
         (!underlying_prices.is_empty()).then_some(&underlying_prices),
-        risk_free_rate,
         dividend_yield,
     )
     .await?;
@@ -615,7 +607,6 @@ pub fn map_snapshot(
     occ_symbol: &str,
     snapshot: &Snapshot,
     underlying_price: Option<f64>,
-    risk_free_rate: Option<f64>,
     dividend_yield: Option<f64>,
 ) -> OptionResult<OptionSnapshot> {
     let contract = contract::parse_occ_symbol(occ_symbol).ok_or_else(|| {
@@ -633,7 +624,6 @@ pub fn map_snapshot(
         provider_greeks,
         provider_iv,
         underlying_price,
-        risk_free_rate,
         dividend_yield,
     );
 
@@ -650,7 +640,6 @@ pub fn map_snapshot(
 pub fn map_snapshots(
     snapshots: &HashMap<String, Snapshot>,
     underlying_prices: Option<&HashMap<String, f64>>,
-    risk_free_rate: Option<f64>,
     dividend_yield: Option<f64>,
 ) -> OptionResult<Vec<OptionSnapshot>> {
     ordered_snapshots(snapshots)
@@ -660,7 +649,6 @@ pub fn map_snapshots(
                 occ_symbol,
                 snapshot,
                 lookup_underlying_price(occ_symbol, underlying_prices),
-                risk_free_rate,
                 dividend_yield,
             )
         })
@@ -740,14 +728,12 @@ pub async fn map_live_snapshots(
     snapshots: &HashMap<String, Snapshot>,
     client: &Client,
     underlying_prices: Option<&HashMap<String, f64>>,
-    risk_free_rate: Option<f64>,
     dividend_yield: Option<f64>,
 ) -> OptionResult<Vec<OptionSnapshot>> {
     let underlying_prices = fetch_underlying_prices(client, snapshots, underlying_prices).await?;
     map_snapshots(
         snapshots,
         (!underlying_prices.is_empty()).then_some(&underlying_prices),
-        risk_free_rate,
         dividend_yield,
     )
 }
@@ -776,7 +762,7 @@ pub async fn resolve_positions_from_optionstrat_url(
         .await
         .map_err(|error| OptionError::new("provider_snapshot_fetch_failed", error.to_string()))?
         .snapshots;
-    let mapped_snapshots = map_live_snapshots(&snapshots, client, None, None, None).await?;
+    let mapped_snapshots = map_live_snapshots(&snapshots, client, None, None).await?;
     let snapshots_by_occ = mapped_snapshots
         .into_iter()
         .map(|snapshot| (snapshot.contract.occ_symbol.clone(), snapshot))

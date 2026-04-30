@@ -1,3 +1,4 @@
+use crate::DEFAULT_RISK_FREE_RATE;
 use crate::error::{OptionError, OptionResult};
 use crate::numeric;
 use crate::pricing;
@@ -374,6 +375,23 @@ impl StrategyValuationContext {
         positions: &[StrategyValuationPosition],
         evaluation_time: &str,
         entry_cost: Option<f64>,
+        dividend_yield: Option<f64>,
+        long_volatility_shift: Option<f64>,
+    ) -> OptionResult<Self> {
+        Self::prepare_with_rate(
+            positions,
+            evaluation_time,
+            entry_cost,
+            DEFAULT_RISK_FREE_RATE,
+            dividend_yield,
+            long_volatility_shift,
+        )
+    }
+
+    pub fn prepare_with_rate(
+        positions: &[StrategyValuationPosition],
+        evaluation_time: &str,
+        entry_cost: Option<f64>,
         rate: f64,
         dividend_yield: Option<f64>,
         long_volatility_shift: Option<f64>,
@@ -542,7 +560,7 @@ pub fn break_even_points(legs: &[PayoffLegInput]) -> OptionResult<Vec<f64>> {
 }
 
 pub fn strategy_pnl(input: &StrategyPnlInput) -> OptionResult<f64> {
-    StrategyValuationContext::prepare(
+    StrategyValuationContext::prepare_with_rate(
         &input.positions,
         &input.evaluation_time,
         input.entry_cost,
@@ -554,7 +572,7 @@ pub fn strategy_pnl(input: &StrategyPnlInput) -> OptionResult<f64> {
 }
 
 pub fn strategy_break_even_points(input: &StrategyBreakEvenInput) -> OptionResult<Vec<f64>> {
-    StrategyValuationContext::prepare(
+    StrategyValuationContext::prepare_with_rate(
         &input.positions,
         &input.evaluation_time,
         input.entry_cost,

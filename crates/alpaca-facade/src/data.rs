@@ -37,14 +37,12 @@ pub struct CacheStats {
 
 #[derive(Debug, Clone)]
 pub struct AlpacaDataConfig {
-    pub risk_free_rate: f64,
     pub dividend_yield: f64,
 }
 
 impl Default for AlpacaDataConfig {
     fn default() -> Self {
         Self {
-            risk_free_rate: 0.0362,
             dividend_yield: 0.0,
         }
     }
@@ -201,8 +199,8 @@ impl AlpacaData {
         (hits, missing)
     }
 
-    fn option_pricing_inputs(&self) -> (f64, f64) {
-        (self.config.risk_free_rate, self.config.dividend_yield)
+    fn option_pricing_inputs(&self) -> f64 {
+        self.config.dividend_yield
     }
 
     fn bars_start(window: BarsWindow) -> String {
@@ -599,26 +597,22 @@ impl AlpacaData {
             .stock_prices_for(&snapshots)
             .await
             .context("failed to load underlying stock prices via alpaca-data")?;
-        let (risk_free_rate, dividend_yield) = self.option_pricing_inputs();
+        let dividend_yield = self.option_pricing_inputs();
         let stock_prices = (!stock_prices.is_empty()).then_some(&stock_prices);
 
-        Ok(map_live_snapshots(
-            &snapshots,
-            self.sdk(),
-            stock_prices,
-            Some(risk_free_rate),
-            Some(dividend_yield),
+        Ok(
+            map_live_snapshots(&snapshots, self.sdk(), stock_prices, Some(dividend_yield))
+                .await
+                .context("failed to map option snapshots into alpaca-option models")?
+                .into_iter()
+                .map(|snapshot| {
+                    (
+                        snapshot.contract.occ_symbol.clone(),
+                        OptionSnapshot::from(snapshot),
+                    )
+                })
+                .collect(),
         )
-        .await
-        .context("failed to map option snapshots into alpaca-option models")?
-        .into_iter()
-        .map(|snapshot| {
-            (
-                snapshot.contract.occ_symbol.clone(),
-                OptionSnapshot::from(snapshot),
-            )
-        })
-        .collect())
     }
 
     async fn stock_prices_for(
@@ -650,16 +644,11 @@ impl AlpacaData {
         underlying_symbol: &str,
         request: &OptionChainRequest,
     ) -> Result<OptionChain> {
-        let (risk_free_rate, dividend_yield) = self.option_pricing_inputs();
-        let chain = crate::fetch_chain(
-            self.sdk(),
-            underlying_symbol,
-            request,
-            Some(risk_free_rate),
-            Some(dividend_yield),
-        )
-        .await
-        .context("failed to fetch and build option chain via alpaca-facade")?;
+        let dividend_yield = self.option_pricing_inputs();
+        let chain =
+            crate::fetch_chain(self.sdk(), underlying_symbol, request, Some(dividend_yield))
+                .await
+                .context("failed to fetch and build option chain via alpaca-facade")?;
 
         Ok(OptionChain {
             underlying_symbol: chain.underlying_symbol,
