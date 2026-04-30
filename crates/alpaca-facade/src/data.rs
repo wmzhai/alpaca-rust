@@ -1,4 +1,4 @@
-use crate::{OptionChainRequest, map_live_snapshots, required_underlying_display_symbols};
+use crate::{map_live_snapshots, required_underlying_display_symbols};
 use ::chrono::NaiveDateTime;
 use alpaca_data::Client;
 use alpaca_data::cache::{CacheStats as RawCacheStats, CachedClient, StockBarsRequest};
@@ -6,7 +6,7 @@ use alpaca_data::corporate_actions::{CorporateActionType, ListRequest};
 use alpaca_data::stocks::{self, BarPoint, TimeFrame, preferred_feed as preferred_stock_feed};
 use alpaca_option::contract;
 use alpaca_option::url;
-use alpaca_option::{OptionChain, OptionError, OptionPosition, OptionSnapshot, OrderSide};
+use alpaca_option::{OptionError, OptionPosition, OptionSnapshot, OrderSide};
 use anyhow::{Context, Result};
 use rust_decimal::prelude::ToPrimitive;
 use serde::Serialize;
@@ -17,21 +17,18 @@ use alpaca_time::{chrono, clock, range, session};
 
 pub type BarsMap = HashMap<String, Vec<BarPoint>>;
 
-/// Cache metadata for the facade-level enriched option and chain caches.
+/// Cache metadata for the facade-level enriched option cache.
 #[derive(Debug, Clone, Serialize)]
 pub struct CacheStats {
     pub subscribed_symbols: usize,
     pub subscribed_contracts: usize,
-    pub subscribed_chains: usize,
     pub subscribed_bar_requests: usize,
     pub cached_stocks: usize,
     pub cached_options: usize,
-    pub cached_chains: usize,
     pub cached_bar_symbols: usize,
     pub stocks_updated_at: Option<String>,
     pub options_updated_at: Option<String>,
     pub contracts_updated_at: Option<String>,
-    pub chains_updated_at: Option<String>,
     pub bars_updated_at: HashMap<String, String>,
 }
 
@@ -53,14 +50,6 @@ struct OptionCache {
     subscribed: HashSet<String>,
     values: HashMap<String, OptionSnapshot>,
     empty: HashSet<String>,
-    updated_at: Option<NaiveDateTime>,
-}
-
-#[derive(Default)]
-struct ChainCache {
-    subscribed: HashMap<String, OptionChainRequest>,
-    values: HashMap<String, OptionChain>,
-    cached_params: HashMap<String, OptionChainRequest>,
     updated_at: Option<NaiveDateTime>,
 }
 
@@ -111,7 +100,6 @@ pub struct AlpacaData {
     pub raw: CachedClient,
     config: AlpacaDataConfig,
     options: RwLock<OptionCache>,
-    chains: RwLock<ChainCache>,
 }
 
 impl AlpacaData {
@@ -121,7 +109,6 @@ impl AlpacaData {
             raw,
             config,
             options: RwLock::new(OptionCache::default()),
-            chains: RwLock::new(ChainCache::default()),
         }
     }
 
@@ -336,14 +323,6 @@ impl AlpacaData {
             .sum())
     }
 
-    pub async fn chain(
-        &self,
-        underlying_symbol: &str,
-        request: OptionChainRequest,
-    ) -> Result<OptionChain> {
-        self.fetch_cached_chain(underlying_symbol, request).await
-    }
-
     pub async fn day_bars(&self, symbols: &[String]) -> BarsMap {
         self.ensure_bars(symbols, BarsWindow::Day).await
     }
@@ -361,8 +340,7 @@ impl AlpacaData {
     pub async fn stats(&self) -> CacheStats {
         let raw = self.raw.stats().await;
         let options = self.options.read().await;
-        let chains = self.chains.read().await;
-        Self::compose_stats(raw, &options, &chains)
+        Self::compose_stats(raw, &options)
     }
 
     pub async fn watch_options(&self, contracts: &[String]) {
@@ -375,18 +353,6 @@ impl AlpacaData {
 
         let mut cache = self.options.write().await;
         cache.subscribed.extend(contracts);
-    }
-
-    pub async fn watch_chains(&self, chains: &[(String, OptionChainRequest)]) {
-        if chains.is_empty() {
-            return;
-        }
-
-        let mut cache = self.chains.write().await;
-        for (symbol, request) in chains {
-            let symbol = stocks::display_stock_symbol(symbol);
-            Self::merge_chain_request(&mut cache.subscribed, &symbol, request);
-        }
     }
 
     pub async fn refresh_contracts(&self) -> Result<usize> {
@@ -421,59 +387,6 @@ impl AlpacaData {
         }
     }
 
-    pub async fn refresh_chains(&self) -> Result<usize> {
-        let _ = self.refresh_contracts().await?;
-
-        let requests = {
-            let cache = self.chains.read().await;
-            cache
-                .subscribed
-                .iter()
-                .map(|(symbol, request)| (symbol.clone(), request.clone()))
-                .collect::<Vec<_>>()
-        };
-
-        if requests.is_empty() {
-            return Ok(0);
-        }
-
-        let tasks = requests.into_iter().map(|(symbol, request)| async move {
-            let underlying_price = self
-                .raw
-                .stock(&symbol)
-                .await
-                .and_then(|snapshot| snapshot.price().and_then(|value| value.to_f64()));
-            let request = request.with_underlying_price(underlying_price);
-
-            match self.fetch_and_build_chain(&symbol, &request).await {
-                Ok(chain) => Some((symbol, request, chain)),
-                Err(error) => {
-                    tracing::warn!(
-                        "failed to refresh {} option chain, keeping stale cache: {}",
-                        symbol,
-                        error
-                    );
-                    None
-                }
-            }
-        });
-
-        let results = futures::future::join_all(tasks).await;
-        let mut count = 0;
-        let mut cache = self.chains.write().await;
-        for result in results.into_iter().flatten() {
-            let (symbol, request, chain) = result;
-            cache.cached_params.insert(symbol.clone(), request);
-            cache.values.insert(symbol, chain);
-            count += 1;
-        }
-        if count > 0 {
-            cache.updated_at = Some(Self::now_timestamp());
-        }
-
-        Ok(count)
-    }
-
     pub async fn refresh_day_bars(&self) -> Result<usize> {
         self.refresh_bars(BarsWindow::Day).await
     }
@@ -497,16 +410,8 @@ impl AlpacaData {
             cache.updated_at = None;
         }
 
-        {
-            let mut cache = self.chains.write().await;
-            cache.subscribed.clear();
-            cache.values.clear();
-            cache.cached_params.clear();
-            cache.updated_at = None;
-        }
-
         tracing::info!(
-            "[MarketCache] cleared option facade caches while keeping raw stock and bar caches"
+            "[MarketCache] cleared option facade cache while keeping raw stock and bar caches"
         );
     }
 
@@ -639,100 +544,17 @@ impl AlpacaData {
             .collect())
     }
 
-    async fn fetch_and_build_chain(
-        &self,
-        underlying_symbol: &str,
-        request: &OptionChainRequest,
-    ) -> Result<OptionChain> {
-        let dividend_yield = self.option_pricing_inputs();
-        let chain =
-            crate::fetch_chain(self.sdk(), underlying_symbol, request, Some(dividend_yield))
-                .await
-                .context("failed to fetch and build option chain via alpaca-facade")?;
-
-        Ok(OptionChain {
-            underlying_symbol: chain.underlying_symbol,
-            as_of: chain.as_of,
-            snapshots: chain
-                .snapshots
-                .into_iter()
-                .map(OptionSnapshot::from)
-                .collect(),
-        })
-    }
-
-    async fn fetch_cached_chain(
-        &self,
-        underlying_symbol: &str,
-        request: OptionChainRequest,
-    ) -> Result<OptionChain> {
-        let symbol = stocks::display_stock_symbol(underlying_symbol);
-
-        let cached = {
-            let cache = self.chains.read().await;
-            match cache.values.get(&symbol) {
-                Some(chain) => {
-                    let covers = match cache.cached_params.get(&symbol) {
-                        Some(cached_request) => cached_request.covers(&request),
-                        None => false,
-                    };
-                    if covers { Some(chain.clone()) } else { None }
-                }
-                None => None,
-            }
-        };
-
-        if let Some(chain) = cached {
-            self.merge_chain_subscription(&symbol, &request).await;
-            return Ok(chain);
-        }
-
-        let underlying_price = self
-            .raw
-            .stock(&symbol)
-            .await
-            .and_then(|snapshot| snapshot.price().and_then(|value| value.to_f64()));
-        let request = request.with_underlying_price(underlying_price);
-        let chain = self.fetch_and_build_chain(&symbol, &request).await?;
-
-        let mut cache = self.chains.write().await;
-        Self::merge_chain_request(&mut cache.subscribed, &symbol, &request);
-        cache.cached_params.insert(symbol.clone(), request);
-        cache.values.insert(symbol, chain.clone());
-        cache.updated_at = Some(Self::now_timestamp());
-
-        Ok(chain)
-    }
-
-    async fn merge_chain_subscription(&self, symbol: &str, request: &OptionChainRequest) {
-        let mut cache = self.chains.write().await;
-        Self::merge_chain_request(&mut cache.subscribed, symbol, request);
-    }
-
-    fn merge_chain_request(
-        map: &mut HashMap<String, OptionChainRequest>,
-        symbol: &str,
-        request: &OptionChainRequest,
-    ) {
-        map.entry(symbol.to_string())
-            .and_modify(|current| current.merge(request))
-            .or_insert(request.clone());
-    }
-
-    fn compose_stats(raw: RawCacheStats, options: &OptionCache, chains: &ChainCache) -> CacheStats {
+    fn compose_stats(raw: RawCacheStats, options: &OptionCache) -> CacheStats {
         CacheStats {
             subscribed_symbols: raw.subscribed_symbols,
             subscribed_contracts: options.subscribed.len(),
-            subscribed_chains: chains.subscribed.len(),
             subscribed_bar_requests: raw.subscribed_bar_requests,
             cached_stocks: raw.cached_stocks,
             cached_options: options.values.len(),
-            cached_chains: chains.values.len(),
             cached_bar_symbols: raw.cached_bar_symbols,
             stocks_updated_at: raw.stocks_updated_at,
             options_updated_at: raw.options_updated_at,
             contracts_updated_at: Self::format_datetime(options.updated_at),
-            chains_updated_at: Self::format_datetime(chains.updated_at),
             bars_updated_at: raw.bars_updated_at,
         }
     }

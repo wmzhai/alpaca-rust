@@ -8,20 +8,21 @@
 - `AlpacaData`
 - `AlpacaDataConfig`
 - `CacheStats`
-- `OptionChainRequest`
 - `ResolvedOptionStratPositions`
 - `map_snapshot(...)`
 - `map_snapshots(...)`
 - `map_live_snapshots(...)`
-- `fetch_chain(...)`
 - `resolve_positions_from_optionstrat_url(...)`
 
 ## Typical Uses
 
 - Reuse `alpaca-data::cache::CachedClient` behind a richer option-aware facade
 - Enrich Alpaca option snapshots into `alpaca-option` core models
-- Build and refresh filtered option chains with reusable request objects
 - Keep application-specific singleton or scheduling logic outside the shared crate
+
+For option chains, call `alpaca-data` directly through
+`client.options().chain_all(...)`, then map snapshots with
+`map_live_snapshots(...)` if enriched `alpaca-option` models are needed.
 
 ## Not Included
 

@@ -3,8 +3,7 @@ use std::path::PathBuf;
 
 use alpaca_data::{Client, options::preferred_feed, stocks::SnapshotsRequest};
 use alpaca_facade::{
-    OptionChainRequest, fetch_chain, map_live_snapshots, map_snapshot, map_snapshots,
-    resolve_positions_from_optionstrat_url,
+    map_live_snapshots, map_snapshot, map_snapshots, resolve_positions_from_optionstrat_url,
 };
 use alpaca_option::url;
 use rust_decimal::Decimal;
@@ -237,37 +236,6 @@ async fn map_live_snapshots_fetches_underlying_prices() {
     }
 }
 
-#[tokio::test]
-async fn fetch_chain_builds_live_canonical_chain() {
-    load_local_env();
-    let client = Client::builder()
-        .credentials_from_env()
-        .expect("credentials should load from env")
-        .build()
-        .expect("alpaca data client should build");
-    let stock_prices = fetch_live_stock_prices(&["SPY"]).await;
-    let underlying_price = stock_prices.get("SPY").copied();
-
-    let chain = fetch_chain(
-        &client,
-        "SPY",
-        &OptionChainRequest::from_dte_range(0, 7, None, None),
-        Some(0.0),
-    )
-    .await
-    .expect("live fetch_chain should succeed");
-
-    assert_eq!(chain.underlying_symbol, "SPY");
-    assert_ny_timestamp(&chain.as_of);
-    assert!(
-        !chain.snapshots.is_empty(),
-        "live fetch_chain should return at least one snapshot"
-    );
-    for snapshot in &chain.snapshots {
-        assert_eq!(snapshot.contract.underlying_symbol, "SPY");
-        assert_underlying_price_close(snapshot.underlying_price, underlying_price);
-    }
-}
 
 #[tokio::test]
 async fn resolve_positions_from_optionstrat_url_uses_live_snapshots() {
