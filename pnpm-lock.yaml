@@ -20,6 +20,8 @@ importers:
 
   packages/alpaca-time: {}
 
+  packages/alpaca-trade: {}
+
   website:
     dependencies:
       '@docusaurus/core':
