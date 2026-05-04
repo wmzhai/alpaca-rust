@@ -19,3 +19,4 @@ AGENTS.md
 .local/
 tools/api-coverage/.tmp/
 .claude/
+.gitnexus
