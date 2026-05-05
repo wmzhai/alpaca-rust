@@ -163,6 +163,230 @@
         ]
       },
       "tolerance": 1e-08
+    },
+    {
+      "id": "option-strategy-expiration-earliest-leg",
+      "api": "payoff.option_strategy_expiration_time",
+      "input": {
+        "positions": [
+          {
+            "contract": {
+              "underlying_symbol": "SPY",
+              "expiration_date": "2025-06-20",
+              "strike": 95.0,
+              "option_right": "call",
+              "occ_symbol": "SPY250620C00095000"
+            },
+            "quantity": 1,
+            "avg_entry_price": 12.0,
+            "implied_volatility": 0.24
+          },
+          {
+            "contract": {
+              "underlying_symbol": "SPY",
+              "expiration_date": "2025-04-17",
+              "strike": 105.0,
+              "option_right": "call",
+              "occ_symbol": "SPY250417C00105000"
+            },
+            "quantity": -1,
+            "avg_entry_price": 2.0,
+            "implied_volatility": 0.3
+          }
+        ]
+      },
+      "expected": {
+        "value": "2025-04-17 16:00:00"
+      }
+    },
+    {
+      "id": "option-strategy-snapshot-greeks-strategy-quantity",
+      "api": "payoff.option_strategy_snapshot_greeks",
+      "input": {
+        "strategy_quantity": 3.0,
+        "positions": [
+          {
+            "contract": "SPY250417C00100000",
+            "snapshot": {
+              "as_of": "2025-03-20 10:30:00",
+              "contract": {
+                "underlying_symbol": "SPY",
+                "expiration_date": "2025-04-17",
+                "strike": 100.0,
+                "option_right": "call",
+                "occ_symbol": "SPY250417C00100000"
+              },
+              "quote": {
+                "bid": 1.0,
+                "ask": 1.2,
+                "mark": 1.1,
+                "last": 1.1
+              },
+              "greeks": {
+                "delta": 0.5,
+                "gamma": 0.01,
+                "vega": 0.08,
+                "theta": -0.03,
+                "rho": 0.02
+              },
+              "implied_volatility": 0.25,
+              "underlying_price": 100.0
+            },
+            "qty": 1,
+            "avg_cost": "1.10",
+            "leg_type": "longcall"
+          },
+          {
+            "contract": "SPY250417P00095000",
+            "snapshot": {
+              "as_of": "2025-03-20 10:30:00",
+              "contract": {
+                "underlying_symbol": "SPY",
+                "expiration_date": "2025-04-17",
+                "strike": 95.0,
+                "option_right": "put",
+                "occ_symbol": "SPY250417P00095000"
+              },
+              "quote": {
+                "bid": 1.0,
+                "ask": 1.2,
+                "mark": 1.1,
+                "last": 1.1
+              },
+              "greeks": {
+                "delta": -0.25,
+                "gamma": 0.02,
+                "vega": 0.05,
+                "theta": -0.02,
+                "rho": -0.01
+              },
+              "implied_volatility": 0.25,
+              "underlying_price": 100.0
+            },
+            "qty": -2,
+            "avg_cost": "1.10",
+            "leg_type": "shortput"
+          }
+        ]
+      },
+      "expected": {
+        "value": {
+          "delta": 300.0,
+          "gamma": -9.0,
+          "vega": -6.0,
+          "theta": 3.0,
+          "rho": 12.0
+        }
+      },
+      "tolerance": 1e-12
+    },
+    {
+      "id": "option-strategy-model-greeks-pmcc",
+      "api": "payoff.option_strategy_model_greeks",
+      "input": {
+        "positions": [
+          {
+            "contract": {
+              "underlying_symbol": "SPY",
+              "expiration_date": "2025-06-20",
+              "strike": 95.0,
+              "option_right": "call",
+              "occ_symbol": "SPY250620C00095000"
+            },
+            "quantity": 1,
+            "avg_entry_price": 12.0,
+            "implied_volatility": 0.24
+          },
+          {
+            "contract": {
+              "underlying_symbol": "SPY",
+              "expiration_date": "2025-04-17",
+              "strike": 105.0,
+              "option_right": "call",
+              "occ_symbol": "SPY250417C00105000"
+            },
+            "quantity": -1,
+            "avg_entry_price": 2.0,
+            "implied_volatility": 0.3
+          }
+        ],
+        "underlying_price": 102.0,
+        "evaluation_time": "2025-03-20 11:30:04",
+        "rate": 0.03,
+        "dividend_yield": null,
+        "long_volatility_shift": null,
+        "strategy_quantity": 2.0
+      },
+      "expected": {
+        "value": {
+          "delta": 74.32624061910433,
+          "gamma": -3.996948975610665,
+          "vega": 9.966242111078355,
+          "theta": 6.947731548034932,
+          "rho": 2861.5010360201895
+        }
+      },
+      "tolerance": 1e-09
+    },
+    {
+      "id": "option-strategy-curve-pmcc",
+      "api": "payoff.option_strategy_curve",
+      "input": {
+        "positions": [
+          {
+            "contract": {
+              "underlying_symbol": "SPY",
+              "expiration_date": "2025-06-20",
+              "strike": 95.0,
+              "option_right": "call",
+              "occ_symbol": "SPY250620C00095000"
+            },
+            "quantity": 1,
+            "avg_entry_price": 12.0,
+            "implied_volatility": 0.24
+          },
+          {
+            "contract": {
+              "underlying_symbol": "SPY",
+              "expiration_date": "2025-04-17",
+              "strike": 105.0,
+              "option_right": "call",
+              "occ_symbol": "SPY250417C00105000"
+            },
+            "quantity": -1,
+            "avg_entry_price": 2.0,
+            "implied_volatility": 0.3
+          }
+        ],
+        "evaluation_time": null,
+        "entry_cost": null,
+        "rate": 0.03,
+        "dividend_yield": null,
+        "long_volatility_shift": null,
+        "lower_bound": 90.0,
+        "upper_bound": 110.0,
+        "step": 10.0
+      },
+      "expected": {
+        "value": [
+          {
+            "underlying_price": 90.0,
+            "mark_value": 187.21591464384028,
+            "pnl": -812.7840853561597
+          },
+          {
+            "underlying_price": 100.0,
+            "mark_value": 724.5847134833625,
+            "pnl": -275.4152865166375
+          },
+          {
+            "underlying_price": 110.0,
+            "mark_value": 1079.0141954482779,
+            "pnl": 79.01419544827786
+          }
+        ]
+      },
+      "tolerance": 1e-09
     }
   ]
 }

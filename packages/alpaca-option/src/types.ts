@@ -276,6 +276,34 @@ export type StrategyValuationPosition = {
   reference_underlying_price: number | null;
 };
 
+export type OptionStrategyInput = {
+  positions: StrategyValuationPosition[];
+  evaluation_time?: string | null;
+  entry_cost: number | null;
+  rate?: number | null;
+  dividend_yield?: number | null;
+  long_volatility_shift?: number | null;
+};
+
+export type OptionStrategyCurveInput = {
+  lower_bound: number;
+  upper_bound: number;
+  step: number;
+};
+
+export type OptionStrategyCurvePoint = {
+  underlying_price: number;
+  mark_value: number;
+  pnl: number;
+};
+
+export type OptionStrategyBreakEvenBracketInput = {
+  lower_bound: number;
+  upper_bound: number;
+  tolerance?: number | null;
+  maxIterations?: number | null;
+};
+
 export type StrategyPnlInput = {
   positions: StrategyValuationPosition[];
   underlying_price: number;

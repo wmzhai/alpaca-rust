@@ -5,8 +5,9 @@ use std::path::PathBuf;
 
 use alpaca_option::{
     ExecutionLegInput, ExecutionSnapshot, OptionChain, OptionChainRecord, OptionContract,
-    OptionPosition, OptionRight, OptionSnapshot, PayoffLegInput, QuotedLeg, RollLegSelection,
-    StrategyBreakEvenInput, StrategyPnlInput, analysis, contract, execution_quote,
+    OptionPosition, OptionRight, OptionSnapshot, OptionStrategy, OptionStrategyInput,
+    PayoffLegInput, QuotedLeg, RollLegSelection, StrategyBreakEvenInput, StrategyPnlInput,
+    StrategyValuationPosition, analysis, contract, execution_quote,
     expiration_selection, math, numeric, payoff, pricing, probability, url,
 };
 
@@ -90,6 +91,8 @@ fn fixture_requires_explicit_rate(api: &str) -> bool {
             | "math.geometric_asian.price"
             | "payoff.strategy_break_even_points"
             | "payoff.strategy_pnl"
+            | "payoff.option_strategy_curve"
+            | "payoff.option_strategy_model_greeks"
             | "pricing.black_scholes_put_call_parity"
             | "pricing.greeks_black_scholes"
             | "pricing.implied_volatility_from_price"
@@ -1065,6 +1068,68 @@ fn run_case(case: &Value) -> Value {
             .unwrap(),
         )
         .unwrap(),
+        "payoff.option_strategy_expiration_time" => serde_json::to_value(
+            OptionStrategy::expiration_time(
+                &serde_json::from_value::<Vec<StrategyValuationPosition>>(
+                    input.get("positions").unwrap().clone(),
+                )
+                .unwrap(),
+            )
+            .unwrap(),
+        )
+        .unwrap(),
+        "payoff.option_strategy_snapshot_greeks" => serde_json::to_value(
+            OptionStrategy::aggregate_snapshot_greeks(
+                &fixture_positions(input.get("positions").unwrap()),
+                input
+                    .get("strategy_quantity")
+                    .unwrap()
+                    .as_f64()
+                    .unwrap(),
+            )
+            .unwrap(),
+        )
+        .unwrap(),
+        "payoff.option_strategy_model_greeks" => serde_json::to_value(
+            OptionStrategy::aggregate_model_greeks(
+                &serde_json::from_value::<Vec<StrategyValuationPosition>>(
+                    input.get("positions").unwrap().clone(),
+                )
+                .unwrap(),
+                input.get("underlying_price").unwrap().as_f64().unwrap(),
+                input.get("evaluation_time").unwrap().as_str().unwrap(),
+                input.get("rate").unwrap().as_f64().unwrap(),
+                input.get("dividend_yield").and_then(Value::as_f64),
+                input
+                    .get("long_volatility_shift")
+                    .and_then(Value::as_f64),
+                input
+                    .get("strategy_quantity")
+                    .unwrap()
+                    .as_f64()
+                    .unwrap(),
+            )
+            .unwrap(),
+        )
+        .unwrap(),
+        "payoff.option_strategy_curve" => {
+            let strategy =
+                OptionStrategy::from_input(&serde_json::from_value::<OptionStrategyInput>(
+                    input.clone(),
+                )
+                .unwrap())
+                .unwrap();
+            serde_json::to_value(
+                strategy
+                    .sample_curve(
+                        input.get("lower_bound").unwrap().as_f64().unwrap(),
+                        input.get("upper_bound").unwrap().as_f64().unwrap(),
+                        input.get("step").unwrap().as_f64().unwrap(),
+                    )
+                    .unwrap(),
+            )
+            .unwrap()
+        }
         "expiration_selection.nearest_weekly_expiration" => serde_json::to_value(
             expiration_selection::nearest_weekly_expiration(
                 input.get("anchor_date").unwrap().as_str().unwrap(),

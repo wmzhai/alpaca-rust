@@ -1018,6 +1018,23 @@ pub struct StrategyValuationPosition {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct OptionStrategyInput {
+    pub positions: Vec<StrategyValuationPosition>,
+    pub evaluation_time: Option<String>,
+    pub entry_cost: Option<f64>,
+    pub rate: Option<f64>,
+    pub dividend_yield: Option<f64>,
+    pub long_volatility_shift: Option<f64>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct OptionStrategyCurvePoint {
+    pub underlying_price: f64,
+    pub mark_value: f64,
+    pub pnl: f64,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct StrategyPnlInput {
     pub positions: Vec<StrategyValuationPosition>,
     pub underlying_price: f64,

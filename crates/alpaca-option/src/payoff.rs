@@ -3,7 +3,8 @@ use crate::error::{OptionError, OptionResult};
 use crate::numeric;
 use crate::pricing;
 use crate::types::{
-    OptionRight, PayoffLegInput, PositionSide, StrategyBreakEvenInput, StrategyPnlInput,
+    Greeks, OptionPosition, OptionRight, OptionStrategyCurvePoint, OptionStrategyInput,
+    PayoffLegInput, PositionSide, StrategyBreakEvenInput, StrategyPnlInput,
     StrategyValuationPosition,
 };
 use alpaca_time::clock;
@@ -22,7 +23,7 @@ struct PreparedStrategyLeg {
 }
 
 #[derive(Debug, Clone)]
-pub struct StrategyValuationContext {
+pub struct OptionStrategy {
     prepared: Vec<PreparedStrategyLeg>,
     entry_cost: f64,
     rate: f64,
@@ -329,6 +330,15 @@ fn strategy_mark_value_prepared(
     Ok(total)
 }
 
+fn validate_strategy_quantity(strategy_quantity: f64) -> OptionResult<f64> {
+    ensure_positive(
+        "invalid_strategy_payoff_input",
+        "strategy_quantity",
+        strategy_quantity,
+    )?;
+    Ok(strategy_quantity)
+}
+
 fn push_unique_root(roots: &mut Vec<f64>, root: f64, tolerance: f64) {
     if roots
         .iter()
@@ -370,7 +380,76 @@ fn validate_break_even_params(
     Ok((tolerance, scan_step, max_iterations))
 }
 
-impl StrategyValuationContext {
+fn validate_break_even_bracket_params(
+    lower_bound: f64,
+    upper_bound: f64,
+    tolerance: Option<f64>,
+    max_iterations: Option<usize>,
+) -> OptionResult<(f64, usize)> {
+    ensure_finite("invalid_strategy_payoff_input", "lower_bound", lower_bound)?;
+    ensure_finite("invalid_strategy_payoff_input", "upper_bound", upper_bound)?;
+    if lower_bound >= upper_bound {
+        return Err(OptionError::new(
+            "invalid_strategy_payoff_input",
+            format!("lower_bound must be less than upper_bound: {lower_bound} >= {upper_bound}"),
+        ));
+    }
+
+    let tolerance = tolerance.unwrap_or(1e-9);
+    ensure_positive("invalid_strategy_payoff_input", "tolerance", tolerance)?;
+    let max_iterations = max_iterations.unwrap_or(100);
+    if max_iterations == 0 {
+        return Err(OptionError::new(
+            "invalid_strategy_payoff_input",
+            "max_iterations must be greater than zero",
+        ));
+    }
+
+    Ok((tolerance, max_iterations))
+}
+
+impl OptionStrategy {
+    pub fn expiration_time(positions: &[StrategyValuationPosition]) -> OptionResult<String> {
+        let expiration_date = positions
+            .iter()
+            .map(|position| position.contract.expiration_date.trim())
+            .filter(|expiration_date| !expiration_date.is_empty())
+            .min()
+            .ok_or_else(|| {
+                OptionError::new(
+                    "invalid_strategy_payoff_input",
+                    "at least one position with expiration_date is required",
+                )
+            })?;
+
+        expiration::close(expiration_date).map_err(|error| {
+            OptionError::new(
+                "invalid_strategy_payoff_input",
+                format!("invalid expiration context for {expiration_date}: {error}"),
+            )
+        })
+    }
+
+    pub fn from_input(input: &OptionStrategyInput) -> OptionResult<Self> {
+        let evaluation_time = input
+            .evaluation_time
+            .as_deref()
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .map(str::to_string)
+            .map(Ok)
+            .unwrap_or_else(|| Self::expiration_time(&input.positions))?;
+
+        Self::prepare_with_rate(
+            &input.positions,
+            &evaluation_time,
+            input.entry_cost,
+            input.rate.unwrap_or(DEFAULT_RISK_FREE_RATE),
+            input.dividend_yield,
+            input.long_volatility_shift,
+        )
+    }
+
     pub fn prepare(
         positions: &[StrategyValuationPosition],
         evaluation_time: &str,
@@ -413,12 +492,103 @@ impl StrategyValuationContext {
     }
 
     pub fn pnl_at(&self, underlying_price: f64) -> OptionResult<f64> {
-        Ok(strategy_mark_value_prepared(
+        Ok(self.mark_value_at(underlying_price)? - self.entry_cost)
+    }
+
+    pub fn mark_value_at(&self, underlying_price: f64) -> OptionResult<f64> {
+        strategy_mark_value_prepared(
             &self.prepared,
             underlying_price,
             self.rate,
             self.dividend_yield,
-        )? - self.entry_cost)
+        )
+    }
+
+    pub fn sample_curve(
+        &self,
+        lower_bound: f64,
+        upper_bound: f64,
+        step: f64,
+    ) -> OptionResult<Vec<OptionStrategyCurvePoint>> {
+        ensure_finite("invalid_strategy_payoff_input", "lower_bound", lower_bound)?;
+        ensure_finite("invalid_strategy_payoff_input", "upper_bound", upper_bound)?;
+        if lower_bound < 0.0 {
+            return Err(OptionError::new(
+                "invalid_strategy_payoff_input",
+                format!("lower_bound must be non-negative: {lower_bound}"),
+            ));
+        }
+        if lower_bound >= upper_bound {
+            return Err(OptionError::new(
+                "invalid_strategy_payoff_input",
+                format!("lower_bound must be less than upper_bound: {lower_bound} >= {upper_bound}"),
+            ));
+        }
+        ensure_positive("invalid_strategy_payoff_input", "step", step)?;
+
+        let mut points = Vec::new();
+        let mut underlying_price = lower_bound;
+        loop {
+            let mark_value = self.mark_value_at(underlying_price)?;
+            points.push(OptionStrategyCurvePoint {
+                underlying_price,
+                mark_value,
+                pnl: mark_value - self.entry_cost,
+            });
+
+            if underlying_price >= upper_bound {
+                break;
+            }
+
+            let next = (underlying_price + step).min(upper_bound);
+            if next <= underlying_price {
+                return Err(OptionError::new(
+                    "invalid_strategy_payoff_input",
+                    "step did not advance strategy curve scan",
+                ));
+            }
+            underlying_price = next;
+        }
+
+        Ok(points)
+    }
+
+    pub fn break_even_between(
+        &self,
+        lower_bound: f64,
+        upper_bound: f64,
+        tolerance: Option<f64>,
+        max_iterations: Option<usize>,
+    ) -> OptionResult<Option<f64>> {
+        let (tolerance, max_iterations) = validate_break_even_bracket_params(
+            lower_bound,
+            upper_bound,
+            tolerance,
+            max_iterations,
+        )?;
+
+        let lower_value = self.pnl_at(lower_bound)?;
+        if lower_value.abs() <= tolerance {
+            return Ok(Some(lower_bound));
+        }
+
+        let upper_value = self.pnl_at(upper_bound)?;
+        if upper_value.abs() <= tolerance {
+            return Ok(Some(upper_bound));
+        }
+
+        if lower_value.signum() == upper_value.signum() {
+            return Ok(None);
+        }
+
+        numeric::refine_bracketed_root(
+            lower_bound,
+            upper_bound,
+            |spot| self.pnl_at(spot),
+            Some(tolerance),
+            Some(max_iterations),
+        )
+        .map(Some)
     }
 
     pub fn break_even_points(
@@ -486,6 +656,120 @@ impl StrategyValuationContext {
 
         roots.sort_by(|left, right| left.partial_cmp(right).unwrap());
         Ok(roots)
+    }
+
+    pub fn aggregate_snapshot_greeks(
+        positions: &[OptionPosition],
+        strategy_quantity: f64,
+    ) -> OptionResult<Greeks> {
+        let strategy_quantity = validate_strategy_quantity(strategy_quantity)?;
+        let mut total = Greeks::default();
+
+        for position in positions {
+            let quantity = f64::from(position.qty);
+            let greeks = position.snapshot.greeks_or_default();
+            total.delta += greeks.delta * quantity * CONTRACT_MULTIPLIER;
+            total.gamma += greeks.gamma * quantity * CONTRACT_MULTIPLIER;
+            total.vega += greeks.vega * quantity * CONTRACT_MULTIPLIER;
+            total.theta += greeks.theta * quantity * CONTRACT_MULTIPLIER;
+            total.rho += greeks.rho * quantity * CONTRACT_MULTIPLIER;
+        }
+
+        total.delta *= strategy_quantity;
+        total.gamma *= strategy_quantity;
+        total.vega *= strategy_quantity;
+        total.theta *= strategy_quantity;
+        total.rho *= strategy_quantity;
+
+        Ok(total)
+    }
+
+    pub fn aggregate_model_greeks(
+        positions: &[StrategyValuationPosition],
+        underlying_price: f64,
+        evaluation_time: &str,
+        rate: f64,
+        dividend_yield: Option<f64>,
+        long_volatility_shift: Option<f64>,
+        strategy_quantity: f64,
+    ) -> OptionResult<Greeks> {
+        let strategy_quantity = validate_strategy_quantity(strategy_quantity)?;
+        ensure_positive(
+            "invalid_strategy_payoff_input",
+            "underlying_price",
+            underlying_price,
+        )?;
+        ensure_finite("invalid_strategy_payoff_input", "rate", rate)?;
+        let dividend_yield = dividend_yield.unwrap_or(0.0);
+        ensure_finite(
+            "invalid_strategy_payoff_input",
+            "dividend_yield",
+            dividend_yield,
+        )?;
+        if let Some(long_volatility_shift) = long_volatility_shift {
+            ensure_finite(
+                "invalid_strategy_payoff_input",
+                "long_volatility_shift",
+                long_volatility_shift,
+            )?;
+        }
+        clock::parse_timestamp(evaluation_time).map_err(|error| {
+            OptionError::new(
+                "invalid_strategy_payoff_input",
+                format!("invalid evaluation_time: {error}"),
+            )
+        })?;
+
+        let mut total = Greeks::default();
+        for position in positions {
+            validate_strategy_position(position)?;
+            let quantity = f64::from(position.quantity);
+            let years = valuation_years(&position.contract.expiration_date, evaluation_time)?;
+            if years <= 0.0 {
+                continue;
+            }
+            let mut implied_volatility = position.implied_volatility.ok_or_else(|| {
+                OptionError::new(
+                    "invalid_strategy_payoff_input",
+                    format!(
+                        "implied_volatility is required before expiration: {}",
+                        position.contract.occ_symbol
+                    ),
+                )
+            })?;
+            if quantity > 0.0 {
+                implied_volatility += long_volatility_shift.unwrap_or(0.0);
+            }
+            ensure_positive(
+                "invalid_strategy_payoff_input",
+                "implied_volatility",
+                implied_volatility,
+            )?;
+
+            let greeks = pricing::greeks_black_scholes(&crate::BlackScholesInput {
+                spot: underlying_price,
+                strike: position.contract.strike,
+                years,
+                rate,
+                dividend_yield,
+                volatility: implied_volatility,
+                option_right: position.contract.option_right.clone(),
+            })?;
+
+            total.delta += greeks.delta * quantity * CONTRACT_MULTIPLIER;
+            total.gamma += greeks.gamma * quantity * CONTRACT_MULTIPLIER;
+            total.vega += greeks.vega * quantity * CONTRACT_MULTIPLIER;
+            total.theta += greeks.theta * quantity * CONTRACT_MULTIPLIER;
+            total.rho += greeks.rho * quantity * CONTRACT_MULTIPLIER;
+        }
+
+        total.delta *= strategy_quantity;
+        total.gamma *= strategy_quantity;
+        total.vega *= strategy_quantity;
+        total.theta *= strategy_quantity;
+        total.rho *= strategy_quantity;
+
+        Ok(total)
     }
 }
 
@@ -560,7 +844,7 @@ pub fn break_even_points(legs: &[PayoffLegInput]) -> OptionResult<Vec<f64>> {
 }
 
 pub fn strategy_pnl(input: &StrategyPnlInput) -> OptionResult<f64> {
-    StrategyValuationContext::prepare_with_rate(
+    OptionStrategy::prepare_with_rate(
         &input.positions,
         &input.evaluation_time,
         input.entry_cost,
@@ -572,7 +856,7 @@ pub fn strategy_pnl(input: &StrategyPnlInput) -> OptionResult<f64> {
 }
 
 pub fn strategy_break_even_points(input: &StrategyBreakEvenInput) -> OptionResult<Vec<f64>> {
-    StrategyValuationContext::prepare_with_rate(
+    OptionStrategy::prepare_with_rate(
         &input.positions,
         &input.evaluation_time,
         input.entry_cost,
