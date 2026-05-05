@@ -16,6 +16,7 @@ website/static/api/
 task.md
 design.md
 AGENTS.md
+CLAUDE.md
 .local/
 tools/api-coverage/.tmp/
 .claude/
