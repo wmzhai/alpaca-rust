@@ -4,7 +4,7 @@ import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
-import { analysis, contract, executionQuote, expirationSelection, numeric, payoff, pricing, probability, url } from '../src/index';
+import { OptionStrategy, analysis, contract, executionQuote, expirationSelection, numeric, optionStrategy, payoff, pricing, probability, url } from '../src/index';
 import * as mathAmerican from '../src/math/american';
 import * as mathBachelier from '../src/math/bachelier';
 import * as mathBarrier from '../src/math/barrier';
@@ -744,8 +744,8 @@ function runCase(item: FixtureCase): unknown {
           quantity: Number(leg.quantity),
         })),
       });
-    case 'payoff.strategy_pnl':
-      return payoff.strategyPnl({
+    case 'option_strategy.strategy_pnl':
+      return optionStrategy.strategyPnl({
         positions: (item.input.positions as Array<Record<string, unknown>>).map((position) => ({
           contract: {
             underlying_symbol: String((position.contract as Record<string, unknown>).underlying_symbol),
@@ -765,8 +765,8 @@ function runCase(item: FixtureCase): unknown {
         dividend_yield: item.input.dividend_yield == null ? null : Number(item.input.dividend_yield),
         long_volatility_shift: item.input.long_volatility_shift == null ? null : Number(item.input.long_volatility_shift),
       });
-    case 'payoff.strategy_break_even_points':
-      return payoff.strategyBreakEvenPoints({
+    case 'option_strategy.strategy_break_even_points':
+      return optionStrategy.strategyBreakEvenPoints({
         positions: (item.input.positions as Array<Record<string, unknown>>).map((position) => ({
           contract: {
             underlying_symbol: String((position.contract as Record<string, unknown>).underlying_symbol),
@@ -790,8 +790,8 @@ function runCase(item: FixtureCase): unknown {
         tolerance: item.input.tolerance == null ? undefined : Number(item.input.tolerance),
         maxIterations: item.input.max_iterations == null ? undefined : Number(item.input.max_iterations),
       });
-    case 'payoff.option_strategy_expiration_time':
-      return payoff.OptionStrategy.expirationTime(
+    case 'option_strategy.expiration_time':
+      return OptionStrategy.expirationTime(
         (item.input.positions as Array<Record<string, unknown>>).map((position) => ({
           contract: {
             underlying_symbol: String((position.contract as Record<string, unknown>).underlying_symbol),
@@ -809,13 +809,13 @@ function runCase(item: FixtureCase): unknown {
             : Number(position.reference_underlying_price),
         })),
       );
-    case 'payoff.option_strategy_snapshot_greeks':
-      return payoff.OptionStrategy.aggregateSnapshotGreeks({
+    case 'option_strategy.snapshot_greeks':
+      return OptionStrategy.aggregateSnapshotGreeks({
         positions: (item.input.positions as Array<Record<string, unknown>>).map(toOptionPosition),
         strategyQuantity: Number(item.input.strategy_quantity),
       });
-    case 'payoff.option_strategy_model_greeks':
-      return payoff.OptionStrategy.aggregateModelGreeks({
+    case 'option_strategy.model_greeks':
+      return OptionStrategy.aggregateModelGreeks({
         positions: (item.input.positions as Array<Record<string, unknown>>).map((position) => ({
           contract: {
             underlying_symbol: String((position.contract as Record<string, unknown>).underlying_symbol),
@@ -839,8 +839,8 @@ function runCase(item: FixtureCase): unknown {
         long_volatility_shift: item.input.long_volatility_shift == null ? null : Number(item.input.long_volatility_shift),
         strategyQuantity: Number(item.input.strategy_quantity),
       });
-    case 'payoff.option_strategy_curve':
-      return payoff.OptionStrategy.fromInput({
+    case 'option_strategy.curve':
+      return OptionStrategy.fromInput({
         positions: (item.input.positions as Array<Record<string, unknown>>).map((position) => ({
           contract: {
             underlying_symbol: String((position.contract as Record<string, unknown>).underlying_symbol),

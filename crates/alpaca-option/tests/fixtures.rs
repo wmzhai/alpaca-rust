@@ -8,7 +8,7 @@ use alpaca_option::{
     OptionPosition, OptionRight, OptionSnapshot, OptionStrategy, OptionStrategyInput,
     PayoffLegInput, QuotedLeg, RollLegSelection, StrategyBreakEvenInput, StrategyPnlInput,
     StrategyValuationPosition, analysis, contract, execution_quote,
-    expiration_selection, math, numeric, payoff, pricing, probability, url,
+    expiration_selection, math, numeric, option_strategy, payoff, pricing, probability, url,
 };
 
 fn repo_root() -> PathBuf {
@@ -89,10 +89,10 @@ fn fixture_requires_explicit_rate(api: &str) -> bool {
             | "math.black76_implied_volatility_from_price"
             | "math.black76_price"
             | "math.geometric_asian.price"
-            | "payoff.strategy_break_even_points"
-            | "payoff.strategy_pnl"
-            | "payoff.option_strategy_curve"
-            | "payoff.option_strategy_model_greeks"
+            | "option_strategy.strategy_break_even_points"
+            | "option_strategy.strategy_pnl"
+            | "option_strategy.curve"
+            | "option_strategy.model_greeks"
             | "pricing.black_scholes_put_call_parity"
             | "pricing.greeks_black_scholes"
             | "pricing.implied_volatility_from_price"
@@ -1054,21 +1054,21 @@ fn run_case(case: &Value) -> Value {
             .unwrap(),
         )
         .unwrap(),
-        "payoff.strategy_pnl" => serde_json::to_value(
-            payoff::strategy_pnl(
+        "option_strategy.strategy_pnl" => serde_json::to_value(
+            option_strategy::strategy_pnl(
                 &serde_json::from_value::<StrategyPnlInput>(input.clone()).unwrap(),
             )
             .unwrap(),
         )
         .unwrap(),
-        "payoff.strategy_break_even_points" => serde_json::to_value(
-            payoff::strategy_break_even_points(
+        "option_strategy.strategy_break_even_points" => serde_json::to_value(
+            option_strategy::strategy_break_even_points(
                 &serde_json::from_value::<StrategyBreakEvenInput>(input.clone()).unwrap(),
             )
             .unwrap(),
         )
         .unwrap(),
-        "payoff.option_strategy_expiration_time" => serde_json::to_value(
+        "option_strategy.expiration_time" => serde_json::to_value(
             OptionStrategy::expiration_time(
                 &serde_json::from_value::<Vec<StrategyValuationPosition>>(
                     input.get("positions").unwrap().clone(),
@@ -1078,7 +1078,7 @@ fn run_case(case: &Value) -> Value {
             .unwrap(),
         )
         .unwrap(),
-        "payoff.option_strategy_snapshot_greeks" => serde_json::to_value(
+        "option_strategy.snapshot_greeks" => serde_json::to_value(
             OptionStrategy::aggregate_snapshot_greeks(
                 &fixture_positions(input.get("positions").unwrap()),
                 input
@@ -1090,7 +1090,7 @@ fn run_case(case: &Value) -> Value {
             .unwrap(),
         )
         .unwrap(),
-        "payoff.option_strategy_model_greeks" => serde_json::to_value(
+        "option_strategy.model_greeks" => serde_json::to_value(
             OptionStrategy::aggregate_model_greeks(
                 &serde_json::from_value::<Vec<StrategyValuationPosition>>(
                     input.get("positions").unwrap().clone(),
@@ -1112,7 +1112,7 @@ fn run_case(case: &Value) -> Value {
             .unwrap(),
         )
         .unwrap(),
-        "payoff.option_strategy_curve" => {
+        "option_strategy.curve" => {
             let strategy =
                 OptionStrategy::from_input(&serde_json::from_value::<OptionStrategyInput>(
                     input.clone(),

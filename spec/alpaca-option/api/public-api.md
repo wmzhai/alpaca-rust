@@ -187,19 +187,32 @@ Field-level definitions live in `../models/core-models.md`.
 
 - single-leg expiration payoff
 - multi-leg expiration payoff
-- break-even points
-- strategy mark-to-market PnL
-- strategy-level break-even search
+- expiration break-even points
 
 ### API
 
 | API | Returns | Semantics |
 | --- | --- | --- |
 | `payoff.single_leg_payoff_at_expiry(input)` / `payoff.singleLegPayoffAtExpiry(input)` | `number` | single-leg expiration PnL |
-| `payoff.strategy_payoff_at_expiry({ legs, underlying_price_at_expiry })` / `payoff.strategyPayoffAtExpiry({ legs, underlyingPriceAtExpiry })` | `number` | strategy expiration PnL |
-| `payoff.break_even_points({ legs })` / `payoff.breakEvenPoints({ legs })` | `number[]` | sorted break-even points |
-| `payoff.strategy_pnl(input)` / `payoff.strategyPnl(input)` | `number` | revalues the full position set at `evaluation_time`; expired legs use intrinsic value, live legs use BSM; when `entry_cost` is omitted, the implementation sums `avg_entry_price * quantity * 100` for each leg |
-| `payoff.strategy_break_even_points(input)` / `payoff.strategyBreakEvenPoints(input)` | `number[]` | searches for strategy-level PnL roots inside `[lower_bound, upper_bound]` using scan plus Brent refinement and returns sorted break-even points |
+| `payoff.strategy_payoff_at_expiry({ legs, underlying_price_at_expiry })` / `payoff.strategyPayoffAtExpiry({ legs, underlyingPriceAtExpiry })` | `number` | multi-leg expiration PnL |
+| `payoff.break_even_points({ legs })` / `payoff.breakEvenPoints({ legs })` | `number[]` | sorted expiration break-even points |
+
+## `option_strategy`
+
+### Responsibilities
+
+- strategy mark-to-market PnL
+- strategy-level break-even search
+- strategy-level curve sampling
+- strategy-level Greeks aggregation
+
+### API
+
+| API | Returns | Semantics |
+| --- | --- | --- |
+| `option_strategy.strategy_pnl(input)` / `optionStrategy.strategyPnl(input)` | `number` | revalues the full position set at `evaluation_time`; expired legs use intrinsic value, live legs use BSM; when `entry_cost` is omitted, the implementation sums `avg_entry_price * quantity * 100` for each leg |
+| `option_strategy.strategy_break_even_points(input)` / `optionStrategy.strategyBreakEvenPoints(input)` | `number[]` | searches for strategy-level PnL roots inside `[lower_bound, upper_bound]` using scan plus Brent refinement and returns sorted break-even points |
+| `OptionStrategy` | class / struct | prepares reusable strategy valuation state for mark value, PnL, curve sampling, break-even scanning, and Greeks aggregation |
 
 ## `chain`
 

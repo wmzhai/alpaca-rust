@@ -16,7 +16,8 @@
     "./math/bachelier": "./src/math/bachelier.ts",
     "./math/barrier": "./src/math/barrier.ts",
     "./math/black76": "./src/math/black76.ts",
-    "./math/geometric-asian": "./src/math/geometricAsian.ts"
+    "./math/geometric-asian": "./src/math/geometricAsian.ts",
+    "./option-strategy": "./src/optionStrategy.ts"
   },
   "dependencies": {
     "@alpaca/time": "file:../alpaca-time"

@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { expiration as timeExpiration } from '@alpaca/time';
 
 import { OptionError } from '../src/error';
-import { payoff, pricing } from '../src/index';
+import { OptionStrategy, optionStrategy, payoff, pricing } from '../src/index';
 import type {
   Greeks,
   OptionContract,
@@ -110,7 +110,7 @@ test('strategyPnl mixes expired and unexpired positions', () => {
   });
   const expected = (expectedLongValue - 3) * 100 + 100;
 
-  const actual = payoff.strategyPnl({
+  const actual = optionStrategy.strategyPnl({
     positions,
     underlying_price: 97,
     evaluation_time: evaluationTime,
@@ -165,7 +165,7 @@ test('strategyPnl applies volatility shift only to long positions', () => {
   });
   const expected = (expectedLong - expectedShort) * 100 - 150;
 
-  const actual = payoff.strategyPnl({
+  const actual = optionStrategy.strategyPnl({
     positions,
     underlying_price: 102,
     evaluation_time: evaluationTime,
@@ -179,7 +179,7 @@ test('strategyPnl applies volatility shift only to long positions', () => {
 });
 
 test('strategyBreakEvenPoints finds credit strangle roots', () => {
-  const actual = payoff.strategyBreakEvenPoints({
+  const actual = optionStrategy.strategyBreakEvenPoints({
     positions: [
       {
         contract: contract('2025-03-21', 90, 'put'),
@@ -217,7 +217,7 @@ test('strategyBreakEvenPoints finds credit strangle roots', () => {
 
 test('strategyPnl requires entryCost or leg costs', () => {
   assert.throws(
-    () => payoff.strategyPnl({
+    () => optionStrategy.strategyPnl({
       positions: [{
         contract: contract('2025-04-24', 100, 'call'),
         quantity: 1,
@@ -244,9 +244,13 @@ test('OptionStrategy uses earliest expiration close by default', () => {
     strategyPosition('2025-06-20', 90, 'put', 1, 2, 0.28),
   ];
 
-  assert.equal(payoff.OptionStrategy.expirationTime(positions), '2025-04-17 16:00:00');
+  assert.equal(OptionStrategy.expirationTime(positions), '2025-04-17 16:00:00');
+  assert.equal(optionStrategy.OptionStrategy.expirationTime(positions), '2025-04-17 16:00:00');
+  assert.equal('OptionStrategy' in payoff, false);
+  assert.equal('strategyPnl' in payoff, false);
+  assert.equal('strategyBreakEvenPoints' in payoff, false);
 
-  const strategy = payoff.OptionStrategy.fromInput({
+  const strategy = OptionStrategy.fromInput({
     positions,
     evaluation_time: null,
     entry_cost: null,
@@ -262,7 +266,7 @@ test('OptionStrategy uses earliest expiration close by default', () => {
 });
 
 test('OptionStrategy finds break even between bracketed prices', () => {
-  const strategy = payoff.OptionStrategy.prepare({
+  const strategy = OptionStrategy.prepare({
     positions: [strategyPosition('2025-03-21', 100, 'call', 1, 5, 0.30)],
     evaluation_time: '2025-03-21 16:00:00',
     entry_cost: null,
@@ -307,7 +311,7 @@ test('OptionStrategy aggregates snapshot Greeks with strategy quantity', () => {
     }),
   ];
 
-  const actual = payoff.OptionStrategy.aggregateSnapshotGreeks({ positions, strategyQuantity: 3 });
+  const actual = OptionStrategy.aggregateSnapshotGreeks({ positions, strategyQuantity: 3 });
 
   assert.ok(Math.abs(actual.delta - 300) < 1e-9);
   assert.ok(Math.abs(actual.gamma - -9) < 1e-9);
@@ -323,7 +327,7 @@ test('OptionStrategy aggregates model Greeks with strategy quantity', () => {
     strategyPosition('2025-04-17', 105, 'call', -1, 1.5, 0.30),
   ];
 
-  const actual = payoff.OptionStrategy.aggregateModelGreeks({
+  const actual = OptionStrategy.aggregateModelGreeks({
     positions,
     underlying_price: 102,
     evaluation_time: evaluationTime,
@@ -421,7 +425,7 @@ test('OptionStrategy values common multi-leg shapes', () => {
   ];
 
   for (const item of cases) {
-    const strategy = payoff.OptionStrategy.fromInput({
+    const strategy = OptionStrategy.fromInput({
       positions: item.positions,
       evaluation_time: null,
       entry_cost: null,

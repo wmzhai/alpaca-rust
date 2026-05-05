@@ -75,7 +75,7 @@
     },
     {
       "id": "strategy-pnl-mixed-expired-unexpired",
-      "api": "payoff.strategy_pnl",
+      "api": "option_strategy.strategy_pnl",
       "input": {
         "positions": [
           {
@@ -117,7 +117,7 @@
     },
     {
       "id": "strategy-break-even-credit-strangle",
-      "api": "payoff.strategy_break_even_points",
+      "api": "option_strategy.strategy_break_even_points",
       "input": {
         "positions": [
           {
@@ -166,7 +166,7 @@
     },
     {
       "id": "option-strategy-expiration-earliest-leg",
-      "api": "payoff.option_strategy_expiration_time",
+      "api": "option_strategy.expiration_time",
       "input": {
         "positions": [
           {
@@ -201,7 +201,7 @@
     },
     {
       "id": "option-strategy-snapshot-greeks-strategy-quantity",
-      "api": "payoff.option_strategy_snapshot_greeks",
+      "api": "option_strategy.snapshot_greeks",
       "input": {
         "strategy_quantity": 3.0,
         "positions": [
@@ -282,7 +282,7 @@
     },
     {
       "id": "option-strategy-model-greeks-pmcc",
-      "api": "payoff.option_strategy_model_greeks",
+      "api": "option_strategy.model_greeks",
       "input": {
         "positions": [
           {
@@ -330,7 +330,7 @@
     },
     {
       "id": "option-strategy-curve-pmcc",
-      "api": "payoff.option_strategy_curve",
+      "api": "option_strategy.curve",
       "input": {
         "positions": [
           {

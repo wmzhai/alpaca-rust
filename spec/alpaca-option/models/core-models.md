@@ -201,7 +201,7 @@ Notes:
 
 Notes:
 
-- this is the standard input for `payoff.strategy_break_even_points(...)`
+- this is the standard input for `option_strategy.strategy_break_even_points(...)`
 - the lower layer owns bracket scanning, root deduplication, and Brent refinement, so higher layers do not maintain parallel scan or bisection implementations
 
 ### `ExecutionSnapshot`

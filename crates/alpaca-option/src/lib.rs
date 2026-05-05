@@ -15,6 +15,7 @@ pub mod expiration_selection;
 pub mod liquidity;
 pub mod math;
 pub mod numeric;
+pub mod option_strategy;
 pub mod payoff;
 pub mod pricing;
 pub mod probability;
@@ -26,7 +27,7 @@ pub const DEFAULT_RISK_FREE_RATE: f64 = 0.0368;
 
 pub use error::{OptionError, OptionResult};
 pub use liquidity::{LiquidityBatchResponse, LiquidityData, LiquidityOptionData, LiquidityStats};
-pub use payoff::OptionStrategy;
+pub use option_strategy::OptionStrategy;
 pub use types::{
     AssignmentRiskLevel, BlackScholesImpliedVolatilityInput, BlackScholesInput, ContractDisplay,
     ExecutionAction, ExecutionLeg, ExecutionLegInput, ExecutionQuoteRange, ExecutionSnapshot,

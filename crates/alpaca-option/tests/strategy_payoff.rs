@@ -1,4 +1,4 @@
-use alpaca_option::payoff;
+use alpaca_option::option_strategy;
 use alpaca_option::pricing;
 use alpaca_option::{
     Greeks, OptionContract, OptionPosition, OptionQuote, OptionRight, OptionSnapshot,
@@ -109,7 +109,7 @@ fn strategy_pnl_mixes_expired_and_unexpired_positions() {
     .unwrap();
     let expected = (expected_long_value - 3.0) * 100.0 + 100.0;
 
-    let actual = payoff::strategy_pnl(&StrategyPnlInput {
+    let actual = option_strategy::strategy_pnl(&StrategyPnlInput {
         positions,
         underlying_price: 97.0,
         evaluation_time: evaluation_time.to_string(),
@@ -171,7 +171,7 @@ fn strategy_pnl_applies_volatility_shift_only_to_long_positions() {
     .unwrap();
     let expected = (expected_long - expected_short) * 100.0 - 150.0;
 
-    let actual = payoff::strategy_pnl(&StrategyPnlInput {
+    let actual = option_strategy::strategy_pnl(&StrategyPnlInput {
         positions,
         underlying_price: 102.0,
         evaluation_time: evaluation_time.to_string(),
@@ -190,7 +190,7 @@ fn strategy_pnl_applies_volatility_shift_only_to_long_positions() {
 
 #[test]
 fn strategy_break_even_points_finds_credit_strangle_roots() {
-    let actual = payoff::strategy_break_even_points(&StrategyBreakEvenInput {
+    let actual = option_strategy::strategy_break_even_points(&StrategyBreakEvenInput {
         positions: vec![
             StrategyValuationPosition {
                 contract: contract("2025-03-21", 90.0, OptionRight::Put),
@@ -229,7 +229,7 @@ fn strategy_break_even_points_finds_credit_strangle_roots() {
 
 #[test]
 fn strategy_pnl_requires_entry_cost_or_leg_costs() {
-    let error = payoff::strategy_pnl(&StrategyPnlInput {
+    let error = option_strategy::strategy_pnl(&StrategyPnlInput {
         positions: vec![StrategyValuationPosition {
             contract: contract("2025-04-24", 100.0, OptionRight::Call),
             quantity: 1,
@@ -480,11 +480,9 @@ fn option_strategy_values_common_multi_leg_shapes() {
             .unwrap_or_else(|error| panic!("{name}: {error}"));
         assert!(curve.len() >= 5, "{name}: curve too small");
         assert!(
-            curve
-                .iter()
-                .all(|point| point.underlying_price.is_finite()
-                    && point.mark_value.is_finite()
-                    && point.pnl.is_finite()),
+            curve.iter().all(|point| point.underlying_price.is_finite()
+                && point.mark_value.is_finite()
+                && point.pnl.is_finite()),
             "{name}: curve contains non-finite point"
         );
     }
