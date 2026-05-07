@@ -1,10 +1,11 @@
 use crate::DEFAULT_RISK_FREE_RATE;
+use crate::contract;
 use crate::error::{OptionError, OptionResult};
 use crate::numeric;
 use crate::pricing;
 use crate::types::{
-    Greeks, OptionPosition, OptionRight, OptionStrategyCurvePoint, OptionStrategyInput,
-    StrategyBreakEvenInput, StrategyPnlInput, StrategyValuationPosition,
+    Greeks, OptionContract, OptionPosition, OptionRight, OptionStrategyCurvePoint,
+    OptionStrategyInput, StrategyBreakEvenInput, StrategyPnlInput,
 };
 use alpaca_time::clock;
 use alpaca_time::expiration;
@@ -22,6 +23,7 @@ struct PreparedStrategyLeg {
 
 #[derive(Debug, Clone)]
 pub struct OptionStrategy {
+    positions: Vec<OptionPosition>,
     prepared: Vec<PreparedStrategyLeg>,
     entry_cost: f64,
     rate: f64,
@@ -51,40 +53,48 @@ fn ensure_positive(code: &'static str, name: &str, value: f64) -> OptionResult<(
     }
 }
 
-fn validate_strategy_position(position: &StrategyValuationPosition) -> OptionResult<()> {
+fn strategy_position_contract(position: &OptionPosition) -> OptionResult<OptionContract> {
+    contract::parse_occ_symbol(position.occ_symbol()).ok_or_else(|| {
+        OptionError::new(
+            "invalid_occ_symbol",
+            format!("invalid occ symbol: {}", position.occ_symbol()),
+        )
+    })
+}
+
+fn validate_strategy_position(position: &OptionPosition, contract: &OptionContract) -> OptionResult<()> {
     ensure_positive(
         "invalid_strategy_payoff_input",
         "contract.strike",
-        position.contract.strike,
+        contract.strike,
     )?;
-    if position.quantity == 0 {
+    if position.qty == 0 {
         return Err(OptionError::new(
             "invalid_strategy_payoff_input",
             "quantity must not be zero",
         ));
     }
-    if let Some(avg_entry_price) = position.avg_entry_price {
-        ensure_finite(
-            "invalid_strategy_payoff_input",
-            "avg_entry_price",
-            avg_entry_price,
-        )?;
-    }
-    if let Some(implied_volatility) = position.implied_volatility {
+    ensure_finite(
+        "invalid_strategy_payoff_input",
+        "avg_cost",
+        position.avg_cost(),
+    )?;
+    if let Some(implied_volatility) = position
+        .snapshot_ref()
+        .and_then(|snapshot| snapshot.implied_volatility)
+    {
         ensure_finite(
             "invalid_strategy_payoff_input",
             "implied_volatility",
             implied_volatility,
         )?;
     }
-    if let Some(mark_price) = position.mark_price {
-        ensure_finite("invalid_strategy_payoff_input", "mark_price", mark_price)?;
-    }
-    if let Some(reference_underlying_price) = position.reference_underlying_price {
+    if let Some(snapshot) = position.snapshot_ref() {
+        ensure_finite("invalid_strategy_payoff_input", "mark_price", snapshot.price())?;
         ensure_finite(
             "invalid_strategy_payoff_input",
             "reference_underlying_price",
-            reference_underlying_price,
+            snapshot.underlying_price(),
         )?;
     }
     Ok(())
@@ -105,7 +115,7 @@ fn valuation_years(expiration_date: &str, evaluation_time: &str) -> OptionResult
 }
 
 fn strategy_entry_cost(
-    positions: &[StrategyValuationPosition],
+    positions: &[OptionPosition],
     entry_cost: Option<f64>,
 ) -> OptionResult<f64> {
     if let Some(entry_cost) = entry_cost {
@@ -115,19 +125,13 @@ fn strategy_entry_cost(
 
     let mut total = 0.0;
     for position in positions {
-        let avg_entry_price = position.avg_entry_price.ok_or_else(|| {
-            OptionError::new(
-                "invalid_strategy_payoff_input",
-                "entry_cost is required when avg_entry_price is missing",
-            )
-        })?;
-        total += avg_entry_price * f64::from(position.quantity) * CONTRACT_MULTIPLIER;
+        total += position.avg_cost() * f64::from(position.qty) * CONTRACT_MULTIPLIER;
     }
     Ok(total)
 }
 
 fn prepare_strategy_context(
-    positions: &[StrategyValuationPosition],
+    positions: &[OptionPosition],
     evaluation_time: &str,
     entry_cost: Option<f64>,
     dividend_yield: Option<f64>,
@@ -157,21 +161,25 @@ fn prepare_strategy_context(
     let entry_cost = strategy_entry_cost(positions, entry_cost)?;
     let mut prepared = Vec::with_capacity(positions.len());
     for position in positions {
-        validate_strategy_position(position)?;
-        let quantity = f64::from(position.quantity);
-        let years = valuation_years(&position.contract.expiration_date, evaluation_time)?;
+        let contract = strategy_position_contract(position)?;
+        validate_strategy_position(position, &contract)?;
+        let quantity = f64::from(position.qty);
+        let years = valuation_years(&contract.expiration_date, evaluation_time)?;
         let implied_volatility = if years <= 0.0 {
             None
         } else {
-            let mut implied_volatility = position.implied_volatility.ok_or_else(|| {
-                OptionError::new(
-                    "invalid_strategy_payoff_input",
-                    format!(
-                        "implied_volatility is required before expiration: {}",
-                        position.contract.occ_symbol
-                    ),
-                )
-            })?;
+            let mut implied_volatility = position
+                .snapshot_ref()
+                .and_then(|snapshot| snapshot.implied_volatility)
+                .ok_or_else(|| {
+                    OptionError::new(
+                        "invalid_strategy_payoff_input",
+                        format!(
+                            "implied_volatility is required before expiration: {}",
+                            position.occ_symbol()
+                        ),
+                    )
+                })?;
             if quantity > 0.0 {
                 implied_volatility += long_volatility_shift.unwrap_or(0.0);
             }
@@ -184,8 +192,8 @@ fn prepare_strategy_context(
         };
 
         prepared.push(PreparedStrategyLeg {
-            option_right: position.contract.option_right.clone(),
-            strike: position.contract.strike,
+            option_right: contract.option_right,
+            strike: contract.strike,
             quantity,
             years,
             implied_volatility,
@@ -380,11 +388,17 @@ fn validate_break_even_bracket_params(
 }
 
 impl OptionStrategy {
-    pub fn expiration_time(positions: &[StrategyValuationPosition]) -> OptionResult<String> {
-        let expiration_date = positions
+    pub fn expiration_time(positions: &[OptionPosition]) -> OptionResult<String> {
+        let mut expiration_dates = Vec::with_capacity(positions.len());
+        for position in positions {
+            let contract = strategy_position_contract(position)?;
+            if !contract.expiration_date.trim().is_empty() {
+                expiration_dates.push(contract.expiration_date);
+            }
+        }
+        let expiration_date = expiration_dates
             .iter()
-            .map(|position| position.contract.expiration_date.trim())
-            .filter(|expiration_date| !expiration_date.is_empty())
+            .map(String::as_str)
             .min()
             .ok_or_else(|| {
                 OptionError::new(
@@ -422,7 +436,7 @@ impl OptionStrategy {
     }
 
     pub fn prepare(
-        positions: &[StrategyValuationPosition],
+        positions: &[OptionPosition],
         evaluation_time: &str,
         entry_cost: Option<f64>,
         dividend_yield: Option<f64>,
@@ -439,7 +453,7 @@ impl OptionStrategy {
     }
 
     pub fn prepare_with_rate(
-        positions: &[StrategyValuationPosition],
+        positions: &[OptionPosition],
         evaluation_time: &str,
         entry_cost: Option<f64>,
         rate: f64,
@@ -455,6 +469,7 @@ impl OptionStrategy {
             long_volatility_shift,
         )?;
         Ok(Self {
+            positions: positions.to_vec(),
             prepared,
             entry_cost,
             rate,
@@ -473,6 +488,10 @@ impl OptionStrategy {
             self.rate,
             self.dividend_yield,
         )
+    }
+
+    pub fn positions(&self) -> &[OptionPosition] {
+        &self.positions
     }
 
     fn prepared_greeks_at(&self, underlying_price: f64) -> OptionResult<Greeks> {
@@ -658,23 +677,12 @@ impl OptionStrategy {
     }
 
     pub fn greeks_at(
-        positions: &[StrategyValuationPosition],
-        evaluation_time: &str,
+        &self,
         underlying_price: f64,
-        dividend_yield: Option<f64>,
-        long_volatility_shift: Option<f64>,
         strategy_quantity: f64,
     ) -> OptionResult<Greeks> {
         let strategy_quantity = validate_strategy_quantity(strategy_quantity)?;
-        let mut total = Self::prepare_with_rate(
-            positions,
-            evaluation_time,
-            Some(0.0),
-            DEFAULT_RISK_FREE_RATE,
-            dividend_yield,
-            long_volatility_shift,
-        )?
-        .prepared_greeks_at(underlying_price)?;
+        let mut total = self.prepared_greeks_at(underlying_price)?;
 
         total.delta *= strategy_quantity;
         total.gamma *= strategy_quantity;
@@ -686,21 +694,21 @@ impl OptionStrategy {
     }
 
     pub fn aggregate_model_greeks(
-        positions: &[StrategyValuationPosition],
+        positions: &[OptionPosition],
         underlying_price: f64,
         evaluation_time: &str,
         dividend_yield: Option<f64>,
         long_volatility_shift: Option<f64>,
         strategy_quantity: f64,
     ) -> OptionResult<Greeks> {
-        Self::greeks_at(
+        Self::prepare(
             positions,
             evaluation_time,
-            underlying_price,
+            Some(0.0),
             dividend_yield,
             long_volatility_shift,
-            strategy_quantity,
-        )
+        )?
+        .greeks_at(underlying_price, strategy_quantity)
     }
 }
 

@@ -273,21 +273,35 @@ function toOptionPosition(input: Record<string, unknown>): OptionPosition {
     const side = positionSide === 'short' || qty < 0 ? 'short' : 'long';
     return `${side}${optionRight}`;
   })();
+  const snapshot = input.snapshot == null
+    ? emptyOptionSnapshot(contractInput ?? toOptionContract({
+      underlying_symbol: '',
+      expiration_date: '',
+      strike: 0,
+      option_right: 'call',
+      occ_symbol: contract,
+    }))
+    : toOptionSnapshot(input.snapshot as Record<string, unknown>);
+  if (input.snapshot == null) {
+    snapshot.implied_volatility = input.implied_volatility == null ? null : Number(input.implied_volatility);
+    snapshot.underlying_price = input.reference_underlying_price == null
+      ? null
+      : Number(input.reference_underlying_price);
+    const mark = input.mark_price ?? input.avg_entry_price;
+    snapshot.quote = {
+      bid: mark == null ? null : Number(mark),
+      ask: mark == null ? null : Number(mark),
+      mark: mark == null ? null : Number(mark),
+      last: mark == null ? null : Number(mark),
+    };
+  }
 
   return {
     contract,
     qty,
     avg_cost: avgCost,
     leg_type: legType,
-    snapshot: input.snapshot == null
-      ? emptyOptionSnapshot(contractInput ?? toOptionContract({
-        underlying_symbol: '',
-        expiration_date: '',
-        strike: 0,
-        option_right: 'call',
-        occ_symbol: contract,
-      }))
-      : toOptionSnapshot(input.snapshot as Record<string, unknown>),
+    snapshot,
   };
 }
 
@@ -746,18 +760,7 @@ function runCase(item: FixtureCase): unknown {
       });
     case 'option_strategy.strategy_pnl':
       return optionStrategy.strategyPnl({
-        positions: (item.input.positions as Array<Record<string, unknown>>).map((position) => ({
-          contract: {
-            underlying_symbol: String((position.contract as Record<string, unknown>).underlying_symbol),
-            expiration_date: String((position.contract as Record<string, unknown>).expiration_date),
-            strike: Number((position.contract as Record<string, unknown>).strike),
-            option_right: String((position.contract as Record<string, unknown>).option_right) as 'call' | 'put',
-            occ_symbol: String((position.contract as Record<string, unknown>).occ_symbol),
-          },
-          quantity: Number(position.quantity),
-          avg_entry_price: position.avg_entry_price == null ? null : Number(position.avg_entry_price),
-          implied_volatility: position.implied_volatility == null ? null : Number(position.implied_volatility),
-        })),
+        positions: (item.input.positions as Array<Record<string, unknown>>).map(toOptionPosition),
         underlying_price: Number(item.input.underlying_price),
         evaluation_time: String(item.input.evaluation_time),
         entry_cost: item.input.entry_cost == null ? null : Number(item.input.entry_cost),
@@ -767,18 +770,7 @@ function runCase(item: FixtureCase): unknown {
       });
     case 'option_strategy.strategy_break_even_points':
       return optionStrategy.strategyBreakEvenPoints({
-        positions: (item.input.positions as Array<Record<string, unknown>>).map((position) => ({
-          contract: {
-            underlying_symbol: String((position.contract as Record<string, unknown>).underlying_symbol),
-            expiration_date: String((position.contract as Record<string, unknown>).expiration_date),
-            strike: Number((position.contract as Record<string, unknown>).strike),
-            option_right: String((position.contract as Record<string, unknown>).option_right) as 'call' | 'put',
-            occ_symbol: String((position.contract as Record<string, unknown>).occ_symbol),
-          },
-          quantity: Number(position.quantity),
-          avg_entry_price: position.avg_entry_price == null ? null : Number(position.avg_entry_price),
-          implied_volatility: position.implied_volatility == null ? null : Number(position.implied_volatility),
-        })),
+        positions: (item.input.positions as Array<Record<string, unknown>>).map(toOptionPosition),
         evaluation_time: String(item.input.evaluation_time),
         entry_cost: item.input.entry_cost == null ? null : Number(item.input.entry_cost),
         rate: Number(item.input.rate),
@@ -792,22 +784,7 @@ function runCase(item: FixtureCase): unknown {
       });
     case 'option_strategy.expiration_time':
       return OptionStrategy.expirationTime(
-        (item.input.positions as Array<Record<string, unknown>>).map((position) => ({
-          contract: {
-            underlying_symbol: String((position.contract as Record<string, unknown>).underlying_symbol),
-            expiration_date: String((position.contract as Record<string, unknown>).expiration_date),
-            strike: Number((position.contract as Record<string, unknown>).strike),
-            option_right: String((position.contract as Record<string, unknown>).option_right) as 'call' | 'put',
-            occ_symbol: String((position.contract as Record<string, unknown>).occ_symbol),
-          },
-          quantity: Number(position.quantity),
-          avg_entry_price: position.avg_entry_price == null ? null : Number(position.avg_entry_price),
-          implied_volatility: position.implied_volatility == null ? null : Number(position.implied_volatility),
-          mark_price: position.mark_price == null ? null : Number(position.mark_price),
-          reference_underlying_price: position.reference_underlying_price == null
-            ? null
-            : Number(position.reference_underlying_price),
-        })),
+        (item.input.positions as Array<Record<string, unknown>>).map(toOptionPosition),
       );
     case 'option_strategy.snapshot_greeks':
       return OptionStrategy.aggregateSnapshotGreeks({
@@ -816,22 +793,7 @@ function runCase(item: FixtureCase): unknown {
       });
     case 'option_strategy.model_greeks':
       return OptionStrategy.aggregateModelGreeks({
-        positions: (item.input.positions as Array<Record<string, unknown>>).map((position) => ({
-          contract: {
-            underlying_symbol: String((position.contract as Record<string, unknown>).underlying_symbol),
-            expiration_date: String((position.contract as Record<string, unknown>).expiration_date),
-            strike: Number((position.contract as Record<string, unknown>).strike),
-            option_right: String((position.contract as Record<string, unknown>).option_right) as 'call' | 'put',
-            occ_symbol: String((position.contract as Record<string, unknown>).occ_symbol),
-          },
-          quantity: Number(position.quantity),
-          avg_entry_price: position.avg_entry_price == null ? null : Number(position.avg_entry_price),
-          implied_volatility: position.implied_volatility == null ? null : Number(position.implied_volatility),
-          mark_price: position.mark_price == null ? null : Number(position.mark_price),
-          reference_underlying_price: position.reference_underlying_price == null
-            ? null
-            : Number(position.reference_underlying_price),
-        })),
+        positions: (item.input.positions as Array<Record<string, unknown>>).map(toOptionPosition),
         underlying_price: Number(item.input.underlying_price),
         evaluation_time: String(item.input.evaluation_time),
         rate: Number(item.input.rate),
@@ -841,22 +803,7 @@ function runCase(item: FixtureCase): unknown {
       });
     case 'option_strategy.curve':
       return OptionStrategy.fromInput({
-        positions: (item.input.positions as Array<Record<string, unknown>>).map((position) => ({
-          contract: {
-            underlying_symbol: String((position.contract as Record<string, unknown>).underlying_symbol),
-            expiration_date: String((position.contract as Record<string, unknown>).expiration_date),
-            strike: Number((position.contract as Record<string, unknown>).strike),
-            option_right: String((position.contract as Record<string, unknown>).option_right) as 'call' | 'put',
-            occ_symbol: String((position.contract as Record<string, unknown>).occ_symbol),
-          },
-          quantity: Number(position.quantity),
-          avg_entry_price: position.avg_entry_price == null ? null : Number(position.avg_entry_price),
-          implied_volatility: position.implied_volatility == null ? null : Number(position.implied_volatility),
-          mark_price: position.mark_price == null ? null : Number(position.mark_price),
-          reference_underlying_price: position.reference_underlying_price == null
-            ? null
-            : Number(position.reference_underlying_price),
-        })),
+        positions: (item.input.positions as Array<Record<string, unknown>>).map(toOptionPosition),
         evaluation_time: item.input.evaluation_time == null ? null : String(item.input.evaluation_time),
         entry_cost: item.input.entry_cost == null ? null : Number(item.input.entry_cost),
         rate: Number(item.input.rate),

@@ -628,30 +628,6 @@ impl Default for OptionPosition {
     }
 }
 
-impl TryFrom<&OptionPosition> for StrategyValuationPosition {
-    type Error = OptionError;
-
-    fn try_from(value: &OptionPosition) -> Result<Self, Self::Error> {
-        let contract = contract::parse_occ_symbol(value.occ_symbol()).ok_or_else(|| {
-            OptionError::new(
-                "invalid_occ_symbol",
-                format!("invalid occ symbol: {}", value.occ_symbol()),
-            )
-        })?;
-
-        Ok(Self {
-            contract,
-            quantity: value.qty,
-            avg_entry_price: Some(value.avg_cost()),
-            implied_volatility: value.snapshot_ref().map(|snapshot| snapshot.iv()),
-            mark_price: value.snapshot_ref().map(|snapshot| snapshot.price()),
-            reference_underlying_price: value
-                .snapshot_ref()
-                .map(|snapshot| snapshot.underlying_price()),
-        })
-    }
-}
-
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ShortItmPosition {
     pub contract: OptionContract,
@@ -1008,18 +984,8 @@ impl PayoffLegInput {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct StrategyValuationPosition {
-    pub contract: OptionContract,
-    pub quantity: i32,
-    pub avg_entry_price: Option<f64>,
-    pub implied_volatility: Option<f64>,
-    pub mark_price: Option<f64>,
-    pub reference_underlying_price: Option<f64>,
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct OptionStrategyInput {
-    pub positions: Vec<StrategyValuationPosition>,
+    pub positions: Vec<OptionPosition>,
     pub evaluation_time: Option<String>,
     pub entry_cost: Option<f64>,
     pub rate: Option<f64>,
@@ -1036,7 +1002,7 @@ pub struct OptionStrategyCurvePoint {
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct StrategyPnlInput {
-    pub positions: Vec<StrategyValuationPosition>,
+    pub positions: Vec<OptionPosition>,
     pub underlying_price: f64,
     pub evaluation_time: String,
     pub entry_cost: Option<f64>,
@@ -1047,7 +1013,7 @@ pub struct StrategyPnlInput {
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct StrategyBreakEvenInput {
-    pub positions: Vec<StrategyValuationPosition>,
+    pub positions: Vec<OptionPosition>,
     pub evaluation_time: String,
     pub entry_cost: Option<f64>,
     pub rate: f64,

@@ -3,7 +3,6 @@ use alpaca_option::pricing;
 use alpaca_option::{
     DEFAULT_RISK_FREE_RATE, Greeks, OptionContract, OptionPosition, OptionQuote, OptionRight,
     OptionSnapshot, OptionStrategy, OptionStrategyInput, StrategyBreakEvenInput, StrategyPnlInput,
-    StrategyValuationPosition,
 };
 use alpaca_time::expiration;
 use rust_decimal::Decimal;
@@ -35,14 +34,26 @@ fn strategy_position(
     quantity: i32,
     avg_entry_price: f64,
     implied_volatility: f64,
-) -> StrategyValuationPosition {
-    StrategyValuationPosition {
-        contract: contract(expiration_date, strike, option_right),
-        quantity,
-        avg_entry_price: Some(avg_entry_price),
-        implied_volatility: Some(implied_volatility),
-        mark_price: Some(avg_entry_price),
-        reference_underlying_price: Some(100.0),
+) -> OptionPosition {
+    let contract = contract(expiration_date, strike, option_right);
+    OptionPosition {
+        contract: contract.occ_symbol.clone(),
+        snapshot: OptionSnapshot {
+            as_of: "2025-03-20 10:30:00".to_string(),
+            contract,
+            quote: OptionQuote {
+                bid: Some(avg_entry_price),
+                ask: Some(avg_entry_price),
+                mark: Some(avg_entry_price),
+                last: Some(avg_entry_price),
+            },
+            greeks: None,
+            implied_volatility: Some(implied_volatility),
+            underlying_price: Some(100.0),
+        },
+        qty: quantity,
+        avg_cost: alpaca_core::decimal::from_f64(avg_entry_price, 4),
+        leg_type: String::new(),
     }
 }
 
@@ -79,22 +90,8 @@ fn option_position(
 fn strategy_pnl_mixes_expired_and_unexpired_positions() {
     let evaluation_time = "2025-03-21 16:00:00";
     let positions = vec![
-        StrategyValuationPosition {
-            contract: contract("2025-03-21", 100.0, OptionRight::Put),
-            quantity: -1,
-            avg_entry_price: Some(2.0),
-            implied_volatility: Some(0.30),
-            mark_price: None,
-            reference_underlying_price: None,
-        },
-        StrategyValuationPosition {
-            contract: contract("2025-04-24", 95.0, OptionRight::Put),
-            quantity: 1,
-            avg_entry_price: Some(1.0),
-            implied_volatility: Some(0.25),
-            mark_price: None,
-            reference_underlying_price: None,
-        },
+        strategy_position("2025-03-21", 100.0, OptionRight::Put, -1, 2.0, 0.30),
+        strategy_position("2025-04-24", 95.0, OptionRight::Put, 1, 1.0, 0.25),
     ];
 
     let expected_long_value = pricing::price_black_scholes(&alpaca_option::BlackScholesInput {
@@ -130,22 +127,8 @@ fn strategy_pnl_mixes_expired_and_unexpired_positions() {
 fn strategy_pnl_applies_volatility_shift_only_to_long_positions() {
     let evaluation_time = "2025-03-20 11:30:04";
     let positions = vec![
-        StrategyValuationPosition {
-            contract: contract("2025-04-24", 100.0, OptionRight::Call),
-            quantity: 1,
-            avg_entry_price: Some(2.5),
-            implied_volatility: Some(0.20),
-            mark_price: None,
-            reference_underlying_price: None,
-        },
-        StrategyValuationPosition {
-            contract: contract("2025-04-24", 95.0, OptionRight::Put),
-            quantity: -1,
-            avg_entry_price: Some(1.0),
-            implied_volatility: Some(0.30),
-            mark_price: None,
-            reference_underlying_price: None,
-        },
+        strategy_position("2025-04-24", 100.0, OptionRight::Call, 1, 2.5, 0.20),
+        strategy_position("2025-04-24", 95.0, OptionRight::Put, -1, 1.0, 0.30),
     ];
 
     let years = expiration::years("2025-04-24", Some(evaluation_time), None);
@@ -192,22 +175,8 @@ fn strategy_pnl_applies_volatility_shift_only_to_long_positions() {
 fn strategy_break_even_points_finds_credit_strangle_roots() {
     let actual = option_strategy::strategy_break_even_points(&StrategyBreakEvenInput {
         positions: vec![
-            StrategyValuationPosition {
-                contract: contract("2025-03-21", 90.0, OptionRight::Put),
-                quantity: -1,
-                avg_entry_price: Some(1.5),
-                implied_volatility: Some(0.25),
-                mark_price: None,
-                reference_underlying_price: None,
-            },
-            StrategyValuationPosition {
-                contract: contract("2025-03-21", 110.0, OptionRight::Call),
-                quantity: -1,
-                avg_entry_price: Some(1.5),
-                implied_volatility: Some(0.25),
-                mark_price: None,
-                reference_underlying_price: None,
-            },
+            strategy_position("2025-03-21", 90.0, OptionRight::Put, -1, 1.5, 0.25),
+            strategy_position("2025-03-21", 110.0, OptionRight::Call, -1, 1.5, 0.25),
         ],
         evaluation_time: "2025-03-21 16:00:00".to_string(),
         entry_cost: None,
@@ -228,16 +197,12 @@ fn strategy_break_even_points_finds_credit_strangle_roots() {
 }
 
 #[test]
-fn strategy_pnl_requires_entry_cost_or_leg_costs() {
+fn strategy_pnl_requires_snapshot_iv_before_expiration() {
+    let mut position = strategy_position("2025-04-24", 100.0, OptionRight::Call, 1, 0.0, 0.20);
+    position.snapshot = OptionSnapshot::default();
+
     let error = option_strategy::strategy_pnl(&StrategyPnlInput {
-        positions: vec![StrategyValuationPosition {
-            contract: contract("2025-04-24", 100.0, OptionRight::Call),
-            quantity: 1,
-            avg_entry_price: None,
-            implied_volatility: Some(0.20),
-            mark_price: None,
-            reference_underlying_price: None,
-        }],
+        positions: vec![position],
         underlying_price: 102.0,
         evaluation_time: "2025-03-20 11:30:04".to_string(),
         entry_cost: None,
@@ -367,9 +332,10 @@ fn option_strategy_aggregates_model_greeks_with_strategy_quantity() {
         2.0,
     )
     .unwrap();
-    let direct =
-        OptionStrategy::greeks_at(&positions, evaluation_time, 102.0, Some(0.0), None, 2.0)
-            .unwrap();
+    let direct = OptionStrategy::prepare(&positions, evaluation_time, Some(0.0), Some(0.0), None)
+        .unwrap()
+        .greeks_at(102.0, 2.0)
+        .unwrap();
     assert_eq!(actual, direct);
 
     let years = expiration::years("2025-04-17", Some(evaluation_time), None);
@@ -402,8 +368,45 @@ fn option_strategy_aggregates_model_greeks_with_strategy_quantity() {
 }
 
 #[test]
+fn option_strategy_prepares_from_option_positions_and_uses_instance_greeks() {
+    let evaluation_time = "2025-03-20 11:30:04";
+    let positions = vec![
+        option_position("2025-04-17", 100.0, OptionRight::Call, 1, Greeks::default()),
+        option_position("2025-04-17", 105.0, OptionRight::Call, -1, Greeks::default()),
+    ];
+
+    let strategy =
+        OptionStrategy::prepare(&positions, evaluation_time, None, Some(0.0), None).unwrap();
+    let actual = strategy.greeks_at(102.0, 2.0).unwrap();
+
+    let years = expiration::years("2025-04-17", Some(evaluation_time), None);
+    let long = pricing::greeks_black_scholes(&alpaca_option::BlackScholesInput {
+        spot: 102.0,
+        strike: 100.0,
+        years,
+        rate: DEFAULT_RISK_FREE_RATE,
+        dividend_yield: 0.0,
+        volatility: 0.25,
+        option_right: OptionRight::Call,
+    })
+    .unwrap();
+    let short = pricing::greeks_black_scholes(&alpaca_option::BlackScholesInput {
+        spot: 102.0,
+        strike: 105.0,
+        years,
+        rate: DEFAULT_RISK_FREE_RATE,
+        dividend_yield: 0.0,
+        volatility: 0.25,
+        option_right: OptionRight::Call,
+    })
+    .unwrap();
+
+    assert!((actual.delta - (long.delta - short.delta) * 200.0).abs() < 1e-9);
+}
+
+#[test]
 fn option_strategy_values_common_multi_leg_shapes() {
-    let cases: [(&str, Vec<StrategyValuationPosition>, f64); 6] = [
+    let cases: [(&str, Vec<OptionPosition>, f64); 6] = [
         (
             "pmcc",
             vec![

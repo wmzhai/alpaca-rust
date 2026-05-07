@@ -1,25 +1,27 @@
 import { clock as timeClock, expiration as timeExpiration } from '@alpaca/time';
 
+import { canonicalContract } from './contract';
 import { fail } from './error';
 import { refineBracketedRoot } from './numeric';
 import { greeksBlackScholes, intrinsicValue, priceBlackScholes } from './pricing';
 import type {
   Greeks,
+  OptionContract,
   OptionPosition,
+  OptionRight,
   OptionStrategyBreakEvenBracketInput,
   OptionStrategyCurveInput,
   OptionStrategyCurvePoint,
   OptionStrategyInput,
   StrategyBreakEvenInput,
   StrategyPnlInput,
-  StrategyValuationPosition,
 } from './types';
 
 const CONTRACT_MULTIPLIER = 100;
 const DEFAULT_RISK_FREE_RATE = 0.0368;
 
 type PreparedStrategyLeg = {
-  optionRight: StrategyValuationPosition['contract']['option_right'];
+  optionRight: OptionRight;
   strike: number;
   quantity: number;
   years: number;
@@ -39,25 +41,50 @@ function ensurePositive(code: string, name: string, value: number): void {
   }
 }
 
-function validateStrategyPosition(position: StrategyValuationPosition): void {
-  ensurePositive('invalid_strategy_payoff_input', 'contract.strike', position.contract.strike);
-  if (!Number.isInteger(position.quantity) || position.quantity === 0) {
-    fail('invalid_strategy_payoff_input', `quantity must be a non-zero integer: ${position.quantity}`);
+function strategyPositionContract(position: OptionPosition): OptionContract {
+  const contract = canonicalContract(position);
+  if (!contract) {
+    fail('invalid_occ_symbol', `invalid occ symbol: ${position.contract}`);
   }
-  if (position.avg_entry_price != null) {
-    ensureFinite('invalid_strategy_payoff_input', 'avgEntryPrice', position.avg_entry_price);
+  return contract;
+}
+
+function snapshotPrice(position: OptionPosition): number {
+  const quote = position.snapshot?.quote;
+  if (!quote) {
+    return 0;
   }
-  if (position.implied_volatility != null) {
-    ensureFinite('invalid_strategy_payoff_input', 'impliedVolatility', position.implied_volatility);
+  if (Number.isFinite(quote.mark)) {
+    return quote.mark ?? 0;
   }
-  if (position.mark_price != null) {
-    ensureFinite('invalid_strategy_payoff_input', 'markPrice', position.mark_price);
+  if (Number.isFinite(quote.bid) && Number.isFinite(quote.ask)) {
+    return ((quote.bid ?? 0) + (quote.ask ?? 0)) / 2;
   }
-  if (position.reference_underlying_price != null) {
+  if (Number.isFinite(quote.bid)) {
+    return quote.bid ?? 0;
+  }
+  if (Number.isFinite(quote.ask)) {
+    return quote.ask ?? 0;
+  }
+  return Number.isFinite(quote.last) ? quote.last ?? 0 : 0;
+}
+
+function validateStrategyPosition(position: OptionPosition, contract: OptionContract): void {
+  ensurePositive('invalid_strategy_payoff_input', 'contract.strike', contract.strike);
+  if (!Number.isInteger(position.qty) || position.qty === 0) {
+    fail('invalid_strategy_payoff_input', `quantity must be a non-zero integer: ${position.qty}`);
+  }
+  const avgCost = Number(position.avg_cost);
+  ensureFinite('invalid_strategy_payoff_input', 'avgCost', avgCost);
+  if (position.snapshot?.implied_volatility != null) {
+    ensureFinite('invalid_strategy_payoff_input', 'impliedVolatility', position.snapshot.implied_volatility);
+  }
+  if (position.snapshot) {
+    ensureFinite('invalid_strategy_payoff_input', 'markPrice', snapshotPrice(position));
     ensureFinite(
       'invalid_strategy_payoff_input',
       'referenceUnderlyingPrice',
-      position.reference_underlying_price,
+      position.snapshot.underlying_price ?? 0,
     );
   }
 }
@@ -71,7 +98,7 @@ function valuationYears(expirationDate: string, evaluationTime: string): number 
   }
 }
 
-function strategyEntryCost(positions: StrategyValuationPosition[], entryCost: number | null): number {
+function strategyEntryCost(positions: OptionPosition[], entryCost: number | null): number {
   if (entryCost != null) {
     ensureFinite('invalid_strategy_payoff_input', 'entryCost', entryCost);
     return entryCost;
@@ -79,16 +106,13 @@ function strategyEntryCost(positions: StrategyValuationPosition[], entryCost: nu
 
   let total = 0;
   for (const position of positions) {
-    if (position.avg_entry_price == null) {
-      fail('invalid_strategy_payoff_input', 'entryCost is required when avgEntryPrice is missing');
-    }
-    total += position.avg_entry_price * position.quantity * CONTRACT_MULTIPLIER;
+    total += Number(position.avg_cost) * position.qty * CONTRACT_MULTIPLIER;
   }
   return total;
 }
 
 function prepareStrategyContext(input: {
-  positions: StrategyValuationPosition[];
+  positions: OptionPosition[];
   evaluation_time: string;
   entry_cost: number | null;
   dividend_yield: number | null;
@@ -104,27 +128,28 @@ function prepareStrategyContext(input: {
   const entryCost = strategyEntryCost(input.positions, input.entry_cost);
   const prepared: PreparedStrategyLeg[] = [];
   for (const position of input.positions) {
-    validateStrategyPosition(position);
-    const years = valuationYears(position.contract.expiration_date, input.evaluation_time);
+    const contract = strategyPositionContract(position);
+    validateStrategyPosition(position, contract);
+    const years = valuationYears(contract.expiration_date, input.evaluation_time);
     const impliedVolatility = years <= 0
       ? null
       : (() => {
-          if (position.implied_volatility == null) {
+          if (position.snapshot?.implied_volatility == null) {
             fail(
               'invalid_strategy_payoff_input',
-              `impliedVolatility is required before expiration: ${position.contract.occ_symbol}`,
+              `impliedVolatility is required before expiration: ${position.contract}`,
             );
           }
-          const value = position.quantity > 0
-            ? position.implied_volatility + (input.long_volatility_shift ?? 0)
-            : position.implied_volatility;
+          const value = position.qty > 0
+            ? position.snapshot.implied_volatility + (input.long_volatility_shift ?? 0)
+            : position.snapshot.implied_volatility;
           ensurePositive('invalid_strategy_payoff_input', 'impliedVolatility', value);
           return value;
         })();
     prepared.push({
-      optionRight: position.contract.option_right,
-      strike: position.contract.strike,
-      quantity: position.quantity,
+      optionRight: contract.option_right,
+      strike: contract.strike,
+      quantity: position.qty,
       years,
       impliedVolatility,
     });
@@ -164,6 +189,53 @@ function strategyMarkValuePrepared(input: {
   return total;
 }
 
+function expiryIntrinsicGreeks(underlyingPrice: number, strike: number, optionRight: OptionRight): Greeks {
+  const delta = (() => {
+    if (optionRight === 'call') {
+      if (underlyingPrice > strike) return 1;
+      if (underlyingPrice < strike) return 0;
+      return 0.5;
+    }
+    if (underlyingPrice < strike) return -1;
+    if (underlyingPrice > strike) return 0;
+    return -0.5;
+  })();
+  return { delta, gamma: 0, vega: 0, theta: 0, rho: 0 };
+}
+
+function strategyGreeksPrepared(input: {
+  prepared: PreparedStrategyLeg[];
+  underlying_price: number;
+  rate: number;
+  dividend_yield: number;
+}): Greeks {
+  ensurePositive('invalid_strategy_payoff_input', 'underlyingPrice', input.underlying_price);
+  ensureFinite('invalid_strategy_payoff_input', 'rate', input.rate);
+
+  const total = zeroGreeks();
+  for (const position of input.prepared) {
+    const greeks = position.years <= 0
+      ? expiryIntrinsicGreeks(input.underlying_price, position.strike, position.optionRight)
+      : greeksBlackScholes({
+          spot: input.underlying_price,
+          strike: position.strike,
+          years: position.years,
+          rate: input.rate,
+          dividendYield: input.dividend_yield,
+          volatility: position.impliedVolatility ?? 0,
+          optionRight: position.optionRight,
+        });
+
+    total.delta += greeks.delta * position.quantity * CONTRACT_MULTIPLIER;
+    total.gamma += greeks.gamma * position.quantity * CONTRACT_MULTIPLIER;
+    total.vega += greeks.vega * position.quantity * CONTRACT_MULTIPLIER;
+    total.theta += greeks.theta * position.quantity * CONTRACT_MULTIPLIER;
+    total.rho += greeks.rho * position.quantity * CONTRACT_MULTIPLIER;
+  }
+
+  return total;
+}
+
 function pushUniqueRoot(roots: number[], root: number, tolerance: number): void {
   if (roots.some((existing) => Math.abs(existing - root) <= tolerance)) {
     return;
@@ -182,15 +254,16 @@ function zeroGreeks(): Greeks {
 
 export class OptionStrategy {
   private constructor(
+    private readonly strategyPositions: OptionPosition[],
     private readonly prepared: PreparedStrategyLeg[],
     private readonly entryCost: number,
     private readonly rate: number,
     private readonly dividendYield: number,
   ) {}
 
-  static expirationTime(positions: StrategyValuationPosition[]): string {
+  static expirationTime(positions: OptionPosition[]): string {
     const expirationDate = positions
-      .map((position) => position.contract.expiration_date.trim())
+      .map((position) => strategyPositionContract(position).expiration_date.trim())
       .filter((value) => value.length > 0)
       .sort()[0];
     if (!expirationDate) {
@@ -225,7 +298,7 @@ export class OptionStrategy {
       dividend_yield: input.dividend_yield ?? null,
       long_volatility_shift: input.long_volatility_shift ?? null,
     });
-    return new OptionStrategy(context.prepared, context.entryCost, rate, context.dividendYield);
+    return new OptionStrategy([...input.positions], context.prepared, context.entryCost, rate, context.dividendYield);
   }
 
   markValueAt(underlyingPrice: number): number {
@@ -239,6 +312,28 @@ export class OptionStrategy {
 
   pnlAt(underlyingPrice: number): number {
     return this.markValueAt(underlyingPrice) - this.entryCost;
+  }
+
+  greeksAt(underlyingPrice: number, strategyQuantity: number): Greeks {
+    const quantity = validateStrategyQuantity(strategyQuantity);
+    const total = strategyGreeksPrepared({
+      prepared: this.prepared,
+      underlying_price: underlyingPrice,
+      rate: this.rate,
+      dividend_yield: this.dividendYield,
+    });
+
+    return {
+      delta: total.delta * quantity,
+      gamma: total.gamma * quantity,
+      vega: total.vega * quantity,
+      theta: total.theta * quantity,
+      rho: total.rho * quantity,
+    };
+  }
+
+  positions(): OptionPosition[] {
+    return [...this.strategyPositions];
   }
 
   sampleCurve(input: OptionStrategyCurveInput): OptionStrategyCurvePoint[] {
@@ -397,7 +492,7 @@ export class OptionStrategy {
   }
 
   static aggregateModelGreeks(input: {
-    positions: StrategyValuationPosition[];
+    positions: OptionPosition[];
     underlying_price: number;
     evaluation_time: string;
     rate: number;
@@ -405,58 +500,14 @@ export class OptionStrategy {
     long_volatility_shift: number | null;
     strategyQuantity: number;
   }): Greeks {
-    const strategyQuantity = validateStrategyQuantity(input.strategyQuantity);
-    ensurePositive('invalid_strategy_payoff_input', 'underlyingPrice', input.underlying_price);
-    ensureFinite('invalid_strategy_payoff_input', 'rate', input.rate);
-    const dividendYield = input.dividend_yield ?? 0;
-    ensureFinite('invalid_strategy_payoff_input', 'dividendYield', dividendYield);
-    if (input.long_volatility_shift != null) {
-      ensureFinite('invalid_strategy_payoff_input', 'longVolatilityShift', input.long_volatility_shift);
-    }
-    timeClock.parseTimestamp(input.evaluation_time);
-
-    const total = zeroGreeks();
-    for (const position of input.positions) {
-      validateStrategyPosition(position);
-      const years = valuationYears(position.contract.expiration_date, input.evaluation_time);
-      if (years <= 0) {
-        continue;
-      }
-      if (position.implied_volatility == null) {
-        fail(
-          'invalid_strategy_payoff_input',
-          `impliedVolatility is required before expiration: ${position.contract.occ_symbol}`,
-        );
-      }
-      const impliedVolatility = position.quantity > 0
-        ? position.implied_volatility + (input.long_volatility_shift ?? 0)
-        : position.implied_volatility;
-      ensurePositive('invalid_strategy_payoff_input', 'impliedVolatility', impliedVolatility);
-
-      const greeks = greeksBlackScholes({
-        spot: input.underlying_price,
-        strike: position.contract.strike,
-        years,
-        rate: input.rate,
-        dividendYield,
-        volatility: impliedVolatility,
-        optionRight: position.contract.option_right,
-      });
-
-      total.delta += greeks.delta * position.quantity * CONTRACT_MULTIPLIER;
-      total.gamma += greeks.gamma * position.quantity * CONTRACT_MULTIPLIER;
-      total.vega += greeks.vega * position.quantity * CONTRACT_MULTIPLIER;
-      total.theta += greeks.theta * position.quantity * CONTRACT_MULTIPLIER;
-      total.rho += greeks.rho * position.quantity * CONTRACT_MULTIPLIER;
-    }
-
-    return {
-      delta: total.delta * strategyQuantity,
-      gamma: total.gamma * strategyQuantity,
-      vega: total.vega * strategyQuantity,
-      theta: total.theta * strategyQuantity,
-      rho: total.rho * strategyQuantity,
-    };
+    return OptionStrategy.prepare({
+      positions: input.positions,
+      evaluation_time: input.evaluation_time,
+      entry_cost: 0,
+      rate: input.rate,
+      dividend_yield: input.dividend_yield,
+      long_volatility_shift: input.long_volatility_shift,
+    }).greeksAt(input.underlying_price, input.strategyQuantity);
   }
 }
 

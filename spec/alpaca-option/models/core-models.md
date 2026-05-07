@@ -145,28 +145,11 @@ Notes:
 }
 ```
 
-### `StrategyValuationPosition`
-
-```text
-{
-  contract: OptionContract,
-  quantity: integer,
-  avg_entry_price: number | null,
-  implied_volatility: number | null
-}
-```
-
-Notes:
-
-- `quantity` uses signed-contract semantics: positive means long and negative means short
-- `avg_entry_price` directly preserves the existing upstream signed cost convention; the library does not derive the sign again
-- `implied_volatility` is only used for live revaluation; if a leg is already expired before `evaluation_time`, the lower layer automatically degrades to intrinsic value
-
 ### `StrategyPnlInput`
 
 ```text
 {
-  positions: StrategyValuationPosition[],
+  positions: OptionPosition[],
   underlying_price: number,
   evaluation_time: NyTimestampString,
   entry_cost: number | null,
@@ -178,14 +161,15 @@ Notes:
 
 Notes:
 
-- `entry_cost` is the aggregate entry cost for the whole structure; when it is empty, the lower layer sums `avg_entry_price * quantity * 100` for each leg
+- `positions` use the same `OptionPosition` model as live strategy holdings; the OCC symbol is parsed from `contract`, and runtime valuation inputs such as IV come from the position `snapshot`
+- `entry_cost` is the aggregate entry cost for the whole structure; when it is empty, the lower layer sums `avg_cost * qty * 100` for each leg
 - `long_volatility_shift` only applies to long, unexpired legs and exists to preserve the current strategy-layer long-IV shock use case
 
 ### `StrategyBreakEvenInput`
 
 ```text
 {
-  positions: StrategyValuationPosition[],
+  positions: OptionPosition[],
   evaluation_time: NyTimestampString,
   entry_cost: number | null,
   rate: number,

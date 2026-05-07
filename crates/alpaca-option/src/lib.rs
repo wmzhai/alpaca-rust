@@ -37,5 +37,5 @@ pub use types::{
     OptionStrategyInput, OrderSide, ParsedOptionStratUrl, PayoffLegInput, PositionIntent,
     PositionSide, QuotedLeg, RollLegSelection, RollRequest, ScaledExecutionQuote,
     ScaledExecutionQuoteRange, ShortItmPosition, StrategyBreakEvenInput, StrategyLegInput,
-    StrategyPnlInput, StrategyValuationPosition,
+    StrategyPnlInput,
 };

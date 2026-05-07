@@ -2,6 +2,8 @@
 
 ## v0.25.2
 
+- Simplified option strategy valuation inputs so public payoff, break-even, curve, and model Greeks APIs use `OptionPosition` directly.
+- Added a root `VERSION` file initialized from the current workspace version.
 - Removed the `alpaca-facade` option-chain convenience API so option-chain callers use the lower-level `alpaca-data` client directly.
 - Added default risk-free rate semantics for option pricing helpers and related probability/payoff flows.
 - Bumped the full Rust workspace, website package metadata, generated docs metadata, release checklist, and public install snippets to `0.25.2`.

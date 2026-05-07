@@ -5,10 +5,10 @@ use std::path::PathBuf;
 
 use alpaca_option::{
     ExecutionLegInput, ExecutionSnapshot, OptionChain, OptionChainRecord, OptionContract,
-    OptionPosition, OptionRight, OptionSnapshot, OptionStrategy, OptionStrategyInput,
+    OptionPosition, OptionQuote, OptionRight, OptionSnapshot, OptionStrategy, OptionStrategyInput,
     PayoffLegInput, QuotedLeg, RollLegSelection, StrategyBreakEvenInput, StrategyPnlInput,
-    StrategyValuationPosition, analysis, contract, execution_quote, expiration_selection, math,
-    numeric, option_strategy, payoff, pricing, probability, url,
+    analysis, contract, execution_quote, expiration_selection, math, numeric, option_strategy,
+    payoff, pricing, probability, url,
 };
 
 fn repo_root() -> PathBuf {
@@ -200,8 +200,25 @@ fn fixture_position(input: &Value) -> OptionPosition {
         return position;
     }
 
-    let snapshot = fixture_snapshot(input);
+    let mut snapshot = fixture_snapshot(input);
     let contract = fixture_contract(input, &snapshot);
+    if snapshot.is_empty() {
+        snapshot.contract = contract.clone();
+        snapshot.implied_volatility = input.get("implied_volatility").and_then(Value::as_f64);
+        snapshot.underlying_price = input
+            .get("reference_underlying_price")
+            .and_then(Value::as_f64);
+        let mark = input
+            .get("mark_price")
+            .or_else(|| input.get("avg_entry_price"))
+            .and_then(Value::as_f64);
+        snapshot.quote = OptionQuote {
+            bid: mark,
+            ask: mark,
+            mark,
+            last: mark,
+        };
+    }
     let raw_qty = input
         .get("qty")
         .or_else(|| input.get("quantity"))
@@ -1069,12 +1086,7 @@ fn run_case(case: &Value) -> Value {
         )
         .unwrap(),
         "option_strategy.expiration_time" => serde_json::to_value(
-            OptionStrategy::expiration_time(
-                &serde_json::from_value::<Vec<StrategyValuationPosition>>(
-                    input.get("positions").unwrap().clone(),
-                )
-                .unwrap(),
-            )
+            OptionStrategy::expiration_time(&fixture_positions(input.get("positions").unwrap()))
             .unwrap(),
         )
         .unwrap(),
@@ -1088,10 +1100,7 @@ fn run_case(case: &Value) -> Value {
         .unwrap(),
         "option_strategy.model_greeks" => serde_json::to_value(
             OptionStrategy::aggregate_model_greeks(
-                &serde_json::from_value::<Vec<StrategyValuationPosition>>(
-                    input.get("positions").unwrap().clone(),
-                )
-                .unwrap(),
+                &fixture_positions(input.get("positions").unwrap()),
                 input.get("underlying_price").unwrap().as_f64().unwrap(),
                 input.get("evaluation_time").unwrap().as_str().unwrap(),
                 input.get("dividend_yield").and_then(Value::as_f64),

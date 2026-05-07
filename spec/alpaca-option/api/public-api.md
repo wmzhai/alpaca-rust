@@ -93,7 +93,6 @@ Notes:
 - `LiquidityData`
 - `LiquidityBatchResponse`
 - `PayoffLegInput`
-- `StrategyValuationPosition`
 - `StrategyPnlInput`
 - `StrategyBreakEvenInput`
 

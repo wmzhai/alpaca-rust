@@ -13,7 +13,6 @@ import type {
   OptionSnapshot,
   StrategyBreakEvenInput,
   StrategyPnlInput,
-  StrategyValuationPosition,
 } from '../src/index';
 
 function contract(expirationDate: string, strike: number, optionRight: 'call' | 'put'): OptionContract {
@@ -36,14 +35,26 @@ function strategyPosition(
   quantity: number,
   avgEntryPrice: number,
   impliedVolatility: number,
-): StrategyValuationPosition {
+): OptionPosition {
+  const resolvedContract = contract(expirationDate, strike, optionRight);
   return {
-    contract: contract(expirationDate, strike, optionRight),
-    quantity,
-    avg_entry_price: avgEntryPrice,
-    implied_volatility: impliedVolatility,
-    mark_price: avgEntryPrice,
-    reference_underlying_price: 100,
+    contract: resolvedContract.occ_symbol,
+    snapshot: {
+      as_of: '2025-03-20 10:30:00',
+      contract: resolvedContract,
+      quote: {
+        bid: avgEntryPrice,
+        ask: avgEntryPrice,
+        mark: avgEntryPrice,
+        last: avgEntryPrice,
+      },
+      greeks: null,
+      implied_volatility: impliedVolatility,
+      underlying_price: 100,
+    },
+    qty: quantity,
+    avg_cost: avgEntryPrice.toFixed(4),
+    leg_type: '',
   };
 }
 
@@ -80,23 +91,9 @@ function optionPosition(
 
 test('strategyPnl mixes expired and unexpired positions', () => {
   const evaluationTime = '2025-03-21 16:00:00';
-  const positions: StrategyValuationPosition[] = [
-    {
-      contract: contract('2025-03-21', 100, 'put'),
-      quantity: -1,
-      avg_entry_price: 2,
-      implied_volatility: 0.30,
-      mark_price: null,
-      reference_underlying_price: null,
-    },
-    {
-      contract: contract('2025-04-24', 95, 'put'),
-      quantity: 1,
-      avg_entry_price: 1,
-      implied_volatility: 0.25,
-      mark_price: null,
-      reference_underlying_price: null,
-    },
+  const positions = [
+    strategyPosition('2025-03-21', 100, 'put', -1, 2, 0.30),
+    strategyPosition('2025-04-24', 95, 'put', 1, 1, 0.25),
   ];
 
   const expectedLongValue = pricing.priceBlackScholes({
@@ -125,23 +122,9 @@ test('strategyPnl mixes expired and unexpired positions', () => {
 
 test('strategyPnl applies volatility shift only to long positions', () => {
   const evaluationTime = '2025-03-20 11:30:04';
-  const positions: StrategyValuationPosition[] = [
-    {
-      contract: contract('2025-04-24', 100, 'call'),
-      quantity: 1,
-      avg_entry_price: 2.5,
-      implied_volatility: 0.20,
-      mark_price: null,
-      reference_underlying_price: null,
-    },
-    {
-      contract: contract('2025-04-24', 95, 'put'),
-      quantity: -1,
-      avg_entry_price: 1,
-      implied_volatility: 0.30,
-      mark_price: null,
-      reference_underlying_price: null,
-    },
+  const positions = [
+    strategyPosition('2025-04-24', 100, 'call', 1, 2.5, 0.20),
+    strategyPosition('2025-04-24', 95, 'put', -1, 1, 0.30),
   ];
 
   const years = timeExpiration.years('2025-04-24', evaluationTime);
@@ -181,22 +164,8 @@ test('strategyPnl applies volatility shift only to long positions', () => {
 test('strategyBreakEvenPoints finds credit strangle roots', () => {
   const actual = optionStrategy.strategyBreakEvenPoints({
     positions: [
-      {
-        contract: contract('2025-03-21', 90, 'put'),
-        quantity: -1,
-        avg_entry_price: 1.5,
-        implied_volatility: 0.25,
-        mark_price: null,
-        reference_underlying_price: null,
-      },
-      {
-        contract: contract('2025-03-21', 110, 'call'),
-        quantity: -1,
-        avg_entry_price: 1.5,
-        implied_volatility: 0.25,
-        mark_price: null,
-        reference_underlying_price: null,
-      },
+      strategyPosition('2025-03-21', 90, 'put', -1, 1.5, 0.25),
+      strategyPosition('2025-03-21', 110, 'call', -1, 1.5, 0.25),
     ],
     evaluation_time: '2025-03-21 16:00:00',
     entry_cost: null,
@@ -215,17 +184,20 @@ test('strategyBreakEvenPoints finds credit strangle roots', () => {
   assert.ok(Math.abs(actual[1] - 113) < 1e-6, `actual=${JSON.stringify(actual)}`);
 });
 
-test('strategyPnl requires entryCost or leg costs', () => {
+test('strategyPnl requires snapshot IV before expiration', () => {
+  const position = strategyPosition('2025-04-24', 100, 'call', 1, 0, 0.20);
+  position.snapshot = {
+    as_of: '',
+    contract: contract('2025-04-24', 100, 'call'),
+    quote: { bid: null, ask: null, mark: null, last: null },
+    greeks: null,
+    implied_volatility: null,
+    underlying_price: null,
+  };
+
   assert.throws(
     () => optionStrategy.strategyPnl({
-      positions: [{
-        contract: contract('2025-04-24', 100, 'call'),
-        quantity: 1,
-        avg_entry_price: null,
-        implied_volatility: 0.20,
-        mark_price: null,
-        reference_underlying_price: null,
-      }],
+      positions: [position],
       underlying_price: 102,
       evaluation_time: '2025-03-20 11:30:04',
       entry_cost: null,
@@ -364,8 +336,47 @@ test('OptionStrategy aggregates model Greeks with strategy quantity', () => {
   assert.ok(Math.abs(actual.rho - (long.rho - short.rho) * 200) < 1e-9);
 });
 
+test('OptionStrategy prepares from option positions and uses instance Greeks', () => {
+  const evaluationTime = '2025-03-20 11:30:04';
+  const positions = [
+    optionPosition('2025-04-17', 100, 'call', 1, { delta: 0, gamma: 0, vega: 0, theta: 0, rho: 0 }),
+    optionPosition('2025-04-17', 105, 'call', -1, { delta: 0, gamma: 0, vega: 0, theta: 0, rho: 0 }),
+  ];
+
+  const actual = OptionStrategy.prepare({
+    positions,
+    evaluation_time: evaluationTime,
+    entry_cost: null,
+    rate: 0.03,
+    dividend_yield: 0,
+    long_volatility_shift: null,
+  }).greeksAt(102, 2);
+
+  const years = timeExpiration.years('2025-04-17', evaluationTime);
+  const long = pricing.greeksBlackScholes({
+    spot: 102,
+    strike: 100,
+    years,
+    rate: 0.03,
+    dividendYield: 0,
+    volatility: 0.25,
+    optionRight: 'call',
+  });
+  const short = pricing.greeksBlackScholes({
+    spot: 102,
+    strike: 105,
+    years,
+    rate: 0.03,
+    dividendYield: 0,
+    volatility: 0.25,
+    optionRight: 'call',
+  });
+
+  assert.ok(Math.abs(actual.delta - (long.delta - short.delta) * 200) < 1e-9);
+});
+
 test('OptionStrategy values common multi-leg shapes', () => {
-  const cases: Array<{ name: string; positions: StrategyValuationPosition[]; pivot: number }> = [
+  const cases: Array<{ name: string; positions: OptionPosition[]; pivot: number }> = [
     {
       name: 'pmcc',
       positions: [

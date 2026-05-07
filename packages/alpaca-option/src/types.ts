@@ -267,17 +267,8 @@ export type PayoffLegInput = {
   quantity: number;
 };
 
-export type StrategyValuationPosition = {
-  contract: OptionContract;
-  quantity: number;
-  avg_entry_price: number | null;
-  implied_volatility: number | null;
-  mark_price: number | null;
-  reference_underlying_price: number | null;
-};
-
 export type OptionStrategyInput = {
-  positions: StrategyValuationPosition[];
+  positions: OptionPosition[];
   evaluation_time?: string | null;
   entry_cost: number | null;
   rate?: number | null;
@@ -305,7 +296,7 @@ export type OptionStrategyBreakEvenBracketInput = {
 };
 
 export type StrategyPnlInput = {
-  positions: StrategyValuationPosition[];
+  positions: OptionPosition[];
   underlying_price: number;
   evaluation_time: string;
   entry_cost: number | null;
@@ -315,7 +306,7 @@ export type StrategyPnlInput = {
 };
 
 export type StrategyBreakEvenInput = {
-  positions: StrategyValuationPosition[];
+  positions: OptionPosition[];
   evaluation_time: string;
   entry_cost: number | null;
   rate: number;
