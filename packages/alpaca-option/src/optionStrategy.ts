@@ -3,7 +3,13 @@ import { clock as timeClock, expiration as timeExpiration } from '@alpaca/time';
 import { canonicalContract } from './contract';
 import { fail } from './error';
 import { refineBracketedRoot } from './numeric';
-import { greeksBlackScholes, intrinsicValue, priceBlackScholes } from './pricing';
+import { spread as snapshotSpread } from './snapshot';
+import {
+  greeksBlackScholes,
+  impliedVolatilityFromPrice,
+  intrinsicValue,
+  priceBlackScholes,
+} from './pricing';
 import type {
   Greeks,
   OptionContract,
@@ -14,7 +20,11 @@ import type {
   OptionStrategyCurvePoint,
   OptionStrategyInput,
   StrategyBreakEvenInput,
+  StrategyBreakEvenSideInput,
   StrategyPnlInput,
+  StrategyPnlPeak,
+  StrategyPnlPeakSearchInput,
+  StrategyPositionTotals,
 } from './types';
 
 const CONTRACT_MULTIPLIER = 100;
@@ -252,6 +262,126 @@ function zeroGreeks(): Greeks {
   return { delta: 0, gamma: 0, vega: 0, theta: 0, rho: 0 };
 }
 
+export function optionPositionWithModelInputs(
+  position: OptionPosition,
+  impliedVolatility: number,
+  underlyingPrice: number | null,
+): OptionPosition {
+  return {
+    ...position,
+    snapshot: {
+      ...position.snapshot,
+      implied_volatility: impliedVolatility,
+      underlying_price: underlyingPrice ?? position.snapshot.underlying_price,
+    },
+  };
+}
+
+export function optionPositionWithQtyMultiplier(
+  position: OptionPosition,
+  multiplier: number,
+): OptionPosition {
+  return {
+    ...position,
+    qty: position.qty * multiplier,
+  };
+}
+
+export function optionPositionEffectiveIv(
+  position: OptionPosition,
+  fallbackIv: number | null,
+  defaultIv: number,
+): number {
+  const snapshotIv = position.snapshot?.implied_volatility ?? 0;
+  if (Number.isFinite(snapshotIv) && snapshotIv > 0) return snapshotIv;
+  if (fallbackIv != null && Number.isFinite(fallbackIv) && fallbackIv > 0) return fallbackIv;
+  return defaultIv;
+}
+
+export function optionPositionWithMarkCalibratedIv(
+  position: OptionPosition,
+  evaluationTime: string,
+  dividendYield: number,
+  fallbackIv: number | null,
+): OptionPosition {
+  const contract = canonicalContract(position);
+  const baseIv = optionPositionEffectiveIv(position, fallbackIv, 0.30);
+  if (!contract) {
+    return optionPositionWithModelInputs(position, baseIv, null);
+  }
+
+  const years = timeExpiration.years(contract.expiration_date, evaluationTime);
+  if (years <= 0) {
+    return optionPositionWithModelInputs(position, baseIv, null);
+  }
+
+  const markPrice = snapshotPrice(position);
+  const referenceUnderlyingPrice = position.snapshot.underlying_price ?? 0;
+  if (
+    !Number.isFinite(markPrice)
+    || markPrice <= 0
+    || !Number.isFinite(referenceUnderlyingPrice)
+    || referenceUnderlyingPrice <= 0
+  ) {
+    return optionPositionWithModelInputs(position, baseIv, null);
+  }
+
+  try {
+    const impliedVolatility = impliedVolatilityFromPrice({
+      targetPrice: markPrice,
+      spot: referenceUnderlyingPrice,
+      strike: contract.strike,
+      years,
+      rate: DEFAULT_RISK_FREE_RATE,
+      dividendYield,
+      optionRight: contract.option_right,
+    });
+    return optionPositionWithModelInputs(position, impliedVolatility, null);
+  } catch {
+    return optionPositionWithModelInputs(position, baseIv, null);
+  }
+}
+
+export function uniqueBreakEvenPoints(points: Iterable<number>, tolerance: number): number[] {
+  const resolvedTolerance = Number.isFinite(tolerance) && tolerance > 0 ? tolerance : 1e-6;
+  const unique: number[] = [];
+  for (const point of points) {
+    if (!Number.isFinite(point)) continue;
+    if (unique.some((existing) => Math.abs(existing - point) <= resolvedTolerance * 10)) {
+      continue;
+    }
+    unique.push(point);
+  }
+  return unique.sort((a, b) => a - b);
+}
+
+export function strategyPositionTotals(
+  positions: OptionPosition[],
+  strategyQuantity: number,
+): StrategyPositionTotals {
+  let value = 0;
+  let cost = 0;
+  let spread = 0;
+
+  for (const position of positions) {
+    value += snapshotPrice(position) * position.qty * CONTRACT_MULTIPLIER;
+    cost += Number(position.avg_cost) * position.qty * CONTRACT_MULTIPLIER;
+    const spreadPerContract = Math.round(snapshotSpread(position.snapshot) * 100) / 100;
+    spread += spreadPerContract * Math.abs(position.qty) * CONTRACT_MULTIPLIER;
+  }
+
+  value *= strategyQuantity;
+  cost *= strategyQuantity;
+  spread *= Math.abs(strategyQuantity);
+
+  return {
+    value,
+    cost,
+    spread,
+    spread_rate: Math.abs(cost) > 1e-10 ? spread / Math.abs(cost) : null,
+  };
+}
+
 export class OptionStrategy {
   private constructor(
     private readonly strategyPositions: OptionPosition[],
@@ -299,6 +429,27 @@ export class OptionStrategy {
       long_volatility_shift: input.long_volatility_shift ?? null,
     });
     return new OptionStrategy([...input.positions], context.prepared, context.entryCost, rate, context.dividendYield);
+  }
+
+  static prepareMarkCalibrated(input: {
+    positions: OptionPosition[];
+    evaluation_time: string;
+    entry_cost: number | null;
+    dividend_yield?: number | null;
+  }): OptionStrategy {
+    const dividendYield = input.dividend_yield ?? 0;
+    ensureFinite('invalid_strategy_payoff_input', 'dividendYield', dividendYield);
+    const positions = input.positions.map((position) => (
+      optionPositionWithMarkCalibratedIv(position, input.evaluation_time, dividendYield, null)
+    ));
+    return OptionStrategy.prepare({
+      positions,
+      evaluation_time: input.evaluation_time,
+      entry_cost: input.entry_cost,
+      rate: DEFAULT_RISK_FREE_RATE,
+      dividend_yield: dividendYield,
+      long_volatility_shift: null,
+    });
   }
 
   markValueAt(underlyingPrice: number): number {
@@ -464,6 +615,174 @@ export class OptionStrategy {
       tolerance,
       maxIterations,
     );
+  }
+
+  findBreakEvenLeft(input: StrategyBreakEvenSideInput): number | null {
+    return this.findBreakEvenToward(input.pivot, input.boundary, -Math.abs(input.scan_step), input);
+  }
+
+  findBreakEvenRight(input: StrategyBreakEvenSideInput): number | null {
+    return this.findBreakEvenToward(input.pivot, input.boundary, Math.abs(input.scan_step), input);
+  }
+
+  private findBreakEvenToward(
+    pivot: number,
+    boundary: number,
+    signedStep: number,
+    input: StrategyBreakEvenSideInput,
+  ): number | null {
+    const tolerance = input.tolerance ?? 1e-6;
+    const maxIterations = input.maxIterations ?? 100;
+    ensureFinite('invalid_strategy_payoff_input', 'pivot', pivot);
+    ensureFinite('invalid_strategy_payoff_input', 'boundary', boundary);
+    ensurePositive('invalid_strategy_payoff_input', 'scanStep', Math.abs(input.scan_step));
+    ensurePositive('invalid_strategy_payoff_input', 'tolerance', tolerance);
+    if (!Number.isInteger(maxIterations) || maxIterations <= 0) {
+      fail('invalid_strategy_payoff_input', `maxIterations must be a positive integer: ${maxIterations}`);
+    }
+    if ((signedStep < 0 && boundary >= pivot) || (signedStep > 0 && boundary <= pivot)) {
+      return null;
+    }
+
+    let previous = pivot;
+    let previousValue = this.pnlAt(previous);
+    if (Math.abs(previousValue) <= tolerance) {
+      return previous;
+    }
+
+    while (true) {
+      const next = signedStep < 0
+        ? Math.max(previous + signedStep, boundary)
+        : Math.min(previous + signedStep, boundary);
+      const nextValue = this.pnlAt(next);
+      if (Math.abs(nextValue) <= tolerance) {
+        return next;
+      }
+      if (Math.sign(nextValue) !== Math.sign(previousValue)) {
+        return this.breakEvenBetween({
+          lower_bound: Math.min(previous, next),
+          upper_bound: Math.max(previous, next),
+          tolerance,
+          maxIterations,
+        });
+      }
+      if (next === boundary) {
+        break;
+      }
+      previous = next;
+      previousValue = nextValue;
+    }
+
+    return null;
+  }
+
+  maximizePnlInRange(lowerBound: number, upperBound: number, iterations: number): StrategyPnlPeak {
+    ensureFinite('invalid_strategy_payoff_input', 'lowerBound', lowerBound);
+    ensureFinite('invalid_strategy_payoff_input', 'upperBound', upperBound);
+    if (lowerBound >= upperBound) {
+      fail('invalid_strategy_payoff_input', `lowerBound must be less than upperBound: ${lowerBound} >= ${upperBound}`);
+    }
+    if (!Number.isInteger(iterations) || iterations <= 0) {
+      fail('invalid_strategy_payoff_input', `iterations must be a positive integer: ${iterations}`);
+    }
+
+    let left = lowerBound;
+    let right = upperBound;
+    for (let i = 0; i < iterations; i += 1) {
+      const third = (right - left) / 3;
+      const midLeft = left + third;
+      const midRight = right - third;
+      const leftValue = this.pnlAt(midLeft);
+      const rightValue = this.pnlAt(midRight);
+
+      if (leftValue < rightValue) {
+        left = midLeft;
+      } else {
+        right = midRight;
+      }
+    }
+
+    const spot = (left + right) / 2;
+    const pnl = this.pnlAt(spot);
+    ensureFinite('invalid_strategy_payoff_input', 'peakPnl', pnl);
+    return { spot, pnl };
+  }
+
+  pnlPeakFromCurrent(input: StrategyPnlPeakSearchInput): StrategyPnlPeak | null {
+    ensurePositive('invalid_strategy_payoff_input', 'currentPrice', input.current_price);
+    ensurePositive('invalid_strategy_payoff_input', 'leftBoundary', input.left_boundary);
+    if (input.left_boundary >= input.current_price) {
+      fail(
+        'invalid_strategy_payoff_input',
+        `leftBoundary must be less than currentPrice: ${input.left_boundary} >= ${input.current_price}`,
+      );
+    }
+    ensureFinite('invalid_strategy_payoff_input', 'rightBoundary', input.right_boundary);
+    if (input.right_boundary <= input.current_price) {
+      fail(
+        'invalid_strategy_payoff_input',
+        `rightBoundary must be greater than currentPrice: ${input.right_boundary} <= ${input.current_price}`,
+      );
+    }
+    if (input.right_boundary <= input.left_boundary) {
+      fail(
+        'invalid_strategy_payoff_input',
+        `rightBoundary must be greater than leftBoundary: ${input.right_boundary} <= ${input.left_boundary}`,
+      );
+    }
+    const tolerance = input.tolerance ?? 1e-6;
+    ensurePositive('invalid_strategy_payoff_input', 'tolerance', tolerance);
+    const maxSearchSteps = input.maxSearchSteps ?? 512;
+    if (!Number.isInteger(maxSearchSteps) || maxSearchSteps <= 0) {
+      fail('invalid_strategy_payoff_input', `maxSearchSteps must be a positive integer: ${maxSearchSteps}`);
+    }
+
+    const fallbackStep = Math.min(Math.max(input.current_price * 0.005, 0.25), 5);
+    const step = Math.min(
+      Math.max(
+        input.step_hint != null && Number.isFinite(input.step_hint) && input.step_hint > 0
+          ? input.step_hint
+          : fallbackStep,
+        0.05,
+      ),
+      Math.max(input.current_price, 1) * 0.05,
+    );
+    const currentPnl = this.pnlAt(input.current_price);
+    const leftSpot = Math.max(input.current_price - step, input.left_boundary);
+    const rightSpot = Math.min(input.current_price + step, input.right_boundary);
+    const leftPnl = leftSpot < input.current_price ? this.pnlAt(leftSpot) : Number.NEGATIVE_INFINITY;
+    const rightPnl = rightSpot > input.current_price ? this.pnlAt(rightSpot) : Number.NEGATIVE_INFINITY;
+
+    const peak = (() => {
+      if (leftPnl <= currentPnl + tolerance && rightPnl <= currentPnl + tolerance) {
+        return this.maximizePnlInRange(leftSpot, rightSpot, 80);
+      }
+
+      const direction = rightPnl >= leftPnl ? 1 : -1;
+      let previousSpot = input.current_price;
+      let bestSpot = direction > 0 ? rightSpot : leftSpot;
+      let bestPnl = direction > 0 ? rightPnl : leftPnl;
+
+      for (let i = 0; i < maxSearchSteps; i += 1) {
+        const nextSpot = Math.min(Math.max(bestSpot + direction * step, input.left_boundary), input.right_boundary);
+        if (Math.abs(nextSpot - bestSpot) <= Number.EPSILON) {
+          break;
+        }
+        const nextPnl = this.pnlAt(nextSpot);
+        if (nextPnl > bestPnl + tolerance) {
+          previousSpot = bestSpot;
+          bestSpot = nextSpot;
+          bestPnl = nextPnl;
+          continue;
+        }
+
+        return this.maximizePnlInRange(Math.min(previousSpot, nextSpot), Math.max(previousSpot, nextSpot), 80);
+      }
+
+      return { spot: bestSpot, pnl: bestPnl };
+    })();
+
+    return peak.pnl > tolerance ? peak : null;
   }
 
   static aggregateSnapshotGreeks(input: {

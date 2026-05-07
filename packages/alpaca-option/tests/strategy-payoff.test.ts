@@ -89,6 +89,89 @@ function optionPosition(
   };
 }
 
+function pricedPosition(
+  expirationDate: string,
+  strike: number,
+  optionRight: 'call' | 'put',
+  quantity: number,
+  avgEntryPrice: number,
+  bid: number,
+  ask: number,
+  mark: number,
+): OptionPosition {
+  const resolvedContract = contract(expirationDate, strike, optionRight);
+  return {
+    contract: resolvedContract.occ_symbol,
+    snapshot: {
+      as_of: '2025-03-20 10:30:00',
+      contract: resolvedContract,
+      quote: { bid, ask, mark, last: mark },
+      greeks: null,
+      implied_volatility: 0.25,
+      underlying_price: 100,
+    },
+    qty: quantity,
+    avg_cost: avgEntryPrice.toFixed(4),
+    leg_type: '',
+  };
+}
+
+test('strategyPositionTotals aggregates build metrics', () => {
+  const long = pricedPosition('2026-05-15', 450, 'call', 2, 1.00, 1.10, 1.30, 1.20);
+  const short = pricedPosition('2026-05-15', 455, 'call', -1, 0.55, 0.40, 0.60, 0.50);
+
+  const totals = optionStrategy.strategyPositionTotals([long, short], 3);
+
+  assert.equal(totals.value, 570);
+  assert.equal(totals.cost, 435);
+  assert.equal(totals.spread, 180);
+  assert.ok(Math.abs((totals.spread_rate ?? 0) - (180 / 435)) < 1e-12);
+});
+
+test('option position helpers prepare runtime model inputs', () => {
+  const snapshot: OptionSnapshot = {
+    as_of: '',
+    contract: contract('2026-05-15', 450, 'call'),
+    quote: { bid: null, ask: null, mark: 2.34, last: null },
+    greeks: null,
+    implied_volatility: null,
+    underlying_price: null,
+  };
+
+  const position: OptionPosition = {
+    contract: snapshot.contract.occ_symbol,
+    snapshot,
+    qty: 1,
+    avg_cost: '2.34',
+    leg_type: 'longcall',
+  };
+
+  const modeled = optionStrategy.optionPositionWithModelInputs(
+    optionStrategy.optionPositionWithQtyMultiplier(position, 3),
+    0.31,
+    451.25,
+  );
+
+  assert.equal(modeled.qty, 3);
+  assert.equal(modeled.snapshot.implied_volatility, 0.31);
+  assert.equal(modeled.snapshot.underlying_price, 451.25);
+  assert.equal(optionStrategy.optionPositionEffectiveIv(modeled, 0.25, 0.30), 0.31);
+});
+
+test('option position effective IV uses fallback then default', () => {
+  const position = optionPosition('2026-05-15', 450, 'call', 1, {
+    delta: 0,
+    gamma: 0,
+    vega: 0,
+    theta: 0,
+    rho: 0,
+  });
+  position.snapshot.implied_volatility = null;
+
+  assert.equal(optionStrategy.optionPositionEffectiveIv(position, 0.22, 0.30), 0.22);
+  assert.equal(optionStrategy.optionPositionEffectiveIv(position, null, 0.30), 0.30);
+});
+
 test('strategyPnl mixes expired and unexpired positions', () => {
   const evaluationTime = '2025-03-21 16:00:00';
   const positions = [
@@ -263,6 +346,89 @@ test('OptionStrategy finds break even between bracketed prices', () => {
     maxIterations: 100,
   });
   assert.equal(noRoot, null);
+});
+
+test('OptionStrategy single-side break-even helpers find roots', () => {
+  const strategy = OptionStrategy.prepare({
+    positions: [
+      strategyPosition('2025-03-21', 90, 'put', -1, 1.5, 0.25),
+      strategyPosition('2025-03-21', 110, 'call', -1, 1.5, 0.25),
+    ],
+    evaluation_time: '2025-03-21 16:00:00',
+    entry_cost: null,
+    rate: 0.03,
+    dividend_yield: 0,
+    long_volatility_shift: null,
+  });
+
+  const left = strategy.findBreakEvenLeft({
+    pivot: 90,
+    boundary: 50,
+    scan_step: 1,
+    tolerance: 1e-9,
+    maxIterations: 100,
+  });
+  const right = strategy.findBreakEvenRight({
+    pivot: 110,
+    boundary: 150,
+    scan_step: 1,
+    tolerance: 1e-9,
+    maxIterations: 100,
+  });
+
+  assert.ok(left != null);
+  assert.ok(right != null);
+  assert.ok(Math.abs(left - 87) < 1e-6);
+  assert.ok(Math.abs(right - 113) < 1e-6);
+});
+
+test('uniqueBreakEvenPoints sorts and dedupes', () => {
+  const points = optionStrategy.uniqueBreakEvenPoints([402, 401.9999999, 398, Number.NaN], 1e-6);
+  assert.deepEqual(points, [398, 402]);
+});
+
+test('OptionStrategy pnlPeakFromCurrent finds positive peak', () => {
+  const strategy = OptionStrategy.prepare({
+    positions: [
+      strategyPosition('2025-03-21', 90, 'put', -1, 4, 0.25),
+      strategyPosition('2025-03-21', 110, 'call', -1, 4, 0.25),
+    ],
+    evaluation_time: '2025-03-21 16:00:00',
+    entry_cost: null,
+    rate: 0.03,
+    dividend_yield: 0,
+    long_volatility_shift: null,
+  });
+
+  const peak = strategy.pnlPeakFromCurrent({
+    current_price: 100,
+    step_hint: 1,
+    left_boundary: 1,
+    right_boundary: 300,
+    tolerance: 1e-9,
+    maxSearchSteps: 512,
+  });
+
+  assert.ok(peak != null);
+  assert.ok(Number.isFinite(peak.spot));
+  assert.ok(peak.pnl > 0);
+});
+
+test('OptionStrategy prepareMarkCalibrated sets IV from snapshot mark', () => {
+  const position = strategyPosition('2026-05-15', 450, 'call', 1, 2.5, 0.10);
+  position.snapshot.quote.mark = 8.00;
+  position.snapshot.underlying_price = 452;
+
+  const strategy = OptionStrategy.prepareMarkCalibrated({
+    positions: [position],
+    evaluation_time: '2026-05-01 10:00:00',
+    entry_cost: 250,
+    dividend_yield: 0,
+  });
+
+  const modeled = strategy.positions();
+  assert.equal(modeled.length, 1);
+  assert.ok((modeled[0]?.snapshot.implied_volatility ?? 0) > 0.10);
 });
 
 test('OptionStrategy aggregates snapshot Greeks with strategy quantity', () => {

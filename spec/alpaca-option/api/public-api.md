@@ -70,6 +70,9 @@ Notes:
 - `BlackScholesImpliedVolatilityInput`
 - `OptionSnapshot`
 - `OptionPosition`
+- `StrategyBreakEvenSideInput`
+- `StrategyPnlPeakSearchInput`
+- `StrategyPnlPeak`
 - `ShortItmPosition`
 - `StrategyLegInput`
 - `QuotedLeg`
@@ -202,8 +205,11 @@ Field-level definitions live in `../models/core-models.md`.
 
 - strategy mark-to-market PnL
 - strategy-level break-even search
+- strategy-level reusable break-even and PnL peak search primitives
 - strategy-level curve sampling
 - strategy-level Greeks aggregation
+- mark-calibrated strategy preparation
+- build-stage position totals for value, cost, spread, and spread rate
 
 ### API
 
@@ -211,7 +217,18 @@ Field-level definitions live in `../models/core-models.md`.
 | --- | --- | --- |
 | `option_strategy.strategy_pnl(input)` / `optionStrategy.strategyPnl(input)` | `number` | revalues the full position set at `evaluation_time`; expired legs use intrinsic value, live legs use BSM; when `entry_cost` is omitted, the implementation sums `avg_entry_price * quantity * 100` for each leg |
 | `option_strategy.strategy_break_even_points(input)` / `optionStrategy.strategyBreakEvenPoints(input)` | `number[]` | searches for strategy-level PnL roots inside `[lower_bound, upper_bound]` using scan plus Brent refinement and returns sorted break-even points |
+| `option_strategy.unique_break_even_points(points, tolerance)` / `optionStrategy.uniqueBreakEvenPoints(points, tolerance)` | `number[]` | filters non-finite values, deduplicates near-equal roots, and returns sorted break-even points |
+| `option_strategy.strategy_position_totals(positions, strategy_quantity)` / `optionStrategy.strategyPositionTotals(positions, strategyQuantity)` | `StrategyPositionTotals` | aggregates flat `OptionPosition` legs into build-stage value, cost, bid-ask spread, and spread-rate metrics |
+| `OptionPosition::from_snapshot(...)` / position object helpers | `OptionPosition` | builds a canonical position from an `OptionSnapshot`, quantity, average cost, and leg type |
+| `OptionPosition::with_model_inputs(...)` / `optionStrategy.optionPositionWithModelInputs(...)` | `OptionPosition` | returns a cloned position with runtime IV and optional underlying price set for model valuation |
+| `OptionPosition::with_qty_multiplier(...)` / `optionStrategy.optionPositionWithQtyMultiplier(...)` | `OptionPosition` | returns a cloned position with quantity multiplied by a strategy quantity |
+| `OptionPosition::effective_iv_or(...)` / `optionStrategy.optionPositionEffectiveIv(...)` | `number` | returns snapshot IV when valid, otherwise fallback IV, otherwise a default IV |
+| `OptionPosition::with_mark_calibrated_iv(...)` / `optionStrategy.optionPositionWithMarkCalibratedIv(...)` | `OptionPosition` | returns a cloned position with IV solved from the current mark when enough runtime inputs exist, otherwise keeps a fallback IV |
 | `OptionStrategy` | class / struct | prepares reusable strategy valuation state for mark value, PnL, curve sampling, break-even scanning, and Greeks aggregation |
+| `OptionStrategy::find_break_even_left/right(input)` / `OptionStrategy.findBreakEvenLeft/Right(input)` | `number \| null` | scans from a strategy-selected pivot toward one boundary and refines the first finite PnL root found |
+| `OptionStrategy::maximize_pnl_in_range(...)` / `OptionStrategy.maximizePnlInRange(...)` | `StrategyPnlPeak` | finds the local maximum PnL point inside a supplied range |
+| `OptionStrategy::pnl_peak_from_current(input)` / `OptionStrategy.pnlPeakFromCurrent(input)` | `StrategyPnlPeak \| null` | starts at the current price, follows the PnL-improving side, and returns the nearby positive PnL peak; it does not encode strategy-specific BE/open-side semantics |
+| `OptionStrategy::prepare_mark_calibrated(...)` / `OptionStrategy.prepareMarkCalibrated(...)` | `OptionStrategy` | prepares a strategy after calibrating each position IV from its runtime mark price where possible |
 
 ## `chain`
 

@@ -1,12 +1,13 @@
 use alpaca_core::float;
-use rust_decimal::Decimal;
 use rust_decimal::prelude::ToPrimitive;
+use rust_decimal::Decimal;
 use serde::{Deserialize, Deserializer, Serialize};
 use ts_rs::TS;
 
-use crate::DEFAULT_RISK_FREE_RATE;
 use crate::contract;
 use crate::error::{OptionError, OptionResult};
+use crate::pricing;
+use crate::DEFAULT_RISK_FREE_RATE;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[serde(rename_all = "lowercase")]
@@ -560,6 +561,21 @@ fn position_side_from_qty_and_leg_type(qty: i32, leg_type: &str) -> PositionSide
 }
 
 impl OptionPosition {
+    pub fn from_snapshot(
+        snapshot: &OptionSnapshot,
+        qty: i32,
+        avg_cost: Decimal,
+        leg_type: impl Into<String>,
+    ) -> Self {
+        Self {
+            contract: snapshot.occ_symbol().to_string(),
+            snapshot: snapshot.clone(),
+            qty,
+            avg_cost,
+            leg_type: leg_type.into(),
+        }
+    }
+
     pub fn occ_symbol(&self) -> &str {
         self.contract.trim()
     }
@@ -613,6 +629,82 @@ impl OptionPosition {
 
     pub fn marked_value(&self) -> Decimal {
         self.value()
+    }
+
+    pub fn with_model_inputs(
+        &self,
+        implied_volatility: f64,
+        underlying_price: Option<f64>,
+    ) -> Self {
+        let mut position = self.clone();
+        position.snapshot.implied_volatility = Some(implied_volatility);
+        if let Some(underlying_price) = underlying_price {
+            position.snapshot.underlying_price = Some(underlying_price);
+        }
+        position
+    }
+
+    pub fn with_qty_multiplier(&self, multiplier: i32) -> Self {
+        let mut position = self.clone();
+        position.qty *= multiplier;
+        position
+    }
+
+    pub fn effective_iv_or(&self, fallback_iv: Option<f64>, default_iv: f64) -> f64 {
+        let snapshot_iv = self.snapshot.iv();
+        if snapshot_iv.is_finite() && snapshot_iv > 0.0 {
+            snapshot_iv
+        } else if let Some(fallback_iv) =
+            fallback_iv.filter(|value| value.is_finite() && *value > 0.0)
+        {
+            fallback_iv
+        } else {
+            default_iv
+        }
+    }
+
+    pub fn with_mark_calibrated_iv(
+        &self,
+        evaluation_time: &str,
+        dividend_yield: f64,
+        fallback_iv: Option<f64>,
+    ) -> Self {
+        let mut position = self.clone();
+        let base_iv = position.effective_iv_or(fallback_iv, 0.30);
+        let Some(contract) = contract::canonical_contract(&position) else {
+            position.snapshot.implied_volatility = Some(base_iv);
+            return position;
+        };
+        let years =
+            alpaca_time::expiration::years(&contract.expiration_date, Some(evaluation_time), None);
+        if years <= 0.0 {
+            position.snapshot.implied_volatility = Some(base_iv);
+            return position;
+        }
+
+        let mark_price = position.snapshot.price();
+        let reference_underlying_price = position.snapshot.underlying_price();
+        if !mark_price.is_finite()
+            || mark_price <= 0.0
+            || !reference_underlying_price.is_finite()
+            || reference_underlying_price <= 0.0
+        {
+            position.snapshot.implied_volatility = Some(base_iv);
+            return position;
+        }
+
+        position.snapshot.implied_volatility =
+            pricing::implied_volatility_from_price(&BlackScholesImpliedVolatilityInput::new(
+                mark_price,
+                reference_underlying_price,
+                contract.strike,
+                years,
+                dividend_yield,
+                contract.option_right,
+            ))
+            .ok()
+            .or(Some(base_iv));
+        position
     }
 }
 
@@ -1024,4 +1116,37 @@ pub struct StrategyBreakEvenInput {
     pub scan_step: Option<f64>,
     pub tolerance: Option<f64>,
     pub max_iterations: Option<usize>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+pub struct StrategyBreakEvenSideInput {
+    pub pivot: f64,
+    pub boundary: f64,
+    pub scan_step: f64,
+    pub tolerance: Option<f64>,
+    pub max_iterations: Option<usize>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+pub struct StrategyPnlPeakSearchInput {
+    pub current_price: f64,
+    pub step_hint: Option<f64>,
+    pub left_boundary: f64,
+    pub right_boundary: f64,
+    pub tolerance: Option<f64>,
+    pub max_search_steps: Option<usize>,
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Serialize, Deserialize)]
+pub struct StrategyPnlPeak {
+    pub spot: f64,
+    pub pnl: f64,
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Serialize, Deserialize)]
+pub struct StrategyPositionTotals {
+    pub value: Decimal,
+    pub cost: Decimal,
+    pub spread: Decimal,
+    pub spread_rate: Option<f64>,
 }

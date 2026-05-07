@@ -165,6 +165,74 @@ Notes:
 - `entry_cost` is the aggregate entry cost for the whole structure; when it is empty, the lower layer sums `avg_cost * qty * 100` for each leg
 - `long_volatility_shift` only applies to long, unexpired legs and exists to preserve the current strategy-layer long-IV shock use case
 
+### `StrategyBreakEvenSideInput`
+
+```text
+{
+  pivot: number,
+  boundary: number,
+  scan_step: number,
+  tolerance?: number,
+  max_iterations?: number
+}
+```
+
+Notes:
+
+- this is a low-level helper input for a single-side BE scan
+- strategy layers choose their own pivot and boundary; the core helper only performs bracket scanning and root refinement
+- it intentionally does not model complete strategy-specific BE semantics such as open-side flags
+
+### `StrategyPnlPeakSearchInput`
+
+```text
+{
+  current_price: number,
+  step_hint?: number | null,
+  left_boundary: number,
+  right_boundary: number,
+  tolerance?: number | null,
+  max_search_steps?: number | null
+}
+```
+
+Notes:
+
+- this is a low-level helper input for current-curve PnL peak search
+- the helper follows the side where PnL improves and returns a nearby positive peak
+- callers still decide how that peak maps to finite BE, open-side flags, and display fields
+
+### `StrategyPnlPeak`
+
+```text
+{
+  spot: number,
+  pnl: number
+}
+```
+
+Notes:
+
+- this result is strategy-agnostic and only reports the spot/PnL pair
+- it does not contain finite BE fields or open-side semantics
+
+### `StrategyPositionTotals`
+
+```text
+{
+  value: number,
+  cost: number,
+  spread: number,
+  spread_rate?: number
+}
+```
+
+Notes:
+
+- this result aggregates flat `OptionPosition` legs with the 100-share contract multiplier
+- `value` uses current snapshot mark price, `cost` uses `avg_cost`, and `spread` sums bid-ask spread by absolute leg quantity
+- strategy layers still own how these totals map onto strategy-specific display fields
+
 ### `StrategyBreakEvenInput`
 
 ```text

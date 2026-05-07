@@ -1,14 +1,18 @@
-use crate::DEFAULT_RISK_FREE_RATE;
 use crate::contract;
 use crate::error::{OptionError, OptionResult};
 use crate::numeric;
 use crate::pricing;
+use crate::snapshot;
 use crate::types::{
     Greeks, OptionContract, OptionPosition, OptionRight, OptionStrategyCurvePoint,
-    OptionStrategyInput, StrategyBreakEvenInput, StrategyPnlInput,
+    OptionStrategyInput, StrategyBreakEvenInput, StrategyBreakEvenSideInput, StrategyPnlInput,
+    StrategyPnlPeak, StrategyPnlPeakSearchInput, StrategyPositionTotals,
 };
+use crate::DEFAULT_RISK_FREE_RATE;
 use alpaca_time::clock;
 use alpaca_time::expiration;
+use rust_decimal::prelude::ToPrimitive;
+use rust_decimal::Decimal;
 
 const CONTRACT_MULTIPLIER: f64 = 100.0;
 
@@ -62,7 +66,10 @@ fn strategy_position_contract(position: &OptionPosition) -> OptionResult<OptionC
     })
 }
 
-fn validate_strategy_position(position: &OptionPosition, contract: &OptionContract) -> OptionResult<()> {
+fn validate_strategy_position(
+    position: &OptionPosition,
+    contract: &OptionContract,
+) -> OptionResult<()> {
     ensure_positive(
         "invalid_strategy_payoff_input",
         "contract.strike",
@@ -90,7 +97,11 @@ fn validate_strategy_position(position: &OptionPosition, contract: &OptionContra
         )?;
     }
     if let Some(snapshot) = position.snapshot_ref() {
-        ensure_finite("invalid_strategy_payoff_input", "mark_price", snapshot.price())?;
+        ensure_finite(
+            "invalid_strategy_payoff_input",
+            "mark_price",
+            snapshot.price(),
+        )?;
         ensure_finite(
             "invalid_strategy_payoff_input",
             "reference_underlying_price",
@@ -114,10 +125,7 @@ fn valuation_years(expiration_date: &str, evaluation_time: &str) -> OptionResult
     ))
 }
 
-fn strategy_entry_cost(
-    positions: &[OptionPosition],
-    entry_cost: Option<f64>,
-) -> OptionResult<f64> {
+fn strategy_entry_cost(positions: &[OptionPosition], entry_cost: Option<f64>) -> OptionResult<f64> {
     if let Some(entry_cost) = entry_cost {
         ensure_finite("invalid_strategy_payoff_input", "entry_cost", entry_cost)?;
         return Ok(entry_cost);
@@ -328,6 +336,69 @@ fn push_unique_root(roots: &mut Vec<f64>, root: f64, tolerance: f64) {
     roots.push(root);
 }
 
+pub fn unique_break_even_points(points: impl IntoIterator<Item = f64>, tolerance: f64) -> Vec<f64> {
+    let tolerance = if tolerance.is_finite() && tolerance > 0.0 {
+        tolerance
+    } else {
+        1e-6
+    };
+    let mut unique = Vec::new();
+    for point in points {
+        if !point.is_finite() {
+            continue;
+        }
+        if unique
+            .iter()
+            .any(|existing: &f64| (*existing - point).abs() <= tolerance * 10.0)
+        {
+            continue;
+        }
+        unique.push(point);
+    }
+    unique.sort_by(|left, right| left.total_cmp(right));
+    unique
+}
+
+pub fn strategy_position_totals(
+    positions: &[OptionPosition],
+    strategy_quantity: i32,
+) -> StrategyPositionTotals {
+    let quantity = Decimal::from(strategy_quantity);
+    let quantity_abs = Decimal::from(strategy_quantity.unsigned_abs());
+    let mut value = Decimal::ZERO;
+    let mut cost = Decimal::ZERO;
+    let mut spread = Decimal::ZERO;
+
+    for position in positions {
+        value += position.value();
+        cost += position.cost();
+
+        let spread_per_contract =
+            alpaca_core::decimal::from_f64(snapshot::spread(&position.snapshot), 2);
+        spread +=
+            spread_per_contract * Decimal::from(position.qty.unsigned_abs()) * Decimal::from(100);
+    }
+
+    value *= quantity;
+    cost *= quantity;
+    spread *= quantity_abs;
+
+    let cost_f64 = cost.to_f64().unwrap_or(0.0);
+    let spread_rate = if cost_f64.abs() > 1e-10 {
+        let spread_f64 = spread.to_f64().unwrap_or(0.0);
+        Some(spread_f64 / cost_f64.abs())
+    } else {
+        None
+    };
+
+    StrategyPositionTotals {
+        value,
+        cost,
+        spread,
+        spread_rate,
+    }
+}
+
 fn validate_break_even_params(
     lower_bound: f64,
     upper_bound: f64,
@@ -477,6 +548,31 @@ impl OptionStrategy {
         })
     }
 
+    pub fn prepare_mark_calibrated(
+        positions: &[OptionPosition],
+        evaluation_time: &str,
+        entry_cost: Option<f64>,
+        dividend_yield: Option<f64>,
+    ) -> OptionResult<Self> {
+        let dividend_yield = dividend_yield.unwrap_or(0.0);
+        ensure_finite(
+            "invalid_strategy_payoff_input",
+            "dividend_yield",
+            dividend_yield,
+        )?;
+        let calibrated: Vec<OptionPosition> = positions
+            .iter()
+            .map(|position| position.with_mark_calibrated_iv(evaluation_time, dividend_yield, None))
+            .collect();
+        Self::prepare(
+            &calibrated,
+            evaluation_time,
+            entry_cost,
+            Some(dividend_yield),
+            None,
+        )
+    }
+
     pub fn pnl_at(&self, underlying_price: f64) -> OptionResult<f64> {
         Ok(self.mark_value_at(underlying_price)? - self.entry_cost)
     }
@@ -592,6 +688,79 @@ impl OptionStrategy {
         .map(Some)
     }
 
+    pub fn find_break_even_left(
+        &self,
+        input: &StrategyBreakEvenSideInput,
+    ) -> OptionResult<Option<f64>> {
+        self.find_break_even_toward(input.pivot, input.boundary, -input.scan_step.abs(), input)
+    }
+
+    pub fn find_break_even_right(
+        &self,
+        input: &StrategyBreakEvenSideInput,
+    ) -> OptionResult<Option<f64>> {
+        self.find_break_even_toward(input.pivot, input.boundary, input.scan_step.abs(), input)
+    }
+
+    fn find_break_even_toward(
+        &self,
+        pivot: f64,
+        boundary: f64,
+        signed_step: f64,
+        input: &StrategyBreakEvenSideInput,
+    ) -> OptionResult<Option<f64>> {
+        let tolerance = input.tolerance.unwrap_or(1e-6);
+        let max_iterations = input.max_iterations.unwrap_or(100);
+
+        ensure_finite("invalid_strategy_payoff_input", "pivot", pivot)?;
+        ensure_finite("invalid_strategy_payoff_input", "boundary", boundary)?;
+        ensure_positive(
+            "invalid_strategy_payoff_input",
+            "scan_step",
+            input.scan_step.abs(),
+        )?;
+        ensure_positive("invalid_strategy_payoff_input", "tolerance", tolerance)?;
+        if max_iterations == 0 {
+            return Err(OptionError::new(
+                "invalid_strategy_payoff_input",
+                "max_iterations must be greater than zero",
+            ));
+        }
+        if (signed_step < 0.0 && boundary >= pivot) || (signed_step > 0.0 && boundary <= pivot) {
+            return Ok(None);
+        }
+
+        let mut previous = pivot;
+        let mut previous_value = self.pnl_at(previous)?;
+        if previous_value.abs() <= tolerance {
+            return Ok(Some(previous));
+        }
+
+        loop {
+            let next = if signed_step < 0.0 {
+                (previous + signed_step).max(boundary)
+            } else {
+                (previous + signed_step).min(boundary)
+            };
+            let next_value = self.pnl_at(next)?;
+            if next_value.abs() <= tolerance {
+                return Ok(Some(next));
+            }
+            if next_value.signum() != previous_value.signum() {
+                let low = previous.min(next);
+                let high = previous.max(next);
+                return self.break_even_between(low, high, Some(tolerance), Some(max_iterations));
+            }
+            if next == boundary {
+                break;
+            }
+            previous = next;
+            previous_value = next_value;
+        }
+
+        Ok(None)
+    }
+
     pub fn break_even_points(
         &self,
         lower_bound: f64,
@@ -650,6 +819,172 @@ impl OptionStrategy {
         Ok(roots)
     }
 
+    pub fn maximize_pnl_in_range(
+        &self,
+        lower_bound: f64,
+        upper_bound: f64,
+        iterations: usize,
+    ) -> OptionResult<StrategyPnlPeak> {
+        ensure_finite("invalid_strategy_payoff_input", "lower_bound", lower_bound)?;
+        ensure_finite("invalid_strategy_payoff_input", "upper_bound", upper_bound)?;
+        if lower_bound >= upper_bound {
+            return Err(OptionError::new(
+                "invalid_strategy_payoff_input",
+                format!(
+                    "lower_bound must be less than upper_bound: {lower_bound} >= {upper_bound}"
+                ),
+            ));
+        }
+        if iterations == 0 {
+            return Err(OptionError::new(
+                "invalid_strategy_payoff_input",
+                "iterations must be greater than zero",
+            ));
+        }
+
+        let mut left = lower_bound;
+        let mut right = upper_bound;
+        for _ in 0..iterations {
+            let third = (right - left) / 3.0;
+            let mid_left = left + third;
+            let mid_right = right - third;
+            let left_value = self.pnl_at(mid_left)?;
+            let right_value = self.pnl_at(mid_right)?;
+
+            if left_value < right_value {
+                left = mid_left;
+            } else {
+                right = mid_right;
+            }
+        }
+
+        let spot = (left + right) / 2.0;
+        let pnl = self.pnl_at(spot)?;
+        ensure_finite("invalid_strategy_payoff_input", "peak.pnl", pnl)?;
+        Ok(StrategyPnlPeak { spot, pnl })
+    }
+
+    pub fn pnl_peak_from_current(
+        &self,
+        input: &StrategyPnlPeakSearchInput,
+    ) -> OptionResult<Option<StrategyPnlPeak>> {
+        ensure_positive(
+            "invalid_strategy_payoff_input",
+            "current_price",
+            input.current_price,
+        )?;
+        ensure_positive(
+            "invalid_strategy_payoff_input",
+            "left_boundary",
+            input.left_boundary,
+        )?;
+        if input.left_boundary >= input.current_price {
+            return Err(OptionError::new(
+                "invalid_strategy_payoff_input",
+                format!(
+                    "left_boundary must be less than current_price: {} >= {}",
+                    input.left_boundary, input.current_price
+                ),
+            ));
+        }
+        ensure_finite(
+            "invalid_strategy_payoff_input",
+            "right_boundary",
+            input.right_boundary,
+        )?;
+        if input.right_boundary <= input.current_price {
+            return Err(OptionError::new(
+                "invalid_strategy_payoff_input",
+                format!(
+                    "right_boundary must be greater than current_price: {} <= {}",
+                    input.right_boundary, input.current_price
+                ),
+            ));
+        }
+        if input.right_boundary <= input.left_boundary {
+            return Err(OptionError::new(
+                "invalid_strategy_payoff_input",
+                format!(
+                    "right_boundary must be greater than left_boundary: {} <= {}",
+                    input.right_boundary, input.left_boundary
+                ),
+            ));
+        }
+        let tolerance = input.tolerance.unwrap_or(1e-6);
+        ensure_positive("invalid_strategy_payoff_input", "tolerance", tolerance)?;
+        let max_search_steps = input.max_search_steps.unwrap_or(512);
+        if max_search_steps == 0 {
+            return Err(OptionError::new(
+                "invalid_strategy_payoff_input",
+                "max_search_steps must be greater than zero",
+            ));
+        }
+
+        let fallback_step = (input.current_price * 0.005).clamp(0.25, 5.0);
+        let step = input
+            .step_hint
+            .filter(|value| value.is_finite() && *value > 0.0)
+            .unwrap_or(fallback_step)
+            .clamp(0.05, input.current_price.max(1.0) * 0.05);
+        let current_pnl = self.pnl_at(input.current_price)?;
+        let left_spot = (input.current_price - step).max(input.left_boundary);
+        let right_spot = (input.current_price + step).min(input.right_boundary);
+        let left_pnl = if left_spot < input.current_price {
+            self.pnl_at(left_spot)?
+        } else {
+            f64::NEG_INFINITY
+        };
+        let right_pnl = if right_spot > input.current_price {
+            self.pnl_at(right_spot)?
+        } else {
+            f64::NEG_INFINITY
+        };
+
+        let peak = if left_pnl <= current_pnl + tolerance && right_pnl <= current_pnl + tolerance {
+            self.maximize_pnl_in_range(left_spot, right_spot, 80)?
+        } else {
+            let direction = if right_pnl >= left_pnl { 1.0 } else { -1.0 };
+            let mut previous_spot = input.current_price;
+            let mut best_spot = if direction > 0.0 {
+                right_spot
+            } else {
+                left_spot
+            };
+            let mut best_pnl = if direction > 0.0 { right_pnl } else { left_pnl };
+            let mut refined = None;
+
+            for _ in 0..max_search_steps {
+                let next_spot =
+                    (best_spot + direction * step).clamp(input.left_boundary, input.right_boundary);
+                if (next_spot - best_spot).abs() <= f64::EPSILON {
+                    break;
+                }
+                let next_pnl = self.pnl_at(next_spot)?;
+                if next_pnl > best_pnl + tolerance {
+                    previous_spot = best_spot;
+                    best_spot = next_spot;
+                    best_pnl = next_pnl;
+                    continue;
+                }
+
+                let lower = previous_spot.min(next_spot);
+                let upper = previous_spot.max(next_spot);
+                refined = Some(self.maximize_pnl_in_range(lower, upper, 80)?);
+                break;
+            }
+
+            refined.unwrap_or(StrategyPnlPeak {
+                spot: best_spot,
+                pnl: best_pnl,
+            })
+        };
+
+        if peak.pnl <= tolerance {
+            return Ok(None);
+        }
+        Ok(Some(peak))
+    }
+
     pub fn aggregate_snapshot_greeks(
         positions: &[OptionPosition],
         strategy_quantity: f64,
@@ -676,11 +1011,7 @@ impl OptionStrategy {
         Ok(total)
     }
 
-    pub fn greeks_at(
-        &self,
-        underlying_price: f64,
-        strategy_quantity: f64,
-    ) -> OptionResult<Greeks> {
+    pub fn greeks_at(&self, underlying_price: f64, strategy_quantity: f64) -> OptionResult<Greeks> {
         let strategy_quantity = validate_strategy_quantity(strategy_quantity)?;
         let mut total = self.prepared_greeks_at(underlying_price)?;
 

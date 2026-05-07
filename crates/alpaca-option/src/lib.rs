@@ -27,15 +27,15 @@ pub const DEFAULT_RISK_FREE_RATE: f64 = 0.0368;
 
 pub use error::{OptionError, OptionResult};
 pub use liquidity::{LiquidityBatchResponse, LiquidityData, LiquidityOptionData, LiquidityStats};
-pub use option_strategy::OptionStrategy;
+pub use option_strategy::{strategy_position_totals, unique_break_even_points, OptionStrategy};
 pub use types::{
     AssignmentRiskLevel, BlackScholesImpliedVolatilityInput, BlackScholesInput, ContractDisplay,
     ExecutionAction, ExecutionLeg, ExecutionLegInput, ExecutionQuoteRange, ExecutionSnapshot,
     Greeks, GreeksInput, MoneynessLabel, OptionChain, OptionChainRecord, OptionContract,
-    OptionPosition, OptionQuote, OptionRight, OptionRightCode, OptionSnapshot,
-    OptionStratLegInput, OptionStratStockInput, OptionStratUrlInput, OptionStrategyCurvePoint,
-    OptionStrategyInput, OrderSide, ParsedOptionStratUrl, PayoffLegInput, PositionIntent,
-    PositionSide, QuotedLeg, RollLegSelection, RollRequest, ScaledExecutionQuote,
-    ScaledExecutionQuoteRange, ShortItmPosition, StrategyBreakEvenInput, StrategyLegInput,
-    StrategyPnlInput,
+    OptionPosition, OptionQuote, OptionRight, OptionRightCode, OptionSnapshot, OptionStratLegInput,
+    OptionStratStockInput, OptionStratUrlInput, OptionStrategyCurvePoint, OptionStrategyInput,
+    OrderSide, ParsedOptionStratUrl, PayoffLegInput, PositionIntent, PositionSide, QuotedLeg,
+    RollLegSelection, RollRequest, ScaledExecutionQuote, ScaledExecutionQuoteRange,
+    ShortItmPosition, StrategyBreakEvenInput, StrategyBreakEvenSideInput, StrategyLegInput,
+    StrategyPnlInput, StrategyPnlPeak, StrategyPnlPeakSearchInput, StrategyPositionTotals,
 };

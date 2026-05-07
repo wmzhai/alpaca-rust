@@ -295,6 +295,35 @@ export type OptionStrategyBreakEvenBracketInput = {
   maxIterations?: number | null;
 };
 
+export type StrategyBreakEvenSideInput = {
+  pivot: number;
+  boundary: number;
+  scan_step: number;
+  tolerance?: number | null;
+  maxIterations?: number | null;
+};
+
+export type StrategyPnlPeakSearchInput = {
+  current_price: number;
+  step_hint?: number | null;
+  left_boundary: number;
+  right_boundary: number;
+  tolerance?: number | null;
+  maxSearchSteps?: number | null;
+};
+
+export type StrategyPnlPeak = {
+  spot: number;
+  pnl: number;
+};
+
+export type StrategyPositionTotals = {
+  value: number;
+  cost: number;
+  spread: number;
+  spread_rate: number | null;
+};
+
 export type StrategyPnlInput = {
   positions: OptionPosition[];
   underlying_price: number;
