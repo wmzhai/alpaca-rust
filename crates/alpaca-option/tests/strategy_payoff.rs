@@ -1,8 +1,8 @@
 use alpaca_option::option_strategy;
 use alpaca_option::pricing;
 use alpaca_option::{
-    Greeks, OptionContract, OptionPosition, OptionQuote, OptionRight, OptionSnapshot,
-    OptionStrategy, OptionStrategyInput, StrategyBreakEvenInput, StrategyPnlInput,
+    DEFAULT_RISK_FREE_RATE, Greeks, OptionContract, OptionPosition, OptionQuote, OptionRight,
+    OptionSnapshot, OptionStrategy, OptionStrategyInput, StrategyBreakEvenInput, StrategyPnlInput,
     StrategyValuationPosition,
 };
 use alpaca_time::expiration;
@@ -362,19 +362,22 @@ fn option_strategy_aggregates_model_greeks_with_strategy_quantity() {
         &positions,
         102.0,
         evaluation_time,
-        TEST_RISK_FREE_RATE,
         Some(0.0),
         None,
         2.0,
     )
     .unwrap();
+    let direct =
+        OptionStrategy::greeks_at(&positions, evaluation_time, 102.0, Some(0.0), None, 2.0)
+            .unwrap();
+    assert_eq!(actual, direct);
 
     let years = expiration::years("2025-04-17", Some(evaluation_time), None);
     let long = pricing::greeks_black_scholes(&alpaca_option::BlackScholesInput {
         spot: 102.0,
         strike: 100.0,
         years,
-        rate: TEST_RISK_FREE_RATE,
+        rate: DEFAULT_RISK_FREE_RATE,
         dividend_yield: 0.0,
         volatility: 0.22,
         option_right: OptionRight::Call,
@@ -384,7 +387,7 @@ fn option_strategy_aggregates_model_greeks_with_strategy_quantity() {
         spot: 102.0,
         strike: 105.0,
         years,
-        rate: TEST_RISK_FREE_RATE,
+        rate: DEFAULT_RISK_FREE_RATE,
         dividend_yield: 0.0,
         volatility: 0.30,
         option_right: OptionRight::Call,

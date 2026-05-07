@@ -1,3 +1,4 @@
+use crate::DEFAULT_RISK_FREE_RATE;
 use crate::error::{OptionError, OptionResult};
 use crate::numeric;
 use crate::pricing;
@@ -5,7 +6,6 @@ use crate::types::{
     Greeks, OptionPosition, OptionRight, OptionStrategyCurvePoint, OptionStrategyInput,
     StrategyBreakEvenInput, StrategyPnlInput, StrategyValuationPosition,
 };
-use crate::DEFAULT_RISK_FREE_RATE;
 use alpaca_time::clock;
 use alpaca_time::expiration;
 
@@ -240,6 +240,67 @@ fn strategy_mark_value_prepared(
     Ok(total)
 }
 
+fn expiry_intrinsic_greeks(
+    underlying_price: f64,
+    strike: f64,
+    option_right: &OptionRight,
+) -> Greeks {
+    let delta = match option_right {
+        OptionRight::Call if underlying_price > strike => 1.0,
+        OptionRight::Call if underlying_price < strike => 0.0,
+        OptionRight::Call => 0.5,
+        OptionRight::Put if underlying_price < strike => -1.0,
+        OptionRight::Put if underlying_price > strike => 0.0,
+        OptionRight::Put => -0.5,
+    };
+
+    Greeks {
+        delta,
+        ..Default::default()
+    }
+}
+
+fn strategy_greeks_prepared(
+    positions: &[PreparedStrategyLeg],
+    underlying_price: f64,
+    rate: f64,
+    dividend_yield: f64,
+) -> OptionResult<Greeks> {
+    ensure_positive(
+        "invalid_strategy_payoff_input",
+        "underlying_price",
+        underlying_price,
+    )?;
+    ensure_finite("invalid_strategy_payoff_input", "rate", rate)?;
+
+    let mut total = Greeks::default();
+    for position in positions {
+        let greeks = if position.years <= 0.0 {
+            expiry_intrinsic_greeks(underlying_price, position.strike, &position.option_right)
+        } else {
+            pricing::greeks_black_scholes(&crate::BlackScholesInput {
+                spot: underlying_price,
+                strike: position.strike,
+                years: position.years,
+                rate,
+                dividend_yield,
+                volatility: position
+                    .implied_volatility
+                    .expect("prepared implied_volatility"),
+                option_right: position.option_right.clone(),
+            })?
+        };
+
+        total.delta += greeks.delta * position.quantity * CONTRACT_MULTIPLIER;
+        total.gamma += greeks.gamma * position.quantity * CONTRACT_MULTIPLIER;
+        total.vega += greeks.vega * position.quantity * CONTRACT_MULTIPLIER;
+        total.theta += greeks.theta * position.quantity * CONTRACT_MULTIPLIER;
+        total.rho += greeks.rho * position.quantity * CONTRACT_MULTIPLIER;
+    }
+
+    Ok(total)
+}
+
 fn validate_strategy_quantity(strategy_quantity: f64) -> OptionResult<f64> {
     ensure_positive(
         "invalid_strategy_payoff_input",
@@ -407,6 +468,15 @@ impl OptionStrategy {
 
     pub fn mark_value_at(&self, underlying_price: f64) -> OptionResult<f64> {
         strategy_mark_value_prepared(
+            &self.prepared,
+            underlying_price,
+            self.rate,
+            self.dividend_yield,
+        )
+    }
+
+    fn prepared_greeks_at(&self, underlying_price: f64) -> OptionResult<Greeks> {
+        strategy_greeks_prepared(
             &self.prepared,
             underlying_price,
             self.rate,
@@ -587,84 +657,24 @@ impl OptionStrategy {
         Ok(total)
     }
 
-    pub fn aggregate_model_greeks(
+    pub fn greeks_at(
         positions: &[StrategyValuationPosition],
-        underlying_price: f64,
         evaluation_time: &str,
-        rate: f64,
+        underlying_price: f64,
         dividend_yield: Option<f64>,
         long_volatility_shift: Option<f64>,
         strategy_quantity: f64,
     ) -> OptionResult<Greeks> {
         let strategy_quantity = validate_strategy_quantity(strategy_quantity)?;
-        ensure_positive(
-            "invalid_strategy_payoff_input",
-            "underlying_price",
-            underlying_price,
-        )?;
-        ensure_finite("invalid_strategy_payoff_input", "rate", rate)?;
-        let dividend_yield = dividend_yield.unwrap_or(0.0);
-        ensure_finite(
-            "invalid_strategy_payoff_input",
-            "dividend_yield",
+        let mut total = Self::prepare_with_rate(
+            positions,
+            evaluation_time,
+            Some(0.0),
+            DEFAULT_RISK_FREE_RATE,
             dividend_yield,
-        )?;
-        if let Some(long_volatility_shift) = long_volatility_shift {
-            ensure_finite(
-                "invalid_strategy_payoff_input",
-                "long_volatility_shift",
-                long_volatility_shift,
-            )?;
-        }
-        clock::parse_timestamp(evaluation_time).map_err(|error| {
-            OptionError::new(
-                "invalid_strategy_payoff_input",
-                format!("invalid evaluation_time: {error}"),
-            )
-        })?;
-
-        let mut total = Greeks::default();
-        for position in positions {
-            validate_strategy_position(position)?;
-            let quantity = f64::from(position.quantity);
-            let years = valuation_years(&position.contract.expiration_date, evaluation_time)?;
-            if years <= 0.0 {
-                continue;
-            }
-            let mut implied_volatility = position.implied_volatility.ok_or_else(|| {
-                OptionError::new(
-                    "invalid_strategy_payoff_input",
-                    format!(
-                        "implied_volatility is required before expiration: {}",
-                        position.contract.occ_symbol
-                    ),
-                )
-            })?;
-            if quantity > 0.0 {
-                implied_volatility += long_volatility_shift.unwrap_or(0.0);
-            }
-            ensure_positive(
-                "invalid_strategy_payoff_input",
-                "implied_volatility",
-                implied_volatility,
-            )?;
-
-            let greeks = pricing::greeks_black_scholes(&crate::BlackScholesInput {
-                spot: underlying_price,
-                strike: position.contract.strike,
-                years,
-                rate,
-                dividend_yield,
-                volatility: implied_volatility,
-                option_right: position.contract.option_right.clone(),
-            })?;
-
-            total.delta += greeks.delta * quantity * CONTRACT_MULTIPLIER;
-            total.gamma += greeks.gamma * quantity * CONTRACT_MULTIPLIER;
-            total.vega += greeks.vega * quantity * CONTRACT_MULTIPLIER;
-            total.theta += greeks.theta * quantity * CONTRACT_MULTIPLIER;
-            total.rho += greeks.rho * quantity * CONTRACT_MULTIPLIER;
-        }
+            long_volatility_shift,
+        )?
+        .prepared_greeks_at(underlying_price)?;
 
         total.delta *= strategy_quantity;
         total.gamma *= strategy_quantity;
@@ -673,6 +683,24 @@ impl OptionStrategy {
         total.rho *= strategy_quantity;
 
         Ok(total)
+    }
+
+    pub fn aggregate_model_greeks(
+        positions: &[StrategyValuationPosition],
+        underlying_price: f64,
+        evaluation_time: &str,
+        dividend_yield: Option<f64>,
+        long_volatility_shift: Option<f64>,
+        strategy_quantity: f64,
+    ) -> OptionResult<Greeks> {
+        Self::greeks_at(
+            positions,
+            evaluation_time,
+            underlying_price,
+            dividend_yield,
+            long_volatility_shift,
+            strategy_quantity,
+        )
     }
 }
 

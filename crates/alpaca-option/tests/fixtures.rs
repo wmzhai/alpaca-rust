@@ -7,8 +7,8 @@ use alpaca_option::{
     ExecutionLegInput, ExecutionSnapshot, OptionChain, OptionChainRecord, OptionContract,
     OptionPosition, OptionRight, OptionSnapshot, OptionStrategy, OptionStrategyInput,
     PayoffLegInput, QuotedLeg, RollLegSelection, StrategyBreakEvenInput, StrategyPnlInput,
-    StrategyValuationPosition, analysis, contract, execution_quote,
-    expiration_selection, math, numeric, option_strategy, payoff, pricing, probability, url,
+    StrategyValuationPosition, analysis, contract, execution_quote, expiration_selection, math,
+    numeric, option_strategy, payoff, pricing, probability, url,
 };
 
 fn repo_root() -> PathBuf {
@@ -1081,11 +1081,7 @@ fn run_case(case: &Value) -> Value {
         "option_strategy.snapshot_greeks" => serde_json::to_value(
             OptionStrategy::aggregate_snapshot_greeks(
                 &fixture_positions(input.get("positions").unwrap()),
-                input
-                    .get("strategy_quantity")
-                    .unwrap()
-                    .as_f64()
-                    .unwrap(),
+                input.get("strategy_quantity").unwrap().as_f64().unwrap(),
             )
             .unwrap(),
         )
@@ -1098,27 +1094,18 @@ fn run_case(case: &Value) -> Value {
                 .unwrap(),
                 input.get("underlying_price").unwrap().as_f64().unwrap(),
                 input.get("evaluation_time").unwrap().as_str().unwrap(),
-                input.get("rate").unwrap().as_f64().unwrap(),
                 input.get("dividend_yield").and_then(Value::as_f64),
-                input
-                    .get("long_volatility_shift")
-                    .and_then(Value::as_f64),
-                input
-                    .get("strategy_quantity")
-                    .unwrap()
-                    .as_f64()
-                    .unwrap(),
+                input.get("long_volatility_shift").and_then(Value::as_f64),
+                input.get("strategy_quantity").unwrap().as_f64().unwrap(),
             )
             .unwrap(),
         )
         .unwrap(),
         "option_strategy.curve" => {
-            let strategy =
-                OptionStrategy::from_input(&serde_json::from_value::<OptionStrategyInput>(
-                    input.clone(),
-                )
-                .unwrap())
-                .unwrap();
+            let strategy = OptionStrategy::from_input(
+                &serde_json::from_value::<OptionStrategyInput>(input.clone()).unwrap(),
+            )
+            .unwrap();
             serde_json::to_value(
                 strategy
                     .sample_curve(
