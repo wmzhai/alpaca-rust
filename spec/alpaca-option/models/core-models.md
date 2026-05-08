@@ -237,6 +237,61 @@ Notes:
 - `value` uses current snapshot mark price, `cost` uses `avg_cost`, and `spread` sums bid-ask spread by absolute leg quantity
 - strategy layers still own how these totals map onto strategy-specific display fields
 
+### `OptionStrategy`
+
+```text
+{
+  positions: OptionPosition[],
+  qty: integer,
+  underlying_price: number,
+  greeks: Greeks,
+  cost: number,
+  value: number,
+  pnl: number,
+  cashflow?: number,
+  spread?: number,
+  spread_rate?: number,
+  max_profit?: number,
+  max_loss?: number,
+  buying_power?: number,
+  pnl_at_expire?: number,
+  short_expire_delta?: number,
+  break_even_points: number[],
+  realtime_break_even_points: number[],
+  break_even_low_open: boolean,
+  break_even_high_open: boolean,
+  break_even_low_distance_percent: number,
+  break_even_high_distance_percent: number,
+  break_even_width?: number,
+  break_even_width_percent: number,
+  realtime_break_even_low_open: boolean,
+  realtime_break_even_high_open: boolean,
+  realtime_break_even_low_distance_percent: number,
+  realtime_break_even_high_distance_percent: number,
+  realtime_break_even_width?: number,
+  realtime_break_even_width_percent: number,
+  short_expiration?: string,
+  long_expiration?: string,
+  short_dte?: integer,
+  long_dte?: integer,
+  win_rate?: number,
+  theta_rate?: number,
+  theta_total?: number,
+  score?: number,
+  rank?: integer,
+  url?: string
+}
+```
+
+Constraints:
+
+- this is the serializable, TypeScript-exported state container for strategy-level option metrics
+- `positions` is the flat position list used by valuation; downstream business-specific views should be derived from it
+- `qty` is strategy-level quantity, while each `OptionPosition.qty` is a signed leg ratio
+- `underlying_price` is the only current-underlying field; do not add `current_underlying_price`
+- build/preview flows may call `calculate_cost_from_positions()` explicitly, while runtime flows should preserve true cost/cashflow from storage or orders
+- generic break-even helpers may write the shared break-even fields, but downstream strategies still own boundary selection and open-side interpretation
+
 ### `StrategyBreakEvenInput`
 
 ```text

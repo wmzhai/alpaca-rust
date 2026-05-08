@@ -13,14 +13,152 @@ use alpaca_time::clock;
 use alpaca_time::expiration;
 use rust_decimal::prelude::ToPrimitive;
 use rust_decimal::Decimal;
+use serde::{Deserialize, Serialize};
+use ts_rs::TS;
 
 const CONTRACT_MULTIPLIER: f64 = 100.0;
 
-#[derive(Debug, Clone)]
+mod decimal_number_contract {
+    pub use alpaca_core::decimal::number_contract::deserialize;
+    pub use alpaca_core::decimal::number_contract::serialize_decimal as serialize;
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize, TS)]
 pub struct OptionStrategy {
-    positions: Vec<OptionPosition>,
-    qty: i32,
+    #[serde(default)]
+    #[ts(type = "Array<import('@alpaca/option').OptionPosition>")]
+    pub positions: Vec<OptionPosition>,
+    pub qty: i32,
+    pub underlying_price: f64,
+    #[serde(default)]
+    #[ts(type = "import('@alpaca/option').Greeks")]
+    pub greeks: Greeks,
+    #[serde(with = "decimal_number_contract")]
+    #[ts(type = "number")]
+    pub cost: Decimal,
+    #[serde(with = "decimal_number_contract")]
+    #[ts(type = "number")]
+    pub value: Decimal,
+    #[serde(with = "decimal_number_contract")]
+    #[ts(type = "number")]
+    pub pnl: Decimal,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        with = "alpaca_core::decimal::number_contract::option_decimal"
+    )]
+    #[ts(optional, type = "number")]
+    pub cashflow: Option<Decimal>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        with = "alpaca_core::decimal::number_contract::option_decimal"
+    )]
+    #[ts(optional, type = "number")]
+    pub spread: Option<Decimal>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub spread_rate: Option<f64>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        with = "alpaca_core::decimal::number_contract::option_decimal"
+    )]
+    #[ts(optional, type = "number")]
+    pub max_profit: Option<Decimal>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        with = "alpaca_core::decimal::number_contract::option_decimal"
+    )]
+    #[ts(optional, type = "number")]
+    pub max_loss: Option<Decimal>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        with = "alpaca_core::decimal::number_contract::option_decimal"
+    )]
+    #[ts(optional, type = "number")]
+    pub buying_power: Option<Decimal>,
+    #[serde(default)]
+    pub break_even_points: Vec<f64>,
+    #[serde(default)]
+    pub realtime_break_even_points: Vec<f64>,
+    #[serde(default)]
+    pub break_even_low_open: bool,
+    #[serde(default)]
+    pub break_even_high_open: bool,
+    #[serde(default)]
+    pub break_even_low_distance_percent: f64,
+    #[serde(default)]
+    pub break_even_high_distance_percent: f64,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        with = "alpaca_core::decimal::number_contract::option_decimal"
+    )]
+    #[ts(optional, type = "number")]
+    pub break_even_width: Option<Decimal>,
+    #[serde(default)]
+    pub break_even_width_percent: f64,
+    #[serde(default)]
+    pub realtime_break_even_low_open: bool,
+    #[serde(default)]
+    pub realtime_break_even_high_open: bool,
+    #[serde(default)]
+    pub realtime_break_even_low_distance_percent: f64,
+    #[serde(default)]
+    pub realtime_break_even_high_distance_percent: f64,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        with = "alpaca_core::decimal::number_contract::option_decimal"
+    )]
+    #[ts(optional, type = "number")]
+    pub realtime_break_even_width: Option<Decimal>,
+    #[serde(default)]
+    pub realtime_break_even_width_percent: f64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub pnl_at_expire: Option<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub short_expire_delta: Option<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub short_expiration: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub long_expiration: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub short_dte: Option<i32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub long_dte: Option<i32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub win_rate: Option<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub theta_rate: Option<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub theta_total: Option<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub score: Option<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub rank: Option<usize>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub url: Option<String>,
+    #[serde(skip)]
+    #[ts(skip)]
     entry_cost: f64,
+    #[serde(skip)]
+    #[ts(skip)]
     dividend_yield: f64,
 }
 
@@ -47,453 +185,425 @@ fn ensure_positive(code: &'static str, name: &str, value: f64) -> OptionResult<(
     }
 }
 
-fn strategy_position_contract(position: &OptionPosition) -> OptionResult<OptionContract> {
-    contract::parse_occ_symbol(position.occ_symbol()).ok_or_else(|| {
-        OptionError::new(
-            "invalid_occ_symbol",
-            format!("invalid occ symbol: {}", position.occ_symbol()),
-        )
-    })
-}
-
-fn validate_strategy_position(
-    position: &OptionPosition,
-    contract: &OptionContract,
-) -> OptionResult<()> {
-    ensure_positive(
-        "invalid_strategy_payoff_input",
-        "contract.strike",
-        contract.strike,
-    )?;
-    if position.qty == 0 {
-        return Err(OptionError::new(
-            "invalid_strategy_payoff_input",
-            "quantity must not be zero",
-        ));
+impl OptionStrategy {
+    fn position_contract(position: &OptionPosition) -> OptionResult<OptionContract> {
+        contract::parse_occ_symbol(position.occ_symbol()).ok_or_else(|| {
+            OptionError::new(
+                "invalid_occ_symbol",
+                format!("invalid occ symbol: {}", position.occ_symbol()),
+            )
+        })
     }
-    ensure_finite(
-        "invalid_strategy_payoff_input",
-        "avg_cost",
-        position.avg_cost(),
-    )?;
-    if let Some(implied_volatility) = position
-        .snapshot_ref()
-        .and_then(|snapshot| snapshot.implied_volatility)
-    {
+
+    fn validate_position(position: &OptionPosition, contract: &OptionContract) -> OptionResult<()> {
+        ensure_positive(
+            "invalid_strategy_payoff_input",
+            "contract.strike",
+            contract.strike,
+        )?;
+        if position.qty == 0 {
+            return Err(OptionError::new(
+                "invalid_strategy_payoff_input",
+                "quantity must not be zero",
+            ));
+        }
         ensure_finite(
             "invalid_strategy_payoff_input",
-            "implied_volatility",
-            implied_volatility,
+            "avg_cost",
+            position.avg_cost(),
         )?;
-    }
-    if let Some(snapshot) = position.snapshot_ref() {
-        ensure_finite(
-            "invalid_strategy_payoff_input",
-            "mark_price",
-            snapshot.price(),
-        )?;
-        ensure_finite(
-            "invalid_strategy_payoff_input",
-            "reference_underlying_price",
-            snapshot.underlying_price(),
-        )?;
-    }
-    Ok(())
-}
-
-fn valuation_years(expiration_date: &str, evaluation_time: &str) -> OptionResult<f64> {
-    expiration::close(expiration_date).map_err(|error| {
-        OptionError::new(
-            "invalid_strategy_payoff_input",
-            format!("invalid expiration context for {expiration_date}: {error}"),
-        )
-    })?;
-    Ok(expiration::years(
-        expiration_date,
-        Some(evaluation_time),
-        None,
-    ))
-}
-
-fn validate_strategy_qty(qty: i32) -> OptionResult<i32> {
-    if qty > 0 {
-        Ok(qty)
-    } else {
-        Err(OptionError::new(
-            "invalid_strategy_payoff_input",
-            format!("qty must be greater than zero: {qty}"),
-        ))
-    }
-}
-
-fn strategy_entry_cost(
-    positions: &[OptionPosition],
-    qty: i32,
-    entry_cost: Option<f64>,
-) -> OptionResult<f64> {
-    if let Some(entry_cost) = entry_cost {
-        ensure_finite("invalid_strategy_payoff_input", "entry_cost", entry_cost)?;
-        return Ok(entry_cost);
-    }
-
-    let mut total = 0.0;
-    for position in positions {
-        total += position.avg_cost() * f64::from(position.qty) * CONTRACT_MULTIPLIER;
-    }
-    Ok(total * f64::from(qty))
-}
-
-fn prepare_strategy_context(
-    positions: &[OptionPosition],
-    qty: i32,
-    evaluation_time: &str,
-    entry_cost: Option<f64>,
-    dividend_yield: Option<f64>,
-) -> OptionResult<(Vec<OptionPosition>, f64, f64)> {
-    let dividend_yield = dividend_yield.unwrap_or(0.0);
-    ensure_finite(
-        "invalid_strategy_payoff_input",
-        "dividend_yield",
-        dividend_yield,
-    )?;
-
-    clock::parse_timestamp(evaluation_time).map_err(|error| {
-        OptionError::new(
-            "invalid_strategy_payoff_input",
-            format!("invalid evaluation_time: {error}"),
-        )
-    })?;
-
-    let qty = validate_strategy_qty(qty)?;
-    let entry_cost = strategy_entry_cost(positions, qty, entry_cost)?;
-    let mut prepared = Vec::with_capacity(positions.len());
-    for position in positions {
-        let contract = strategy_position_contract(position)?;
-        validate_strategy_position(position, &contract)?;
-        let years = valuation_years(&contract.expiration_date, evaluation_time)?;
-        if years > 0.0 {
-            let implied_volatility = position
-                .snapshot_ref()
-                .and_then(|snapshot| snapshot.implied_volatility)
-                .ok_or_else(|| {
-                    OptionError::new(
-                        "invalid_strategy_payoff_input",
-                        format!(
-                            "implied_volatility is required before expiration: {}",
-                            position.occ_symbol()
-                        ),
-                    )
-                })?;
-            ensure_positive(
+        if let Some(implied_volatility) = position
+            .snapshot_ref()
+            .and_then(|snapshot| snapshot.implied_volatility)
+        {
+            ensure_finite(
                 "invalid_strategy_payoff_input",
                 "implied_volatility",
                 implied_volatility,
             )?;
         }
-
-        let mut prepared_position = position.clone();
-        prepared_position.option_right = Some(contract.option_right);
-        prepared_position.strike = Some(contract.strike);
-        prepared_position.valuation_years = Some(years);
-        prepared.push(prepared_position);
+        if let Some(snapshot) = position.snapshot_ref() {
+            ensure_finite(
+                "invalid_strategy_payoff_input",
+                "mark_price",
+                snapshot.price(),
+            )?;
+            ensure_finite(
+                "invalid_strategy_payoff_input",
+                "reference_underlying_price",
+                snapshot.underlying_price(),
+            )?;
+        }
+        Ok(())
     }
 
-    Ok((prepared, entry_cost, dividend_yield))
-}
+    fn valuation_years(expiration_date: &str, evaluation_time: &str) -> OptionResult<f64> {
+        expiration::close(expiration_date).map_err(|error| {
+            OptionError::new(
+                "invalid_strategy_payoff_input",
+                format!("invalid expiration context for {expiration_date}: {error}"),
+            )
+        })?;
+        Ok(expiration::years(
+            expiration_date,
+            Some(evaluation_time),
+            None,
+        ))
+    }
 
-fn prepared_option_right(position: &OptionPosition) -> OptionResult<OptionRight> {
-    position.option_right.clone().ok_or_else(|| {
-        OptionError::new(
+    fn validate_strategy_qty(qty: i32) -> OptionResult<i32> {
+        if qty > 0 {
+            Ok(qty)
+        } else {
+            Err(OptionError::new(
+                "invalid_strategy_payoff_input",
+                format!("qty must be greater than zero: {qty}"),
+            ))
+        }
+    }
+
+    fn entry_cost_from_positions(
+        positions: &[OptionPosition],
+        qty: i32,
+        entry_cost: Option<f64>,
+    ) -> OptionResult<f64> {
+        if let Some(entry_cost) = entry_cost {
+            ensure_finite("invalid_strategy_payoff_input", "entry_cost", entry_cost)?;
+            return Ok(entry_cost);
+        }
+
+        let mut total = 0.0;
+        for position in positions {
+            total += position.avg_cost() * f64::from(position.qty) * CONTRACT_MULTIPLIER;
+        }
+        Ok(total * f64::from(qty))
+    }
+
+    fn prepare_context(
+        positions: &[OptionPosition],
+        qty: i32,
+        evaluation_time: &str,
+        entry_cost: Option<f64>,
+        dividend_yield: Option<f64>,
+    ) -> OptionResult<(Vec<OptionPosition>, f64, f64)> {
+        let dividend_yield = dividend_yield.unwrap_or(0.0);
+        ensure_finite(
             "invalid_strategy_payoff_input",
-            format!("option_right is required on prepared position: {}", position.occ_symbol()),
-        )
-    })
-}
+            "dividend_yield",
+            dividend_yield,
+        )?;
 
-fn prepared_strike(position: &OptionPosition) -> OptionResult<f64> {
-    position.strike.ok_or_else(|| {
-        OptionError::new(
-            "invalid_strategy_payoff_input",
-            format!("strike is required on prepared position: {}", position.occ_symbol()),
-        )
-    })
-}
+        clock::parse_timestamp(evaluation_time).map_err(|error| {
+            OptionError::new(
+                "invalid_strategy_payoff_input",
+                format!("invalid evaluation_time: {error}"),
+            )
+        })?;
 
-fn prepared_years(position: &OptionPosition) -> OptionResult<f64> {
-    position.valuation_years.ok_or_else(|| {
-        OptionError::new(
-            "invalid_strategy_payoff_input",
-            format!(
-                "valuation_years is required on prepared position: {}",
-                position.occ_symbol()
-            ),
-        )
-    })
-}
+        let qty = Self::validate_strategy_qty(qty)?;
+        let entry_cost = Self::entry_cost_from_positions(positions, qty, entry_cost)?;
+        let mut prepared = Vec::with_capacity(positions.len());
+        for position in positions {
+            let contract = Self::position_contract(position)?;
+            Self::validate_position(position, &contract)?;
+            let years = Self::valuation_years(&contract.expiration_date, evaluation_time)?;
+            if years > 0.0 {
+                let implied_volatility = position
+                    .snapshot_ref()
+                    .and_then(|snapshot| snapshot.implied_volatility)
+                    .ok_or_else(|| {
+                        OptionError::new(
+                            "invalid_strategy_payoff_input",
+                            format!(
+                                "implied_volatility is required before expiration: {}",
+                                position.occ_symbol()
+                            ),
+                        )
+                    })?;
+                ensure_positive(
+                    "invalid_strategy_payoff_input",
+                    "implied_volatility",
+                    implied_volatility,
+                )?;
+            }
 
-fn prepared_implied_volatility(position: &OptionPosition) -> OptionResult<f64> {
-    position
-        .snapshot_ref()
-        .and_then(|snapshot| snapshot.implied_volatility)
-        .ok_or_else(|| {
+            let mut prepared_position = position.clone();
+            prepared_position.option_right = Some(contract.option_right);
+            prepared_position.strike = Some(contract.strike);
+            prepared_position.valuation_years = Some(years);
+            prepared.push(prepared_position);
+        }
+
+        Ok((prepared, entry_cost, dividend_yield))
+    }
+
+    fn prepared_option_right(position: &OptionPosition) -> OptionResult<OptionRight> {
+        position.option_right.clone().ok_or_else(|| {
             OptionError::new(
                 "invalid_strategy_payoff_input",
                 format!(
-                    "implied_volatility is required before expiration: {}",
+                    "option_right is required on prepared position: {}",
                     position.occ_symbol()
                 ),
             )
         })
-}
+    }
 
-fn strategy_mark_value_prepared(
-    positions: &[OptionPosition],
-    underlying_price: f64,
-    dividend_yield: f64,
-) -> OptionResult<f64> {
-    ensure_finite(
-        "invalid_strategy_payoff_input",
-        "underlying_price",
-        underlying_price,
-    )?;
-    if underlying_price < 0.0 {
-        return Err(OptionError::new(
+    fn prepared_strike(position: &OptionPosition) -> OptionResult<f64> {
+        position.strike.ok_or_else(|| {
+            OptionError::new(
+                "invalid_strategy_payoff_input",
+                format!(
+                    "strike is required on prepared position: {}",
+                    position.occ_symbol()
+                ),
+            )
+        })
+    }
+
+    fn prepared_years(position: &OptionPosition) -> OptionResult<f64> {
+        position.valuation_years.ok_or_else(|| {
+            OptionError::new(
+                "invalid_strategy_payoff_input",
+                format!(
+                    "valuation_years is required on prepared position: {}",
+                    position.occ_symbol()
+                ),
+            )
+        })
+    }
+
+    fn prepared_implied_volatility(position: &OptionPosition) -> OptionResult<f64> {
+        position
+            .snapshot_ref()
+            .and_then(|snapshot| snapshot.implied_volatility)
+            .ok_or_else(|| {
+                OptionError::new(
+                    "invalid_strategy_payoff_input",
+                    format!(
+                        "implied_volatility is required before expiration: {}",
+                        position.occ_symbol()
+                    ),
+                )
+            })
+    }
+
+    fn mark_value_prepared(
+        positions: &[OptionPosition],
+        underlying_price: f64,
+        dividend_yield: f64,
+    ) -> OptionResult<f64> {
+        ensure_finite(
             "invalid_strategy_payoff_input",
-            format!("underlying_price must be non-negative: {underlying_price}"),
-        ));
+            "underlying_price",
+            underlying_price,
+        )?;
+        if underlying_price < 0.0 {
+            return Err(OptionError::new(
+                "invalid_strategy_payoff_input",
+                format!("underlying_price must be non-negative: {underlying_price}"),
+            ));
+        }
+        ensure_finite(
+            "invalid_strategy_payoff_input",
+            "rate",
+            DEFAULT_RISK_FREE_RATE,
+        )?;
+
+        let mut total = 0.0;
+        for position in positions {
+            let option_right = Self::prepared_option_right(position)?;
+            let strike = Self::prepared_strike(position)?;
+            let years = Self::prepared_years(position)?;
+            let option_value = if years <= 0.0 {
+                pricing::intrinsic_value(underlying_price, strike, option_right.as_str())?
+            } else {
+                pricing::price_black_scholes(&crate::BlackScholesInput {
+                    spot: underlying_price,
+                    strike,
+                    years,
+                    rate: DEFAULT_RISK_FREE_RATE,
+                    dividend_yield,
+                    volatility: Self::prepared_implied_volatility(position)?,
+                    option_right,
+                })?
+            };
+            total += option_value * f64::from(position.qty) * CONTRACT_MULTIPLIER;
+        }
+        Ok(total)
     }
-    ensure_finite(
-        "invalid_strategy_payoff_input",
-        "rate",
-        DEFAULT_RISK_FREE_RATE,
-    )?;
 
-    let mut total = 0.0;
-    for position in positions {
-        let option_right = prepared_option_right(position)?;
-        let strike = prepared_strike(position)?;
-        let years = prepared_years(position)?;
-        let option_value = if years <= 0.0 {
-            pricing::intrinsic_value(underlying_price, strike, option_right.as_str())?
-        } else {
-            pricing::price_black_scholes(&crate::BlackScholesInput {
-                spot: underlying_price,
-                strike,
-                years,
-                rate: DEFAULT_RISK_FREE_RATE,
-                dividend_yield,
-                volatility: prepared_implied_volatility(position)?,
-                option_right,
-            })?
-        };
-        total += option_value * f64::from(position.qty) * CONTRACT_MULTIPLIER;
-    }
-    Ok(total)
-}
-
-fn expiry_intrinsic_greeks(
-    underlying_price: f64,
-    strike: f64,
-    option_right: &OptionRight,
-) -> Greeks {
-    let delta = match option_right {
-        OptionRight::Call if underlying_price > strike => 1.0,
-        OptionRight::Call if underlying_price < strike => 0.0,
-        OptionRight::Call => 0.5,
-        OptionRight::Put if underlying_price < strike => -1.0,
-        OptionRight::Put if underlying_price > strike => 0.0,
-        OptionRight::Put => -0.5,
-    };
-
-    Greeks {
-        delta,
-        ..Default::default()
-    }
-}
-
-fn strategy_greeks_prepared(
-    positions: &[OptionPosition],
-    underlying_price: f64,
-    dividend_yield: f64,
-) -> OptionResult<Greeks> {
-    ensure_positive(
-        "invalid_strategy_payoff_input",
-        "underlying_price",
-        underlying_price,
-    )?;
-    ensure_finite(
-        "invalid_strategy_payoff_input",
-        "rate",
-        DEFAULT_RISK_FREE_RATE,
-    )?;
-
-    let mut total = Greeks::default();
-    for position in positions {
-        let option_right = prepared_option_right(position)?;
-        let strike = prepared_strike(position)?;
-        let years = prepared_years(position)?;
-        let greeks = if years <= 0.0 {
-            expiry_intrinsic_greeks(underlying_price, strike, &option_right)
-        } else {
-            pricing::greeks_black_scholes(&crate::BlackScholesInput {
-                spot: underlying_price,
-                strike,
-                years,
-                rate: DEFAULT_RISK_FREE_RATE,
-                dividend_yield,
-                volatility: prepared_implied_volatility(position)?,
-                option_right,
-            })?
+    fn expiry_intrinsic_greeks(
+        underlying_price: f64,
+        strike: f64,
+        option_right: &OptionRight,
+    ) -> Greeks {
+        let delta = match option_right {
+            OptionRight::Call if underlying_price > strike => 1.0,
+            OptionRight::Call if underlying_price < strike => 0.0,
+            OptionRight::Call => 0.5,
+            OptionRight::Put if underlying_price < strike => -1.0,
+            OptionRight::Put if underlying_price > strike => 0.0,
+            OptionRight::Put => -0.5,
         };
 
-        let quantity = f64::from(position.qty);
-        total.delta += greeks.delta * quantity * CONTRACT_MULTIPLIER;
-        total.gamma += greeks.gamma * quantity * CONTRACT_MULTIPLIER;
-        total.vega += greeks.vega * quantity * CONTRACT_MULTIPLIER;
-        total.theta += greeks.theta * quantity * CONTRACT_MULTIPLIER;
-        total.rho += greeks.rho * quantity * CONTRACT_MULTIPLIER;
-    }
-
-    Ok(total)
-}
-
-fn push_unique_root(roots: &mut Vec<f64>, root: f64, tolerance: f64) {
-    if roots
-        .iter()
-        .any(|existing| (*existing - root).abs() <= tolerance)
-    {
-        return;
-    }
-    roots.push(root);
-}
-
-pub fn unique_break_even_points(points: impl IntoIterator<Item = f64>, tolerance: f64) -> Vec<f64> {
-    let tolerance = if tolerance.is_finite() && tolerance > 0.0 {
-        tolerance
-    } else {
-        1e-6
-    };
-    let mut unique = Vec::new();
-    for point in points {
-        if !point.is_finite() {
-            continue;
+        Greeks {
+            delta,
+            ..Default::default()
         }
-        if unique
-            .iter()
-            .any(|existing: &f64| (*existing - point).abs() <= tolerance * 10.0)
-        {
-            continue;
+    }
+
+    fn greeks_prepared(
+        positions: &[OptionPosition],
+        underlying_price: f64,
+        dividend_yield: f64,
+    ) -> OptionResult<Greeks> {
+        ensure_positive(
+            "invalid_strategy_payoff_input",
+            "underlying_price",
+            underlying_price,
+        )?;
+        ensure_finite(
+            "invalid_strategy_payoff_input",
+            "rate",
+            DEFAULT_RISK_FREE_RATE,
+        )?;
+
+        let mut total = Greeks::default();
+        for position in positions {
+            let option_right = Self::prepared_option_right(position)?;
+            let strike = Self::prepared_strike(position)?;
+            let years = Self::prepared_years(position)?;
+            let greeks = if years <= 0.0 {
+                Self::expiry_intrinsic_greeks(underlying_price, strike, &option_right)
+            } else {
+                pricing::greeks_black_scholes(&crate::BlackScholesInput {
+                    spot: underlying_price,
+                    strike,
+                    years,
+                    rate: DEFAULT_RISK_FREE_RATE,
+                    dividend_yield,
+                    volatility: Self::prepared_implied_volatility(position)?,
+                    option_right,
+                })?
+            };
+
+            let quantity = f64::from(position.qty);
+            total.delta += greeks.delta * quantity * CONTRACT_MULTIPLIER;
+            total.gamma += greeks.gamma * quantity * CONTRACT_MULTIPLIER;
+            total.vega += greeks.vega * quantity * CONTRACT_MULTIPLIER;
+            total.theta += greeks.theta * quantity * CONTRACT_MULTIPLIER;
+            total.rho += greeks.rho * quantity * CONTRACT_MULTIPLIER;
         }
-        unique.push(point);
-    }
-    unique.sort_by(|left, right| left.total_cmp(right));
-    unique
-}
 
-fn strategy_position_totals(
-    positions: &[OptionPosition],
-    qty: i32,
-) -> StrategyPositionTotals {
-    let quantity = Decimal::from(qty);
-    let quantity_abs = Decimal::from(qty.unsigned_abs());
-    let mut value = Decimal::ZERO;
-    let mut cost = Decimal::ZERO;
-    let mut spread = Decimal::ZERO;
-
-    for position in positions {
-        value += position.value();
-        cost += position.cost();
-
-        let spread_per_contract =
-            alpaca_core::decimal::from_f64(snapshot::spread(&position.snapshot), 2);
-        spread +=
-            spread_per_contract * Decimal::from(position.qty.unsigned_abs()) * Decimal::from(100);
+        Ok(total)
     }
 
-    value *= quantity;
-    cost *= quantity;
-    spread *= quantity_abs;
+    fn position_totals_for(positions: &[OptionPosition], qty: i32) -> StrategyPositionTotals {
+        let quantity = Decimal::from(qty);
+        let quantity_abs = Decimal::from(qty.unsigned_abs());
+        let mut value = Decimal::ZERO;
+        let mut cost = Decimal::ZERO;
+        let mut spread = Decimal::ZERO;
 
-    let cost_f64 = cost.to_f64().unwrap_or(0.0);
-    let spread_rate = if cost_f64.abs() > 1e-10 {
-        let spread_f64 = spread.to_f64().unwrap_or(0.0);
-        Some(spread_f64 / cost_f64.abs())
-    } else {
-        None
-    };
+        for position in positions {
+            value += position.value();
+            cost += position.cost();
 
-    StrategyPositionTotals {
-        value,
-        cost,
-        spread,
-        spread_rate,
-    }
-}
+            let spread_per_contract =
+                alpaca_core::decimal::from_f64(snapshot::spread(&position.snapshot), 2);
+            spread += spread_per_contract
+                * Decimal::from(position.qty.unsigned_abs())
+                * Decimal::from(100);
+        }
 
-fn validate_break_even_params(
-    lower_bound: f64,
-    upper_bound: f64,
-    scan_step: Option<f64>,
-    tolerance: Option<f64>,
-    max_iterations: Option<usize>,
-) -> OptionResult<(f64, f64, usize)> {
-    ensure_finite("invalid_strategy_payoff_input", "lower_bound", lower_bound)?;
-    ensure_finite("invalid_strategy_payoff_input", "upper_bound", upper_bound)?;
-    if lower_bound >= upper_bound {
-        return Err(OptionError::new(
-            "invalid_strategy_payoff_input",
-            format!("lower_bound must be less than upper_bound: {lower_bound} >= {upper_bound}"),
-        ));
-    }
+        value *= quantity;
+        cost *= quantity;
+        spread *= quantity_abs;
 
-    let tolerance = tolerance.unwrap_or(1e-9);
-    ensure_positive("invalid_strategy_payoff_input", "tolerance", tolerance)?;
-    let scan_step = scan_step.unwrap_or(1.0);
-    ensure_positive("invalid_strategy_payoff_input", "scan_step", scan_step)?;
-    let max_iterations = max_iterations.unwrap_or(100);
-    if max_iterations == 0 {
-        return Err(OptionError::new(
-            "invalid_strategy_payoff_input",
-            "max_iterations must be greater than zero",
-        ));
+        let cost_f64 = cost.to_f64().unwrap_or(0.0);
+        let spread_rate = if cost_f64.abs() > 1e-10 {
+            let spread_f64 = spread.to_f64().unwrap_or(0.0);
+            Some(spread_f64 / cost_f64.abs())
+        } else {
+            None
+        };
+
+        StrategyPositionTotals {
+            value,
+            cost,
+            spread,
+            spread_rate,
+        }
     }
 
-    Ok((tolerance, scan_step, max_iterations))
-}
+    fn validate_break_even_params(
+        lower_bound: f64,
+        upper_bound: f64,
+        scan_step: Option<f64>,
+        tolerance: Option<f64>,
+        max_iterations: Option<usize>,
+    ) -> OptionResult<(f64, f64, usize)> {
+        ensure_finite("invalid_strategy_payoff_input", "lower_bound", lower_bound)?;
+        ensure_finite("invalid_strategy_payoff_input", "upper_bound", upper_bound)?;
+        if lower_bound >= upper_bound {
+            return Err(OptionError::new(
+                "invalid_strategy_payoff_input",
+                format!(
+                    "lower_bound must be less than upper_bound: {lower_bound} >= {upper_bound}"
+                ),
+            ));
+        }
 
-fn validate_break_even_bracket_params(
-    lower_bound: f64,
-    upper_bound: f64,
-    tolerance: Option<f64>,
-    max_iterations: Option<usize>,
-) -> OptionResult<(f64, usize)> {
-    ensure_finite("invalid_strategy_payoff_input", "lower_bound", lower_bound)?;
-    ensure_finite("invalid_strategy_payoff_input", "upper_bound", upper_bound)?;
-    if lower_bound >= upper_bound {
-        return Err(OptionError::new(
-            "invalid_strategy_payoff_input",
-            format!("lower_bound must be less than upper_bound: {lower_bound} >= {upper_bound}"),
-        ));
+        let tolerance = tolerance.unwrap_or(1e-9);
+        ensure_positive("invalid_strategy_payoff_input", "tolerance", tolerance)?;
+        let scan_step = scan_step.unwrap_or(1.0);
+        ensure_positive("invalid_strategy_payoff_input", "scan_step", scan_step)?;
+        let max_iterations = max_iterations.unwrap_or(100);
+        if max_iterations == 0 {
+            return Err(OptionError::new(
+                "invalid_strategy_payoff_input",
+                "max_iterations must be greater than zero",
+            ));
+        }
+
+        Ok((tolerance, scan_step, max_iterations))
     }
 
-    let tolerance = tolerance.unwrap_or(1e-9);
-    ensure_positive("invalid_strategy_payoff_input", "tolerance", tolerance)?;
-    let max_iterations = max_iterations.unwrap_or(100);
-    if max_iterations == 0 {
-        return Err(OptionError::new(
-            "invalid_strategy_payoff_input",
-            "max_iterations must be greater than zero",
-        ));
+    fn validate_break_even_bracket_params(
+        lower_bound: f64,
+        upper_bound: f64,
+        tolerance: Option<f64>,
+        max_iterations: Option<usize>,
+    ) -> OptionResult<(f64, usize)> {
+        ensure_finite("invalid_strategy_payoff_input", "lower_bound", lower_bound)?;
+        ensure_finite("invalid_strategy_payoff_input", "upper_bound", upper_bound)?;
+        if lower_bound >= upper_bound {
+            return Err(OptionError::new(
+                "invalid_strategy_payoff_input",
+                format!(
+                    "lower_bound must be less than upper_bound: {lower_bound} >= {upper_bound}"
+                ),
+            ));
+        }
+
+        let tolerance = tolerance.unwrap_or(1e-9);
+        ensure_positive("invalid_strategy_payoff_input", "tolerance", tolerance)?;
+        let max_iterations = max_iterations.unwrap_or(100);
+        if max_iterations == 0 {
+            return Err(OptionError::new(
+                "invalid_strategy_payoff_input",
+                "max_iterations must be greater than zero",
+            ));
+        }
+
+        Ok((tolerance, max_iterations))
     }
 
-    Ok((tolerance, max_iterations))
-}
-
-impl OptionStrategy {
     pub fn expiration_time(positions: &[OptionPosition]) -> OptionResult<String> {
         let mut expiration_dates = Vec::with_capacity(positions.len());
         for position in positions {
-            let contract = strategy_position_contract(position)?;
+            let contract = Self::position_contract(position)?;
             if !contract.expiration_date.trim().is_empty() {
                 expiration_dates.push(contract.expiration_date);
             }
@@ -543,19 +653,55 @@ impl OptionStrategy {
         entry_cost: Option<f64>,
         dividend_yield: Option<f64>,
     ) -> OptionResult<Self> {
-        let (prepared, entry_cost, dividend_yield) = prepare_strategy_context(
-            positions,
-            qty,
-            evaluation_time,
-            entry_cost,
-            dividend_yield,
-        )?;
-        Ok(Self {
+        let (prepared, entry_cost, dividend_yield) =
+            Self::prepare_context(positions, qty, evaluation_time, entry_cost, dividend_yield)?;
+        let mut strategy = Self {
             positions: prepared,
             qty,
+            underlying_price: 0.0,
+            greeks: Greeks::default(),
+            cost: alpaca_core::decimal::from_f64(entry_cost, 2),
+            value: Decimal::ZERO,
+            pnl: Decimal::ZERO,
+            cashflow: None,
+            spread: None,
+            spread_rate: None,
+            max_profit: None,
+            max_loss: None,
+            buying_power: None,
+            break_even_points: Vec::new(),
+            realtime_break_even_points: Vec::new(),
+            break_even_low_open: false,
+            break_even_high_open: false,
+            break_even_low_distance_percent: 0.0,
+            break_even_high_distance_percent: 0.0,
+            break_even_width: None,
+            break_even_width_percent: 0.0,
+            realtime_break_even_low_open: false,
+            realtime_break_even_high_open: false,
+            realtime_break_even_low_distance_percent: 0.0,
+            realtime_break_even_high_distance_percent: 0.0,
+            realtime_break_even_width: None,
+            realtime_break_even_width_percent: 0.0,
+            pnl_at_expire: None,
+            short_expire_delta: None,
+            short_expiration: None,
+            long_expiration: None,
+            short_dte: None,
+            long_dte: None,
+            win_rate: None,
+            theta_rate: None,
+            theta_total: None,
+            score: None,
+            rank: None,
+            url: None,
             entry_cost,
             dividend_yield,
-        })
+        };
+        strategy.calculate_value();
+        strategy.calculate_spread();
+        strategy.calculate_pnl();
+        Ok(strategy)
     }
 
     pub fn pnl_at(&self, underlying_price: f64) -> OptionResult<f64> {
@@ -563,23 +709,172 @@ impl OptionStrategy {
     }
 
     pub fn mark_value_at(&self, underlying_price: f64) -> OptionResult<f64> {
-        Ok(strategy_mark_value_prepared(
-            &self.positions,
-            underlying_price,
-            self.dividend_yield,
-        )? * f64::from(self.qty))
+        Ok(
+            Self::mark_value_prepared(&self.positions, underlying_price, self.dividend_yield)?
+                * f64::from(self.qty),
+        )
     }
 
     pub fn positions(&self) -> &[OptionPosition] {
         &self.positions
     }
 
+    pub fn qty_or_one(&self) -> i32 {
+        self.qty.max(1)
+    }
+
+    pub fn underlying_price_f64(&self) -> Option<f64> {
+        (self.underlying_price.is_finite() && self.underlying_price > 0.0)
+            .then_some(self.underlying_price)
+    }
+
+    fn effective_entry_cost(&self) -> Decimal {
+        self.cashflow.map(|cashflow| -cashflow).unwrap_or(self.cost)
+    }
+
+    fn sync_entry_cost_from_state(&mut self) {
+        self.entry_cost = self.effective_entry_cost().to_f64().unwrap_or(0.0);
+    }
+
+    pub fn calculate_position_totals(&mut self) -> StrategyPositionTotals {
+        let totals = self.position_totals();
+        self.value = totals.value;
+        self.cost = totals.cost;
+        self.entry_cost = totals.cost.to_f64().unwrap_or(0.0);
+        self.spread = Some(totals.spread);
+        self.spread_rate = totals.spread_rate;
+        self.pnl = self.value - self.cost;
+        totals
+    }
+
+    pub fn calculate_cost_from_positions(&mut self) -> Decimal {
+        let totals = self.position_totals();
+        self.cost = totals.cost;
+        self.entry_cost = totals.cost.to_f64().unwrap_or(0.0);
+        self.cost
+    }
+
+    pub fn calculate_value(&mut self) -> Decimal {
+        self.value = self.position_totals().value;
+        self.value
+    }
+
+    pub fn calculate_pnl(&mut self) -> Decimal {
+        self.sync_entry_cost_from_state();
+        self.pnl = self.value - self.effective_entry_cost();
+        self.pnl
+    }
+
+    pub fn calculate_spread(&mut self) -> Option<Decimal> {
+        let totals = self.position_totals();
+        self.spread = Some(totals.spread);
+        self.spread_rate = totals.spread_rate;
+        self.spread
+    }
+
+    pub fn calculate_greeks(&mut self) -> OptionResult<Greeks> {
+        if self.underlying_price > 0.0 {
+            self.greeks = self.greeks_at(self.underlying_price)?;
+        } else {
+            self.greeks = Self::aggregate_snapshot_greeks(&self.positions, self.qty)?;
+        }
+        Ok(self.greeks.clone())
+    }
+
+    pub fn calculate_expire_pnl(&mut self) -> OptionResult<Option<f64>> {
+        self.sync_entry_cost_from_state();
+        if self.underlying_price <= 0.0 {
+            self.pnl_at_expire = None;
+            return Ok(None);
+        }
+        let pnl = self.pnl_at(self.underlying_price)?;
+        self.pnl_at_expire = Some(pnl);
+        Ok(self.pnl_at_expire)
+    }
+
+    pub fn calculate_short_expire_delta(&mut self) -> OptionResult<Option<f64>> {
+        if self.underlying_price <= 0.0 {
+            self.short_expire_delta = None;
+            return Ok(None);
+        }
+        let mut delta = 0.0;
+        for position in &self.positions {
+            if position.qty >= 0 {
+                continue;
+            }
+            let option_right = Self::prepared_option_right(position)?;
+            let strike = Self::prepared_strike(position)?;
+            let greeks =
+                Self::expiry_intrinsic_greeks(self.underlying_price, strike, &option_right);
+            delta +=
+                greeks.delta * f64::from(position.qty) * CONTRACT_MULTIPLIER * f64::from(self.qty);
+        }
+        self.short_expire_delta = Some(delta);
+        Ok(self.short_expire_delta)
+    }
+
+    pub fn calculate_break_even_points(
+        &mut self,
+        lower_bound: f64,
+        upper_bound: f64,
+        scan_step: Option<f64>,
+        tolerance: Option<f64>,
+        max_iterations: Option<usize>,
+    ) -> OptionResult<Vec<f64>> {
+        self.sync_entry_cost_from_state();
+        self.break_even_points = self.break_even_points(
+            lower_bound,
+            upper_bound,
+            scan_step,
+            tolerance,
+            max_iterations,
+        )?;
+        Ok(self.break_even_points.clone())
+    }
+
+    pub fn calculate_realtime_break_even_points(
+        &mut self,
+        current_price: f64,
+        left_boundary: f64,
+        right_boundary: f64,
+        step_hint: Option<f64>,
+        tolerance: Option<f64>,
+        max_search_steps: Option<usize>,
+    ) -> OptionResult<Vec<f64>> {
+        self.sync_entry_cost_from_state();
+        let peak = self.pnl_peak_from_current(&StrategyPnlPeakSearchInput {
+            current_price,
+            step_hint,
+            left_boundary,
+            right_boundary,
+            tolerance,
+            max_search_steps,
+        })?;
+        let Some(peak) = peak else {
+            self.realtime_break_even_points.clear();
+            return Ok(Vec::new());
+        };
+
+        let tolerance = tolerance.unwrap_or(1e-6);
+        let low = self.break_even_between(
+            left_boundary,
+            peak.spot,
+            Some(tolerance),
+            Some(max_search_steps.unwrap_or(100)),
+        )?;
+        let high = self.break_even_between(
+            peak.spot,
+            right_boundary,
+            Some(tolerance),
+            Some(max_search_steps.unwrap_or(100)),
+        )?;
+        self.realtime_break_even_points =
+            unique_break_even_points([low, high].into_iter().flatten(), tolerance);
+        Ok(self.realtime_break_even_points.clone())
+    }
+
     fn prepared_greeks_at(&self, underlying_price: f64) -> OptionResult<Greeks> {
-        strategy_greeks_prepared(
-            &self.positions,
-            underlying_price,
-            self.dividend_yield,
-        )
+        Self::greeks_prepared(&self.positions, underlying_price, self.dividend_yield)
     }
 
     pub fn sample_curve(
@@ -640,7 +935,7 @@ impl OptionStrategy {
         tolerance: Option<f64>,
         max_iterations: Option<usize>,
     ) -> OptionResult<Option<f64>> {
-        let (tolerance, max_iterations) = validate_break_even_bracket_params(
+        let (tolerance, max_iterations) = Self::validate_break_even_bracket_params(
             lower_bound,
             upper_bound,
             tolerance,
@@ -752,7 +1047,7 @@ impl OptionStrategy {
         tolerance: Option<f64>,
         max_iterations: Option<usize>,
     ) -> OptionResult<Vec<f64>> {
-        let (tolerance, scan_step, max_iterations) = validate_break_even_params(
+        let (tolerance, scan_step, max_iterations) = Self::validate_break_even_params(
             lower_bound,
             upper_bound,
             scan_step,
@@ -972,7 +1267,7 @@ impl OptionStrategy {
         positions: &[OptionPosition],
         qty: i32,
     ) -> OptionResult<Greeks> {
-        let qty = validate_strategy_qty(qty)?;
+        let qty = Self::validate_strategy_qty(qty)?;
         let mut total = Greeks::default();
 
         for position in positions {
@@ -1009,7 +1304,7 @@ impl OptionStrategy {
     }
 
     pub fn position_totals(&self) -> StrategyPositionTotals {
-        strategy_position_totals(&self.positions, self.qty)
+        Self::position_totals_for(&self.positions, self.qty)
     }
 
     pub fn aggregate_model_greeks(
@@ -1022,6 +1317,39 @@ impl OptionStrategy {
         Self::prepare(positions, qty, evaluation_time, Some(0.0), dividend_yield)?
             .greeks_at(underlying_price)
     }
+}
+
+fn push_unique_root(roots: &mut Vec<f64>, root: f64, tolerance: f64) {
+    if roots
+        .iter()
+        .any(|existing| (*existing - root).abs() <= tolerance)
+    {
+        return;
+    }
+    roots.push(root);
+}
+
+pub fn unique_break_even_points(points: impl IntoIterator<Item = f64>, tolerance: f64) -> Vec<f64> {
+    let tolerance = if tolerance.is_finite() && tolerance > 0.0 {
+        tolerance
+    } else {
+        1e-6
+    };
+    let mut unique = Vec::new();
+    for point in points {
+        if !point.is_finite() {
+            continue;
+        }
+        if unique
+            .iter()
+            .any(|existing: &f64| (*existing - point).abs() <= tolerance * 10.0)
+        {
+            continue;
+        }
+        unique.push(point);
+    }
+    unique.sort_by(|left, right| left.total_cmp(right));
+    unique
 }
 
 pub fn strategy_pnl(input: &StrategyPnlInput) -> OptionResult<f64> {

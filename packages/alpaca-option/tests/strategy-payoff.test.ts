@@ -145,11 +145,39 @@ test('OptionStrategy positionTotals uses instance qty and enriches positions', (
   assert.equal(totals.spread, 180);
   assert.ok(Math.abs((totals.spread_rate ?? 0) - (180 / 435)) < 1e-12);
 
-  const positions = strategy.positions();
+  const positions = strategy.positions;
   assert.equal(positions[0]?.option_right, 'call');
   assert.equal(positions[0]?.strike, 450);
   assert.equal(positions[0]?.valuation_years, 0);
   assert.equal(positions[0]?.snapshot.implied_volatility, 0.25);
+});
+
+test('OptionStrategy exposes serializable state fields', () => {
+  const long = pricedPosition('2026-05-15', 450, 'call', 2, 1.00, 1.10, 1.30, 1.20);
+  const short = pricedPosition('2026-05-15', 455, 'call', -1, 0.55, 0.40, 0.60, 0.50);
+
+  const strategy = OptionStrategy.prepare({
+    positions: [long, short],
+    qty: 3,
+    evaluation_time: '2026-05-15 16:00:00',
+    entry_cost: null,
+    dividend_yield: 0,
+  });
+  strategy.underlying_price = 452;
+  strategy.calculatePositionTotals();
+
+  assert.equal(strategy.qty, 3);
+  assert.equal(strategy.positions.length, 2);
+  assert.equal(strategy.value, 570);
+  assert.equal(strategy.cost, 435);
+  assert.equal(strategy.spread, 180);
+  assert.ok(Math.abs((strategy.spread_rate ?? 0) - (180 / 435)) < 1e-12);
+
+  const json = JSON.parse(JSON.stringify(strategy));
+  assert.ok(Array.isArray(json.positions));
+  assert.equal(json.qty, 3);
+  assert.equal(json.underlying_price, 452);
+  assert.equal('current_underlying_price' in json, false);
 });
 
 test('option position helpers prepare runtime model inputs', () => {
@@ -443,7 +471,7 @@ test('OptionStrategy prepare preserves snapshot implied volatility', () => {
     dividend_yield: 0,
   });
 
-  const modeled = strategy.positions();
+  const modeled = strategy.positions;
   assert.equal(modeled.length, 1);
   assert.equal(modeled[0]?.snapshot.implied_volatility, 0.10);
 });

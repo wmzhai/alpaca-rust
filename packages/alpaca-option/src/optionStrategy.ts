@@ -358,12 +358,55 @@ function strategyPositionTotals(
 }
 
 export class OptionStrategy {
+  public underlying_price = 0;
+  public greeks: Greeks = zeroGreeks();
+  public cost = 0;
+  public value = 0;
+  public pnl = 0;
+  public cashflow: number | null = null;
+  public spread: number | null = null;
+  public spread_rate: number | null = null;
+  public max_profit: number | null = null;
+  public max_loss: number | null = null;
+  public buying_power: number | null = null;
+  public break_even_points: number[] = [];
+  public realtime_break_even_points: number[] = [];
+  public break_even_low_open = false;
+  public break_even_high_open = false;
+  public break_even_low_distance_percent = 0;
+  public break_even_high_distance_percent = 0;
+  public break_even_width: number | null = null;
+  public break_even_width_percent = 0;
+  public realtime_break_even_low_open = false;
+  public realtime_break_even_high_open = false;
+  public realtime_break_even_low_distance_percent = 0;
+  public realtime_break_even_high_distance_percent = 0;
+  public realtime_break_even_width: number | null = null;
+  public realtime_break_even_width_percent = 0;
+  public pnl_at_expire: number | null = null;
+  public short_expire_delta: number | null = null;
+  public short_expiration: string | null = null;
+  public long_expiration: string | null = null;
+  public short_dte: number | null = null;
+  public long_dte: number | null = null;
+  public win_rate: number | null = null;
+  public theta_rate: number | null = null;
+  public theta_total: number | null = null;
+  public score: number | null = null;
+  public rank: number | null = null;
+  public url: string | null = null;
+
   private constructor(
-    private readonly strategyPositions: OptionPosition[],
-    private readonly qty: number,
-    private readonly entryCost: number,
+    public positions: OptionPosition[],
+    public qty: number,
+    private entryCost: number,
     private readonly dividendYield: number,
-  ) {}
+  ) {
+    this.cost = entryCost;
+    this.calculateValue();
+    this.calculateSpread();
+    this.calculatePnl();
+  }
 
   static expirationTime(positions: OptionPosition[]): string {
     const expirationDate = positions
@@ -404,7 +447,7 @@ export class OptionStrategy {
 
   markValueAt(underlyingPrice: number): number {
     return strategyMarkValuePrepared({
-      positions: this.strategyPositions,
+      positions: this.positions,
       underlying_price: underlyingPrice,
       dividend_yield: this.dividendYield,
     }) * this.qty;
@@ -416,7 +459,7 @@ export class OptionStrategy {
 
   greeksAt(underlyingPrice: number): Greeks {
     const total = strategyGreeksPrepared({
-      positions: this.strategyPositions,
+      positions: this.positions,
       underlying_price: underlyingPrice,
       dividend_yield: this.dividendYield,
     });
@@ -430,12 +473,70 @@ export class OptionStrategy {
     };
   }
 
-  positions(): OptionPosition[] {
-    return [...this.strategyPositions];
+  positionTotals(): StrategyPositionTotals {
+    return strategyPositionTotals(this.positions, this.qty);
   }
 
-  positionTotals(): StrategyPositionTotals {
-    return strategyPositionTotals(this.strategyPositions, this.qty);
+  private effectiveEntryCost(): number {
+    return this.cashflow == null ? this.cost : -this.cashflow;
+  }
+
+  calculatePositionTotals(): StrategyPositionTotals {
+    const totals = this.positionTotals();
+    this.value = totals.value;
+    this.cost = totals.cost;
+    this.entryCost = totals.cost;
+    this.spread = totals.spread;
+    this.spread_rate = totals.spread_rate;
+    this.pnl = this.value - this.cost;
+    return totals;
+  }
+
+  calculateCostFromPositions(): number {
+    const totals = this.positionTotals();
+    this.cost = totals.cost;
+    this.entryCost = totals.cost;
+    return this.cost;
+  }
+
+  calculateValue(): number {
+    this.value = this.positionTotals().value;
+    return this.value;
+  }
+
+  calculatePnl(): number {
+    this.pnl = this.value - this.effectiveEntryCost();
+    return this.pnl;
+  }
+
+  calculateSpread(): number | null {
+    const totals = this.positionTotals();
+    this.spread = totals.spread;
+    this.spread_rate = totals.spread_rate;
+    return this.spread;
+  }
+
+  calculateGreeks(): Greeks {
+    this.greeks = this.underlying_price > 0
+      ? this.greeksAt(this.underlying_price)
+      : OptionStrategy.aggregateSnapshotGreeks({ positions: this.positions, qty: this.qty });
+    return this.greeks;
+  }
+
+  calculateExpirePnl(): number | null {
+    if (this.underlying_price <= 0) {
+      this.pnl_at_expire = null;
+      return null;
+    }
+    this.pnl_at_expire = this.pnlAt(this.underlying_price);
+    return this.pnl_at_expire;
+  }
+
+  calculateBreakEvenPoints(
+    input: Omit<StrategyBreakEvenInput, 'positions' | 'qty' | 'evaluation_time' | 'entry_cost' | 'dividend_yield'>,
+  ): number[] {
+    this.break_even_points = this.breakEvenPoints(input);
+    return [...this.break_even_points];
   }
 
   sampleCurve(input: OptionStrategyCurveInput): OptionStrategyCurvePoint[] {

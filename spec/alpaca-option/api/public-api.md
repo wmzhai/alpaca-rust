@@ -208,7 +208,7 @@ Field-level definitions live in `../models/core-models.md`.
 - strategy-level reusable break-even and PnL peak search primitives
 - strategy-level curve sampling
 - strategy-level Greeks aggregation
-- strategy-owned quantity, valuation context, and build-stage position totals
+- strategy-owned serializable state, quantity, valuation context, and build-stage position totals
 
 ### API
 
@@ -221,10 +221,13 @@ Field-level definitions live in `../models/core-models.md`.
 | `OptionPosition::with_model_inputs(...)` / `optionStrategy.optionPositionWithModelInputs(...)` | `OptionPosition` | returns a cloned position with runtime IV and optional underlying price set for model valuation |
 | `OptionPosition::with_qty_multiplier(...)` / `optionStrategy.optionPositionWithQtyMultiplier(...)` | `OptionPosition` | returns a cloned position with quantity multiplied by a strategy quantity |
 | `OptionPosition::effective_iv_or(...)` / `optionStrategy.optionPositionEffectiveIv(...)` | `number` | returns snapshot IV when valid, otherwise fallback IV, otherwise a default IV |
-| `OptionStrategy` | class / struct | prepares reusable strategy valuation state for mark value, PnL, curve sampling, break-even scanning, Greeks aggregation, and position totals; strategy-level `qty` is stored on the instance |
+| `OptionStrategy` | class / struct | serializable strategy-owned state for positions, quantity, current underlying price, Greeks, cost, value, PnL, cashflow, spread, risk metrics, break-even fields, expirations, DTE, theta, score, rank, and URL; `underlying_price` is the only current-price field |
+| `OptionStrategy::calculate_position_totals()` / `OptionStrategy.calculatePositionTotals()` | `StrategyPositionTotals` | aggregates value, cost, spread, and spread rate from instance `positions` and instance `qty`, and writes the aggregate display fields back to the instance |
+| `OptionStrategy::calculate_cost_from_positions()` / `OptionStrategy.calculateCostFromPositions()` | `Decimal` / `number` | build/preview helper that explicitly overwrites instance `cost` from positions; runtime callers should preserve true database/order-derived cost instead |
+| `OptionStrategy::calculate_value/pnl/spread/greeks()` / `OptionStrategy.calculateValue/Pnl/Spread/Greeks()` | field value | refreshes display metrics from current instance state without implicitly resetting entry cost |
 | `OptionStrategy::find_break_even_left/right(input)` / `OptionStrategy.findBreakEvenLeft/Right(input)` | `number \| null` | scans from a strategy-selected pivot toward one boundary and refines the first finite PnL root found |
 | `OptionStrategy::maximize_pnl_in_range(...)` / `OptionStrategy.maximizePnlInRange(...)` | `StrategyPnlPeak` | finds the local maximum PnL point inside a supplied range |
-| `OptionStrategy::pnl_peak_from_current(input)` / `OptionStrategy.pnlPeakFromCurrent(input)` | `StrategyPnlPeak \| null` | starts at the current price, follows the PnL-improving side, and returns the nearby positive PnL peak; it does not encode strategy-specific BE/open-side semantics |
+| `OptionStrategy::pnl_peak_from_current(input)` / `OptionStrategy.pnlPeakFromCurrent(input)` | `StrategyPnlPeak \| null` | starts at the current price, follows the PnL-improving side, and returns the nearby positive PnL peak; it does not encode downstream strategy-specific BE/open-side orchestration |
 
 ## `chain`
 

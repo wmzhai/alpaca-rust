@@ -172,6 +172,54 @@ fn option_strategy_position_totals_use_instance_qty_and_enrich_positions() {
 }
 
 #[test]
+fn option_strategy_exposes_serializable_state_fields() {
+    let long = priced_position(
+        "2026-05-15",
+        450.0,
+        OptionRight::Call,
+        2,
+        1.00,
+        1.10,
+        1.30,
+        1.20,
+    );
+    let short = priced_position(
+        "2026-05-15",
+        455.0,
+        OptionRight::Call,
+        -1,
+        0.55,
+        0.40,
+        0.60,
+        0.50,
+    );
+
+    let mut strategy = OptionStrategy::prepare(
+        &[long, short],
+        3,
+        "2026-05-15 16:00:00",
+        None,
+        Some(0.0),
+    )
+    .unwrap();
+    strategy.underlying_price = 452.0;
+    strategy.calculate_position_totals();
+
+    assert_eq!(strategy.qty, 3);
+    assert_eq!(strategy.positions.len(), 2);
+    assert_eq!(strategy.value, Decimal::new(57000, 2));
+    assert_eq!(strategy.cost, Decimal::new(43500, 2));
+    assert_eq!(strategy.spread, Some(Decimal::new(18000, 2)));
+    assert!((strategy.spread_rate.unwrap() - (180.0 / 435.0)).abs() < 1e-12);
+
+    let json = serde_json::to_value(&strategy).unwrap();
+    assert!(json.get("positions").is_some());
+    assert!(json.get("qty").is_some());
+    assert!(json.get("underlying_price").is_some());
+    assert!(json.get("current_underlying_price").is_none());
+}
+
+#[test]
 fn option_position_helpers_prepare_runtime_model_inputs() {
     let resolved_contract = contract("2026-05-15", 450.0, OptionRight::Call);
     let mut snapshot = OptionSnapshot::default();

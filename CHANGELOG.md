@@ -2,8 +2,8 @@
 
 ## v0.25.3
 
-- Added shared `OptionPosition` helpers for snapshot-based construction, model input overrides, quantity scaling, effective IV fallback, and mark-calibrated IV inputs.
-- Extended `OptionStrategy` with reusable break-even search, PnL peak search, mark-calibrated preparation, and break-even de-duplication primitives for downstream strategy implementations.
+- Added shared `OptionPosition` helpers for snapshot-based construction, model input overrides, quantity scaling, and effective IV fallback.
+- Extended `OptionStrategy` with serializable strategy-owned state fields plus reusable break-even search, PnL peak search, and break-even de-duplication primitives for downstream strategy implementations.
 - Mirrored the new option strategy helpers in the TypeScript package and documented the expanded `alpaca-option` public API.
 
 ## v0.25.2
