@@ -1,3 +1,4 @@
+use crate::DEFAULT_RISK_FREE_RATE;
 use crate::contract;
 use crate::error::{OptionError, OptionResult};
 use crate::numeric;
@@ -8,11 +9,10 @@ use crate::types::{
     OptionStrategyInput, StrategyBreakEvenInput, StrategyBreakEvenSideInput, StrategyPnlInput,
     StrategyPnlPeak, StrategyPnlPeakSearchInput, StrategyPositionTotals,
 };
-use crate::DEFAULT_RISK_FREE_RATE;
 use alpaca_time::clock;
 use alpaca_time::expiration;
-use rust_decimal::prelude::ToPrimitive;
 use rust_decimal::Decimal;
+use rust_decimal::prelude::ToPrimitive;
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
@@ -118,6 +118,23 @@ pub struct OptionStrategy {
     pub realtime_break_even_width: Option<Decimal>,
     #[serde(default)]
     pub realtime_break_even_width_percent: f64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub realtime_max_profit_price: Option<f64>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        with = "alpaca_core::decimal::number_contract::option_decimal"
+    )]
+    #[ts(optional, type = "number")]
+    pub realtime_max_profit: Option<Decimal>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        with = "alpaca_core::decimal::number_contract::option_decimal"
+    )]
+    #[ts(optional, type = "number")]
+    pub realtime_max_profit_unit_value: Option<Decimal>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[ts(optional)]
     pub pnl_at_expire: Option<f64>,
@@ -683,6 +700,9 @@ impl OptionStrategy {
             realtime_break_even_high_distance_percent: 0.0,
             realtime_break_even_width: None,
             realtime_break_even_width_percent: 0.0,
+            realtime_max_profit_price: None,
+            realtime_max_profit: None,
+            realtime_max_profit_unit_value: None,
             pnl_at_expire: None,
             short_expire_delta: None,
             short_expiration: None,
@@ -1198,63 +1218,42 @@ impl OptionStrategy {
             ));
         }
 
-        let fallback_step = (input.current_price * 0.005).clamp(0.25, 5.0);
-        let step = input
+        let preferred_step = input
             .step_hint
             .filter(|value| value.is_finite() && *value > 0.0)
-            .unwrap_or(fallback_step)
+            .unwrap_or((input.current_price * 0.005).clamp(0.1, 5.0))
             .clamp(0.05, input.current_price.max(1.0) * 0.05);
-        let current_pnl = self.pnl_at(input.current_price)?;
-        let left_spot = (input.current_price - step).max(input.left_boundary);
-        let right_spot = (input.current_price + step).min(input.right_boundary);
-        let left_pnl = if left_spot < input.current_price {
-            self.pnl_at(left_spot)?
-        } else {
-            f64::NEG_INFINITY
-        };
-        let right_pnl = if right_spot > input.current_price {
-            self.pnl_at(right_spot)?
-        } else {
-            f64::NEG_INFINITY
-        };
+        let range = input.right_boundary - input.left_boundary;
+        let preferred_intervals = (range / preferred_step).ceil().max(2.0) as usize;
+        let intervals = preferred_intervals.min(max_search_steps.max(2));
+        let scan_step = range / intervals as f64;
+        let mut best_index = 0usize;
+        let mut best_spot = input.left_boundary;
+        let mut best_pnl = self.pnl_at(best_spot)?;
 
-        let peak = if left_pnl <= current_pnl + tolerance && right_pnl <= current_pnl + tolerance {
-            self.maximize_pnl_in_range(left_spot, right_spot, 80)?
-        } else {
-            let direction = if right_pnl >= left_pnl { 1.0 } else { -1.0 };
-            let mut previous_spot = input.current_price;
-            let mut best_spot = if direction > 0.0 {
-                right_spot
+        for index in 1..=intervals {
+            let spot = if index == intervals {
+                input.right_boundary
             } else {
-                left_spot
+                input.left_boundary + scan_step * index as f64
             };
-            let mut best_pnl = if direction > 0.0 { right_pnl } else { left_pnl };
-            let mut refined = None;
-
-            for _ in 0..max_search_steps {
-                let next_spot =
-                    (best_spot + direction * step).clamp(input.left_boundary, input.right_boundary);
-                if (next_spot - best_spot).abs() <= f64::EPSILON {
-                    break;
-                }
-                let next_pnl = self.pnl_at(next_spot)?;
-                if next_pnl > best_pnl + tolerance {
-                    previous_spot = best_spot;
-                    best_spot = next_spot;
-                    best_pnl = next_pnl;
-                    continue;
-                }
-
-                let lower = previous_spot.min(next_spot);
-                let upper = previous_spot.max(next_spot);
-                refined = Some(self.maximize_pnl_in_range(lower, upper, 80)?);
-                break;
+            let pnl = self.pnl_at(spot)?;
+            if pnl > best_pnl + tolerance {
+                best_index = index;
+                best_spot = spot;
+                best_pnl = pnl;
             }
+        }
 
-            refined.unwrap_or(StrategyPnlPeak {
+        let peak = if best_index == 0 || best_index == intervals {
+            StrategyPnlPeak {
                 spot: best_spot,
                 pnl: best_pnl,
-            })
+            }
+        } else {
+            let lower = input.left_boundary + scan_step * (best_index - 1) as f64;
+            let upper = input.left_boundary + scan_step * (best_index + 1) as f64;
+            self.maximize_pnl_in_range(lower, upper, 80)?
         };
 
         if peak.pnl <= tolerance {

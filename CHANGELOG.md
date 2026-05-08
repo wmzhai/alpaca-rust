@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.25.4
+
+- Added realtime option strategy peak fields for exposing current-curve maximum profit price, profit, and unit mark value.
+- Reworked `OptionStrategy` realtime PnL peak search to scan the full configured price interval and refine the best candidate, avoiding local-peak misses on diagonal/calendar curves.
+- Mirrored the peak search and serialization changes in the TypeScript package and documented the expanded public API.
+
 ## v0.25.3
 
 - Added shared `OptionPosition` helpers for snapshot-based construction, model input overrides, quantity scaling, and effective IV fallback.

@@ -1,9 +1,9 @@
 use alpaca_option::option_strategy;
 use alpaca_option::pricing;
 use alpaca_option::{
-    Greeks, OptionContract, OptionPosition, OptionQuote, OptionRight, OptionSnapshot,
-    OptionStrategy, OptionStrategyInput, StrategyBreakEvenInput, StrategyBreakEvenSideInput,
-    StrategyPnlInput, StrategyPnlPeakSearchInput, DEFAULT_RISK_FREE_RATE,
+    DEFAULT_RISK_FREE_RATE, Greeks, OptionContract, OptionPosition, OptionQuote, OptionRight,
+    OptionSnapshot, OptionStrategy, OptionStrategyInput, StrategyBreakEvenInput,
+    StrategyBreakEvenSideInput, StrategyPnlInput, StrategyPnlPeakSearchInput,
 };
 use alpaca_time::expiration;
 use rust_decimal::Decimal;
@@ -149,14 +149,8 @@ fn option_strategy_position_totals_use_instance_qty_and_enrich_positions() {
         0.50,
     );
 
-    let strategy = OptionStrategy::prepare(
-        &[long, short],
-        3,
-        "2026-05-15 16:00:00",
-        None,
-        Some(0.0),
-    )
-    .unwrap();
+    let strategy =
+        OptionStrategy::prepare(&[long, short], 3, "2026-05-15 16:00:00", None, Some(0.0)).unwrap();
     let totals = strategy.position_totals();
 
     assert_eq!(totals.value, Decimal::new(57000, 2));
@@ -194,14 +188,8 @@ fn option_strategy_exposes_serializable_state_fields() {
         0.50,
     );
 
-    let mut strategy = OptionStrategy::prepare(
-        &[long, short],
-        3,
-        "2026-05-15 16:00:00",
-        None,
-        Some(0.0),
-    )
-    .unwrap();
+    let mut strategy =
+        OptionStrategy::prepare(&[long, short], 3, "2026-05-15 16:00:00", None, Some(0.0)).unwrap();
     strategy.underlying_price = 452.0;
     strategy.calculate_position_totals();
 
@@ -217,6 +205,32 @@ fn option_strategy_exposes_serializable_state_fields() {
     assert!(json.get("qty").is_some());
     assert!(json.get("underlying_price").is_some());
     assert!(json.get("current_underlying_price").is_none());
+}
+
+#[test]
+fn option_strategy_serializes_realtime_peak_state_fields() {
+    let mut strategy = OptionStrategy::default();
+    strategy.realtime_max_profit_price = Some(82.5);
+    strategy.realtime_max_profit = Some(Decimal::new(12575, 2));
+    strategy.realtime_max_profit_unit_value = Some(Decimal::new(235, 2));
+
+    let json = serde_json::to_value(&strategy).unwrap();
+
+    assert_eq!(
+        json.get("realtime_max_profit_price")
+            .and_then(serde_json::Value::as_f64),
+        Some(82.5)
+    );
+    assert_eq!(
+        json.get("realtime_max_profit")
+            .and_then(serde_json::Value::as_f64),
+        Some(125.75)
+    );
+    assert_eq!(
+        json.get("realtime_max_profit_unit_value")
+            .and_then(serde_json::Value::as_f64),
+        Some(2.35)
+    );
 }
 
 #[test]
@@ -501,14 +515,130 @@ fn option_strategy_pnl_peak_from_current_finds_positive_peak() {
 }
 
 #[test]
+fn option_strategy_pnl_peak_from_current_refines_peak_below_ten_cents() {
+    let positions = vec![
+        strategy_position("2025-04-24", 100.0, OptionRight::Put, -1, 10.0, 0.25),
+        strategy_position("2025-04-24", 100.0, OptionRight::Call, -1, 10.0, 0.25),
+    ];
+    let strategy =
+        OptionStrategy::prepare(&positions, 1, "2025-03-20 10:30:00", None, Some(0.0)).unwrap();
+
+    let peak = strategy
+        .pnl_peak_from_current(&StrategyPnlPeakSearchInput {
+            current_price: 92.0,
+            step_hint: None,
+            left_boundary: 1.0,
+            right_boundary: 276.0,
+            tolerance: Some(1e-9),
+            max_search_steps: Some(512),
+        })
+        .unwrap()
+        .unwrap();
+
+    let oracle = strategy.maximize_pnl_in_range(90.0, 110.0, 160).unwrap();
+    assert!(
+        (peak.spot - oracle.spot).abs() <= 0.1,
+        "peak spot should be within 0.1 of the high-precision curve top, got {}, expected {}",
+        peak.spot,
+        oracle.spot
+    );
+}
+
+#[test]
+fn option_strategy_pnl_peak_from_current_scans_past_local_peak() {
+    let positions = vec![
+        strategy_position("2025-03-21", 90.0, OptionRight::Call, 1, 0.0, 0.25),
+        strategy_position("2025-03-21", 100.0, OptionRight::Call, -2, 0.0, 0.25),
+        strategy_position("2025-03-21", 110.0, OptionRight::Call, 1, 0.0, 0.25),
+        strategy_position("2025-03-21", 130.0, OptionRight::Call, 2, 0.0, 0.25),
+        strategy_position("2025-03-21", 140.0, OptionRight::Call, -4, 0.0, 0.25),
+        strategy_position("2025-03-21", 150.0, OptionRight::Call, 2, 0.0, 0.25),
+    ];
+    let strategy =
+        OptionStrategy::prepare(&positions, 1, "2025-03-21 16:00:00", Some(0.0), Some(0.0))
+            .unwrap();
+
+    let peak = strategy
+        .pnl_peak_from_current(&StrategyPnlPeakSearchInput {
+            current_price: 100.0,
+            step_hint: Some(1.0),
+            left_boundary: 50.0,
+            right_boundary: 180.0,
+            tolerance: Some(1e-9),
+            max_search_steps: Some(512),
+        })
+        .unwrap()
+        .unwrap();
+
+    assert!(
+        (peak.spot - 140.0).abs() <= 0.1,
+        "peak search should find the global peak near 140, got {}",
+        peak.spot
+    );
+}
+
+#[test]
+fn option_strategy_pnl_peak_from_current_finds_smh_diagonal_global_peak() {
+    let evaluation_time = "2026-05-08 12:00:00";
+    let current_price = 496.59;
+    let long_price = 130.70;
+    let short_price = 47.90;
+    let long_iv = 0.4234;
+    let short_iv = 0.4165;
+    let positions = vec![
+        strategy_position("2027-03-19", 400.0, OptionRight::Call, 1, long_price, long_iv),
+        strategy_position(
+            "2026-06-18",
+            460.0,
+            OptionRight::Call,
+            -1,
+            short_price,
+            short_iv,
+        ),
+    ];
+    let strategy = OptionStrategy::prepare(
+        &positions,
+        1,
+        evaluation_time,
+        Some((long_price - short_price) * 100.0),
+        Some(0.0),
+    )
+    .unwrap();
+    let peak = strategy
+        .pnl_peak_from_current(&StrategyPnlPeakSearchInput {
+            current_price,
+            step_hint: None,
+            left_boundary: 1.0,
+            right_boundary: current_price * 3.0,
+            tolerance: Some(1e-9),
+            max_search_steps: Some(512),
+        })
+        .unwrap()
+        .unwrap();
+    let oracle = strategy.maximize_pnl_in_range(450.0, 650.0, 180).unwrap();
+
+    assert!(
+        (peak.spot - oracle.spot).abs() <= 0.1,
+        "peak spot should be within 0.1 of global curve top, got {}, expected {}",
+        peak.spot,
+        oracle.spot
+    );
+}
+
+#[test]
 fn option_strategy_prepare_preserves_snapshot_implied_volatility() {
     let mut position = strategy_position("2026-05-15", 450.0, OptionRight::Call, 1, 2.50, 0.10);
     position.snapshot.quote.mark = Some(8.00);
     position.snapshot.underlying_price = Some(452.0);
 
-    let strategy =
-        OptionStrategy::prepare(&[position], 1, "2026-05-01 10:00:00", Some(250.0), Some(0.0))
-            .unwrap();
+    let strategy = OptionStrategy::prepare(
+        &[position],
+        1,
+        "2026-05-01 10:00:00",
+        Some(250.0),
+        Some(0.0),
+    )
+    .unwrap();
 
     let modeled = strategy.positions();
     assert_eq!(modeled.len(), 1);
@@ -563,14 +693,9 @@ fn option_strategy_aggregates_model_greeks_with_qty() {
         strategy_position("2025-04-17", 105.0, OptionRight::Call, -1, 1.5, 0.30),
     ];
 
-    let actual = OptionStrategy::aggregate_model_greeks(
-        &positions,
-        102.0,
-        evaluation_time,
-        Some(0.0),
-        2,
-    )
-    .unwrap();
+    let actual =
+        OptionStrategy::aggregate_model_greeks(&positions, 102.0, evaluation_time, Some(0.0), 2)
+            .unwrap();
     let direct = OptionStrategy::prepare(&positions, 2, evaluation_time, Some(0.0), Some(0.0))
         .unwrap()
         .greeks_at(102.0)

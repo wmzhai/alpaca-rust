@@ -383,6 +383,9 @@ export class OptionStrategy {
   public realtime_break_even_high_distance_percent = 0;
   public realtime_break_even_width: number | null = null;
   public realtime_break_even_width_percent = 0;
+  public realtime_max_profit_price: number | null = null;
+  public realtime_max_profit: number | null = null;
+  public realtime_max_profit_unit_value: number | null = null;
   public pnl_at_expire: number | null = null;
   public short_expire_delta: number | null = null;
   public short_expiration: string | null = null;
@@ -789,50 +792,42 @@ export class OptionStrategy {
       fail('invalid_strategy_payoff_input', `maxSearchSteps must be a positive integer: ${maxSearchSteps}`);
     }
 
-    const fallbackStep = Math.min(Math.max(input.current_price * 0.005, 0.25), 5);
-    const step = Math.min(
+    const preferredStep = Math.min(
       Math.max(
         input.step_hint != null && Number.isFinite(input.step_hint) && input.step_hint > 0
           ? input.step_hint
-          : fallbackStep,
+          : Math.min(Math.max(input.current_price * 0.005, 0.1), 5),
         0.05,
       ),
       Math.max(input.current_price, 1) * 0.05,
     );
-    const currentPnl = this.pnlAt(input.current_price);
-    const leftSpot = Math.max(input.current_price - step, input.left_boundary);
-    const rightSpot = Math.min(input.current_price + step, input.right_boundary);
-    const leftPnl = leftSpot < input.current_price ? this.pnlAt(leftSpot) : Number.NEGATIVE_INFINITY;
-    const rightPnl = rightSpot > input.current_price ? this.pnlAt(rightSpot) : Number.NEGATIVE_INFINITY;
+    const range = input.right_boundary - input.left_boundary;
+    const preferredIntervals = Math.max(Math.ceil(range / preferredStep), 2);
+    const intervals = Math.min(preferredIntervals, Math.max(maxSearchSteps, 2));
+    const scanStep = range / intervals;
+    let bestIndex = 0;
+    let bestSpot = input.left_boundary;
+    let bestPnl = this.pnlAt(bestSpot);
 
-    const peak = (() => {
-      if (leftPnl <= currentPnl + tolerance && rightPnl <= currentPnl + tolerance) {
-        return this.maximizePnlInRange(leftSpot, rightSpot, 80);
+    for (let index = 1; index <= intervals; index += 1) {
+      const spot = index === intervals
+        ? input.right_boundary
+        : input.left_boundary + scanStep * index;
+      const pnl = this.pnlAt(spot);
+      if (pnl > bestPnl + tolerance) {
+        bestIndex = index;
+        bestSpot = spot;
+        bestPnl = pnl;
       }
+    }
 
-      const direction = rightPnl >= leftPnl ? 1 : -1;
-      let previousSpot = input.current_price;
-      let bestSpot = direction > 0 ? rightSpot : leftSpot;
-      let bestPnl = direction > 0 ? rightPnl : leftPnl;
-
-      for (let i = 0; i < maxSearchSteps; i += 1) {
-        const nextSpot = Math.min(Math.max(bestSpot + direction * step, input.left_boundary), input.right_boundary);
-        if (Math.abs(nextSpot - bestSpot) <= Number.EPSILON) {
-          break;
-        }
-        const nextPnl = this.pnlAt(nextSpot);
-        if (nextPnl > bestPnl + tolerance) {
-          previousSpot = bestSpot;
-          bestSpot = nextSpot;
-          bestPnl = nextPnl;
-          continue;
-        }
-
-        return this.maximizePnlInRange(Math.min(previousSpot, nextSpot), Math.max(previousSpot, nextSpot), 80);
-      }
-
-      return { spot: bestSpot, pnl: bestPnl };
-    })();
+    const peak = bestIndex === 0 || bestIndex === intervals
+      ? { spot: bestSpot, pnl: bestPnl }
+      : this.maximizePnlInRange(
+          input.left_boundary + scanStep * (bestIndex - 1),
+          input.left_boundary + scanStep * (bestIndex + 1),
+          80,
+        );
 
     return peak.pnl > tolerance ? peak : null;
   }

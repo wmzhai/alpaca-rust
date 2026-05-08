@@ -180,6 +180,27 @@ test('OptionStrategy exposes serializable state fields', () => {
   assert.equal('current_underlying_price' in json, false);
 });
 
+test('OptionStrategy exposes realtime peak state fields by default', () => {
+  const strategy = OptionStrategy.prepare({
+    positions: [
+      pricedPosition('2026-05-15', 450, 'call', 1, 1.00, 1.10, 1.30, 1.20),
+    ],
+    qty: 1,
+    evaluation_time: '2026-05-15 16:00:00',
+    entry_cost: null,
+    dividend_yield: 0,
+  });
+
+  const json = JSON.parse(JSON.stringify(strategy));
+
+  assert.equal('realtime_max_profit_price' in json, true);
+  assert.equal('realtime_max_profit' in json, true);
+  assert.equal('realtime_max_profit_unit_value' in json, true);
+  assert.equal(json.realtime_max_profit_price, null);
+  assert.equal(json.realtime_max_profit, null);
+  assert.equal(json.realtime_max_profit_unit_value, null);
+});
+
 test('option position helpers prepare runtime model inputs', () => {
   const snapshot: OptionSnapshot = {
     as_of: '',
@@ -456,6 +477,35 @@ test('OptionStrategy pnlPeakFromCurrent finds positive peak', () => {
   assert.ok(peak != null);
   assert.ok(Number.isFinite(peak.spot));
   assert.ok(peak.pnl > 0);
+});
+
+test('OptionStrategy pnlPeakFromCurrent scans past local peak', () => {
+  const strategy = OptionStrategy.prepare({
+    positions: [
+      strategyPosition('2025-03-21', 90, 'call', 1, 0, 0.25),
+      strategyPosition('2025-03-21', 100, 'call', -2, 0, 0.25),
+      strategyPosition('2025-03-21', 110, 'call', 1, 0, 0.25),
+      strategyPosition('2025-03-21', 130, 'call', 2, 0, 0.25),
+      strategyPosition('2025-03-21', 140, 'call', -4, 0, 0.25),
+      strategyPosition('2025-03-21', 150, 'call', 2, 0, 0.25),
+    ],
+    qty: 1,
+    evaluation_time: '2025-03-21 16:00:00',
+    entry_cost: 0,
+    dividend_yield: 0,
+  });
+
+  const peak = strategy.pnlPeakFromCurrent({
+    current_price: 100,
+    step_hint: 1,
+    left_boundary: 50,
+    right_boundary: 180,
+    tolerance: 1e-9,
+    maxSearchSteps: 512,
+  });
+
+  assert.ok(peak != null);
+  assert.ok(Math.abs(peak.spot - 140) <= 0.1, `peak spot was ${peak.spot}`);
 });
 
 test('OptionStrategy prepare preserves snapshot implied volatility', () => {

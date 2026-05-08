@@ -270,6 +270,9 @@ Notes:
   realtime_break_even_high_distance_percent: number,
   realtime_break_even_width?: number,
   realtime_break_even_width_percent: number,
+  realtime_max_profit_price?: number,
+  realtime_max_profit?: number,
+  realtime_max_profit_unit_value?: number,
   short_expiration?: string,
   long_expiration?: string,
   short_dte?: integer,
@@ -291,6 +294,7 @@ Constraints:
 - `underlying_price` is the only current-underlying field; do not add `current_underlying_price`
 - build/preview flows may call `calculate_cost_from_positions()` explicitly, while runtime flows should preserve true cost/cashflow from storage or orders
 - generic break-even helpers may write the shared break-even fields, but downstream strategies still own boundary selection and open-side interpretation
+- realtime peak fields are optional downstream-owned display metrics; `realtime_max_profit_unit_value` is the peak mark value divided by contract multiplier and strategy quantity
 
 ### `StrategyBreakEvenInput`
 
