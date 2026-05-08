@@ -6,7 +6,6 @@ use ts_rs::TS;
 
 use crate::contract;
 use crate::error::{OptionError, OptionResult};
-use crate::pricing;
 use crate::DEFAULT_RISK_FREE_RATE;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
@@ -519,6 +518,12 @@ pub struct OptionPosition {
     #[ts(type = "string")]
     pub avg_cost: Decimal,
     pub leg_type: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub option_right: Option<OptionRight>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub strike: Option<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub valuation_years: Option<f64>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -530,6 +535,12 @@ struct OptionPositionWire {
     #[serde(with = "alpaca_core::decimal::price_string_contract")]
     avg_cost: Decimal,
     leg_type: String,
+    #[serde(default)]
+    option_right: Option<OptionRight>,
+    #[serde(default)]
+    strike: Option<f64>,
+    #[serde(default)]
+    valuation_years: Option<f64>,
 }
 
 impl<'de> Deserialize<'de> for OptionPosition {
@@ -544,6 +555,9 @@ impl<'de> Deserialize<'de> for OptionPosition {
             qty: wire.qty,
             avg_cost: wire.avg_cost,
             leg_type: wire.leg_type,
+            option_right: wire.option_right,
+            strike: wire.strike,
+            valuation_years: wire.valuation_years,
         })
     }
 }
@@ -573,6 +587,9 @@ impl OptionPosition {
             qty,
             avg_cost,
             leg_type: leg_type.into(),
+            option_right: None,
+            strike: None,
+            valuation_years: None,
         }
     }
 
@@ -663,49 +680,6 @@ impl OptionPosition {
         }
     }
 
-    pub fn with_mark_calibrated_iv(
-        &self,
-        evaluation_time: &str,
-        dividend_yield: f64,
-        fallback_iv: Option<f64>,
-    ) -> Self {
-        let mut position = self.clone();
-        let base_iv = position.effective_iv_or(fallback_iv, 0.30);
-        let Some(contract) = contract::canonical_contract(&position) else {
-            position.snapshot.implied_volatility = Some(base_iv);
-            return position;
-        };
-        let years =
-            alpaca_time::expiration::years(&contract.expiration_date, Some(evaluation_time), None);
-        if years <= 0.0 {
-            position.snapshot.implied_volatility = Some(base_iv);
-            return position;
-        }
-
-        let mark_price = position.snapshot.price();
-        let reference_underlying_price = position.snapshot.underlying_price();
-        if !mark_price.is_finite()
-            || mark_price <= 0.0
-            || !reference_underlying_price.is_finite()
-            || reference_underlying_price <= 0.0
-        {
-            position.snapshot.implied_volatility = Some(base_iv);
-            return position;
-        }
-
-        position.snapshot.implied_volatility =
-            pricing::implied_volatility_from_price(&BlackScholesImpliedVolatilityInput::new(
-                mark_price,
-                reference_underlying_price,
-                contract.strike,
-                years,
-                dividend_yield,
-                contract.option_right,
-            ))
-            .ok()
-            .or(Some(base_iv));
-        position
-    }
 }
 
 impl Default for OptionPosition {
@@ -716,6 +690,9 @@ impl Default for OptionPosition {
             qty: 0,
             avg_cost: Decimal::ZERO,
             leg_type: String::new(),
+            option_right: None,
+            strike: None,
+            valuation_years: None,
         }
     }
 }
@@ -1078,11 +1055,10 @@ impl PayoffLegInput {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct OptionStrategyInput {
     pub positions: Vec<OptionPosition>,
+    pub qty: i32,
     pub evaluation_time: Option<String>,
     pub entry_cost: Option<f64>,
-    pub rate: Option<f64>,
     pub dividend_yield: Option<f64>,
-    pub long_volatility_shift: Option<f64>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -1095,22 +1071,20 @@ pub struct OptionStrategyCurvePoint {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct StrategyPnlInput {
     pub positions: Vec<OptionPosition>,
+    pub qty: i32,
     pub underlying_price: f64,
     pub evaluation_time: String,
     pub entry_cost: Option<f64>,
-    pub rate: f64,
     pub dividend_yield: Option<f64>,
-    pub long_volatility_shift: Option<f64>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct StrategyBreakEvenInput {
     pub positions: Vec<OptionPosition>,
+    pub qty: i32,
     pub evaluation_time: String,
     pub entry_cost: Option<f64>,
-    pub rate: f64,
     pub dividend_yield: Option<f64>,
-    pub long_volatility_shift: Option<f64>,
     pub lower_bound: f64,
     pub upper_bound: f64,
     pub scan_step: Option<f64>,

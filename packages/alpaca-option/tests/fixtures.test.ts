@@ -761,21 +761,19 @@ function runCase(item: FixtureCase): unknown {
     case 'option_strategy.strategy_pnl':
       return optionStrategy.strategyPnl({
         positions: (item.input.positions as Array<Record<string, unknown>>).map(toOptionPosition),
+        qty: Number(item.input.qty),
         underlying_price: Number(item.input.underlying_price),
         evaluation_time: String(item.input.evaluation_time),
         entry_cost: item.input.entry_cost == null ? null : Number(item.input.entry_cost),
-        rate: Number(item.input.rate),
         dividend_yield: item.input.dividend_yield == null ? null : Number(item.input.dividend_yield),
-        long_volatility_shift: item.input.long_volatility_shift == null ? null : Number(item.input.long_volatility_shift),
       });
     case 'option_strategy.strategy_break_even_points':
       return optionStrategy.strategyBreakEvenPoints({
         positions: (item.input.positions as Array<Record<string, unknown>>).map(toOptionPosition),
+        qty: Number(item.input.qty),
         evaluation_time: String(item.input.evaluation_time),
         entry_cost: item.input.entry_cost == null ? null : Number(item.input.entry_cost),
-        rate: Number(item.input.rate),
         dividend_yield: item.input.dividend_yield == null ? null : Number(item.input.dividend_yield),
-        long_volatility_shift: item.input.long_volatility_shift == null ? null : Number(item.input.long_volatility_shift),
         lower_bound: Number(item.input.lower_bound),
         upper_bound: Number(item.input.upper_bound),
         scan_step: item.input.scan_step == null ? undefined : Number(item.input.scan_step),
@@ -789,26 +787,23 @@ function runCase(item: FixtureCase): unknown {
     case 'option_strategy.snapshot_greeks':
       return OptionStrategy.aggregateSnapshotGreeks({
         positions: (item.input.positions as Array<Record<string, unknown>>).map(toOptionPosition),
-        strategyQuantity: Number(item.input.strategy_quantity),
+        qty: Number(item.input.qty),
       });
     case 'option_strategy.model_greeks':
       return OptionStrategy.aggregateModelGreeks({
         positions: (item.input.positions as Array<Record<string, unknown>>).map(toOptionPosition),
         underlying_price: Number(item.input.underlying_price),
         evaluation_time: String(item.input.evaluation_time),
-        rate: Number(item.input.rate),
         dividend_yield: item.input.dividend_yield == null ? null : Number(item.input.dividend_yield),
-        long_volatility_shift: item.input.long_volatility_shift == null ? null : Number(item.input.long_volatility_shift),
-        strategyQuantity: Number(item.input.strategy_quantity),
+        qty: Number(item.input.qty),
       });
     case 'option_strategy.curve':
       return OptionStrategy.fromInput({
         positions: (item.input.positions as Array<Record<string, unknown>>).map(toOptionPosition),
+        qty: Number(item.input.qty),
         evaluation_time: item.input.evaluation_time == null ? null : String(item.input.evaluation_time),
         entry_cost: item.input.entry_cost == null ? null : Number(item.input.entry_cost),
-        rate: Number(item.input.rate),
         dividend_yield: item.input.dividend_yield == null ? null : Number(item.input.dividend_yield),
-        long_volatility_shift: item.input.long_volatility_shift == null ? null : Number(item.input.long_volatility_shift),
       }).sampleCurve({
         lower_bound: Number(item.input.lower_bound),
         upper_bound: Number(item.input.upper_bound),

@@ -6,7 +6,6 @@ import { refineBracketedRoot } from './numeric';
 import { spread as snapshotSpread } from './snapshot';
 import {
   greeksBlackScholes,
-  impliedVolatilityFromPrice,
   intrinsicValue,
   priceBlackScholes,
 } from './pricing';
@@ -29,14 +28,6 @@ import type {
 
 const CONTRACT_MULTIPLIER = 100;
 const DEFAULT_RISK_FREE_RATE = 0.0368;
-
-type PreparedStrategyLeg = {
-  optionRight: OptionRight;
-  strike: number;
-  quantity: number;
-  years: number;
-  impliedVolatility: number | null;
-};
 
 function ensureFinite(code: string, name: string, value: number): void {
   if (!Number.isFinite(value)) {
@@ -108,7 +99,14 @@ function valuationYears(expirationDate: string, evaluationTime: string): number 
   }
 }
 
-function strategyEntryCost(positions: OptionPosition[], entryCost: number | null): number {
+function validateStrategyQty(qty: number): number {
+  if (!Number.isInteger(qty) || qty <= 0) {
+    fail('invalid_strategy_payoff_input', `qty must be a positive integer: ${qty}`);
+  }
+  return qty;
+}
+
+function strategyEntryCost(positions: OptionPosition[], qty: number, entryCost: number | null): number {
   if (entryCost != null) {
     ensureFinite('invalid_strategy_payoff_input', 'entryCost', entryCost);
     return entryCost;
@@ -118,82 +116,106 @@ function strategyEntryCost(positions: OptionPosition[], entryCost: number | null
   for (const position of positions) {
     total += Number(position.avg_cost) * position.qty * CONTRACT_MULTIPLIER;
   }
-  return total;
+  return total * qty;
 }
 
 function prepareStrategyContext(input: {
   positions: OptionPosition[];
+  qty: number;
   evaluation_time: string;
   entry_cost: number | null;
   dividend_yield: number | null;
-  long_volatility_shift: number | null;
-}): { prepared: PreparedStrategyLeg[]; entryCost: number; dividendYield: number } {
+}): { positions: OptionPosition[]; entryCost: number; dividendYield: number; qty: number } {
   const dividendYield = input.dividend_yield ?? 0;
   ensureFinite('invalid_strategy_payoff_input', 'dividendYield', dividendYield);
-  if (input.long_volatility_shift != null) {
-    ensureFinite('invalid_strategy_payoff_input', 'longVolatilityShift', input.long_volatility_shift);
-  }
   timeClock.parseTimestamp(input.evaluation_time);
 
-  const entryCost = strategyEntryCost(input.positions, input.entry_cost);
-  const prepared: PreparedStrategyLeg[] = [];
+  const qty = validateStrategyQty(input.qty);
+  const entryCost = strategyEntryCost(input.positions, qty, input.entry_cost);
+  const positions: OptionPosition[] = [];
   for (const position of input.positions) {
     const contract = strategyPositionContract(position);
     validateStrategyPosition(position, contract);
     const years = valuationYears(contract.expiration_date, input.evaluation_time);
-    const impliedVolatility = years <= 0
-      ? null
-      : (() => {
-          if (position.snapshot?.implied_volatility == null) {
-            fail(
-              'invalid_strategy_payoff_input',
-              `impliedVolatility is required before expiration: ${position.contract}`,
-            );
-          }
-          const value = position.qty > 0
-            ? position.snapshot.implied_volatility + (input.long_volatility_shift ?? 0)
-            : position.snapshot.implied_volatility;
-          ensurePositive('invalid_strategy_payoff_input', 'impliedVolatility', value);
-          return value;
-        })();
-    prepared.push({
-      optionRight: contract.option_right,
+    if (years > 0) {
+      if (position.snapshot?.implied_volatility == null) {
+        fail(
+          'invalid_strategy_payoff_input',
+          `impliedVolatility is required before expiration: ${position.contract}`,
+        );
+      }
+      ensurePositive('invalid_strategy_payoff_input', 'impliedVolatility', position.snapshot.implied_volatility);
+    }
+    positions.push({
+      ...position,
+      option_right: contract.option_right,
       strike: contract.strike,
-      quantity: position.qty,
-      years,
-      impliedVolatility,
+      valuation_years: years,
     });
   }
 
-  return { prepared, entryCost, dividendYield };
+  return { positions, entryCost, dividendYield, qty };
+}
+
+function preparedOptionRight(position: OptionPosition): OptionRight {
+  if (position.option_right !== 'call' && position.option_right !== 'put') {
+    fail('invalid_strategy_payoff_input', `optionRight is required on prepared position: ${position.contract}`);
+  }
+  return position.option_right;
+}
+
+function preparedStrike(position: OptionPosition): number {
+  const strike = position.strike ?? null;
+  if (strike == null || !Number.isFinite(strike)) {
+    fail('invalid_strategy_payoff_input', `strike is required on prepared position: ${position.contract}`);
+  }
+  return strike;
+}
+
+function preparedYears(position: OptionPosition): number {
+  const years = position.valuation_years ?? null;
+  if (years == null || !Number.isFinite(years)) {
+    fail('invalid_strategy_payoff_input', `valuationYears is required on prepared position: ${position.contract}`);
+  }
+  return years;
+}
+
+function preparedImpliedVolatility(position: OptionPosition): number {
+  const impliedVolatility = position.snapshot?.implied_volatility ?? null;
+  if (impliedVolatility == null || !Number.isFinite(impliedVolatility)) {
+    fail('invalid_strategy_payoff_input', `impliedVolatility is required before expiration: ${position.contract}`);
+  }
+  return impliedVolatility;
 }
 
 function strategyMarkValuePrepared(input: {
-  prepared: PreparedStrategyLeg[];
+  positions: OptionPosition[];
   underlying_price: number;
-  rate: number;
   dividend_yield: number;
 }): number {
   ensureFinite('invalid_strategy_payoff_input', 'underlyingPrice', input.underlying_price);
   if (input.underlying_price < 0) {
     fail('invalid_strategy_payoff_input', `underlyingPrice must be non-negative: ${input.underlying_price}`);
   }
-  ensureFinite('invalid_strategy_payoff_input', 'rate', input.rate);
+  ensureFinite('invalid_strategy_payoff_input', 'rate', DEFAULT_RISK_FREE_RATE);
 
   let total = 0;
-  for (const position of input.prepared) {
-    const optionValue = position.years <= 0
-      ? intrinsicValue(input.underlying_price, position.strike, position.optionRight)
+  for (const position of input.positions) {
+    const optionRight = preparedOptionRight(position);
+    const strike = preparedStrike(position);
+    const years = preparedYears(position);
+    const optionValue = years <= 0
+      ? intrinsicValue(input.underlying_price, strike, optionRight)
       : priceBlackScholes({
           spot: input.underlying_price,
-          strike: position.strike,
-          years: position.years,
-          rate: input.rate,
+          strike,
+          years,
+          rate: DEFAULT_RISK_FREE_RATE,
           dividendYield: input.dividend_yield,
-          volatility: position.impliedVolatility ?? 0,
-          optionRight: position.optionRight,
+          volatility: preparedImpliedVolatility(position),
+          optionRight,
         });
-    total += optionValue * position.quantity * CONTRACT_MULTIPLIER;
+    total += optionValue * position.qty * CONTRACT_MULTIPLIER;
   }
 
   return total;
@@ -214,33 +236,35 @@ function expiryIntrinsicGreeks(underlyingPrice: number, strike: number, optionRi
 }
 
 function strategyGreeksPrepared(input: {
-  prepared: PreparedStrategyLeg[];
+  positions: OptionPosition[];
   underlying_price: number;
-  rate: number;
   dividend_yield: number;
 }): Greeks {
   ensurePositive('invalid_strategy_payoff_input', 'underlyingPrice', input.underlying_price);
-  ensureFinite('invalid_strategy_payoff_input', 'rate', input.rate);
+  ensureFinite('invalid_strategy_payoff_input', 'rate', DEFAULT_RISK_FREE_RATE);
 
   const total = zeroGreeks();
-  for (const position of input.prepared) {
-    const greeks = position.years <= 0
-      ? expiryIntrinsicGreeks(input.underlying_price, position.strike, position.optionRight)
+  for (const position of input.positions) {
+    const optionRight = preparedOptionRight(position);
+    const strike = preparedStrike(position);
+    const years = preparedYears(position);
+    const greeks = years <= 0
+      ? expiryIntrinsicGreeks(input.underlying_price, strike, optionRight)
       : greeksBlackScholes({
           spot: input.underlying_price,
-          strike: position.strike,
-          years: position.years,
-          rate: input.rate,
+          strike,
+          years,
+          rate: DEFAULT_RISK_FREE_RATE,
           dividendYield: input.dividend_yield,
-          volatility: position.impliedVolatility ?? 0,
-          optionRight: position.optionRight,
+          volatility: preparedImpliedVolatility(position),
+          optionRight,
         });
 
-    total.delta += greeks.delta * position.quantity * CONTRACT_MULTIPLIER;
-    total.gamma += greeks.gamma * position.quantity * CONTRACT_MULTIPLIER;
-    total.vega += greeks.vega * position.quantity * CONTRACT_MULTIPLIER;
-    total.theta += greeks.theta * position.quantity * CONTRACT_MULTIPLIER;
-    total.rho += greeks.rho * position.quantity * CONTRACT_MULTIPLIER;
+    total.delta += greeks.delta * position.qty * CONTRACT_MULTIPLIER;
+    total.gamma += greeks.gamma * position.qty * CONTRACT_MULTIPLIER;
+    total.vega += greeks.vega * position.qty * CONTRACT_MULTIPLIER;
+    total.theta += greeks.theta * position.qty * CONTRACT_MULTIPLIER;
+    total.rho += greeks.rho * position.qty * CONTRACT_MULTIPLIER;
   }
 
   return total;
@@ -251,11 +275,6 @@ function pushUniqueRoot(roots: number[], root: number, tolerance: number): void 
     return;
   }
   roots.push(root);
-}
-
-function validateStrategyQuantity(strategyQuantity: number): number {
-  ensurePositive('invalid_strategy_payoff_input', 'strategyQuantity', strategyQuantity);
-  return strategyQuantity;
 }
 
 function zeroGreeks(): Greeks {
@@ -298,50 +317,6 @@ export function optionPositionEffectiveIv(
   return defaultIv;
 }
 
-export function optionPositionWithMarkCalibratedIv(
-  position: OptionPosition,
-  evaluationTime: string,
-  dividendYield: number,
-  fallbackIv: number | null,
-): OptionPosition {
-  const contract = canonicalContract(position);
-  const baseIv = optionPositionEffectiveIv(position, fallbackIv, 0.30);
-  if (!contract) {
-    return optionPositionWithModelInputs(position, baseIv, null);
-  }
-
-  const years = timeExpiration.years(contract.expiration_date, evaluationTime);
-  if (years <= 0) {
-    return optionPositionWithModelInputs(position, baseIv, null);
-  }
-
-  const markPrice = snapshotPrice(position);
-  const referenceUnderlyingPrice = position.snapshot.underlying_price ?? 0;
-  if (
-    !Number.isFinite(markPrice)
-    || markPrice <= 0
-    || !Number.isFinite(referenceUnderlyingPrice)
-    || referenceUnderlyingPrice <= 0
-  ) {
-    return optionPositionWithModelInputs(position, baseIv, null);
-  }
-
-  try {
-    const impliedVolatility = impliedVolatilityFromPrice({
-      targetPrice: markPrice,
-      spot: referenceUnderlyingPrice,
-      strike: contract.strike,
-      years,
-      rate: DEFAULT_RISK_FREE_RATE,
-      dividendYield,
-      optionRight: contract.option_right,
-    });
-    return optionPositionWithModelInputs(position, impliedVolatility, null);
-  } catch {
-    return optionPositionWithModelInputs(position, baseIv, null);
-  }
-}
-
 export function uniqueBreakEvenPoints(points: Iterable<number>, tolerance: number): number[] {
   const resolvedTolerance = Number.isFinite(tolerance) && tolerance > 0 ? tolerance : 1e-6;
   const unique: number[] = [];
@@ -355,9 +330,9 @@ export function uniqueBreakEvenPoints(points: Iterable<number>, tolerance: numbe
   return unique.sort((a, b) => a - b);
 }
 
-export function strategyPositionTotals(
+function strategyPositionTotals(
   positions: OptionPosition[],
-  strategyQuantity: number,
+  qty: number,
 ): StrategyPositionTotals {
   let value = 0;
   let cost = 0;
@@ -370,9 +345,9 @@ export function strategyPositionTotals(
     spread += spreadPerContract * Math.abs(position.qty) * CONTRACT_MULTIPLIER;
   }
 
-  value *= strategyQuantity;
-  cost *= strategyQuantity;
-  spread *= Math.abs(strategyQuantity);
+  value *= qty;
+  cost *= qty;
+  spread *= Math.abs(qty);
 
   return {
     value,
@@ -385,9 +360,8 @@ export function strategyPositionTotals(
 export class OptionStrategy {
   private constructor(
     private readonly strategyPositions: OptionPosition[],
-    private readonly prepared: PreparedStrategyLeg[],
+    private readonly qty: number,
     private readonly entryCost: number,
-    private readonly rate: number,
     private readonly dividendYield: number,
   ) {}
 
@@ -410,81 +384,58 @@ export class OptionStrategy {
     const evaluationTime = input.evaluation_time?.trim() || OptionStrategy.expirationTime(input.positions);
     return OptionStrategy.prepare({
       positions: input.positions,
+      qty: input.qty,
       evaluation_time: evaluationTime,
       entry_cost: input.entry_cost,
-      rate: input.rate ?? DEFAULT_RISK_FREE_RATE,
       dividend_yield: input.dividend_yield ?? null,
-      long_volatility_shift: input.long_volatility_shift ?? null,
     });
   }
 
   static prepare(input: OptionStrategyInput & { evaluation_time: string }): OptionStrategy {
-    const rate = input.rate ?? DEFAULT_RISK_FREE_RATE;
-    ensureFinite('invalid_strategy_payoff_input', 'rate', rate);
     const context = prepareStrategyContext({
       positions: input.positions,
+      qty: input.qty,
       evaluation_time: input.evaluation_time,
       entry_cost: input.entry_cost,
       dividend_yield: input.dividend_yield ?? null,
-      long_volatility_shift: input.long_volatility_shift ?? null,
     });
-    return new OptionStrategy([...input.positions], context.prepared, context.entryCost, rate, context.dividendYield);
-  }
-
-  static prepareMarkCalibrated(input: {
-    positions: OptionPosition[];
-    evaluation_time: string;
-    entry_cost: number | null;
-    dividend_yield?: number | null;
-  }): OptionStrategy {
-    const dividendYield = input.dividend_yield ?? 0;
-    ensureFinite('invalid_strategy_payoff_input', 'dividendYield', dividendYield);
-    const positions = input.positions.map((position) => (
-      optionPositionWithMarkCalibratedIv(position, input.evaluation_time, dividendYield, null)
-    ));
-    return OptionStrategy.prepare({
-      positions,
-      evaluation_time: input.evaluation_time,
-      entry_cost: input.entry_cost,
-      rate: DEFAULT_RISK_FREE_RATE,
-      dividend_yield: dividendYield,
-      long_volatility_shift: null,
-    });
+    return new OptionStrategy(context.positions, context.qty, context.entryCost, context.dividendYield);
   }
 
   markValueAt(underlyingPrice: number): number {
     return strategyMarkValuePrepared({
-      prepared: this.prepared,
+      positions: this.strategyPositions,
       underlying_price: underlyingPrice,
-      rate: this.rate,
       dividend_yield: this.dividendYield,
-    });
+    }) * this.qty;
   }
 
   pnlAt(underlyingPrice: number): number {
     return this.markValueAt(underlyingPrice) - this.entryCost;
   }
 
-  greeksAt(underlyingPrice: number, strategyQuantity: number): Greeks {
-    const quantity = validateStrategyQuantity(strategyQuantity);
+  greeksAt(underlyingPrice: number): Greeks {
     const total = strategyGreeksPrepared({
-      prepared: this.prepared,
+      positions: this.strategyPositions,
       underlying_price: underlyingPrice,
-      rate: this.rate,
       dividend_yield: this.dividendYield,
     });
 
     return {
-      delta: total.delta * quantity,
-      gamma: total.gamma * quantity,
-      vega: total.vega * quantity,
-      theta: total.theta * quantity,
-      rho: total.rho * quantity,
+      delta: total.delta * this.qty,
+      gamma: total.gamma * this.qty,
+      vega: total.vega * this.qty,
+      theta: total.theta * this.qty,
+      rho: total.rho * this.qty,
     };
   }
 
   positions(): OptionPosition[] {
     return [...this.strategyPositions];
+  }
+
+  positionTotals(): StrategyPositionTotals {
+    return strategyPositionTotals(this.strategyPositions, this.qty);
   }
 
   sampleCurve(input: OptionStrategyCurveInput): OptionStrategyCurvePoint[] {
@@ -525,7 +476,7 @@ export class OptionStrategy {
     return points;
   }
 
-  breakEvenPoints(input: Omit<StrategyBreakEvenInput, 'positions' | 'evaluation_time' | 'entry_cost' | 'rate' | 'dividend_yield' | 'long_volatility_shift'>): number[] {
+  breakEvenPoints(input: Omit<StrategyBreakEvenInput, 'positions' | 'qty' | 'evaluation_time' | 'entry_cost' | 'dividend_yield'>): number[] {
     ensureFinite('invalid_strategy_payoff_input', 'lowerBound', input.lower_bound);
     ensureFinite('invalid_strategy_payoff_input', 'upperBound', input.upper_bound);
     if (input.lower_bound >= input.upper_bound) {
@@ -787,9 +738,9 @@ export class OptionStrategy {
 
   static aggregateSnapshotGreeks(input: {
     positions: OptionPosition[];
-    strategyQuantity: number;
+    qty: number;
   }): Greeks {
-    const strategyQuantity = validateStrategyQuantity(input.strategyQuantity);
+    const qty = validateStrategyQty(input.qty);
     const total = zeroGreeks();
     for (const position of input.positions) {
       const quantity = position.qty;
@@ -802,11 +753,11 @@ export class OptionStrategy {
     }
 
     return {
-      delta: total.delta * strategyQuantity,
-      gamma: total.gamma * strategyQuantity,
-      vega: total.vega * strategyQuantity,
-      theta: total.theta * strategyQuantity,
-      rho: total.rho * strategyQuantity,
+      delta: total.delta * qty,
+      gamma: total.gamma * qty,
+      vega: total.vega * qty,
+      theta: total.theta * qty,
+      rho: total.rho * qty,
     };
   }
 
@@ -814,19 +765,16 @@ export class OptionStrategy {
     positions: OptionPosition[];
     underlying_price: number;
     evaluation_time: string;
-    rate: number;
     dividend_yield: number | null;
-    long_volatility_shift: number | null;
-    strategyQuantity: number;
+    qty: number;
   }): Greeks {
     return OptionStrategy.prepare({
       positions: input.positions,
+      qty: input.qty,
       evaluation_time: input.evaluation_time,
       entry_cost: 0,
-      rate: input.rate,
       dividend_yield: input.dividend_yield,
-      long_volatility_shift: input.long_volatility_shift,
-    }).greeksAt(input.underlying_price, input.strategyQuantity);
+    }).greeksAt(input.underlying_price);
   }
 }
 

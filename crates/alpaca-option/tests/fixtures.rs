@@ -89,10 +89,6 @@ fn fixture_requires_explicit_rate(api: &str) -> bool {
             | "math.black76_implied_volatility_from_price"
             | "math.black76_price"
             | "math.geometric_asian.price"
-            | "option_strategy.strategy_break_even_points"
-            | "option_strategy.strategy_pnl"
-            | "option_strategy.curve"
-            | "option_strategy.model_greeks"
             | "pricing.black_scholes_put_call_parity"
             | "pricing.greeks_black_scholes"
             | "pricing.implied_volatility_from_price"
@@ -1071,20 +1067,46 @@ fn run_case(case: &Value) -> Value {
             .unwrap(),
         )
         .unwrap(),
-        "option_strategy.strategy_pnl" => serde_json::to_value(
-            option_strategy::strategy_pnl(
-                &serde_json::from_value::<StrategyPnlInput>(input.clone()).unwrap(),
-            )
-            .unwrap(),
-        )
-        .unwrap(),
-        "option_strategy.strategy_break_even_points" => serde_json::to_value(
-            option_strategy::strategy_break_even_points(
-                &serde_json::from_value::<StrategyBreakEvenInput>(input.clone()).unwrap(),
-            )
-            .unwrap(),
-        )
-        .unwrap(),
+        "option_strategy.strategy_pnl" => {
+            let strategy_input = StrategyPnlInput {
+                positions: fixture_positions(input.get("positions").unwrap()),
+                qty: input.get("qty").unwrap().as_i64().unwrap() as i32,
+                underlying_price: input.get("underlying_price").unwrap().as_f64().unwrap(),
+                evaluation_time: input
+                    .get("evaluation_time")
+                    .unwrap()
+                    .as_str()
+                    .unwrap()
+                    .to_string(),
+                entry_cost: input.get("entry_cost").and_then(Value::as_f64),
+                dividend_yield: input.get("dividend_yield").and_then(Value::as_f64),
+            };
+            serde_json::to_value(option_strategy::strategy_pnl(&strategy_input).unwrap()).unwrap()
+        }
+        "option_strategy.strategy_break_even_points" => {
+            let strategy_input = StrategyBreakEvenInput {
+                positions: fixture_positions(input.get("positions").unwrap()),
+                qty: input.get("qty").unwrap().as_i64().unwrap() as i32,
+                evaluation_time: input
+                    .get("evaluation_time")
+                    .unwrap()
+                    .as_str()
+                    .unwrap()
+                    .to_string(),
+                entry_cost: input.get("entry_cost").and_then(Value::as_f64),
+                dividend_yield: input.get("dividend_yield").and_then(Value::as_f64),
+                lower_bound: input.get("lower_bound").unwrap().as_f64().unwrap(),
+                upper_bound: input.get("upper_bound").unwrap().as_f64().unwrap(),
+                scan_step: input.get("scan_step").and_then(Value::as_f64),
+                tolerance: input.get("tolerance").and_then(Value::as_f64),
+                max_iterations: input
+                    .get("max_iterations")
+                    .and_then(Value::as_u64)
+                    .map(|value| value as usize),
+            };
+            serde_json::to_value(option_strategy::strategy_break_even_points(&strategy_input).unwrap())
+                .unwrap()
+        }
         "option_strategy.expiration_time" => serde_json::to_value(
             OptionStrategy::expiration_time(&fixture_positions(input.get("positions").unwrap()))
             .unwrap(),
@@ -1093,7 +1115,7 @@ fn run_case(case: &Value) -> Value {
         "option_strategy.snapshot_greeks" => serde_json::to_value(
             OptionStrategy::aggregate_snapshot_greeks(
                 &fixture_positions(input.get("positions").unwrap()),
-                input.get("strategy_quantity").unwrap().as_f64().unwrap(),
+                input.get("qty").unwrap().as_i64().unwrap() as i32,
             )
             .unwrap(),
         )
@@ -1104,17 +1126,23 @@ fn run_case(case: &Value) -> Value {
                 input.get("underlying_price").unwrap().as_f64().unwrap(),
                 input.get("evaluation_time").unwrap().as_str().unwrap(),
                 input.get("dividend_yield").and_then(Value::as_f64),
-                input.get("long_volatility_shift").and_then(Value::as_f64),
-                input.get("strategy_quantity").unwrap().as_f64().unwrap(),
+                input.get("qty").unwrap().as_i64().unwrap() as i32,
             )
             .unwrap(),
         )
         .unwrap(),
         "option_strategy.curve" => {
-            let strategy = OptionStrategy::from_input(
-                &serde_json::from_value::<OptionStrategyInput>(input.clone()).unwrap(),
-            )
-            .unwrap();
+            let strategy_input = OptionStrategyInput {
+                positions: fixture_positions(input.get("positions").unwrap()),
+                qty: input.get("qty").unwrap().as_i64().unwrap() as i32,
+                evaluation_time: input
+                    .get("evaluation_time")
+                    .and_then(Value::as_str)
+                    .map(str::to_string),
+                entry_cost: input.get("entry_cost").and_then(Value::as_f64),
+                dividend_yield: input.get("dividend_yield").and_then(Value::as_f64),
+            };
+            let strategy = OptionStrategy::from_input(&strategy_input).unwrap();
             serde_json::to_value(
                 strategy
                     .sample_curve(

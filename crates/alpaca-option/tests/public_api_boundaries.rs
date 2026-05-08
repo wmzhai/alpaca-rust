@@ -95,6 +95,9 @@ fn sample_position(
         qty,
         avg_cost: decimal::from_f64(avg_cost.unwrap_or(0.0), 2),
         leg_type: leg_type.to_string(),
+        option_right: None,
+        strike: None,
+        valuation_years: None,
     }
 }
 

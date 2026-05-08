@@ -76,6 +76,9 @@ export type OptionPosition = {
   qty: number;
   avg_cost: string;
   leg_type: string;
+  option_right?: OptionRight | null;
+  strike?: number | null;
+  valuation_years?: number | null;
 };
 
 export type ShortItmPosition = {
@@ -269,11 +272,10 @@ export type PayoffLegInput = {
 
 export type OptionStrategyInput = {
   positions: OptionPosition[];
+  qty: number;
   evaluation_time?: string | null;
   entry_cost: number | null;
-  rate?: number | null;
   dividend_yield?: number | null;
-  long_volatility_shift?: number | null;
 };
 
 export type OptionStrategyCurveInput = {
@@ -326,21 +328,19 @@ export type StrategyPositionTotals = {
 
 export type StrategyPnlInput = {
   positions: OptionPosition[];
+  qty: number;
   underlying_price: number;
   evaluation_time: string;
   entry_cost: number | null;
-  rate: number;
   dividend_yield: number | null;
-  long_volatility_shift: number | null;
 };
 
 export type StrategyBreakEvenInput = {
   positions: OptionPosition[];
+  qty: number;
   evaluation_time: string;
   entry_cost: number | null;
-  rate: number;
   dividend_yield: number | null;
-  long_volatility_shift: number | null;
   lower_bound: number;
   upper_bound: number;
   scan_step?: number;

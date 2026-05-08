@@ -27,7 +27,7 @@ pub const DEFAULT_RISK_FREE_RATE: f64 = 0.0368;
 
 pub use error::{OptionError, OptionResult};
 pub use liquidity::{LiquidityBatchResponse, LiquidityData, LiquidityOptionData, LiquidityStats};
-pub use option_strategy::{strategy_position_totals, unique_break_even_points, OptionStrategy};
+pub use option_strategy::{unique_break_even_points, OptionStrategy};
 pub use types::{
     AssignmentRiskLevel, BlackScholesImpliedVolatilityInput, BlackScholesInput, ContractDisplay,
     ExecutionAction, ExecutionLeg, ExecutionLegInput, ExecutionQuoteRange, ExecutionSnapshot,

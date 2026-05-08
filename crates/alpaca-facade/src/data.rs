@@ -286,6 +286,9 @@ impl AlpacaData {
                     OrderSide::Buy => format!("long{}", leg.contract.option_right.as_str()),
                     OrderSide::Sell => format!("short{}", leg.contract.option_right.as_str()),
                 },
+                option_right: None,
+                strike: None,
+                valuation_years: None,
             });
         }
 

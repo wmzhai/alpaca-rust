@@ -103,15 +103,14 @@
             "implied_volatility": 0.25
           }
         ],
+        "qty": 1,
         "underlying_price": 97.0,
         "evaluation_time": "2025-03-21 16:00:00",
         "entry_cost": null,
-        "rate": 0.03,
-        "dividend_yield": null,
-        "long_volatility_shift": null
+        "dividend_yield": null
       },
       "expected": {
-        "value": -7.723954958015611
+        "value": -10.070083780311023
       },
       "tolerance": 1e-09
     },
@@ -145,11 +144,10 @@
             "implied_volatility": 0.25
           }
         ],
+        "qty": 1,
         "evaluation_time": "2025-03-21 16:00:00",
         "entry_cost": null,
-        "rate": 0.03,
         "dividend_yield": null,
-        "long_volatility_shift": null,
         "lower_bound": 50.0,
         "upper_bound": 150.0,
         "scan_step": 1.0,
@@ -200,10 +198,10 @@
       }
     },
     {
-      "id": "option-strategy-snapshot-greeks-strategy-quantity",
+      "id": "option-strategy-snapshot-greeks-qty",
       "api": "option_strategy.snapshot_greeks",
       "input": {
-        "strategy_quantity": 3.0,
+        "qty": 3,
         "positions": [
           {
             "contract": "SPY250417C00100000",
@@ -312,18 +310,16 @@
         ],
         "underlying_price": 102.0,
         "evaluation_time": "2025-03-20 11:30:04",
-        "rate": 0.03,
         "dividend_yield": null,
-        "long_volatility_shift": null,
-        "strategy_quantity": 2.0
+        "qty": 2
       },
       "expected": {
         "value": {
-          "delta": 74.32624061910433,
-          "gamma": -3.996948975610665,
-          "vega": 9.966242111078355,
-          "theta": 6.947731548034932,
-          "rho": 2861.5010360201895
+          "delta": 74.71900630025688,
+          "gamma": -4.063913103063628,
+          "vega": 9.60519884391476,
+          "theta": 6.893869510973171,
+          "rho": 2874.642476109063
         }
       },
       "tolerance": 1e-09
@@ -358,11 +354,10 @@
             "implied_volatility": 0.3
           }
         ],
+        "qty": 1,
         "evaluation_time": null,
         "entry_cost": null,
-        "rate": 0.03,
         "dividend_yield": null,
-        "long_volatility_shift": null,
         "lower_bound": 90.0,
         "upper_bound": 110.0,
         "step": 10.0
@@ -371,18 +366,18 @@
         "value": [
           {
             "underlying_price": 90.0,
-            "mark_value": 187.21591464384028,
-            "pnl": -812.7840853561597
+            "mark_value": 190.56942695991415,
+            "pnl": -809.4305730400858
           },
           {
             "underlying_price": 100.0,
-            "mark_value": 724.5847134833625,
-            "pnl": -275.4152865166375
+            "mark_value": 732.4392589952354,
+            "pnl": -267.5607410047646
           },
           {
             "underlying_price": 110.0,
-            "mark_value": 1079.0141954482779,
-            "pnl": 79.01419544827786
+            "mark_value": 1089.4668588634843,
+            "pnl": 89.46685886348428
           }
         ]
       },

@@ -92,7 +92,10 @@ Migration constraints:
   snapshot?: OptionSnapshot,
   qty: integer,
   avg_cost: string,
-  leg_type: string
+  leg_type: string,
+  option_right?: "call" | "put",
+  strike?: number,
+  valuation_years?: number
 }
 ```
 
@@ -102,6 +105,7 @@ Constraints:
 - `snapshot` may be omitted in external JSON; Rust core carries it with an empty snapshot default internally
 - `avg_cost` keeps price-string semantics and stays aligned with Rust-side `Decimal`
 - `leg_type` is a formal canonical model field rather than a migration-only hint
+- `option_right`, `strike`, and `valuation_years` are optional prepared valuation fields filled by `OptionStrategy::prepare`
 - the lower layer owns derivation of `position_side`, absolute quantity, and canonical contract from `contract + qty + leg_type`
 
 ### `ShortItmPosition`
@@ -150,20 +154,20 @@ Notes:
 ```text
 {
   positions: OptionPosition[],
+  qty: integer,
   underlying_price: number,
   evaluation_time: NyTimestampString,
   entry_cost: number | null,
-  rate: number,
-  dividend_yield: number | null,
-  long_volatility_shift: number | null
+  dividend_yield: number | null
 }
 ```
 
 Notes:
 
 - `positions` use the same `OptionPosition` model as live strategy holdings; the OCC symbol is parsed from `contract`, and runtime valuation inputs such as IV come from the position `snapshot`
-- `entry_cost` is the aggregate entry cost for the whole structure; when it is empty, the lower layer sums `avg_cost * qty * 100` for each leg
-- `long_volatility_shift` only applies to long, unexpired legs and exists to preserve the current strategy-layer long-IV shock use case
+- `qty` is the strategy-level quantity and is distinct from each position's signed ratio `qty`
+- `entry_cost` is the aggregate entry cost for the whole structure; when it is empty, the lower layer sums `avg_cost * position.qty * 100` for each leg and multiplies by strategy `qty`
+- strategy valuation uses `DEFAULT_RISK_FREE_RATE` internally and uses `position.snapshot.implied_volatility` directly
 
 ### `StrategyBreakEvenSideInput`
 
@@ -238,11 +242,10 @@ Notes:
 ```text
 {
   positions: OptionPosition[],
+  qty: integer,
   evaluation_time: NyTimestampString,
   entry_cost: number | null,
-  rate: number,
   dividend_yield: number | null,
-  long_volatility_shift: number | null,
   lower_bound: number,
   upper_bound: number,
   scan_step?: number,

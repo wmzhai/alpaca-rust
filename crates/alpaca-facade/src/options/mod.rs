@@ -413,6 +413,9 @@ pub async fn resolve_positions_from_optionstrat_url(
                     format!("short{}", leg.contract.option_right.as_str())
                 }
             },
+            option_right: None,
+            strike: None,
+            valuation_years: None,
         });
     }
 
