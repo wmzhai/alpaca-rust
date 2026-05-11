@@ -9,9 +9,13 @@ mod positions;
 
 use chrono::{SecondsFormat, Utc};
 use rust_decimal::Decimal;
+use rust_decimal::prelude::{FromPrimitive, ToPrimitive};
 use serde::Serialize;
 use thiserror::Error;
 
+use alpaca_option::{
+    OptionContract, OptionQuote, OrderSide as QuoteOrderSide, QuotedLeg, execution_quote,
+};
 use alpaca_trade::activities::Activity;
 use alpaca_trade::orders::{
     CancelAllOrderResult, OptionLegRequest, Order, OrderClass, OrderSide, OrderStatus, OrderType,
@@ -1730,16 +1734,29 @@ fn mleg_mid_price(
     _request_side: &OrderSide,
     market_quotes: &HashMap<String, InstrumentSnapshot>,
 ) -> Option<Decimal> {
-    let raw_total = mleg_price_total(
-        order,
-        market_quotes,
-        |instrument, leg_side| match leg_side {
-            OrderSide::Buy | OrderSide::Sell => Some(instrument.mid_price()),
-            OrderSide::Unspecified => None,
-        },
-    )?;
+    let (best, worst) = mleg_best_worst_from_order(order, market_quotes)?;
+    Some(((best + worst) / Decimal::from(2)).round_dp(2))
+}
 
-    Some(raw_total.round_dp(2))
+fn mleg_best_worst_from_order(
+    order: &Order,
+    market_quotes: &HashMap<String, InstrumentSnapshot>,
+) -> Option<(Decimal, Decimal)> {
+    let quoted_legs = order
+        .legs
+        .as_ref()?
+        .iter()
+        .map(|leg| {
+            quoted_leg_from_market(
+                &leg.symbol,
+                &leg.side,
+                leg.ratio_qty.unwrap_or(1),
+                market_quotes,
+            )
+        })
+        .collect::<Option<Vec<_>>>()?;
+
+    mleg_best_worst_from_quoted_legs(&quoted_legs)
 }
 
 fn infer_request_side(
@@ -1783,42 +1800,55 @@ fn mleg_raw_total_from_legs(
     legs: &[OptionLegRequest],
     market_quotes: &HashMap<String, InstrumentSnapshot>,
 ) -> Option<Decimal> {
-    legs.iter().try_fold(Decimal::ZERO, |total, leg| {
-        let instrument = market_quotes.get(&leg.symbol)?;
-        let leg_side = leg.side.as_ref()?;
-        let ratio_qty = Decimal::from(leg.ratio_qty);
-        let contribution = match leg_side {
-            OrderSide::Buy => instrument.mid_price() * ratio_qty,
-            OrderSide::Sell => -(instrument.mid_price() * ratio_qty),
-            OrderSide::Unspecified => return None,
-        };
-        Some(total + contribution)
-    })
+    let quoted_legs = legs
+        .iter()
+        .map(|leg| {
+            quoted_leg_from_market(
+                &leg.symbol,
+                leg.side.as_ref()?,
+                leg.ratio_qty,
+                market_quotes,
+            )
+        })
+        .collect::<Option<Vec<_>>>()?;
+    let (best, worst) = mleg_best_worst_from_quoted_legs(&quoted_legs)?;
+    Some(((best + worst) / Decimal::from(2)).round_dp(2))
 }
 
-fn mleg_price_total<F>(
-    order: &Order,
+fn mleg_best_worst_from_quoted_legs(quoted_legs: &[QuotedLeg]) -> Option<(Decimal, Decimal)> {
+    let range = execution_quote::best_worst(quoted_legs, Some(1)).ok()?;
+    Some((
+        Decimal::from_f64(range.per_structure.best_price)?,
+        Decimal::from_f64(range.per_structure.worst_price)?,
+    ))
+}
+
+fn quoted_leg_from_market(
+    symbol: &str,
+    side: &OrderSide,
+    ratio_qty: u32,
     market_quotes: &HashMap<String, InstrumentSnapshot>,
-    mut price_for_leg: F,
-) -> Option<Decimal>
-where
-    F: FnMut(&InstrumentSnapshot, &OrderSide) -> Option<Decimal>,
-{
-    order
-        .legs
-        .as_ref()?
-        .iter()
-        .try_fold(Decimal::ZERO, |total, leg| {
-            let instrument = market_quotes.get(&leg.symbol)?;
-            let leg_price = price_for_leg(instrument, &leg.side)?;
-            let ratio_qty = Decimal::from(leg.ratio_qty.unwrap_or(1));
-            let contribution = match leg.side {
-                OrderSide::Buy => leg_price * ratio_qty,
-                OrderSide::Sell => -(leg_price * ratio_qty),
-                OrderSide::Unspecified => return None,
-            };
-            Some(total + contribution)
-        })
+) -> Option<QuotedLeg> {
+    let instrument = market_quotes.get(symbol)?;
+    Some(QuotedLeg {
+        contract: OptionContract {
+            occ_symbol: symbol.trim().to_ascii_uppercase(),
+            ..OptionContract::default()
+        },
+        order_side: match side {
+            OrderSide::Buy => QuoteOrderSide::Buy,
+            OrderSide::Sell => QuoteOrderSide::Sell,
+            OrderSide::Unspecified => return None,
+        },
+        ratio_quantity: ratio_qty,
+        quote: OptionQuote {
+            bid: instrument.bid.to_f64().filter(|value| value.is_finite()),
+            ask: instrument.ask.to_f64().filter(|value| value.is_finite()),
+            mark: None,
+            last: None,
+        },
+        snapshot: None,
+    })
 }
 
 fn sync_nested_legs(
@@ -2439,6 +2469,83 @@ mod tests {
         }
     }
 
+    fn build_test_double_diag_order(order_type: OrderType, limit_price: Option<Decimal>) -> Order {
+        let now = "2026-04-09T12:00:00Z";
+        Order {
+            id: "mock-double-diag-parent-order".to_owned(),
+            client_order_id: "mock-double-diag-parent-client-order".to_owned(),
+            created_at: now.to_owned(),
+            updated_at: now.to_owned(),
+            submitted_at: now.to_owned(),
+            filled_at: None,
+            expired_at: None,
+            expires_at: expires_at_for(&TimeInForce::Day),
+            canceled_at: None,
+            failed_at: None,
+            replaced_at: None,
+            replaced_by: None,
+            replaces: None,
+            asset_id: String::new(),
+            symbol: String::new(),
+            asset_class: String::new(),
+            notional: None,
+            qty: Some(Decimal::ONE),
+            filled_qty: Decimal::ZERO,
+            filled_avg_price: None,
+            order_class: OrderClass::Mleg,
+            order_type: order_type.clone(),
+            r#type: order_type.clone(),
+            side: OrderSide::Unspecified,
+            position_intent: None,
+            time_in_force: TimeInForce::Day,
+            limit_price,
+            stop_price: None,
+            status: OrderStatus::New,
+            extended_hours: false,
+            legs: Some(build_leg_orders_from_requests(
+                &[
+                    OptionLegRequest {
+                        symbol: "IWM260515P00265000".to_owned(),
+                        ratio_qty: 1,
+                        side: Some(OrderSide::Sell),
+                        position_intent: None,
+                    },
+                    OptionLegRequest {
+                        symbol: "IWM260515P00270000".to_owned(),
+                        ratio_qty: 1,
+                        side: Some(OrderSide::Buy),
+                        position_intent: None,
+                    },
+                    OptionLegRequest {
+                        symbol: "IWM260515C00285000".to_owned(),
+                        ratio_qty: 1,
+                        side: Some(OrderSide::Sell),
+                        position_intent: None,
+                    },
+                    OptionLegRequest {
+                        symbol: "IWM260515C00290000".to_owned(),
+                        ratio_qty: 1,
+                        side: Some(OrderSide::Buy),
+                        position_intent: None,
+                    },
+                ],
+                Decimal::ONE,
+                order_type,
+                TimeInForce::Day,
+                now,
+                None,
+            )),
+            trail_percent: None,
+            trail_price: None,
+            hwm: None,
+            ratio_qty: None,
+            take_profit: None,
+            stop_loss: None,
+            subtag: None,
+            source: None,
+        }
+    }
+
     #[test]
     fn stock_single_leg_orders_use_mid_price_for_market_and_limit() {
         let snapshot = equity_snapshot();
@@ -2535,7 +2642,46 @@ mod tests {
         apply_mleg_fill_rules(&mut resting_order, &OrderSide::Buy, &market_quotes);
         assert_eq!(resting_order.status, OrderStatus::New);
         assert_eq!(resting_order.filled_avg_price, None);
+    }
 
+    #[test]
+    fn multi_leg_mid_uses_whole_order_best_worst_before_rounding() {
+        let market_quotes = HashMap::from([
+            (
+                "IWM260515P00265000".to_owned(),
+                InstrumentSnapshot::option(Decimal::new(88, 2), Decimal::new(91, 2)),
+            ),
+            (
+                "IWM260515P00270000".to_owned(),
+                InstrumentSnapshot::option(Decimal::new(104, 2), Decimal::new(108, 2)),
+            ),
+            (
+                "IWM260515C00285000".to_owned(),
+                InstrumentSnapshot::option(Decimal::new(66, 2), Decimal::new(69, 2)),
+            ),
+            (
+                "IWM260515C00290000".to_owned(),
+                InstrumentSnapshot::option(Decimal::new(94, 2), Decimal::new(98, 2)),
+            ),
+        ]);
+        let expected_mid = Decimal::new(45, 2);
+
+        let order = build_test_double_diag_order(OrderType::Limit, Some(Decimal::new(44, 2)));
+        assert_eq!(
+            mleg_mid_price(&order, &OrderSide::Buy, &market_quotes),
+            Some(expected_mid)
+        );
+
+        let mut resting_order =
+            build_test_double_diag_order(OrderType::Limit, Some(Decimal::new(44, 2)));
+        apply_mleg_fill_rules(&mut resting_order, &OrderSide::Buy, &market_quotes);
+        assert_eq!(resting_order.status, OrderStatus::New);
+        assert_eq!(resting_order.filled_avg_price, None);
+
+        let mut fillable_order = build_test_double_diag_order(OrderType::Limit, Some(expected_mid));
+        apply_mleg_fill_rules(&mut fillable_order, &OrderSide::Buy, &market_quotes);
+        assert_eq!(fillable_order.status, OrderStatus::Filled);
+        assert_eq!(fillable_order.filled_avg_price, Some(expected_mid));
     }
 
     #[test]

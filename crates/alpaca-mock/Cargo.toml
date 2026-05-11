@@ -16,6 +16,7 @@ categories = ["api-bindings", "development-tools"]
 [dependencies]
 alpaca-core = { path = "../alpaca-core", version = "0.25.4" }
 alpaca-data = { path = "../alpaca-data", version = "0.25.4" }
+alpaca-option = { path = "../alpaca-option", version = "0.25.4" }
 alpaca-trade = { path = "../alpaca-trade", version = "0.25.4" }
 axum.workspace = true
 chrono.workspace = true
