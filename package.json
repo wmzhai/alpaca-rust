@@ -11,7 +11,7 @@
   "devDependencies": {
     "tsx": "4.20.6"
   },
-  "packageManager": "pnpm@10.32.1",
+  "packageManager": "pnpm@11.1.0",
   "workspaces": [
     "packages/*",
     "website"
