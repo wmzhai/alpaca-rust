@@ -545,7 +545,37 @@ fn option_strategy_pnl_peak_from_current_refines_peak_below_ten_cents() {
 }
 
 #[test]
-fn option_strategy_pnl_peak_from_current_scans_past_local_peak() {
+fn option_strategy_pnl_peak_from_current_follows_delta_left() {
+    let positions = vec![
+        strategy_position("2025-04-24", 100.0, OptionRight::Put, -1, 10.0, 0.25),
+        strategy_position("2025-04-24", 100.0, OptionRight::Call, -1, 10.0, 0.25),
+    ];
+    let strategy =
+        OptionStrategy::prepare(&positions, 1, "2025-03-20 10:30:00", None, Some(0.0)).unwrap();
+
+    let peak = strategy
+        .pnl_peak_from_current(&StrategyPnlPeakSearchInput {
+            current_price: 108.0,
+            step_hint: None,
+            left_boundary: 1.0,
+            right_boundary: 324.0,
+            tolerance: Some(1e-9),
+            max_search_steps: Some(512),
+        })
+        .unwrap()
+        .unwrap();
+
+    let oracle = strategy.maximize_pnl_in_range(90.0, 110.0, 160).unwrap();
+    assert!(
+        (peak.spot - oracle.spot).abs() <= 0.1,
+        "peak spot should follow negative delta back to the local top, got {}, expected {}",
+        peak.spot,
+        oracle.spot
+    );
+}
+
+#[test]
+fn option_strategy_pnl_peak_from_current_stops_at_first_delta_turn() {
     let positions = vec![
         strategy_position("2025-03-21", 90.0, OptionRight::Call, 1, 0.0, 0.25),
         strategy_position("2025-03-21", 100.0, OptionRight::Call, -2, 0.0, 0.25),
@@ -571,14 +601,14 @@ fn option_strategy_pnl_peak_from_current_scans_past_local_peak() {
         .unwrap();
 
     assert!(
-        (peak.spot - 140.0).abs() <= 0.1,
-        "peak search should find the global peak near 140, got {}",
+        (peak.spot - 100.0).abs() <= 0.1,
+        "from-current peak search should stop at the first delta turn near 100, got {}",
         peak.spot
     );
 }
 
 #[test]
-fn option_strategy_pnl_peak_from_current_finds_smh_diagonal_global_peak() {
+fn option_strategy_pnl_peak_from_current_finds_smh_diagonal_delta_turn() {
     let evaluation_time = "2026-05-08 12:00:00";
     let current_price = 496.59;
     let long_price = 130.70;
@@ -615,13 +645,13 @@ fn option_strategy_pnl_peak_from_current_finds_smh_diagonal_global_peak() {
         })
         .unwrap()
         .unwrap();
-    let oracle = strategy.maximize_pnl_in_range(450.0, 650.0, 180).unwrap();
+    let peak_delta = strategy.greeks_at(peak.spot).unwrap().delta;
 
     assert!(
-        (peak.spot - oracle.spot).abs() <= 0.1,
-        "peak spot should be within 0.1 of global curve top, got {}, expected {}",
+        peak_delta.abs() <= 1.0,
+        "peak spot should be near the delta turn, got spot {} with delta {}",
         peak.spot,
-        oracle.spot
+        peak_delta
     );
 }
 

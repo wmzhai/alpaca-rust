@@ -1162,6 +1162,64 @@ impl OptionStrategy {
         Ok(StrategyPnlPeak { spot, pnl })
     }
 
+    fn pnl_peak_at(&self, spot: f64) -> OptionResult<StrategyPnlPeak> {
+        let pnl = self.pnl_at(spot)?;
+        ensure_finite("invalid_strategy_payoff_input", "peak.pnl", pnl)?;
+        Ok(StrategyPnlPeak { spot, pnl })
+    }
+
+    fn peak_delta_tolerance(tolerance: f64) -> f64 {
+        (tolerance * CONTRACT_MULTIPLIER)
+            .sqrt()
+            .clamp(1e-4, 0.5)
+    }
+
+    fn directional_peak_step(
+        base_step: f64,
+        current_price: f64,
+        delta: f64,
+        remaining: f64,
+    ) -> f64 {
+        let delta_scale = (delta.abs() / CONTRACT_MULTIPLIER).sqrt().clamp(0.25, 4.0);
+        let spot_cap = current_price.max(1.0) * 0.10;
+        (base_step * delta_scale)
+            .clamp(0.01, spot_cap)
+            .min(remaining)
+    }
+
+    fn pnl_peak_from_delta_bracket(
+        &self,
+        lower_bound: f64,
+        upper_bound: f64,
+        lower_delta: f64,
+        upper_delta: f64,
+        delta_tolerance: f64,
+    ) -> OptionResult<StrategyPnlPeak> {
+        if lower_bound >= upper_bound {
+            return self.pnl_peak_at(lower_bound);
+        }
+        if lower_delta.abs() <= delta_tolerance {
+            return self.pnl_peak_at(lower_bound);
+        }
+        if upper_delta.abs() <= delta_tolerance {
+            return self.pnl_peak_at(upper_bound);
+        }
+
+        if lower_delta * upper_delta < 0.0 {
+            if let Ok(spot) = numeric::refine_bracketed_root(
+                lower_bound,
+                upper_bound,
+                |spot| self.greeks_at(spot).map(|greeks| greeks.delta),
+                Some(delta_tolerance),
+                Some(40),
+            ) {
+                return self.pnl_peak_at(spot);
+            }
+        }
+
+        self.maximize_pnl_in_range(lower_bound, upper_bound, 40)
+    }
+
     pub fn pnl_peak_from_current(
         &self,
         input: &StrategyPnlPeakSearchInput,
@@ -1218,48 +1276,127 @@ impl OptionStrategy {
             ));
         }
 
-        let preferred_step = input
+        let base_step = input
             .step_hint
             .filter(|value| value.is_finite() && *value > 0.0)
             .unwrap_or((input.current_price * 0.005).clamp(0.1, 5.0))
-            .clamp(0.05, input.current_price.max(1.0) * 0.05);
-        let range = input.right_boundary - input.left_boundary;
-        let preferred_intervals = (range / preferred_step).ceil().max(2.0) as usize;
-        let intervals = preferred_intervals.min(max_search_steps.max(2));
-        let scan_step = range / intervals as f64;
-        let mut best_index = 0usize;
-        let mut best_spot = input.left_boundary;
-        let mut best_pnl = self.pnl_at(best_spot)?;
+            .clamp(0.05, input.current_price.max(1.0) * 0.10);
+        let delta_tolerance = Self::peak_delta_tolerance(tolerance);
+        let current_delta = self.greeks_at(input.current_price)?.delta;
+        ensure_finite(
+            "invalid_strategy_payoff_input",
+            "current_delta",
+            current_delta,
+        )?;
+        let current_peak = self.pnl_peak_at(input.current_price)?;
 
-        for index in 1..=intervals {
-            let spot = if index == intervals {
-                input.right_boundary
+        if current_delta.abs() <= delta_tolerance {
+            let lower = (input.current_price - base_step).max(input.left_boundary);
+            let upper = (input.current_price + base_step).min(input.right_boundary);
+            let peak = if lower < upper {
+                let local_peak = self.maximize_pnl_in_range(lower, upper, 40)?;
+                if local_peak.pnl > current_peak.pnl + tolerance {
+                    local_peak
+                } else {
+                    current_peak
+                }
             } else {
-                input.left_boundary + scan_step * index as f64
+                current_peak
             };
-            let pnl = self.pnl_at(spot)?;
-            if pnl > best_pnl + tolerance {
-                best_index = index;
-                best_spot = spot;
-                best_pnl = pnl;
-            }
+            return if peak.pnl <= tolerance {
+                Ok(None)
+            } else {
+                Ok(Some(peak))
+            };
         }
 
-        let peak = if best_index == 0 || best_index == intervals {
-            StrategyPnlPeak {
-                spot: best_spot,
-                pnl: best_pnl,
-            }
+        let direction = current_delta.signum();
+        let boundary = if direction > 0.0 {
+            input.right_boundary
         } else {
-            let lower = input.left_boundary + scan_step * (best_index - 1) as f64;
-            let upper = input.left_boundary + scan_step * (best_index + 1) as f64;
-            self.maximize_pnl_in_range(lower, upper, 80)?
+            input.left_boundary
         };
+        let mut previous_spot = input.current_price;
+        let mut previous_delta = current_delta;
+        let mut previous_peak = current_peak;
+        let mut best_peak = previous_peak;
 
-        if peak.pnl <= tolerance {
-            return Ok(None);
+        for _ in 0..max_search_steps {
+            let remaining = if direction > 0.0 {
+                boundary - previous_spot
+            } else {
+                previous_spot - boundary
+            };
+            if remaining <= tolerance {
+                break;
+            }
+
+            let step = Self::directional_peak_step(
+                base_step,
+                input.current_price,
+                previous_delta,
+                remaining,
+            );
+            let next_spot = previous_spot + direction * step;
+            if (next_spot - previous_spot).abs() <= f64::EPSILON {
+                break;
+            }
+
+            let next_delta = self.greeks_at(next_spot)?.delta;
+            ensure_finite("invalid_strategy_payoff_input", "next_delta", next_delta)?;
+            let next_peak = self.pnl_peak_at(next_spot)?;
+            if next_peak.pnl > best_peak.pnl + tolerance {
+                best_peak = next_peak;
+            }
+
+            let lower = previous_spot.min(next_spot);
+            let upper = previous_spot.max(next_spot);
+            if next_delta.abs() <= delta_tolerance || previous_delta * next_delta < 0.0 {
+                let peak = self.pnl_peak_from_delta_bracket(
+                    lower,
+                    upper,
+                    if lower == previous_spot {
+                        previous_delta
+                    } else {
+                        next_delta
+                    },
+                    if upper == previous_spot {
+                        previous_delta
+                    } else {
+                        next_delta
+                    },
+                    delta_tolerance,
+                )?;
+                return if peak.pnl <= tolerance {
+                    Ok(None)
+                } else {
+                    Ok(Some(peak))
+                };
+            }
+
+            if next_peak.pnl + tolerance < previous_peak.pnl {
+                let peak = self.maximize_pnl_in_range(lower, upper, 40)?;
+                return if peak.pnl <= tolerance {
+                    Ok(None)
+                } else {
+                    Ok(Some(peak))
+                };
+            }
+
+            if (next_spot - boundary).abs() <= tolerance {
+                break;
+            }
+
+            previous_spot = next_spot;
+            previous_delta = next_delta;
+            previous_peak = next_peak;
         }
-        Ok(Some(peak))
+
+        if best_peak.pnl <= tolerance {
+            Ok(None)
+        } else {
+            Ok(Some(best_peak))
+        }
     }
 
     pub fn aggregate_snapshot_greeks(
