@@ -150,7 +150,7 @@ jobs:
               "https://crates.io/api/v1/crates/${crate}/${version}"
           }
 
-          for crate in alpaca-core alpaca-rest-http alpaca-data alpaca-trade alpaca-mock alpaca-time alpaca-option alpaca-facade; do
+          for crate in alpaca-core alpaca-rest-http alpaca-data alpaca-trade alpaca-time alpaca-option alpaca-mock alpaca-facade; do
             version="$(version_for "$crate")"
             status="$(crate_exists "$crate" "$version")"
             case "$status" in

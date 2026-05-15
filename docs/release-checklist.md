@@ -34,7 +34,7 @@ pnpm install --frozen-lockfile
 python3 tools/docs/generate-doc-site
 cargo doc --workspace --no-deps
 pnpm run build:website
-for crate in alpaca-core alpaca-rest-http alpaca-data alpaca-trade alpaca-mock alpaca-time alpaca-option alpaca-facade; do
+for crate in alpaca-core alpaca-rest-http alpaca-data alpaca-trade alpaca-time alpaca-option alpaca-mock alpaca-facade; do
   cargo package --list --allow-dirty -p "$crate"
 done
 cargo publish --dry-run --locked --allow-dirty --no-verify -p alpaca-core
@@ -65,7 +65,7 @@ pnpm install --frozen-lockfile
 python3 tools/docs/generate-doc-site
 cargo doc --workspace --no-deps
 pnpm run build:website
-for crate in alpaca-core alpaca-rest-http alpaca-data alpaca-trade alpaca-mock alpaca-time alpaca-option alpaca-facade; do
+for crate in alpaca-core alpaca-rest-http alpaca-data alpaca-trade alpaca-time alpaca-option alpaca-mock alpaca-facade; do
   cargo package --list --allow-dirty -p "$crate"
 done
 cargo publish --dry-run --locked --allow-dirty --no-verify -p alpaca-core
