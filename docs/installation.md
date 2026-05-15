@@ -8,7 +8,7 @@ Market data:
 
 ```toml
 [dependencies]
-alpaca-data = "0.25.4"
+alpaca-data = "0.26.0"
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
 ```
 
@@ -16,7 +16,7 @@ Trading:
 
 ```toml
 [dependencies]
-alpaca-trade = "0.25.4"
+alpaca-trade = "0.26.0"
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
 ```
 
@@ -81,3 +81,8 @@ on more than one `alpaca-*` crate directly, keep their versions aligned.
 
 Optional TypeScript companions exist inside the repo under `packages/`, but they
 are not the primary published system surface for release planning.
+
+- `@alpaca/time` (`packages/alpaca-time`)
+- `@alpaca/option` (`packages/alpaca-option`)
+- `@alpaca/trade` (`packages/alpaca-trade`) — currently used for shared
+  execution-type modeling in TypeScript

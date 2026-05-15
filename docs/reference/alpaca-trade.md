@@ -26,6 +26,17 @@
 - websocket / stream APIs
 - high-level order orchestration helpers
 
+### Optional Companion
+
+There is a small workspace companion under `packages/alpaca-trade`
+(`@alpaca/trade`) for TypeScript model sharing. It is a plus feature and is not
+an additional published Rust crate or API surface.
+
+`@alpaca/trade` currently only re-exports the generated `Execution` type used by
+frontend consumers. The Rust `Execution` enum in
+`crates/alpaca-trade/src/orders/execution.rs` is the source of truth and
+generates `packages/alpaca-trade/src/generated/Execution.ts` via `ts-rs`.
+
 ## Client Entry
 
 ### Construction

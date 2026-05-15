@@ -4,7 +4,7 @@ This checklist defines the public release bar for `alpaca-rust`.
 
 ## Current Release Baseline
 
-- The current published release line is `v0.25.4`
+- The current published release line is `v0.26.0`
 - `.github/workflows/github-pages.yml` is the only release workflow
 - The release workflow publishes crates and GitHub Releases only on semantic version tags matching `v*.*.*`
 - crates.io Trusted Publishing must remain configured for all published Rust crates:
@@ -16,7 +16,7 @@ This checklist defines the public release bar for `alpaca-rust`.
 ## Public Surface
 
 - The official published system surface is the Rust workspace only
-- `packages/alpaca-time` and `packages/alpaca-option` remain optional workspace plus features and are not separate release artifacts
+- `packages/alpaca-time`, `packages/alpaca-option`, and `packages/alpaca-trade` remain optional workspace plus features and are not separate release artifacts
 - Root `README.md` reflects the current three-layer Rust workspace shape
 - Each published Rust crate has its own `README.md`
 - `Cargo.toml` metadata is present for every published Rust crate

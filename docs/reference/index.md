@@ -44,6 +44,13 @@ HTTP surfaces in `alpaca-rust`.
 
 ## Companion Documents
 
+### Workspace TypeScript Companions (Optional)
+
+- [Workspace Companion Packages](../companion-packages.md)
+- [@alpaca/time](https://github.com/wmzhai/alpaca-rust/tree/main/packages/alpaca-time) (time semantics)
+- [@alpaca/option](https://github.com/wmzhai/alpaca-rust/tree/main/packages/alpaca-option) (option semantics)
+- [@alpaca/trade](https://github.com/wmzhai/alpaca-rust/tree/main/packages/alpaca-trade) (trade execution types)
+
 ### Coverage
 
 - [Market Data API Coverage](../api-coverage/market-data.md)

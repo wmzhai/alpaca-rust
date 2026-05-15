@@ -27,7 +27,11 @@ Primary application entry points:
 - `alpaca-facade`
 
 Optional TypeScript companions exist inside the workspace, but they are plus
-features rather than the primary published system surface.
+features rather than the primary published system surface:
+
+- `@alpaca/time` (`packages/alpaca-time`)
+- `@alpaca/option` (`packages/alpaca-option`)
+- `@alpaca/trade` (`packages/alpaca-trade`) — execution model companion only
 
 Maintainer: Weiming Zhai (wmzhai@gmail.com)
 
@@ -37,6 +41,7 @@ Maintainer: Weiming Zhai (wmzhai@gmail.com)
 - [Installation](./installation.md)
 - [Authentication](./authentication.md)
 - [Project Structure](./project-structure.md)
+- [Workspace Companion Packages](./companion-packages.md)
 - [Reference Index](./reference/index.md)
 - [Mock Server](./mock-server.md)
 - [Testing Guide](./testing.md)

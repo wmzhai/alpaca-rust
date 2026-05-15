@@ -27,6 +27,22 @@ workspace.
 An optional workspace TypeScript companion exists under `packages/alpaca-option`.
 It is a plus feature, not the primary published system surface.
 
+The TypeScript package exports the following namespaces from `@alpaca/option`:
+
+- `analysis`, `chain`, `contract`, `display`, `executionQuote`, `expirationSelection`
+- `math` and sub-exports (`american`, `bachelier`, `barrier`, `black76`, `geometricAsian`)
+- `numeric`, `optionStrategy`, `payoff`, `pricing`, `probability`, `snapshot`, `url`
+- `OptionStrategy` class
+- `OptionError`
+
+Package metadata:
+
+- `private: true`
+- `@alpaca/option` (`1.10.4`)
+- extra exports: `./math/american`, `./math/bachelier`, `./math/barrier`,
+  `./math/black76`, `./math/geometric-asian`, `./option-strategy`.
+- dedicated TS tests cover public API boundary and fixture metadata expectations.
+
 ## Not Included
 
 - Alpaca HTTP clients or credentials

@@ -27,7 +27,7 @@ const sidebars: SidebarsConfig = {
       type: 'category',
       label: 'Architecture',
       collapsed: false,
-      items: ['project-structure'],
+      items: ['project-structure', 'companion-packages'],
     },
     {
       type: 'category',

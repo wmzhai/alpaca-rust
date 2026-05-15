@@ -23,6 +23,18 @@ expiration-date semantics shared across the Rust SDK surface.
 An optional workspace TypeScript companion exists under `packages/alpaca-time`.
 It is a plus feature, not the primary published system surface.
 
+The TypeScript package exports:
+
+- namespace exports: `clock`, `calendar`, `session`, `expiration`, `range`, `display`, `browser`
+- shared types from `types`
+- `TimeError`
+
+Package metadata:
+
+- `private: true`
+- `@alpaca/time` (`1.10.4`)
+- exports only the package root (`"." => "./src/index.ts"`).
+
 ## Not Included
 
 - Alpaca HTTP transport or credentials

@@ -16,9 +16,14 @@ Primary entry points depend on what you are building:
 - use `alpaca-time` and `alpaca-option` for reusable domain semantics
 - use `alpaca-facade` when you want the higher-level composition layer
 
-Optional TypeScript companions exist under `packages/alpaca-time` and
-`packages/alpaca-option`, but they are plus features inside the workspace, not
-the recommended published system surface.
+Optional TypeScript companions are provided as workspace conveniences:
+
+- `@alpaca/time` from `packages/alpaca-time`
+- `@alpaca/option` from `packages/alpaca-option`
+- `@alpaca/trade` from `packages/alpaca-trade` (shared trade execution type only)
+
+These companions are plus features inside the workspace, not the recommended
+published system surface.
 
 Quick links:
 
@@ -72,7 +77,7 @@ Use `alpaca-data` for market data:
 
 ```toml
 [dependencies]
-alpaca-data = "0.25.4"
+alpaca-data = "0.26.0"
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
 ```
 
@@ -89,7 +94,7 @@ Use `alpaca-trade` for trading resources:
 
 ```toml
 [dependencies]
-alpaca-trade = "0.25.4"
+alpaca-trade = "0.26.0"
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
 ```
 
@@ -107,8 +112,8 @@ Use `alpaca-facade` for the high-level composition layer:
 
 ```toml
 [dependencies]
-alpaca-facade = "0.25.4"
-alpaca-data = "0.25.4"
+alpaca-facade = "0.26.0"
+alpaca-data = "0.26.0"
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
 ```
 

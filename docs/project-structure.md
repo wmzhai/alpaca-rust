@@ -22,9 +22,21 @@ companions, and supporting documentation/test assets.
 | --- | --- | --- |
 | `packages/alpaca-time` | `@alpaca/time` | Optional TypeScript companion for time semantics |
 | `packages/alpaca-option` | `@alpaca/option` | Optional TypeScript companion for option semantics |
+| `packages/alpaca-trade` | `@alpaca/trade` | Optional TypeScript companion for trade execution type |
 
 These TypeScript packages are available to workspace consumers, but they are not
 the primary published system surface or the default public entry point.
+Only crates listed in the "Published Rust Crates" section above participate in
+release publication.
+
+The following published Rust crates currently have no dedicated workspace TypeScript
+companions:
+
+- `alpaca-core`
+- `alpaca-http` / `alpaca-rest-http`
+- `alpaca-data`
+- `alpaca-mock`
+- `alpaca-facade`
 
 ## Supporting Directories
 

@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.26.0
+
+- Bumped the entire publishable workspace to `0.26.0` and aligned all in-workspace dependency pins.
+- Updated all public versioned snippets and release metadata (README/docs/release checklist/website metadata).
+- Regenerated doc metadata output to keep docs pages consistent with the new version.
+
 ## v0.25.4
 
 - Added realtime option strategy peak fields for exposing current-curve maximum profit price, profit, and unit mark value.
