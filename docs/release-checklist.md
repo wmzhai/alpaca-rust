@@ -117,9 +117,9 @@ Publish in dependency order:
 2. `alpaca-rest-http`
 3. `alpaca-data`
 4. `alpaca-trade`
-5. `alpaca-mock`
-6. `alpaca-time`
-7. `alpaca-option`
+5. `alpaca-time`
+6. `alpaca-option`
+7. `alpaca-mock`
 8. `alpaca-facade`
 
 Wait for crates.io index visibility before publishing each dependent crate.

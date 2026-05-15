@@ -97,7 +97,7 @@ jobs:
 
       - name: Verify publishable package manifests
         run: |
-          for crate in alpaca-core alpaca-rest-http alpaca-data alpaca-trade alpaca-mock alpaca-time alpaca-option alpaca-facade; do
+          for crate in alpaca-core alpaca-rest-http alpaca-data alpaca-trade alpaca-time alpaca-option alpaca-mock alpaca-facade; do
             cargo package --list -p "$crate"
           done
 
