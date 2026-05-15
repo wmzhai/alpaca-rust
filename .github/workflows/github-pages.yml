@@ -81,7 +81,7 @@ jobs:
           cache-dependency-path: pnpm-lock.yaml
 
       - name: Install workspace JavaScript dependencies
-        run: pnpm install --frozen-lockfile
+        run: pnpm install --frozen-lockfile --ignore-scripts
 
       - name: Generate docs metadata
         run: python3 tools/docs/generate-doc-site
