@@ -61,6 +61,6 @@ test('analysis and url helpers consume snake_case canonical positions directly',
       underlyingDisplaySymbol: 'SPY',
       positions,
     }),
-    'https://optionstrat.com/build/custom/SPY/-.SPY250321C100x1@5.25',
+    'https://optionstrat.com/build/custom/SPY/.SPY250321C100x-1@5.25',
   );
 });

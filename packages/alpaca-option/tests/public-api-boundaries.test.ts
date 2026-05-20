@@ -291,6 +291,17 @@ test('optionstrat helpers cover query/hash, optional premium, and underlying mis
   assert.equal(legs[0].premiumPerContract, null);
   assert.equal(legs[0].ratioQuantity, 1);
 
+  const signedShortLegs = url.parseOptionstratLegFragments('IWM', ['.IWM260605C285x-2@0.9']);
+  assert.equal(signedShortLegs.length, 1);
+  assert.equal(signedShortLegs[0].orderSide, 'sell');
+  assert.equal(signedShortLegs[0].ratioQuantity, 2);
+  assert.equal(signedShortLegs[0].premiumPerContract, 0.9);
+
+  const prefixShortLegs = url.parseOptionstratLegFragments('SPY', ['-.SPY250321P580x2@2.45']);
+  assert.equal(prefixShortLegs.length, 1);
+  assert.equal(prefixShortLegs[0].orderSide, 'sell');
+  assert.equal(prefixShortLegs[0].ratioQuantity, 2);
+
   assertOptionError(() => url.parseOptionstratLegFragments('SPY', ['.QQQ250620P480x1@1.23']), 'invalid_optionstrat_leg_fragment');
   assert.equal(url.buildOptionstratLegFragment({
     occSymbol: 'SPY250321C00600000',
@@ -304,7 +315,7 @@ test('optionstrat helpers cover query/hash, optional premium, and underlying mis
       quantity: -1,
       premiumPerContract: 2.45,
     }),
-    '-.SPY250321P580x1@2.45',
+    '.SPY250321P580x-1@2.45',
   );
   assert.equal(
     url.buildOptionstratLegFragment({
@@ -312,7 +323,7 @@ test('optionstrat helpers cover query/hash, optional premium, and underlying mis
       quantity: -1,
       premiumPerContract: null,
     }),
-    '-.SPY250321P580x1',
+    '.SPY250321P580x-1',
   );
   assert.equal(
     url.buildOptionstratStockFragment({
@@ -335,14 +346,14 @@ test('optionstrat helpers cover query/hash, optional premium, and underlying mis
       underlyingDisplaySymbol: 'BRK.B',
       legs: [{ occSymbol: 'BRKB250620P00480000', quantity: -2, premiumPerContract: 12.34 }],
     }),
-    'https://optionstrat.com/build/custom/BRK%2FB/-.BRKB250620P480x2@12.34',
+    'https://optionstrat.com/build/custom/BRK%2FB/.BRKB250620P480x-2@12.34',
   );
   assert.equal(
     url.buildOptionstratUrl({
       underlyingDisplaySymbol: 'SPY',
       legs: [{ occSymbol: 'SPY250321P00580000', quantity: '-1', premiumPerContract: '2.45' }],
     }),
-    'https://optionstrat.com/build/custom/SPY/-.SPY250321P580x1@2.45',
+    'https://optionstrat.com/build/custom/SPY/.SPY250321P580x-1@2.45',
   );
   assert.equal(
     url.buildOptionstratUrl({
@@ -356,7 +367,7 @@ test('optionstrat helpers cover query/hash, optional premium, and underlying mis
         premiumPerContract: '2.45',
       }],
     }),
-    'https://optionstrat.com/build/custom/SPY/-.SPY250321P580x1@2.45',
+    'https://optionstrat.com/build/custom/SPY/.SPY250321P580x-1@2.45',
   );
   assert.equal(
     url.buildOptionstratUrl({
@@ -366,7 +377,7 @@ test('optionstrat helpers cover query/hash, optional premium, and underlying mis
         { contract: 'SPY250321C00600000', qty: 2, avg_cost: '0.00', leg_type: 'longcall', snapshot: sampleSnapshot(1.0, 1.2) },
       ],
     }),
-    'https://optionstrat.com/build/custom/SPY/-.SPY250321P580x1@2.45,.SPY250321C600x2@1.10',
+    'https://optionstrat.com/build/custom/SPY/.SPY250321P580x-1@2.45,.SPY250321C600x2@1.10',
   );
   assert.equal(
     url.buildOptionstratUrl({
@@ -414,7 +425,7 @@ test('optionstrat helpers cover query/hash, optional premium, and underlying mis
         },
       ],
     }),
-    'https://optionstrat.com/build/custom/SPY/-.SPY250321P580x1@2.45,.SPY250321C600x2@1.20',
+    'https://optionstrat.com/build/custom/SPY/.SPY250321P580x-1@2.45,.SPY250321C600x2@1.20',
   );
   assert.equal(
     url.buildOptionstratUrl({
@@ -422,7 +433,7 @@ test('optionstrat helpers cover query/hash, optional premium, and underlying mis
       legs: [{ occSymbol: 'SPY250321P00580000', quantity: -1, premiumPerContract: 2.45 }],
       stocks: [{ underlyingSymbol: 'SPY', quantity: 100, costPerShare: 530.12 }],
     }),
-    'https://optionstrat.com/build/custom/SPY/-.SPY250321P580x1@2.45,SPYx100@530.12',
+    'https://optionstrat.com/build/custom/SPY/.SPY250321P580x-1@2.45,SPYx100@530.12',
   );
   assert.equal(
     url.buildOptionstratUrl({
@@ -450,7 +461,7 @@ test('optionstrat helpers cover query/hash, optional premium, and underlying mis
       ],
       'SPY',
     ),
-    'https://optionstrat.com/build/custom/SPY/-.SPY250321P580x1@2.45,.SPY250321C600x2',
+    'https://optionstrat.com/build/custom/SPY/.SPY250321P580x-1@2.45,.SPY250321C600x2',
   );
   assert.equal(
     url.mergeOptionstratUrls([

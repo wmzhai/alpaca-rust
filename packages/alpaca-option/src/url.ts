@@ -102,13 +102,12 @@ export function buildOptionstratLegFragment(input: OptionStratLegInput): string 
       return null;
     }
 
-    const prefix = leg.quantity < 0 ? '-.' : '.';
     const compactContract = `${contract.underlying_symbol}${contract.expiration_date.slice(2, 4)}${contract.expiration_date.slice(5, 7)}${contract.expiration_date.slice(8, 10)}${optionRightCode(contract.option_right)}${formatStrike(contract.strike)}`;
 
     const premiumSuffix = leg.premiumPerContract == null
       ? ''
       : `@${Math.abs(leg.premiumPerContract).toFixed(2)}`;
-    return `${prefix}${compactContract}x${Math.abs(leg.quantity)}${premiumSuffix}`;
+    return `.${compactContract}x${leg.quantity}${premiumSuffix}`;
   } catch {
     return null;
   }
@@ -258,13 +257,13 @@ function parseCompactContract(input: string): {
 
 function parseOptionstratLegFragment(fragment: string, underlyingDisplaySymbol: string): StrategyLegInput {
   let body = fragment;
-  let orderSide: 'buy' | 'sell';
+  let prefixOrderSide: 'buy' | 'sell';
 
   if (body.startsWith('-.')) {
-    orderSide = 'sell';
+    prefixOrderSide = 'sell';
     body = body.slice(2);
   } else if (body.startsWith('.')) {
-    orderSide = 'buy';
+    prefixOrderSide = 'buy';
     body = body.slice(1);
   } else {
     fail('invalid_optionstrat_leg_fragment', `invalid optionstrat leg fragment: ${fragment}`);
@@ -274,10 +273,12 @@ function parseOptionstratLegFragment(fragment: string, underlyingDisplaySymbol: 
   const xIndex = withoutPremium.lastIndexOf('x');
   const compactContract = xIndex < 0 ? withoutPremium : withoutPremium.slice(0, xIndex);
   const quantityText = xIndex < 0 ? null : withoutPremium.slice(xIndex + 1);
-  const ratioQuantity = quantityText == null ? 1 : Number(quantityText);
-  if (!Number.isInteger(ratioQuantity) || ratioQuantity <= 0) {
+  const signedQuantity = quantityText == null ? 1 : Number(quantityText);
+  if (!Number.isInteger(signedQuantity) || signedQuantity === 0) {
     fail('invalid_optionstrat_leg_fragment', `invalid optionstrat leg fragment: ${fragment}`);
   }
+  const orderSide = prefixOrderSide === 'sell' || signedQuantity < 0 ? 'sell' : 'buy';
+  const ratioQuantity = Math.abs(signedQuantity);
 
   const compact = parseCompactContract(compactContract);
   if (normalizeUnderlyingSymbol(underlyingDisplaySymbol) !== compact.underlyingSymbol) {

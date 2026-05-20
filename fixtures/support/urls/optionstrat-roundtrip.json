@@ -20,7 +20,7 @@
         "premium_per_contract": 2.45
       },
       "expected": {
-        "value": "-.SPY250321P580x1@2.45"
+        "value": ".SPY250321P580x-1@2.45"
       }
     },
     {
@@ -32,7 +32,7 @@
         "premium_per_contract": 12.34
       },
       "expected": {
-        "value": "-.BRKB250620P480x2@12.34"
+        "value": ".BRKB250620P480x-2@12.34"
       }
     },
     {
@@ -66,7 +66,7 @@
         ]
       },
       "expected": {
-        "value": "https://optionstrat.com/build/custom/SPY/-.SPY250321P580x1@2.45,.SPY250321P560x1@1.10"
+        "value": "https://optionstrat.com/build/custom/SPY/.SPY250321P580x-1@2.45,.SPY250321P560x1@1.10"
       }
     },
     {
@@ -90,7 +90,7 @@
         ]
       },
       "expected": {
-        "value": "https://optionstrat.com/build/custom/SPY/-.SPY250321P580x1@2.45,SPYx100@530.12"
+        "value": "https://optionstrat.com/build/custom/SPY/.SPY250321P580x-1@2.45,SPYx100@530.12"
       }
     },
     {
@@ -124,7 +124,7 @@
         ]
       },
       "expected": {
-        "value": "https://optionstrat.com/build/custom/BRK%2FB/-.BRKB250620P480x2@12.34"
+        "value": "https://optionstrat.com/build/custom/BRK%2FB/.BRKB250620P480x-2@12.34"
       }
     },
     {
@@ -311,7 +311,7 @@
         "premium_per_contract": 2.45
       },
       "expected": {
-        "value": "-.SPY250321P580x1@2.45"
+        "value": ".SPY250321P580x-1@2.45"
       }
     },
     {
@@ -340,7 +340,7 @@
         ]
       },
       "expected": {
-        "value": "https://optionstrat.com/build/custom/BRK%2FB/-.BRKB250620P480x2@12.34"
+        "value": "https://optionstrat.com/build/custom/BRK%2FB/.BRKB250620P480x-2@12.34"
       }
     },
     {

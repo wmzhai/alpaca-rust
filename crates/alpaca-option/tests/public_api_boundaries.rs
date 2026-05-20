@@ -690,6 +690,21 @@ fn optionstrat_helpers_cover_query_hash_optional_premium_and_underlying_mismatch
     assert_eq!(legs_without_qty[0].ratio_quantity, 1);
     assert_eq!(legs_without_qty[0].premium_per_contract, Some(31.67));
 
+    let signed_short_legs =
+        url::parse_optionstrat_leg_fragments("IWM", &[".IWM260605C285x-2@0.9".to_string()])
+            .unwrap();
+    assert_eq!(signed_short_legs.len(), 1);
+    assert_eq!(signed_short_legs[0].order_side, alpaca_option::OrderSide::Sell);
+    assert_eq!(signed_short_legs[0].ratio_quantity, 2);
+    assert_eq!(signed_short_legs[0].premium_per_contract, Some(0.9));
+
+    let prefix_short_legs =
+        url::parse_optionstrat_leg_fragments("SPY", &["-.SPY250321P580x2@2.45".to_string()])
+            .unwrap();
+    assert_eq!(prefix_short_legs.len(), 1);
+    assert_eq!(prefix_short_legs[0].order_side, alpaca_option::OrderSide::Sell);
+    assert_eq!(prefix_short_legs[0].ratio_quantity, 2);
+
     assert_error_code(
         url::parse_optionstrat_leg_fragments("SPY", &[".QQQ250620P480x1@1.23".to_string()])
             .unwrap_err(),
@@ -711,7 +726,7 @@ fn optionstrat_helpers_cover_query_hash_optional_premium_and_underlying_mismatch
             premium_per_contract: Some(2.45),
             ..Default::default()
         }),
-        Some("-.SPY250321P580x1@2.45".to_string())
+        Some(".SPY250321P580x-1@2.45".to_string())
     );
     assert_eq!(
         url::build_optionstrat_leg_fragment(&alpaca_option::OptionStratLegInput {
@@ -720,7 +735,7 @@ fn optionstrat_helpers_cover_query_hash_optional_premium_and_underlying_mismatch
             premium_per_contract: None,
             ..Default::default()
         }),
-        Some("-.SPY250321P580x1".to_string())
+        Some(".SPY250321P580x-1".to_string())
     );
     assert_eq!(
         url::build_optionstrat_stock_fragment(&alpaca_option::OptionStratStockInput {
@@ -749,7 +764,7 @@ fn optionstrat_helpers_cover_query_hash_optional_premium_and_underlying_mismatch
             }],
             stocks: Vec::new(),
         }),
-        Some("https://optionstrat.com/build/custom/BRK%2FB/-.BRKB250620P480x2@12.34".to_string())
+        Some("https://optionstrat.com/build/custom/BRK%2FB/.BRKB250620P480x-2@12.34".to_string())
     );
     assert_eq!(
         url::build_optionstrat_url(&alpaca_option::OptionStratUrlInput {
@@ -766,7 +781,7 @@ fn optionstrat_helpers_cover_query_hash_optional_premium_and_underlying_mismatch
             }],
             stocks: Vec::new(),
         }),
-        Some("https://optionstrat.com/build/custom/SPY/-.SPY250321P580x1@2.45".to_string())
+        Some("https://optionstrat.com/build/custom/SPY/.SPY250321P580x-1@2.45".to_string())
     );
     assert_eq!(
         url::build_optionstrat_url(&alpaca_option::OptionStratUrlInput {
@@ -784,7 +799,7 @@ fn optionstrat_helpers_cover_query_hash_optional_premium_and_underlying_mismatch
             }],
         }),
         Some(
-            "https://optionstrat.com/build/custom/SPY/-.SPY250321P580x1@2.45,SPYx100@530.12"
+            "https://optionstrat.com/build/custom/SPY/.SPY250321P580x-1@2.45,SPYx100@530.12"
                 .to_string()
         )
     );
@@ -825,7 +840,7 @@ fn optionstrat_helpers_cover_query_hash_optional_premium_and_underlying_mismatch
             Some("SPY"),
         ),
         Some(
-            "https://optionstrat.com/build/custom/SPY/-.SPY250321P580x1@2.45,.SPY250321C600x2"
+            "https://optionstrat.com/build/custom/SPY/.SPY250321P580x-1@2.45,.SPY250321C600x2"
                 .to_string()
         )
     );

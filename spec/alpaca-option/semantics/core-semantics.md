@@ -138,11 +138,12 @@ Currently supported common format:
 Recommended canonical format:
 
 - long: `.SPY250321P560x1@1.10`
-- short: `-.SPY250321P580x1@2.45`
+- short: `.SPY250321P580x-1@2.45`
 
 Notes:
 
-- direction is encoded by the prefix rather than by the sign of premium
+- builders encode option-leg direction with signed quantity and emit the `.` prefix
+- parsers still accept the legacy `-.` short prefix and treat it as sell
 - premium uses absolute value
 
 ### Stock fragment

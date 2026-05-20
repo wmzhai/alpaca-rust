@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- Updated OptionStrat URL helpers to accept signed short quantities such as `.IWM260605C285x-2@0.9` while preserving legacy `-.CONTRACTx2` parsing.
+- Changed generated short option-leg fragments to the signed-quantity form `.CONTRACTx-2@...` in the Rust and TypeScript helpers.
+
 ## v0.26.0
 
 - Bumped the entire publishable workspace to `0.26.0` and aligned all in-workspace dependency pins.

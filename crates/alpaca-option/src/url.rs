@@ -69,7 +69,6 @@ pub fn from_optionstrat_underlying_path(path: &str) -> String {
 pub fn build_optionstrat_leg_fragment(input: &OptionStratLegInput) -> Option<String> {
     let leg = resolve_leg_input(input)?;
     let contract = parse_occ_symbol(&leg.occ_symbol)?;
-    let prefix = if leg.quantity < 0 { "-." } else { "." };
     let compact_contract = format!(
         "{}{}{}{}",
         contract.underlying_symbol,
@@ -86,11 +85,8 @@ pub fn build_optionstrat_leg_fragment(input: &OptionStratLegInput) -> Option<Str
         .unwrap_or_default();
 
     Some(format!(
-        "{}{}x{}{}",
-        prefix,
-        compact_contract,
-        leg.quantity.abs(),
-        premium_suffix
+        ".{}x{}{}",
+        compact_contract, leg.quantity, premium_suffix
     ))
 }
 
@@ -261,7 +257,7 @@ fn parse_optionstrat_leg_fragment(
     fragment: &str,
     expected_underlying: &str,
 ) -> OptionResult<StrategyLegInput> {
-    let (order_side, compact_fragment) = if let Some(value) = fragment.strip_prefix("-.") {
+    let (prefix_order_side, compact_fragment) = if let Some(value) = fragment.strip_prefix("-.") {
         (OrderSide::Sell, value)
     } else if let Some(value) = fragment.strip_prefix('.') {
         (OrderSide::Buy, value)
@@ -276,24 +272,31 @@ fn parse_optionstrat_leg_fragment(
         Some((body, premium)) => (body, Some(premium)),
         None => (compact_fragment, None),
     };
-    let (compact_contract, ratio_quantity) = match body.rsplit_once('x') {
+    let (compact_contract, signed_quantity) = match body.rsplit_once('x') {
         Some((compact_contract, quantity_text)) => {
-            let ratio_quantity = quantity_text.parse::<u32>().map_err(|_| {
+            let signed_quantity = quantity_text.parse::<i64>().map_err(|_| {
                 OptionError::new(
                     "invalid_optionstrat_leg_fragment",
                     format!("invalid optionstrat leg fragment: {fragment}"),
                 )
             })?;
-            (compact_contract, ratio_quantity)
+            (compact_contract, signed_quantity)
         }
         None => (body, 1),
     };
-    if ratio_quantity == 0 {
+    let quantity_abs = signed_quantity.unsigned_abs();
+    if signed_quantity == 0 || quantity_abs > u32::MAX as u64 {
         return Err(OptionError::new(
             "invalid_optionstrat_leg_fragment",
             format!("invalid optionstrat leg fragment: {fragment}"),
         ));
     }
+    let order_side = if prefix_order_side == OrderSide::Sell || signed_quantity < 0 {
+        OrderSide::Sell
+    } else {
+        OrderSide::Buy
+    };
+    let ratio_quantity = quantity_abs as u32;
 
     let (underlying_symbol, expiration_date, option_right_code, strike) =
         parse_compact_contract(compact_contract)?;
