@@ -364,6 +364,8 @@ export class OptionStrategy {
   public value = 0;
   public pnl = 0;
   public cashflow: number | null = null;
+  public stock_qty = 0;
+  public stock_cashflow = 0;
   public spread: number | null = null;
   public spread_rate: number | null = null;
   public max_profit: number | null = null;
@@ -453,11 +455,11 @@ export class OptionStrategy {
       positions: this.positions,
       underlying_price: underlyingPrice,
       dividend_yield: this.dividendYield,
-    }) * this.qty;
+    }) * this.qty + this.stockValueAt(underlyingPrice);
   }
 
   pnlAt(underlyingPrice: number): number {
-    return this.markValueAt(underlyingPrice) - this.entryCost;
+    return this.markValueAt(underlyingPrice) - this.effectiveEntryCost();
   }
 
   greeksAt(underlyingPrice: number): Greeks {
@@ -468,7 +470,7 @@ export class OptionStrategy {
     });
 
     return {
-      delta: total.delta * this.qty,
+      delta: total.delta * this.qty + this.stock_qty,
       gamma: total.gamma * this.qty,
       vega: total.vega * this.qty,
       theta: total.theta * this.qty,
@@ -481,12 +483,24 @@ export class OptionStrategy {
   }
 
   private effectiveEntryCost(): number {
-    return this.cashflow == null ? this.cost : -this.cashflow;
+    return this.cashflow == null ? this.cost - this.stock_cashflow : -this.cashflow;
+  }
+
+  private syncEntryCostFromState(): void {
+    this.entryCost = this.effectiveEntryCost();
+  }
+
+  private stockValueAt(underlyingPrice: number): number {
+    return Number.isFinite(underlyingPrice) ? this.stock_qty * underlyingPrice : 0;
+  }
+
+  private stockValueAtCurrentPrice(): number {
+    return this.stockValueAt(this.underlying_price);
   }
 
   calculatePositionTotals(): StrategyPositionTotals {
     const totals = this.positionTotals();
-    this.value = totals.value;
+    this.value = totals.value + this.stockValueAtCurrentPrice();
     this.cost = totals.cost;
     this.entryCost = totals.cost;
     this.spread = totals.spread;
@@ -503,11 +517,12 @@ export class OptionStrategy {
   }
 
   calculateValue(): number {
-    this.value = this.positionTotals().value;
+    this.value = this.positionTotals().value + this.stockValueAtCurrentPrice();
     return this.value;
   }
 
   calculatePnl(): number {
+    this.syncEntryCostFromState();
     this.pnl = this.value - this.effectiveEntryCost();
     return this.pnl;
   }
@@ -520,9 +535,14 @@ export class OptionStrategy {
   }
 
   calculateGreeks(): Greeks {
-    this.greeks = this.underlying_price > 0
-      ? this.greeksAt(this.underlying_price)
-      : OptionStrategy.aggregateSnapshotGreeks({ positions: this.positions, qty: this.qty });
+    if (this.underlying_price > 0) {
+      this.greeks = this.greeksAt(this.underlying_price);
+    } else {
+      const greeks = this.positions.length === 0
+        ? zeroGreeks()
+        : OptionStrategy.aggregateSnapshotGreeks({ positions: this.positions, qty: this.qty });
+      this.greeks = { ...greeks, delta: greeks.delta + this.stock_qty };
+    }
     return this.greeks;
   }
 
@@ -563,7 +583,7 @@ export class OptionStrategy {
       points.push({
         underlying_price: underlyingPrice,
         mark_value: markValue,
-        pnl: markValue - this.entryCost,
+        pnl: markValue - this.effectiveEntryCost(),
       });
 
       if (underlyingPrice >= input.upper_bound) {

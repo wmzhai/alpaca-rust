@@ -118,7 +118,7 @@ export function buildOptionstratStockFragment(input: OptionStratStockInput): str
   const costPerShare = typeof input.costPerShare === 'number'
     ? input.costPerShare
     : Number(input.costPerShare);
-  if (!Number.isInteger(quantity) || quantity <= 0 || !Number.isFinite(costPerShare)) {
+  if (!Number.isInteger(quantity) || quantity === 0 || !Number.isFinite(costPerShare)) {
     return null;
   }
 

@@ -203,8 +203,68 @@ fn option_strategy_exposes_serializable_state_fields() {
     let json = serde_json::to_value(&strategy).unwrap();
     assert!(json.get("positions").is_some());
     assert!(json.get("qty").is_some());
+    assert!(json.get("stock_qty").is_some());
+    assert!(json.get("stock_cashflow").is_some());
     assert!(json.get("underlying_price").is_some());
     assert!(json.get("current_underlying_price").is_none());
+}
+
+#[test]
+fn option_strategy_stock_overlay_updates_value_pnl_and_greeks_without_qty_multiplier() {
+    let position = option_position(
+        "2026-05-15",
+        50.0,
+        OptionRight::Call,
+        1,
+        Greeks {
+            delta: 0.40,
+            gamma: 0.01,
+            vega: 0.20,
+            theta: -0.03,
+            rho: 0.05,
+        },
+    );
+    let mut strategy =
+        OptionStrategy::prepare(&[position], 2, "2026-05-15 16:00:00", None, Some(0.0)).unwrap();
+
+    strategy.stock_qty = 75;
+    strategy.stock_cashflow = Decimal::new(-375000, 2);
+    strategy.cashflow = Some(Decimal::new(-397000, 2));
+    strategy.underlying_price = 52.0;
+
+    assert_eq!(strategy.calculate_value(), Decimal::new(412000, 2));
+    assert_eq!(strategy.calculate_pnl(), Decimal::new(15000, 2));
+
+    let greeks = strategy.calculate_greeks().unwrap();
+    assert!((greeks.delta - 275.0).abs() < 1e-12);
+    assert!((greeks.gamma - 0.0).abs() < 1e-12);
+    assert!((greeks.vega - 0.0).abs() < 1e-12);
+    assert!((greeks.theta - 0.0).abs() < 1e-12);
+    assert!((greeks.rho - 0.0).abs() < 1e-12);
+}
+
+#[test]
+fn option_strategy_stock_only_and_realized_stock_cashflow_participate_in_pnl() {
+    let mut long_stock = OptionStrategy::default();
+    long_stock.stock_qty = 100;
+    long_stock.stock_cashflow = Decimal::new(-500000, 2);
+    long_stock.cashflow = Some(Decimal::new(-500000, 2));
+    long_stock.underlying_price = 55.0;
+
+    assert_eq!(long_stock.calculate_value(), Decimal::new(550000, 2));
+    assert_eq!(long_stock.calculate_pnl(), Decimal::new(50000, 2));
+    assert_eq!(long_stock.pnl_at(60.0).unwrap(), 1000.0);
+    assert_eq!(long_stock.sample_curve(50.0, 60.0, 10.0).unwrap()[0].pnl, 0.0);
+    assert_eq!(long_stock.calculate_greeks().unwrap().delta, 100.0);
+
+    let mut closed_stock = OptionStrategy::default();
+    closed_stock.stock_cashflow = Decimal::new(25000, 2);
+    closed_stock.cashflow = Some(Decimal::new(25000, 2));
+    closed_stock.underlying_price = 55.0;
+
+    assert_eq!(closed_stock.calculate_value(), Decimal::ZERO);
+    assert_eq!(closed_stock.calculate_pnl(), Decimal::new(25000, 2));
+    assert_eq!(closed_stock.pnl_at(60.0).unwrap(), 250.0);
 }
 
 #[test]

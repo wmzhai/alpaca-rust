@@ -336,6 +336,14 @@ test('optionstrat helpers cover query/hash, optional premium, and underlying mis
   assert.equal(
     url.buildOptionstratStockFragment({
       underlyingSymbol: 'BRK.B',
+      quantity: -50,
+      costPerShare: 499.25,
+    }),
+    'BRKBx-50@499.25',
+  );
+  assert.equal(
+    url.buildOptionstratStockFragment({
+      underlyingSymbol: 'BRK.B',
       quantity: 0,
       costPerShare: 512.34,
     }),
@@ -441,6 +449,13 @@ test('optionstrat helpers cover query/hash, optional premium, and underlying mis
       stocks: [{ underlyingSymbol: 'SPY', quantity: 100, costPerShare: 530.12 }],
     }),
     'https://optionstrat.com/build/custom/SPY/SPYx100@530.12',
+  );
+  assert.equal(
+    url.buildOptionstratUrl({
+      underlyingDisplaySymbol: 'SPY',
+      stocks: [{ underlyingSymbol: 'SPY', quantity: -100, costPerShare: 530.12 }],
+    }),
+    'https://optionstrat.com/build/custom/SPY/SPYx-100@530.12',
   );
   assert.equal(
     url.buildOptionstratUrl({

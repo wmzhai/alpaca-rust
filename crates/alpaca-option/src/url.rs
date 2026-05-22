@@ -91,7 +91,7 @@ pub fn build_optionstrat_leg_fragment(input: &OptionStratLegInput) -> Option<Str
 }
 
 pub fn build_optionstrat_stock_fragment(input: &OptionStratStockInput) -> Option<String> {
-    if input.quantity <= 0 || !input.cost_per_share.is_finite() {
+    if input.quantity == 0 || !input.cost_per_share.is_finite() {
         return None;
     }
 

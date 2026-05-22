@@ -748,6 +748,14 @@ fn optionstrat_helpers_cover_query_hash_optional_premium_and_underlying_mismatch
     assert_eq!(
         url::build_optionstrat_stock_fragment(&alpaca_option::OptionStratStockInput {
             underlying_symbol: "BRK.B".to_string(),
+            quantity: -50,
+            cost_per_share: 499.25,
+        }),
+        Some("BRKBx-50@499.25".to_string())
+    );
+    assert_eq!(
+        url::build_optionstrat_stock_fragment(&alpaca_option::OptionStratStockInput {
+            underlying_symbol: "BRK.B".to_string(),
             quantity: 0,
             cost_per_share: 512.34,
         }),
@@ -802,6 +810,18 @@ fn optionstrat_helpers_cover_query_hash_optional_premium_and_underlying_mismatch
             "https://optionstrat.com/build/custom/SPY/.SPY250321P580x-1@2.45,SPYx100@530.12"
                 .to_string()
         )
+    );
+    assert_eq!(
+        url::build_optionstrat_url(&alpaca_option::OptionStratUrlInput {
+            underlying_display_symbol: "SPY".to_string(),
+            legs: Vec::new(),
+            stocks: vec![alpaca_option::OptionStratStockInput {
+                underlying_symbol: "SPY".to_string(),
+                quantity: -100,
+                cost_per_share: 530.12,
+            }],
+        }),
+        Some("https://optionstrat.com/build/custom/SPY/SPYx-100@530.12".to_string())
     );
     assert_eq!(
         url::build_optionstrat_url(&alpaca_option::OptionStratUrlInput {

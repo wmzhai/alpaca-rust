@@ -176,8 +176,77 @@ test('OptionStrategy exposes serializable state fields', () => {
   const json = JSON.parse(JSON.stringify(strategy));
   assert.ok(Array.isArray(json.positions));
   assert.equal(json.qty, 3);
+  assert.equal(json.stock_qty, 0);
+  assert.equal(json.stock_cashflow, 0);
   assert.equal(json.underlying_price, 452);
   assert.equal('current_underlying_price' in json, false);
+});
+
+test('OptionStrategy stock overlay updates value, pnl, and greeks without qty multiplier', () => {
+  const position = optionPosition('2026-05-15', 50, 'call', 1, {
+    delta: 0.40,
+    gamma: 0.01,
+    vega: 0.20,
+    theta: -0.03,
+    rho: 0.05,
+  });
+  const strategy = OptionStrategy.prepare({
+    positions: [position],
+    qty: 2,
+    evaluation_time: '2026-05-15 16:00:00',
+    entry_cost: null,
+    dividend_yield: 0,
+  });
+
+  strategy.stock_qty = 75;
+  strategy.stock_cashflow = -3750;
+  strategy.cashflow = -3970;
+  strategy.underlying_price = 52;
+
+  assert.equal(strategy.calculateValue(), 4120);
+  assert.equal(strategy.calculatePnl(), 150);
+
+  const greeks = strategy.calculateGreeks();
+  assert.equal(greeks.delta, 275);
+  assert.equal(greeks.gamma, 0);
+  assert.equal(greeks.vega, 0);
+  assert.equal(greeks.theta, 0);
+  assert.equal(greeks.rho, 0);
+});
+
+test('OptionStrategy stock-only and realized stock cashflow participate in pnl', () => {
+  const longStock = OptionStrategy.prepare({
+    positions: [],
+    qty: 1,
+    evaluation_time: '2026-05-15 16:00:00',
+    entry_cost: 0,
+    dividend_yield: 0,
+  });
+  longStock.stock_qty = 100;
+  longStock.stock_cashflow = -5000;
+  longStock.cashflow = -5000;
+  longStock.underlying_price = 55;
+
+  assert.equal(longStock.calculateValue(), 5500);
+  assert.equal(longStock.calculatePnl(), 500);
+  assert.equal(longStock.pnlAt(60), 1000);
+  assert.equal(longStock.sampleCurve({ lower_bound: 50, upper_bound: 60, step: 10 })[0]?.pnl, 0);
+  assert.equal(longStock.calculateGreeks().delta, 100);
+
+  const closedStock = OptionStrategy.prepare({
+    positions: [],
+    qty: 1,
+    evaluation_time: '2026-05-15 16:00:00',
+    entry_cost: 0,
+    dividend_yield: 0,
+  });
+  closedStock.stock_cashflow = 250;
+  closedStock.cashflow = 250;
+  closedStock.underlying_price = 55;
+
+  assert.equal(closedStock.calculateValue(), 0);
+  assert.equal(closedStock.calculatePnl(), 250);
+  assert.equal(closedStock.pnlAt(60), 250);
 });
 
 test('OptionStrategy exposes realtime peak state fields by default', () => {

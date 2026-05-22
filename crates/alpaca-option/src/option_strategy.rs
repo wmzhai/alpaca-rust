@@ -49,6 +49,11 @@ pub struct OptionStrategy {
     )]
     #[ts(optional, type = "number")]
     pub cashflow: Option<Decimal>,
+    #[serde(default)]
+    pub stock_qty: i32,
+    #[serde(default, with = "decimal_number_contract")]
+    #[ts(type = "number")]
+    pub stock_cashflow: Decimal,
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
@@ -681,6 +686,8 @@ impl OptionStrategy {
             value: Decimal::ZERO,
             pnl: Decimal::ZERO,
             cashflow: None,
+            stock_qty: 0,
+            stock_cashflow: Decimal::ZERO,
             spread: None,
             spread_rate: None,
             max_profit: None,
@@ -725,13 +732,15 @@ impl OptionStrategy {
     }
 
     pub fn pnl_at(&self, underlying_price: f64) -> OptionResult<f64> {
-        Ok(self.mark_value_at(underlying_price)? - self.entry_cost)
+        Ok(self.mark_value_at(underlying_price)?
+            - self.effective_entry_cost().to_f64().unwrap_or(0.0))
     }
 
     pub fn mark_value_at(&self, underlying_price: f64) -> OptionResult<f64> {
         Ok(
             Self::mark_value_prepared(&self.positions, underlying_price, self.dividend_yield)?
-                * f64::from(self.qty),
+                * f64::from(self.qty)
+                + self.stock_value_at_f64(underlying_price),
         )
     }
 
@@ -749,16 +758,34 @@ impl OptionStrategy {
     }
 
     fn effective_entry_cost(&self) -> Decimal {
-        self.cashflow.map(|cashflow| -cashflow).unwrap_or(self.cost)
+        self.cashflow
+            .map(|cashflow| -cashflow)
+            .unwrap_or(self.cost - self.stock_cashflow)
     }
 
     fn sync_entry_cost_from_state(&mut self) {
         self.entry_cost = self.effective_entry_cost().to_f64().unwrap_or(0.0);
     }
 
+    fn stock_value_at_f64(&self, underlying_price: f64) -> f64 {
+        if underlying_price.is_finite() {
+            f64::from(self.stock_qty) * underlying_price
+        } else {
+            0.0
+        }
+    }
+
+    fn stock_value_at_current_price(&self) -> Decimal {
+        if self.underlying_price.is_finite() {
+            alpaca_core::decimal::from_f64(self.stock_value_at_f64(self.underlying_price), 2)
+        } else {
+            Decimal::ZERO
+        }
+    }
+
     pub fn calculate_position_totals(&mut self) -> StrategyPositionTotals {
         let totals = self.position_totals();
-        self.value = totals.value;
+        self.value = totals.value + self.stock_value_at_current_price();
         self.cost = totals.cost;
         self.entry_cost = totals.cost.to_f64().unwrap_or(0.0);
         self.spread = Some(totals.spread);
@@ -775,7 +802,7 @@ impl OptionStrategy {
     }
 
     pub fn calculate_value(&mut self) -> Decimal {
-        self.value = self.position_totals().value;
+        self.value = self.position_totals().value + self.stock_value_at_current_price();
         self.value
     }
 
@@ -796,7 +823,12 @@ impl OptionStrategy {
         if self.underlying_price > 0.0 {
             self.greeks = self.greeks_at(self.underlying_price)?;
         } else {
-            self.greeks = Self::aggregate_snapshot_greeks(&self.positions, self.qty)?;
+            self.greeks = if self.positions.is_empty() {
+                Greeks::default()
+            } else {
+                Self::aggregate_snapshot_greeks(&self.positions, self.qty)?
+            };
+            self.greeks.delta += f64::from(self.stock_qty);
         }
         Ok(self.greeks.clone())
     }
@@ -928,7 +960,7 @@ impl OptionStrategy {
             points.push(OptionStrategyCurvePoint {
                 underlying_price,
                 mark_value,
-                pnl: mark_value - self.entry_cost,
+                pnl: mark_value - self.effective_entry_cost().to_f64().unwrap_or(0.0),
             });
 
             if underlying_price >= upper_bound {
@@ -1435,6 +1467,7 @@ impl OptionStrategy {
         total.vega *= qty;
         total.theta *= qty;
         total.rho *= qty;
+        total.delta += f64::from(self.stock_qty);
 
         Ok(total)
     }
