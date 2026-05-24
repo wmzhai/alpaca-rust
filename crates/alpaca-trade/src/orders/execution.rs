@@ -135,7 +135,7 @@ impl<'de> Deserialize<'de> for Execution {
             }
         };
 
-        match kind {
+        let execution = match kind {
             "market" => Ok(Self::Market),
             "limit" => Ok(Self::Limit {
                 limit_price: decimal_required("limit_price")?,
@@ -160,11 +160,60 @@ impl<'de> Deserialize<'de> for Execution {
             other => Err(D::Error::custom(format!(
                 "unsupported execution.type: {other}"
             ))),
-        }
+        }?;
+
+        Ok(execution.normalized_prices())
     }
 }
 
 impl Execution {
+    #[must_use]
+    pub fn normalize_order_price(price: Decimal) -> Decimal {
+        price.round_dp(2)
+    }
+
+    #[must_use]
+    pub fn normalized_prices(&self) -> Self {
+        match self {
+            Self::Market => Self::Market,
+            Self::Limit { limit_price } => Self::Limit {
+                limit_price: Self::normalize_order_price(*limit_price),
+            },
+            Self::DynamicLimit {
+                limit_price,
+                start_price,
+                end_price,
+                current_percentage,
+                percentage_step,
+                interval_seconds,
+                last_adjustment_time,
+            } => Self::DynamicLimit {
+                limit_price: Self::normalize_order_price(*limit_price),
+                start_price: Self::normalize_order_price(*start_price),
+                end_price: Self::normalize_order_price(*end_price),
+                current_percentage: *current_percentage,
+                percentage_step: *percentage_step,
+                interval_seconds: *interval_seconds,
+                last_adjustment_time: *last_adjustment_time,
+            },
+            Self::DynamicMarket {
+                limit_price,
+                start_percentage,
+                current_percentage,
+                percentage_step,
+                interval_seconds,
+                last_adjustment_time,
+            } => Self::DynamicMarket {
+                limit_price: Self::normalize_order_price(*limit_price),
+                start_percentage: *start_percentage,
+                current_percentage: *current_percentage,
+                percentage_step: *percentage_step,
+                interval_seconds: *interval_seconds,
+                last_adjustment_time: *last_adjustment_time,
+            },
+        }
+    }
+
     fn progress_decimal(value: f64) -> Result<Decimal, Error> {
         Decimal::try_from(value)
             .map_err(|_| Error::InvalidRequest(format!("invalid execution progress: {value}")))
@@ -195,8 +244,13 @@ impl Execution {
                 current_percentage,
                 limit_price,
                 ..
-            } => (*current_percentage, limit_price.to_string()),
-            Self::Limit { limit_price } => (1.0, limit_price.to_string()),
+            } => (
+                *current_percentage,
+                Self::normalize_order_price(*limit_price).to_string(),
+            ),
+            Self::Limit { limit_price } => {
+                (1.0, Self::normalize_order_price(*limit_price).to_string())
+            }
             Self::Market => (1.0, "MARKET".to_string()),
         }
     }
@@ -207,7 +261,9 @@ impl Execution {
             Self::Market => None,
             Self::Limit { limit_price }
             | Self::DynamicLimit { limit_price, .. }
-            | Self::DynamicMarket { limit_price, .. } => Some(*limit_price),
+            | Self::DynamicMarket { limit_price, .. } => {
+                Some(Self::normalize_order_price(*limit_price))
+            }
         }
     }
 
@@ -222,36 +278,41 @@ impl Execution {
                 interval_seconds,
                 last_adjustment_time,
             } => {
+                let limit_price = Self::normalize_order_price(*limit_price);
+                let start_price = Self::normalize_order_price(*start_price);
+                let end_price = Self::normalize_order_price(*end_price);
+
                 if *current_percentage >= 1.0 {
-                    return Ok(self.clone());
+                    return Ok(self.normalized_prices());
                 }
 
                 if let Some(last_time) = last_adjustment_time {
                     let elapsed = now.signed_duration_since(*last_time).num_seconds();
                     if elapsed < *interval_seconds {
-                        return Ok(self.clone());
+                        return Ok(self.normalized_prices());
                     }
                 }
 
                 let next_percentage = (*current_percentage + *percentage_step).min(1.0);
                 if next_percentage >= 1.0 {
                     return Ok(Self::Limit {
-                        limit_price: *end_price,
+                        limit_price: end_price,
                     });
                 }
 
-                let next_limit_price = (*start_price
-                    + (*end_price - *start_price) * Self::progress_decimal(next_percentage)?)
-                .round_dp(2);
+                let next_limit_price = Self::normalize_order_price(
+                    start_price
+                        + (end_price - start_price) * Self::progress_decimal(next_percentage)?,
+                );
 
                 Ok(Self::DynamicLimit {
                     limit_price: if next_limit_price.is_zero() {
-                        *limit_price
+                        limit_price
                     } else {
                         next_limit_price
                     },
-                    start_price: *start_price,
-                    end_price: *end_price,
+                    start_price,
+                    end_price,
                     current_percentage: next_percentage,
                     percentage_step: *percentage_step,
                     interval_seconds: *interval_seconds,
@@ -286,7 +347,7 @@ impl Execution {
                 if let Some(last_time) = last_adjustment_time {
                     let elapsed = now.signed_duration_since(*last_time).num_seconds();
                     if elapsed < *interval_seconds {
-                        return Ok(self.clone());
+                        return Ok(self.normalized_prices());
                     }
                 }
 
@@ -295,8 +356,9 @@ impl Execution {
                     return Ok(Self::Market);
                 }
 
-                let next_limit_price =
-                    best + (worst - best) * Self::progress_decimal(next_percentage)?;
+                let next_limit_price = Self::normalize_order_price(
+                    best + (worst - best) * Self::progress_decimal(next_percentage)?,
+                );
 
                 Ok(Self::DynamicMarket {
                     limit_price: next_limit_price,
@@ -320,7 +382,7 @@ impl Execution {
             Self::Limit { limit_price }
             | Self::DynamicLimit { limit_price, .. }
             | Self::DynamicMarket { limit_price, .. } => SubmitOrderStyle::Limit {
-                limit_price: limit_price.round_dp(2),
+                limit_price: Self::normalize_order_price(*limit_price),
             },
         }
     }
@@ -347,9 +409,9 @@ impl Execution {
         match order_type.trim() {
             "market" => Ok(Self::Market),
             "limit" => Ok(Self::Limit {
-                limit_price: limit_price.ok_or_else(|| {
+                limit_price: Self::normalize_order_price(limit_price.ok_or_else(|| {
                     Error::InvalidRequest("limit order is missing limit_price".to_string())
-                })?,
+                })?),
             }),
             _ => Ok(Self::Market),
         }
@@ -475,7 +537,7 @@ mod tests {
         let limit = Execution::Limit {
             limit_price: Decimal::new(1234, 3),
         };
-        assert_eq!(limit.limit_price(), Some(Decimal::new(1234, 3)));
+        assert_eq!(limit.limit_price(), Some(Decimal::new(123, 2)));
         assert_eq!(
             limit.submit_order_style(),
             SubmitOrderStyle::Limit {
@@ -493,6 +555,49 @@ mod tests {
         };
         assert!(dynamic_market.needs_market_retry("canceled"));
         assert!(!dynamic_market.needs_market_retry("filled"));
+    }
+
+    #[test]
+    fn normalizes_all_order_prices_to_two_decimals() {
+        let limit = Execution::from_order_type("limit", Some(Decimal::new(40995, 3))).unwrap();
+        assert_eq!(limit.limit_price(), Some(Decimal::new(4100, 2)));
+        assert_eq!(limit.progress_and_price(), (1.0, "41.00".to_string()));
+
+        let dynamic_limit = Execution::DynamicLimit {
+            limit_price: Decimal::new(1000, 2),
+            start_price: Decimal::new(1000, 2),
+            end_price: Decimal::new(40995, 3),
+            current_percentage: 0.9,
+            percentage_step: 0.2,
+            interval_seconds: 0,
+            last_adjustment_time: None,
+        };
+        assert_eq!(
+            dynamic_limit.advance_dynamic_limit(dt(10, 20, 0)).unwrap(),
+            Execution::Limit {
+                limit_price: Decimal::new(4100, 2),
+            }
+        );
+
+        let dynamic_market = Execution::DynamicMarket {
+            limit_price: Decimal::ZERO,
+            start_percentage: 0.4,
+            current_percentage: 0.49,
+            percentage_step: 0.01,
+            interval_seconds: 0,
+            last_adjustment_time: None,
+        }
+        .advance_dynamic_market(
+            Decimal::new(40365, 3),
+            Decimal::new(41625, 3),
+            dt(10, 21, 0),
+        )
+        .unwrap();
+        assert_eq!(dynamic_market.limit_price(), Some(Decimal::new(4100, 2)));
+        assert_eq!(
+            dynamic_market.progress_and_price(),
+            (0.5, "41.00".to_string())
+        );
     }
 
     #[test]
