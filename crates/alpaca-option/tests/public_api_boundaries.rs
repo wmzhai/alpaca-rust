@@ -4,6 +4,7 @@ use alpaca_option::chain;
 use alpaca_option::contract;
 use alpaca_option::display;
 use alpaca_option::execution_quote;
+use alpaca_option::market_structure;
 use alpaca_option::math;
 use alpaca_option::numeric;
 use alpaca_option::payoff;
@@ -11,8 +12,9 @@ use alpaca_option::pricing;
 use alpaca_option::probability;
 use alpaca_option::snapshot;
 use alpaca_option::types::{
-    ContractDisplay, ExecutionSnapshot, Greeks, OptionChainRecord, OptionContract, OptionPosition,
-    OptionQuote, OptionRight, OptionRightCode, OptionSnapshot,
+    ContractDisplay, ExecutionSnapshot, Greeks, MarketStructureFilters,
+    MarketStructureOptionRecord, OptionChainRecord, OptionContract, OptionPosition, OptionQuote,
+    OptionRight, OptionRightCode, OptionSnapshot,
 };
 use alpaca_option::url;
 use alpaca_option::{
@@ -79,6 +81,44 @@ fn sample_snapshot(bid: Option<f64>, ask: Option<f64>) -> OptionSnapshot {
         greeks: None,
         implied_volatility: None,
         underlying_price: None,
+    }
+}
+
+fn market_structure_record(
+    strike: f64,
+    option_right: OptionRight,
+    gamma: f64,
+    open_interest: f64,
+) -> MarketStructureOptionRecord {
+    MarketStructureOptionRecord {
+        as_of: "2026-05-29 10:35:00".to_string(),
+        underlying_symbol: "SPY".to_string(),
+        occ_symbol: match option_right {
+            OptionRight::Call => "SPY260619C00100000".to_string(),
+            OptionRight::Put => "SPY260619P00100000".to_string(),
+        },
+        expiration_date: "2026-06-19".to_string(),
+        option_right,
+        strike,
+        underlying_price: Some(100.0),
+        bid: Some(1.0),
+        ask: Some(1.2),
+        mark: Some(1.1),
+        last: None,
+        implied_volatility: Some(0.22),
+        delta: None,
+        gamma: Some(gamma),
+        vega: None,
+        theta: None,
+        rho: None,
+        open_interest: Some(open_interest),
+        open_interest_date: Some("2026-05-28".to_string()),
+        multiplier: Some(100.0),
+        minute_volume: Some(10),
+        daily_volume: Some(20),
+        latest_trade_size: Some(1),
+        bid_size: Some(10),
+        ask_size: Some(12),
     }
 }
 
@@ -183,6 +223,36 @@ fn option_chain_record_roundtrip_stays_in_bottom_library() {
     assert_eq!(bridged.iv(), 0.22);
     assert_eq!(bridged.greeks_or_default().delta, 0.25);
     assert_eq!(bridged.underlying_price, Some(598.75));
+}
+
+#[test]
+fn market_structure_analysis_stays_in_bottom_library() {
+    let records = vec![
+        market_structure_record(100.0, OptionRight::Call, 0.01, 1_000.0),
+        market_structure_record(95.0, OptionRight::Put, 0.02, 500.0),
+    ];
+
+    assert_eq!(
+        market_structure::gamma_exposure(&records[0], 100.0),
+        Some(100_000.0)
+    );
+
+    let filtered = market_structure::filter_market_structure_records(
+        &records,
+        &MarketStructureFilters {
+            option_right: Some(OptionRight::Call),
+            require_open_interest: true,
+            ..Default::default()
+        },
+    );
+    assert_eq!(filtered.len(), 1);
+    assert_eq!(filtered[0].option_right, OptionRight::Call);
+
+    let analysis = market_structure::analyze_market_structure(&records);
+    assert_eq!(analysis.records_count, 2);
+    assert_eq!(analysis.call_wall.unwrap().strike, 100.0);
+    assert_eq!(analysis.put_wall.unwrap().strike, 95.0);
+    assert_eq!(analysis.net_gamma_exposure, 0.0);
 }
 
 #[test]
@@ -694,7 +764,10 @@ fn optionstrat_helpers_cover_query_hash_optional_premium_and_underlying_mismatch
         url::parse_optionstrat_leg_fragments("IWM", &[".IWM260605C285x-2@0.9".to_string()])
             .unwrap();
     assert_eq!(signed_short_legs.len(), 1);
-    assert_eq!(signed_short_legs[0].order_side, alpaca_option::OrderSide::Sell);
+    assert_eq!(
+        signed_short_legs[0].order_side,
+        alpaca_option::OrderSide::Sell
+    );
     assert_eq!(signed_short_legs[0].ratio_quantity, 2);
     assert_eq!(signed_short_legs[0].premium_per_contract, Some(0.9));
 
@@ -702,7 +775,10 @@ fn optionstrat_helpers_cover_query_hash_optional_premium_and_underlying_mismatch
         url::parse_optionstrat_leg_fragments("SPY", &["-.SPY250321P580x2@2.45".to_string()])
             .unwrap();
     assert_eq!(prefix_short_legs.len(), 1);
-    assert_eq!(prefix_short_legs[0].order_side, alpaca_option::OrderSide::Sell);
+    assert_eq!(
+        prefix_short_legs[0].order_side,
+        alpaca_option::OrderSide::Sell
+    );
     assert_eq!(prefix_short_legs[0].ratio_quantity, 2);
 
     assert_error_code(

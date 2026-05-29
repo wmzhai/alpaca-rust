@@ -13,6 +13,7 @@ pub mod error;
 pub mod execution_quote;
 pub mod expiration_selection;
 pub mod liquidity;
+pub mod market_structure;
 pub mod math;
 pub mod numeric;
 pub mod option_strategy;
@@ -27,11 +28,15 @@ pub const DEFAULT_RISK_FREE_RATE: f64 = 0.0368;
 
 pub use error::{OptionError, OptionResult};
 pub use liquidity::{LiquidityBatchResponse, LiquidityData, LiquidityOptionData, LiquidityStats};
-pub use option_strategy::{unique_break_even_points, OptionStrategy};
+pub use market_structure::{
+    analyze_market_structure, filter_market_structure_records, gamma_exposure,
+};
+pub use option_strategy::{OptionStrategy, unique_break_even_points};
 pub use types::{
     AssignmentRiskLevel, BlackScholesImpliedVolatilityInput, BlackScholesInput, ContractDisplay,
     ExecutionAction, ExecutionLeg, ExecutionLegInput, ExecutionQuoteRange, ExecutionSnapshot,
-    Greeks, GreeksInput, MoneynessLabel, OptionChain, OptionChainRecord, OptionContract,
+    Greeks, GreeksInput, MarketStructureAnalysis, MarketStructureFilters, MarketStructureLevel,
+    MarketStructureOptionRecord, MoneynessLabel, OptionChain, OptionChainRecord, OptionContract,
     OptionPosition, OptionQuote, OptionRight, OptionRightCode, OptionSnapshot, OptionStratLegInput,
     OptionStratStockInput, OptionStratUrlInput, OptionStrategyCurvePoint, OptionStrategyInput,
     OrderSide, ParsedOptionStratUrl, PayoffLegInput, PositionIntent, PositionSide, QuotedLeg,

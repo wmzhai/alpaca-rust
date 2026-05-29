@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { OptionStrategy, analysis, optionStrategy, pricing } from '@alpaca/option';
+import { OptionStrategy, analysis, marketStructure, optionStrategy, pricing } from '@alpaca/option';
 import * as mathAmerican from '@alpaca/option/math/american';
 import * as mathBachelier from '@alpaca/option/math/bachelier';
 import * as mathBarrier from '@alpaca/option/math/barrier';
@@ -11,6 +11,7 @@ import * as optionStrategySubpath from '@alpaca/option/option-strategy';
 
 test('package exports expose public core and approved math subpaths', () => {
   assert.equal(typeof analysis.otmPercent, 'function');
+  assert.equal(typeof marketStructure.analyzeMarketStructure, 'function');
   assert.equal(typeof pricing.priceBlackScholes, 'function');
   assert.equal(typeof OptionStrategy.fromInput, 'function');
   assert.equal(typeof optionStrategy.strategyPnl, 'function');

@@ -1,7 +1,20 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { analysis, chain, contract, display, executionQuote, numeric, payoff, pricing, probability, snapshot, url } from '../src/index';
+import {
+  analysis,
+  chain,
+  contract,
+  display,
+  executionQuote,
+  marketStructure,
+  numeric,
+  payoff,
+  pricing,
+  probability,
+  snapshot,
+  url,
+} from '../src/index';
 import { OptionError } from '../src/error';
 import * as mathAmerican from '../src/math/american';
 import * as mathBarrier from '../src/math/barrier';
@@ -11,6 +24,8 @@ import type {
   LiquidityData,
   LiquidityOptionData,
   LiquidityStats,
+  MarketStructureFilters,
+  MarketStructureOptionRecord,
   OptionContract,
   OptionPosition,
   OptionSnapshot,
@@ -46,6 +61,41 @@ function sampleSnapshot(bid: number | null, ask: number | null): OptionSnapshot 
     greeks: null,
     implied_volatility: null,
     underlying_price: null,
+  };
+}
+
+function marketStructureRecord(
+  strike: number,
+  optionRight: 'call' | 'put',
+  gamma: number,
+  openInterest: number,
+): MarketStructureOptionRecord {
+  return {
+    as_of: '2026-05-29 10:35:00',
+    underlying_symbol: 'SPY',
+    occ_symbol: optionRight === 'call' ? 'SPY260619C00100000' : 'SPY260619P00100000',
+    expiration_date: '2026-06-19',
+    option_right: optionRight,
+    strike,
+    underlying_price: 100,
+    bid: 1,
+    ask: 1.2,
+    mark: 1.1,
+    last: null,
+    implied_volatility: 0.22,
+    delta: null,
+    gamma,
+    vega: null,
+    theta: null,
+    rho: null,
+    open_interest: openInterest,
+    open_interest_date: '2026-05-28',
+    multiplier: 100,
+    minute_volume: 10,
+    daily_volume: 20,
+    latest_trade_size: 1,
+    bid_size: 10,
+    ask_size: 12,
   };
 }
 
@@ -94,6 +144,26 @@ test('liquidity types stay available from root exports', () => {
   };
 
   assert.equal(response.results.SPY.options[0].occ_symbol, 'SPY250321P00580000');
+});
+
+test('market structure analysis stays in bottom library', () => {
+  const records = [
+    marketStructureRecord(100, 'call', 0.01, 1_000),
+    marketStructureRecord(95, 'put', 0.02, 500),
+  ];
+  const filters: MarketStructureFilters = {
+    option_right: 'call',
+    require_open_interest: true,
+  };
+
+  assert.equal(marketStructure.gammaExposure(records[0], 100), 100_000);
+  assert.equal(marketStructure.filterMarketStructureRecords(records, filters).length, 1);
+
+  const analysisResult = marketStructure.analyzeMarketStructure(records);
+  assert.equal(analysisResult.records_count, 2);
+  assert.equal(analysisResult.call_wall?.strike, 100);
+  assert.equal(analysisResult.put_wall?.strike, 95);
+  assert.equal(analysisResult.net_gamma_exposure, 0);
 });
 
 test('display.contractDisplay absorbs raw contract display fields directly', () => {

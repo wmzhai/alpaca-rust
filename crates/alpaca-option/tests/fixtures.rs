@@ -4,10 +4,11 @@ use std::fs;
 use std::path::PathBuf;
 
 use alpaca_option::{
-    ExecutionLegInput, ExecutionSnapshot, OptionChain, OptionChainRecord, OptionContract,
-    OptionPosition, OptionQuote, OptionRight, OptionSnapshot, OptionStrategy, OptionStrategyInput,
-    PayoffLegInput, QuotedLeg, RollLegSelection, StrategyBreakEvenInput, StrategyPnlInput,
-    analysis, contract, execution_quote, expiration_selection, math, numeric, option_strategy,
+    ExecutionLegInput, ExecutionSnapshot, MarketStructureFilters, MarketStructureOptionRecord,
+    OptionChain, OptionChainRecord, OptionContract, OptionPosition, OptionQuote, OptionRight,
+    OptionSnapshot, OptionStrategy, OptionStrategyInput, PayoffLegInput, QuotedLeg,
+    RollLegSelection, StrategyBreakEvenInput, StrategyPnlInput, analysis, contract,
+    execution_quote, expiration_selection, market_structure, math, numeric, option_strategy,
     payoff, pricing, probability, url,
 };
 
@@ -872,6 +873,38 @@ fn run_case(case: &Value) -> Value {
             .unwrap(),
         )
         .unwrap(),
+        "market_structure.gamma_exposure" => {
+            let record = serde_json::from_value::<MarketStructureOptionRecord>(
+                input.get("record").unwrap().clone(),
+            )
+            .unwrap();
+            serde_json::to_value(market_structure::gamma_exposure(
+                &record,
+                input.get("underlying_price").unwrap().as_f64().unwrap(),
+            ))
+            .unwrap()
+        }
+        "market_structure.filter_records" => {
+            let records = serde_json::from_value::<Vec<MarketStructureOptionRecord>>(
+                input.get("records").unwrap().clone(),
+            )
+            .unwrap();
+            let filters = serde_json::from_value::<MarketStructureFilters>(
+                input.get("filters").unwrap().clone(),
+            )
+            .unwrap();
+            serde_json::to_value(market_structure::filter_market_structure_records(
+                &records, &filters,
+            ))
+            .unwrap()
+        }
+        "market_structure.analyze" => {
+            let records = serde_json::from_value::<Vec<MarketStructureOptionRecord>>(
+                input.get("records").unwrap().clone(),
+            )
+            .unwrap();
+            serde_json::to_value(market_structure::analyze_market_structure(&records)).unwrap()
+        }
         "model.option_snapshot" => serde_json::json!({
             "valid": serde_json::from_value::<OptionSnapshot>(input.clone()).is_ok()
         }),
@@ -880,6 +913,9 @@ fn run_case(case: &Value) -> Value {
         }),
         "model.option_chain_record" => serde_json::json!({
             "valid": serde_json::from_value::<OptionChainRecord>(input.clone()).is_ok()
+        }),
+        "model.market_structure_option_record" => serde_json::json!({
+            "valid": serde_json::from_value::<MarketStructureOptionRecord>(input.clone()).is_ok()
         }),
         "model.option_chain" => serde_json::json!({
             "valid": serde_json::from_value::<OptionChain>(input.clone()).is_ok()
@@ -1104,12 +1140,14 @@ fn run_case(case: &Value) -> Value {
                     .and_then(Value::as_u64)
                     .map(|value| value as usize),
             };
-            serde_json::to_value(option_strategy::strategy_break_even_points(&strategy_input).unwrap())
-                .unwrap()
+            serde_json::to_value(
+                option_strategy::strategy_break_even_points(&strategy_input).unwrap(),
+            )
+            .unwrap()
         }
         "option_strategy.expiration_time" => serde_json::to_value(
             OptionStrategy::expiration_time(&fixture_positions(input.get("positions").unwrap()))
-            .unwrap(),
+                .unwrap(),
         )
         .unwrap(),
         "option_strategy.snapshot_greeks" => serde_json::to_value(

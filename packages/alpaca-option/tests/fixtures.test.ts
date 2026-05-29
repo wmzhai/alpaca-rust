@@ -4,13 +4,35 @@ import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
-import { OptionStrategy, analysis, contract, executionQuote, expirationSelection, numeric, optionStrategy, payoff, pricing, probability, url } from '../src/index';
+import {
+  OptionStrategy,
+  analysis,
+  contract,
+  executionQuote,
+  expirationSelection,
+  marketStructure,
+  numeric,
+  optionStrategy,
+  payoff,
+  pricing,
+  probability,
+  url,
+} from '../src/index';
 import * as mathAmerican from '../src/math/american';
 import * as mathBachelier from '../src/math/bachelier';
 import * as mathBarrier from '../src/math/barrier';
 import * as mathBlack76 from '../src/math/black76';
 import * as mathGeometricAsian from '../src/math/geometricAsian';
-import type { Greeks, OptionContract, OptionPosition, OptionQuote, OptionSnapshot, QuotedLeg } from '../src/index';
+import type {
+  Greeks,
+  MarketStructureFilters,
+  MarketStructureOptionRecord,
+  OptionContract,
+  OptionPosition,
+  OptionQuote,
+  OptionSnapshot,
+  QuotedLeg,
+} from '../src/index';
 
 type FixtureCase = {
   id: string;
@@ -177,6 +199,15 @@ function validateOptionChainRecordModel(input: Record<string, unknown>): boolean
     && typeof input.strike === 'number';
 }
 
+function validateMarketStructureOptionRecordModel(input: Record<string, unknown>): boolean {
+  return validateOptionChainRecordModel(input)
+    && 'open_interest' in input
+    && 'multiplier' in input
+    && 'daily_volume' in input
+    && 'bid_size' in input
+    && 'ask_size' in input;
+}
+
 function validateOptionChainModel(input: Record<string, unknown>): boolean {
   return typeof input.underlying_symbol === 'string'
     && typeof input.as_of === 'string'
@@ -323,8 +354,24 @@ function runCase(item: FixtureCase): unknown {
       return { valid: validateOptionPositionModel(item.input) };
     case 'model.option_chain_record':
       return { valid: validateOptionChainRecordModel(item.input) };
+    case 'model.market_structure_option_record':
+      return { valid: validateMarketStructureOptionRecordModel(item.input) };
     case 'model.option_chain':
       return { valid: validateOptionChainModel(item.input) };
+    case 'market_structure.gamma_exposure':
+      return marketStructure.gammaExposure(
+        item.input.record as unknown as MarketStructureOptionRecord,
+        Number(item.input.underlying_price),
+      );
+    case 'market_structure.filter_records':
+      return marketStructure.filterMarketStructureRecords(
+        item.input.records as unknown as MarketStructureOptionRecord[],
+        item.input.filters as unknown as MarketStructureFilters,
+      );
+    case 'market_structure.analyze':
+      return marketStructure.analyzeMarketStructure(
+        item.input.records as unknown as MarketStructureOptionRecord[],
+      );
     case 'contract.normalize_underlying_symbol':
       return contract.normalizeUnderlyingSymbol(String(item.input.symbol));
     case 'contract.is_occ_symbol':

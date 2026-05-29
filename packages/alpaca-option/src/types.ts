@@ -225,6 +225,72 @@ export type OptionChainRecord = {
   rho: number | null;
 };
 
+export type MarketStructureOptionRecord = {
+  as_of: string;
+  underlying_symbol: string;
+  occ_symbol: string;
+  expiration_date: string;
+  option_right: OptionRight;
+  strike: number;
+  underlying_price: number | null;
+  bid: number | null;
+  ask: number | null;
+  mark: number | null;
+  last: number | null;
+  implied_volatility: number | null;
+  delta: number | null;
+  gamma: number | null;
+  vega: number | null;
+  theta: number | null;
+  rho: number | null;
+  open_interest: number | null;
+  open_interest_date: string | null;
+  multiplier: number | null;
+  minute_volume: number | null;
+  daily_volume: number | null;
+  latest_trade_size: number | null;
+  bid_size: number | null;
+  ask_size: number | null;
+};
+
+export type MarketStructureFilters = {
+  expiration_date?: string | null;
+  dte_min?: number | null;
+  dte_max?: number | null;
+  strike_price_gte?: number | null;
+  strike_price_lte?: number | null;
+  option_right?: OptionRight | null;
+  require_open_interest?: boolean;
+};
+
+export type MarketStructureLevel = {
+  strike: number;
+  call_open_interest: number;
+  put_open_interest: number;
+  total_open_interest: number;
+  call_gamma_exposure: number;
+  put_gamma_exposure: number;
+  net_gamma_exposure: number;
+  absolute_gamma_exposure: number;
+  call_volume: number;
+  put_volume: number;
+  total_volume: number;
+  labels: string[];
+};
+
+export type MarketStructureAnalysis = {
+  underlying_price: number | null;
+  records_count: number;
+  open_interest_coverage: number;
+  call_wall: MarketStructureLevel | null;
+  put_wall: MarketStructureLevel | null;
+  absolute_gamma_exposure_wall: MarketStructureLevel | null;
+  net_gamma_exposure: number;
+  absolute_gamma_exposure: number;
+  levels: MarketStructureLevel[];
+  warnings: string[];
+};
+
 export type LiquidityOptionData = {
   occ_symbol: string;
   option_right: string;

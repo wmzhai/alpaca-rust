@@ -1,12 +1,12 @@
 use alpaca_core::float;
-use rust_decimal::prelude::ToPrimitive;
 use rust_decimal::Decimal;
+use rust_decimal::prelude::ToPrimitive;
 use serde::{Deserialize, Deserializer, Serialize};
 use ts_rs::TS;
 
+use crate::DEFAULT_RISK_FREE_RATE;
 use crate::contract;
 use crate::error::{OptionError, OptionResult};
-use crate::DEFAULT_RISK_FREE_RATE;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[serde(rename_all = "lowercase")]
@@ -679,7 +679,6 @@ impl OptionPosition {
             default_iv
         }
     }
-
 }
 
 impl Default for OptionPosition {
@@ -1016,6 +1015,77 @@ impl OptionChainRecord {
             })
             .unwrap_or(false)
     }
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+pub struct MarketStructureOptionRecord {
+    pub as_of: String,
+    pub underlying_symbol: String,
+    pub occ_symbol: String,
+    pub expiration_date: String,
+    pub option_right: OptionRight,
+    pub strike: f64,
+    pub underlying_price: Option<f64>,
+    pub bid: Option<f64>,
+    pub ask: Option<f64>,
+    pub mark: Option<f64>,
+    pub last: Option<f64>,
+    pub implied_volatility: Option<f64>,
+    pub delta: Option<f64>,
+    pub gamma: Option<f64>,
+    pub vega: Option<f64>,
+    pub theta: Option<f64>,
+    pub rho: Option<f64>,
+    pub open_interest: Option<f64>,
+    pub open_interest_date: Option<String>,
+    pub multiplier: Option<f64>,
+    pub minute_volume: Option<u64>,
+    pub daily_volume: Option<u64>,
+    pub latest_trade_size: Option<u64>,
+    pub bid_size: Option<u64>,
+    pub ask_size: Option<u64>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default, TS)]
+pub struct MarketStructureFilters {
+    pub expiration_date: Option<String>,
+    pub dte_min: Option<f64>,
+    pub dte_max: Option<f64>,
+    pub strike_price_gte: Option<f64>,
+    pub strike_price_lte: Option<f64>,
+    pub option_right: Option<OptionRight>,
+    #[serde(default)]
+    pub require_open_interest: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+pub struct MarketStructureLevel {
+    pub strike: f64,
+    pub call_open_interest: f64,
+    pub put_open_interest: f64,
+    pub total_open_interest: f64,
+    pub call_gamma_exposure: f64,
+    pub put_gamma_exposure: f64,
+    pub net_gamma_exposure: f64,
+    pub absolute_gamma_exposure: f64,
+    pub call_volume: u64,
+    pub put_volume: u64,
+    pub total_volume: u64,
+    pub labels: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+pub struct MarketStructureAnalysis {
+    pub underlying_price: Option<f64>,
+    pub records_count: usize,
+    pub open_interest_coverage: f64,
+    pub call_wall: Option<MarketStructureLevel>,
+    pub put_wall: Option<MarketStructureLevel>,
+    pub absolute_gamma_exposure_wall: Option<MarketStructureLevel>,
+    pub net_gamma_exposure: f64,
+    pub absolute_gamma_exposure: f64,
+    pub levels: Vec<MarketStructureLevel>,
+    pub warnings: Vec<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
