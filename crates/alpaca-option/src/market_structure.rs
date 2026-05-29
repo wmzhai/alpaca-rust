@@ -149,7 +149,12 @@ pub fn analyze_market_structure(
         .map(|level| level.into_level(Vec::new()))
         .collect();
 
-    if levels.is_empty() && records_count > 0 {
+    if records_count > 0
+        && (levels.is_empty()
+            || !levels
+                .iter()
+                .any(|level| level.absolute_gamma_exposure > 0.0))
+    {
         warnings.push("no_gamma_exposure_records".to_string());
     }
 
@@ -157,19 +162,46 @@ pub fn analyze_market_structure(
         .iter()
         .filter(|level| level.call_gamma_exposure > 0.0)
         .max_by(|left, right| compare_f64(left.call_gamma_exposure, right.call_gamma_exposure))
-        .map(|level| level.strike);
+        .map(|level| level.strike)
+        .or_else(|| {
+            levels
+                .iter()
+                .filter(|level| level.call_open_interest > 0.0)
+                .max_by(|left, right| {
+                    compare_f64(left.call_open_interest, right.call_open_interest)
+                })
+                .map(|level| level.strike)
+        });
     let put_wall_strike = levels
         .iter()
         .filter(|level| level.put_gamma_exposure < 0.0)
         .min_by(|left, right| compare_f64(left.put_gamma_exposure, right.put_gamma_exposure))
-        .map(|level| level.strike);
+        .map(|level| level.strike)
+        .or_else(|| {
+            levels
+                .iter()
+                .filter(|level| level.put_open_interest > 0.0)
+                .max_by(|left, right| {
+                    compare_f64(left.put_open_interest, right.put_open_interest)
+                })
+                .map(|level| level.strike)
+        });
     let absolute_wall_strike = levels
         .iter()
         .filter(|level| level.absolute_gamma_exposure > 0.0)
         .max_by(|left, right| {
             compare_f64(left.absolute_gamma_exposure, right.absolute_gamma_exposure)
         })
-        .map(|level| level.strike);
+        .map(|level| level.strike)
+        .or_else(|| {
+            levels
+                .iter()
+                .filter(|level| level.total_open_interest > 0.0)
+                .max_by(|left, right| {
+                    compare_f64(left.total_open_interest, right.total_open_interest)
+                })
+                .map(|level| level.strike)
+        });
 
     for level in &mut levels {
         if call_wall_strike

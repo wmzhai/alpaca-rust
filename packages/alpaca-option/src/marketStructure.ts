@@ -120,7 +120,10 @@ export function analyzeMarketStructure(
     .sort((left, right) => left.strike - right.strike)
     .map((level) => toLevel(level, []));
 
-  if (levels.length === 0 && recordsCount > 0) {
+  if (
+    recordsCount > 0 &&
+    (levels.length === 0 || !levels.some((level) => level.absolute_gamma_exposure > 0))
+  ) {
     warnings.push('no_gamma_exposure_records');
   }
 
@@ -128,17 +131,32 @@ export function analyzeMarketStructure(
     maxBy(
       levels.filter((level) => level.call_gamma_exposure > 0),
       (level) => level.call_gamma_exposure,
-    )?.strike ?? null;
+    )?.strike ??
+    maxBy(
+      levels.filter((level) => level.call_open_interest > 0),
+      (level) => level.call_open_interest,
+    )?.strike ??
+    null;
   const putWallStrike =
     minBy(
       levels.filter((level) => level.put_gamma_exposure < 0),
       (level) => level.put_gamma_exposure,
-    )?.strike ?? null;
+    )?.strike ??
+    maxBy(
+      levels.filter((level) => level.put_open_interest > 0),
+      (level) => level.put_open_interest,
+    )?.strike ??
+    null;
   const absoluteWallStrike =
     maxBy(
       levels.filter((level) => level.absolute_gamma_exposure > 0),
       (level) => level.absolute_gamma_exposure,
-    )?.strike ?? null;
+    )?.strike ??
+    maxBy(
+      levels.filter((level) => level.total_open_interest > 0),
+      (level) => level.total_open_interest,
+    )?.strike ??
+    null;
 
   for (const level of levels) {
     if (callWallStrike != null && sameStrike(level.strike, callWallStrike)) {
