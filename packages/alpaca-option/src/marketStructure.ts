@@ -7,6 +7,13 @@ import type {
   MarketStructureOptionRecord,
 } from './types';
 
+export type {
+  MarketStructureAnalysis,
+  MarketStructureFilters,
+  MarketStructureLevel,
+  MarketStructureOptionRecord,
+} from './types';
+
 type LevelAccumulator = {
   strike: number;
   call_open_interest: number;

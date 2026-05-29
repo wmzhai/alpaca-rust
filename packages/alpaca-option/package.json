@@ -17,6 +17,7 @@
     "./math/barrier": "./src/math/barrier.ts",
     "./math/black76": "./src/math/black76.ts",
     "./math/geometric-asian": "./src/math/geometricAsian.ts",
+    "./market-structure": "./src/marketStructure.ts",
     "./option-strategy": "./src/optionStrategy.ts"
   },
   "dependencies": {
