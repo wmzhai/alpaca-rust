@@ -42,6 +42,31 @@ impl Snapshot {
     }
 
     #[must_use]
+    pub fn minute_volume(&self) -> Option<u64> {
+        self.minute_bar.as_ref().and_then(|bar| bar.v)
+    }
+
+    #[must_use]
+    pub fn daily_volume(&self) -> Option<u64> {
+        self.daily_bar.as_ref().and_then(|bar| bar.v)
+    }
+
+    #[must_use]
+    pub fn latest_trade_size(&self) -> Option<u64> {
+        self.latest_trade.as_ref().and_then(|trade| trade.s)
+    }
+
+    #[must_use]
+    pub fn bid_size(&self) -> Option<u64> {
+        self.latest_quote.as_ref().and_then(|quote| quote.bs)
+    }
+
+    #[must_use]
+    pub fn ask_size(&self) -> Option<u64> {
+        self.latest_quote.as_ref().and_then(|quote| quote.r#as)
+    }
+
+    #[must_use]
     pub fn mark_price(&self) -> Option<Decimal> {
         match (self.bid_price(), self.ask_price()) {
             (Some(bid), Some(ask)) => Some((bid + ask) / Decimal::from(2u8)),
@@ -121,6 +146,36 @@ mod tests {
 
         assert_eq!(with_both_sides.mark_price(), Some(Decimal::new(130, 2)));
         assert_eq!(with_bid_only.mark_price(), Some(Decimal::new(125, 2)));
+    }
+
+    #[test]
+    fn snapshot_activity_accessors_expose_raw_sizes_and_volumes() {
+        let snapshot = Snapshot {
+            latest_trade: Some(Trade {
+                s: Some(11),
+                ..Trade::default()
+            }),
+            latest_quote: Some(Quote {
+                bs: Some(22),
+                r#as: Some(33),
+                ..Quote::default()
+            }),
+            minute_bar: Some(Bar {
+                v: Some(44),
+                ..Bar::default()
+            }),
+            daily_bar: Some(Bar {
+                v: Some(55),
+                ..Bar::default()
+            }),
+            ..Snapshot::default()
+        };
+
+        assert_eq!(snapshot.latest_trade_size(), Some(11));
+        assert_eq!(snapshot.bid_size(), Some(22));
+        assert_eq!(snapshot.ask_size(), Some(33));
+        assert_eq!(snapshot.minute_volume(), Some(44));
+        assert_eq!(snapshot.daily_volume(), Some(55));
     }
 
     #[test]
