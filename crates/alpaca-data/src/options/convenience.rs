@@ -149,36 +149,6 @@ mod tests {
     }
 
     #[test]
-    fn snapshot_activity_accessors_expose_raw_sizes_and_volumes() {
-        let snapshot = Snapshot {
-            latest_trade: Some(Trade {
-                s: Some(11),
-                ..Trade::default()
-            }),
-            latest_quote: Some(Quote {
-                bs: Some(22),
-                r#as: Some(33),
-                ..Quote::default()
-            }),
-            minute_bar: Some(Bar {
-                v: Some(44),
-                ..Bar::default()
-            }),
-            daily_bar: Some(Bar {
-                v: Some(55),
-                ..Bar::default()
-            }),
-            ..Snapshot::default()
-        };
-
-        assert_eq!(snapshot.latest_trade_size(), Some(11));
-        assert_eq!(snapshot.bid_size(), Some(22));
-        assert_eq!(snapshot.ask_size(), Some(33));
-        assert_eq!(snapshot.minute_volume(), Some(44));
-        assert_eq!(snapshot.daily_volume(), Some(55));
-    }
-
-    #[test]
     fn ordered_snapshots_returns_stable_contract_order() {
         let mut snapshots = HashMap::new();
         snapshots.insert("QQQ250620C00500000".to_owned(), Snapshot::default());

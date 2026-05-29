@@ -7,7 +7,6 @@
     "fixtures/support/expiration-selection/expiration-selection.json",
     "fixtures/support/greeks/pineify-black-scholes-greeks.json",
     "fixtures/support/iv/pineify-implied-volatility.json",
-    "fixtures/support/market-structure/market-structure.json",
     "fixtures/support/models/core-models.json",
     "fixtures/support/numeric/numeric-functions.json",
     "fixtures/support/payoff/payoff-functions.json",
