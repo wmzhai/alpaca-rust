@@ -14,7 +14,7 @@ resolver = "2"
 [workspace.package]
 version = "0.26.0"
 edition = "2024"
-rust-version = "1.94.1"
+rust-version = "1.96.0"
 authors = ["Weiming Zhai <wmzhai@gmail.com>"]
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/wmzhai/alpaca-rust"

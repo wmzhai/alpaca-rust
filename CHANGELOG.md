@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Raised the repository Rust toolchain, workspace `rust-version`, and GitHub Actions Rust setup to `1.96.0`.
 - Normalized `Execution` order prices to two decimal places for limit, dynamic-limit, and dynamic-market flows before submission or progress reporting.
 - Updated OptionStrat URL helpers to accept signed short quantities such as `.IWM260605C285x-2@0.9` while preserving legacy `-.CONTRACTx2` parsing.
 - Changed generated short option-leg fragments to the signed-quantity form `.CONTRACTx-2@...` in the Rust and TypeScript helpers.
