@@ -254,7 +254,10 @@ fn option_strategy_stock_only_and_realized_stock_cashflow_participate_in_pnl() {
     assert_eq!(long_stock.calculate_value(), Decimal::new(550000, 2));
     assert_eq!(long_stock.calculate_pnl(), Decimal::new(50000, 2));
     assert_eq!(long_stock.pnl_at(60.0).unwrap(), 1000.0);
-    assert_eq!(long_stock.sample_curve(50.0, 60.0, 10.0).unwrap()[0].pnl, 0.0);
+    assert_eq!(
+        long_stock.sample_curve(50.0, 60.0, 10.0).unwrap()[0].pnl,
+        0.0
+    );
     assert_eq!(long_stock.calculate_greeks().unwrap().delta, 100.0);
 
     let mut closed_stock = OptionStrategy::default();
@@ -575,6 +578,47 @@ fn option_strategy_pnl_peak_from_current_finds_positive_peak() {
 }
 
 #[test]
+fn option_strategy_pnl_peak_from_current_can_return_negative_peak_when_requested() {
+    let positions = vec![strategy_position(
+        "2025-04-24",
+        100.0,
+        OptionRight::Call,
+        1,
+        1.0,
+        0.25,
+    )];
+    let strategy = OptionStrategy::prepare(
+        &positions,
+        1,
+        "2025-03-20 10:30:00",
+        Some(50_000.0),
+        Some(0.0),
+    )
+    .unwrap();
+    let input = StrategyPnlPeakSearchInput {
+        current_price: 100.0,
+        step_hint: Some(1.0),
+        left_boundary: 1.0,
+        right_boundary: 300.0,
+        tolerance: Some(1e-9),
+        max_search_steps: Some(512),
+    };
+
+    assert!(strategy.pnl_peak_from_current(&input).unwrap().is_none());
+
+    let peak = strategy
+        .pnl_peak_from_current_including_non_positive(&input)
+        .unwrap();
+
+    assert!(peak.spot.is_finite());
+    assert!(
+        peak.pnl < 0.0,
+        "unfiltered peak should preserve the best negative pnl, got {}",
+        peak.pnl
+    );
+}
+
+#[test]
 fn option_strategy_pnl_peak_from_current_refines_peak_below_ten_cents() {
     let positions = vec![
         strategy_position("2025-04-24", 100.0, OptionRight::Put, -1, 10.0, 0.25),
@@ -676,7 +720,14 @@ fn option_strategy_pnl_peak_from_current_finds_smh_diagonal_delta_turn() {
     let long_iv = 0.4234;
     let short_iv = 0.4165;
     let positions = vec![
-        strategy_position("2027-03-19", 400.0, OptionRight::Call, 1, long_price, long_iv),
+        strategy_position(
+            "2027-03-19",
+            400.0,
+            OptionRight::Call,
+            1,
+            long_price,
+            long_iv,
+        ),
         strategy_position(
             "2026-06-18",
             460.0,

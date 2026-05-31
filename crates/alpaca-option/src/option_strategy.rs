@@ -1201,9 +1201,7 @@ impl OptionStrategy {
     }
 
     fn peak_delta_tolerance(tolerance: f64) -> f64 {
-        (tolerance * CONTRACT_MULTIPLIER)
-            .sqrt()
-            .clamp(1e-4, 0.5)
+        (tolerance * CONTRACT_MULTIPLIER).sqrt().clamp(1e-4, 0.5)
     }
 
     fn directional_peak_step(
@@ -1256,6 +1254,28 @@ impl OptionStrategy {
         &self,
         input: &StrategyPnlPeakSearchInput,
     ) -> OptionResult<Option<StrategyPnlPeak>> {
+        let (peak, tolerance) = self.pnl_peak_from_current_unfiltered(input)?;
+        if peak.pnl <= tolerance {
+            Ok(None)
+        } else {
+            Ok(Some(peak))
+        }
+    }
+
+    /// Finds the best PnL point from the current spot without filtering out
+    /// break-even-or-worse peaks.
+    pub fn pnl_peak_from_current_including_non_positive(
+        &self,
+        input: &StrategyPnlPeakSearchInput,
+    ) -> OptionResult<StrategyPnlPeak> {
+        self.pnl_peak_from_current_unfiltered(input)
+            .map(|(peak, _)| peak)
+    }
+
+    fn pnl_peak_from_current_unfiltered(
+        &self,
+        input: &StrategyPnlPeakSearchInput,
+    ) -> OptionResult<(StrategyPnlPeak, f64)> {
         ensure_positive(
             "invalid_strategy_payoff_input",
             "current_price",
@@ -1335,11 +1355,7 @@ impl OptionStrategy {
             } else {
                 current_peak
             };
-            return if peak.pnl <= tolerance {
-                Ok(None)
-            } else {
-                Ok(Some(peak))
-            };
+            return Ok((peak, tolerance));
         }
 
         let direction = current_delta.signum();
@@ -1399,20 +1415,12 @@ impl OptionStrategy {
                     },
                     delta_tolerance,
                 )?;
-                return if peak.pnl <= tolerance {
-                    Ok(None)
-                } else {
-                    Ok(Some(peak))
-                };
+                return Ok((peak, tolerance));
             }
 
             if next_peak.pnl + tolerance < previous_peak.pnl {
                 let peak = self.maximize_pnl_in_range(lower, upper, 40)?;
-                return if peak.pnl <= tolerance {
-                    Ok(None)
-                } else {
-                    Ok(Some(peak))
-                };
+                return Ok((peak, tolerance));
             }
 
             if (next_spot - boundary).abs() <= tolerance {
@@ -1424,11 +1432,7 @@ impl OptionStrategy {
             previous_peak = next_peak;
         }
 
-        if best_peak.pnl <= tolerance {
-            Ok(None)
-        } else {
-            Ok(Some(best_peak))
-        }
+        Ok((best_peak, tolerance))
     }
 
     pub fn aggregate_snapshot_greeks(
