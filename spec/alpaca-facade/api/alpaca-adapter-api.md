@@ -23,13 +23,31 @@ This document defines the current adapter boundary exposed by `alpaca-facade`.
 
 - `map_snapshot`
 - `map_snapshots`
+- `map_snapshot_with_pricing_reference`
+- `map_snapshots_with_pricing_references`
 - `map_live_snapshots`
+- `latest_close_prices`
+- `pricing_references_for_snapshots`
 - `required_underlying_display_symbols`
 - `resolve_positions_from_optionstrat_url`
+- `OptionPricingReference`
 - `ResolvedOptionStratPositions`
 - `SPEC_ADAPTER_API`
 
 ## Shared Structure
+
+### `OptionPricingReference`
+
+```text
+{
+  evaluation_time: String,
+  underlying_price: Option<f64>
+}
+```
+
+This structure is the adapter-level pricing context used when provider Greeks
+or IV must be repaired. `evaluation_time` is always a New York timestamp in
+`YYYY-MM-DD HH:MM:SS` form.
 
 ### `ResolvedOptionStratPositions`
 
@@ -53,8 +71,24 @@ Current behavior:
 - if `snapshot.timestamp()` is missing, `as_of` falls back to the current New York timestamp
 - provider timestamps are normalized into `YYYY-MM-DD HH:MM:SS`
 - bid, ask, mark, and last converge into `OptionQuote`
-- if provider Greeks or IV are missing or obviously invalid, the adapter repairs them when a valid `underlying_price` is available
+- if provider Greeks or IV are missing or obviously invalid, the adapter repairs them when a valid pricing reference is available
+- regular-session repair evaluates at the option snapshot timestamp
+- non-regular-session repair evaluates at the last completed trading date at `16:00:00`
+- `map_snapshot(...)` and `map_snapshots(...)` do not fetch close prices; they wrap caller-provided `underlying_price` values in the appropriate pricing-reference time
+- valid provider IV is preserved and is not re-inferred from price
 - ultra-low-price options apply conservative Greeks clipping to avoid propagating unstable values
+
+## `map_snapshot_with_pricing_reference`
+
+| API | Returns | Semantics |
+| --- | --- | --- |
+| `map_snapshot_with_pricing_reference(occ_symbol, snapshot, pricing_reference?, dividend_yield?)` | `OptionSnapshot` | maps a single Alpaca `Snapshot` using an explicit pricing reference |
+
+Current behavior:
+
+- it is the explicit-context form of `map_snapshot(...)`
+- callers can use it when they already resolved the exact evaluation time and spot
+- the returned `OptionSnapshot.underlying_price` is the pricing reference spot
 
 ## `map_snapshots`
 
@@ -69,18 +103,58 @@ Current behavior:
 - they may also be keyed by OCC or provider-canonical underlying, for example `BRKB`
 - each contract automatically selects the most appropriate underlying price
 
+## `map_snapshots_with_pricing_references`
+
+| API | Returns | Semantics |
+| --- | --- | --- |
+| `map_snapshots_with_pricing_references(snapshots, pricing_references?, dividend_yield?)` | `OptionSnapshot[]` | batch-maps provider snapshots using explicit per-contract pricing references |
+
+Current behavior:
+
+- output order stays stable via `alpaca_data::options::ordered_snapshots(...)`
+- each contract uses the pricing reference keyed by its OCC symbol
+- missing pricing references leave missing/invalid provider Greeks or IV unrepaired
+
+## `latest_close_prices`
+
+| API | Returns | Semantics |
+| --- | --- | --- |
+| `latest_close_prices(client, symbols)` | `HashMap<String, f64>` | resolves each stock symbol to the latest close from recent daily bars |
+
+Current behavior:
+
+- symbols are normalized to display form
+- the helper fetches recent stock daily bars and returns the close of the latest valid bar per symbol
+- it does not read stock snapshot `session_close`, `previous_close`, or latest trade/quote price
+- provider request failures return `provider_latest_close_fetch_failed`
+
 ## `map_live_snapshots`
 
 | API | Returns | Semantics |
 | --- | --- | --- |
-| `map_live_snapshots(snapshots, client, underlying_prices?, dividend_yield?)` | `OptionSnapshot[]` | batch-maps provider snapshots and pulls missing underlying stock snapshots when needed |
+| `map_live_snapshots(snapshots, client, underlying_prices?, dividend_yield?)` | `OptionSnapshot[]` | batch-maps provider snapshots and resolves the pricing reference needed for repair |
 
 Current behavior:
 
-- callers may pass already known `underlying_prices`; the adapter only fetches missing data
-- the fetch scope covers every underlying display symbol present in the input snapshots
-- stock snapshot failures degrade to "use only the prices we already have" so callers do not need to re-implement fallback logic
-- mapping still reuses `map_snapshots(...)`, preserving ordering, symbol lookup, and repair rules
+- the adapter decides the pricing-reference mode from the current New York regular session state
+- during regular session, callers may pass already known `underlying_prices`; the adapter only fetches missing realtime stock snapshot prices
+- regular-session stock snapshot failures degrade to "use only the prices we already have"
+- outside regular session, the adapter ignores realtime/current-price inputs for repair and uses `latest_close_prices(...)`
+- outside regular session, fallback IV and repaired Greeks use the latest daily-bar close as the reference spot
+- outside regular session, daily-bar fetch failures propagate instead of falling back to stock snapshots or latest prices
+- mapping reuses `map_snapshots_with_pricing_references(...)`, preserving ordering, symbol lookup, and repair rules
+
+## `pricing_references_for_snapshots`
+
+| API | Returns | Semantics |
+| --- | --- | --- |
+| `pricing_references_for_snapshots(snapshots, realtime_prices?, close_prices?, now)` | `HashMap<String, OptionPricingReference>` | resolves per-contract pricing references from preloaded price maps |
+
+Current behavior:
+
+- regular session uses option snapshot timestamps and realtime prices
+- non-regular session uses the last completed trading date at `16:00:00` and close prices
+- prices may be keyed by display symbol such as `BRK.B` or provider-canonical underlying such as `BRKB`
 
 ## `required_underlying_display_symbols`
 
@@ -104,11 +178,12 @@ Current behavior:
 
 - the core layer only owns URL parsing and leg-fragment parsing
 - the adapter layer uses `alpaca_data::Client` to fetch provider snapshots directly
-- it first fetches any underlying stock snapshots required for repair, then reuses `map_live_snapshots(...)`
+- it reuses `map_live_snapshots(...)` for pricing-reference resolution and snapshot repair
 - returned position snapshots try to include `underlying_price` whenever possible
 - enrichment stays on the unified snapshot-repair path instead of duplicating provider fallback in higher layers
 - provider request failures are normalized to `provider_snapshot_fetch_failed`
-- underlying stock request failures degrade to mapped results without newly fetched prices
+- regular-session underlying stock request failures degrade to mapped results without newly fetched prices
+- non-regular-session daily close fetch failures propagate as provider close fetch errors
 - missing provider snapshots return `missing_provider_snapshot`
 
 ## Division of Responsibilities with the Core Layer

@@ -340,6 +340,16 @@ impl AlpacaData {
         self.day_bars(&requested).await.remove(symbol)
     }
 
+    pub async fn latest_close_prices<S: AsRef<str>>(
+        &self,
+        symbols: &[S],
+    ) -> Result<HashMap<String, f64>> {
+        let symbols = Self::normalize_values(symbols);
+        crate::options::latest_close_prices(self.sdk(), &symbols)
+            .await
+            .context("failed to load latest stock close prices via alpaca-data")
+    }
+
     pub async fn stats(&self) -> CacheStats {
         let raw = self.raw.stats().await;
         let options = self.options.read().await;
@@ -501,10 +511,13 @@ impl AlpacaData {
             return Ok(HashMap::new());
         }
 
-        let stock_prices = self
-            .stock_prices_for(&snapshots)
-            .await
-            .context("failed to load underlying stock prices via alpaca-data")?;
+        let stock_prices = if session::is_regular_session_now() {
+            self.stock_prices_for(&snapshots)
+                .await
+                .context("failed to load underlying stock prices via alpaca-data")?
+        } else {
+            HashMap::new()
+        };
         let dividend_yield = self.option_pricing_inputs();
         let stock_prices = (!stock_prices.is_empty()).then_some(&stock_prices);
 
