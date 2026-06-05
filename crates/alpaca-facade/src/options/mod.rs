@@ -79,12 +79,16 @@ fn map_quote(snapshot: &Snapshot) -> OptionQuote {
 fn map_greeks(snapshot: &Snapshot) -> Option<Greeks> {
     let greeks = snapshot.greeks.as_ref()?;
     Some(Greeks {
-        delta: decimal_to_f64(greeks.delta)?,
-        gamma: decimal_to_f64(greeks.gamma)?,
-        vega: decimal_to_f64(greeks.vega)?,
-        theta: decimal_to_f64(greeks.theta)?,
-        rho: decimal_to_f64(greeks.rho)?,
+        delta: valid_float(greeks.delta)?,
+        gamma: valid_float(greeks.gamma)?,
+        vega: valid_float(greeks.vega)?,
+        theta: valid_float(greeks.theta)?,
+        rho: valid_float(greeks.rho)?,
     })
+}
+
+fn valid_float(value: Option<f64>) -> Option<f64> {
+    value.filter(|value| value.is_finite())
 }
 
 fn valid_underlying_price(underlying_price: Option<f64>) -> Option<f64> {
@@ -311,7 +315,7 @@ pub fn map_snapshot_with_pricing_reference(
     })?;
     let quote = map_quote(snapshot);
     let provider_greeks = map_greeks(snapshot);
-    let provider_iv = decimal_to_f64(snapshot.implied_volatility);
+    let provider_iv = snapshot.implied_volatility;
     let (greeks, implied_volatility) = repaired_greeks_and_iv(
         &contract,
         &quote,
@@ -380,15 +384,12 @@ pub fn required_underlying_display_symbols(snapshots: &HashMap<String, Snapshot>
     let mut symbols = ordered_snapshots(snapshots)
         .into_iter()
         .filter_map(|(occ_symbol, snapshot)| {
-            snapshot_needs_repair(
-                map_greeks(snapshot).as_ref(),
-                decimal_to_f64(snapshot.implied_volatility),
-            )
-            .then(|| {
-                contract::parse_occ_symbol(occ_symbol)
-                    .map(|contract| display_stock_symbol(&contract.underlying_symbol))
-            })
-            .flatten()
+            snapshot_needs_repair(map_greeks(snapshot).as_ref(), snapshot.implied_volatility)
+                .then(|| {
+                    contract::parse_occ_symbol(occ_symbol)
+                        .map(|contract| display_stock_symbol(&contract.underlying_symbol))
+                })
+                .flatten()
         })
         .collect::<Vec<_>>();
     symbols.sort_unstable();
@@ -748,13 +749,13 @@ mod tests {
     #[test]
     fn provider_iv_is_preserved_when_valid() {
         let mut snapshot = option_snapshot("2026-06-01 10:00:00", 5.0);
-        snapshot.implied_volatility = Some(decimal(0.42, 6));
+        snapshot.implied_volatility = Some(0.42);
         snapshot.greeks = Some(ProviderGreeks {
-            delta: Some(decimal(0.5, 6)),
-            gamma: Some(decimal(0.02, 6)),
-            theta: Some(decimal(-0.04, 6)),
-            vega: Some(decimal(0.12, 6)),
-            rho: Some(decimal(0.03, 6)),
+            delta: Some(0.5),
+            gamma: Some(0.02),
+            theta: Some(-0.04),
+            vega: Some(0.12),
+            rho: Some(0.03),
         });
         let reference = OptionPricingReference {
             evaluation_time: "2026-06-01 10:00:00".to_owned(),
