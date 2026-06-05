@@ -1,10 +1,9 @@
 use std::collections::HashMap;
 use std::path::PathBuf;
 
+use alpaca_data::cache::CachedClient;
 use alpaca_data::{Client, options::preferred_feed, stocks::SnapshotsRequest};
-use alpaca_facade::{
-    map_live_snapshots, map_snapshot, map_snapshots, resolve_positions_from_optionstrat_url,
-};
+use alpaca_facade::{AlpacaData, AlpacaDataConfig, map_snapshot, map_snapshots};
 use alpaca_option::url;
 use rust_decimal::Decimal;
 
@@ -47,9 +46,11 @@ fn assert_ny_timestamp(value: &str) {
     );
 }
 
-fn assert_underlying_price_close(actual: Option<f64>, expected: Option<f64>) {
+fn assert_underlying_price_close(actual: Option<f64>, expected: Option<Decimal>) {
     let actual = actual.expect("mapped snapshot should carry underlying price");
-    let expected = expected.expect("live stock price should exist");
+    let expected = expected
+        .and_then(|price| rust_decimal::prelude::ToPrimitive::to_f64(&price))
+        .expect("live stock price should exist");
     assert!(
         actual.is_finite() && actual > 0.0,
         "underlying price should be a positive finite number, got {actual}"
@@ -58,6 +59,10 @@ fn assert_underlying_price_close(actual: Option<f64>, expected: Option<f64>) {
         (actual - expected).abs() <= 1.0,
         "underlying price drift too large: actual={actual}, expected={expected}"
     );
+}
+
+fn decimal_price_to_f64(value: Option<Decimal>) -> Option<f64> {
+    value.and_then(|price| rust_decimal::prelude::ToPrimitive::to_f64(&price))
 }
 
 async fn discover_live_snapshots(
@@ -132,15 +137,8 @@ async fn fetch_live_snapshots_for(
     response.snapshots
 }
 
-async fn fetch_live_stock_prices(symbols: &[&str]) -> HashMap<String, f64> {
-    load_local_env();
-    let client = Client::builder()
-        .credentials_from_env()
-        .expect("credentials should load from env")
-        .build()
-        .expect("alpaca data client should build");
-
-    let snapshots = client
+async fn fetch_live_stock_prices(symbols: &[&str]) -> HashMap<String, Decimal> {
+    let snapshots = live_client()
         .stocks()
         .snapshots(SnapshotsRequest {
             symbols: symbols.iter().map(|symbol| (*symbol).to_string()).collect(),
@@ -155,10 +153,33 @@ async fn fetch_live_stock_prices(symbols: &[&str]) -> HashMap<String, f64> {
         .filter_map(|(symbol, snapshot)| {
             snapshot
                 .price()
-                .and_then(|value| rust_decimal::prelude::ToPrimitive::to_f64(&value))
+                .filter(|price| *price > Decimal::ZERO)
                 .map(|price| (symbol, price))
         })
         .collect()
+}
+
+async fn fetch_live_option_prices(symbols: &[&str]) -> HashMap<String, Decimal> {
+    live_facade()
+        .get_prices_for_option(symbols)
+        .await
+        .expect("live facade option pricing stock prices should load")
+}
+
+fn live_client() -> Client {
+    load_local_env();
+    Client::builder()
+        .credentials_from_env()
+        .expect("credentials should load from env")
+        .build()
+        .expect("alpaca data client should build")
+}
+
+fn live_facade() -> AlpacaData {
+    AlpacaData::with_raw(
+        CachedClient::new(live_client()),
+        AlpacaDataConfig::default(),
+    )
 }
 
 #[tokio::test]
@@ -176,7 +197,10 @@ async fn map_snapshot_uses_live_alpaca_snapshot() {
 
     assert_eq!(mapped.contract.occ_symbol, *occ_symbol);
     assert_ny_timestamp(&mapped.as_of);
-    assert_eq!(mapped.underlying_price, underlying_price);
+    assert_eq!(
+        mapped.underlying_price,
+        decimal_price_to_f64(underlying_price)
+    );
     if let (Some(bid), Some(ask), Some(mark)) =
         (mapped.quote.bid, mapped.quote.ask, mapped.quote.mark)
     {
@@ -199,7 +223,7 @@ async fn map_snapshots_sorts_live_symbols() {
         assert_ny_timestamp(&snapshot.as_of);
         assert_eq!(
             snapshot.underlying_price,
-            stock_prices.get(&symbol).copied()
+            decimal_price_to_f64(stock_prices.get(&symbol).copied())
         );
     }
     for pair in mapped.windows(2) {
@@ -213,21 +237,13 @@ async fn map_snapshots_sorts_live_symbols() {
 #[tokio::test]
 async fn map_live_snapshots_fetches_underlying_prices() {
     let (symbol, snapshots) = discover_live_snapshots(8).await;
-    let stock_prices = fetch_live_stock_prices(&[symbol.as_str()]).await;
+    let stock_prices = fetch_live_option_prices(&[symbol.as_str()]).await;
     let expected_price = stock_prices.get(&symbol).copied();
 
-    let mapped = map_live_snapshots(
-        &snapshots,
-        &Client::builder()
-            .credentials_from_env()
-            .expect("credentials should load from env")
-            .build()
-            .expect("alpaca data client should build"),
-        None,
-        Some(0.0),
-    )
-    .await
-    .expect("live snapshots map should enrich underlying prices");
+    let mapped = live_facade()
+        .map_live_snapshots(&snapshots, None, Some(0.0))
+        .await
+        .expect("live snapshots map should enrich underlying prices");
 
     assert!(mapped.len() >= 2, "need at least two live mapped snapshots");
     for snapshot in &mapped {
@@ -236,11 +252,10 @@ async fn map_live_snapshots_fetches_underlying_prices() {
     }
 }
 
-
 #[tokio::test]
 async fn resolve_positions_from_optionstrat_url_uses_live_snapshots() {
     let (underlying_symbol, snapshots) = discover_live_snapshots(8).await;
-    let stock_prices = fetch_live_stock_prices(&[underlying_symbol.as_str()]).await;
+    let stock_prices = fetch_live_option_prices(&[underlying_symbol.as_str()]).await;
     let underlying_price = stock_prices.get(&underlying_symbol).copied();
     let mut symbols = snapshots.keys().cloned().collect::<Vec<_>>();
     symbols.sort();
@@ -263,29 +278,21 @@ async fn resolve_positions_from_optionstrat_url_uses_live_snapshots() {
     })
     .expect("live optionstrat url should build");
 
-    load_local_env();
-    let client = Client::builder()
-        .credentials_from_env()
-        .expect("credentials should load from env")
-        .build()
-        .expect("alpaca data client should build");
-
-    let resolved = resolve_positions_from_optionstrat_url(&url_value, &client)
+    let (resolved_symbol, positions) = live_facade()
+        .resolve_optionstrat_url(&url_value)
         .await
         .expect("live optionstrat positions should resolve");
 
-    assert_eq!(resolved.underlying_display_symbol, underlying_symbol);
-    assert_eq!(resolved.legs.len(), 2);
-    assert_eq!(resolved.positions.len(), 2);
-    assert_eq!(resolved.positions[0].avg_cost, Decimal::new(100, 2));
-    assert_eq!(resolved.positions[1].avg_cost, Decimal::new(200, 2));
+    assert_eq!(resolved_symbol, underlying_symbol);
+    assert_eq!(positions.len(), 2);
+    assert_eq!(positions[0].avg_cost, Decimal::new(100, 2));
+    assert_eq!(positions[1].avg_cost, Decimal::new(200, 2));
     assert!(
-        resolved
-            .positions
+        positions
             .iter()
             .all(|position| position.snapshot_ref().is_some())
     );
-    for position in &resolved.positions {
+    for position in &positions {
         let snapshot = position.snapshot_ref().unwrap();
         assert_ny_timestamp(&snapshot.as_of);
         assert_underlying_price_close(snapshot.underlying_price, underlying_price);
@@ -295,7 +302,7 @@ async fn resolve_positions_from_optionstrat_url_uses_live_snapshots() {
 #[tokio::test]
 async fn brk_b_live_chain_and_optionstrat_roundtrip_work() {
     let snapshots = fetch_live_snapshots_for("BRK.B", 8).await;
-    let stock_prices = fetch_live_stock_prices(&["BRK.B"]).await;
+    let stock_prices = fetch_live_option_prices(&["BRK.B"]).await;
     let underlying_price = stock_prices.get("BRK.B").copied();
     assert!(
         snapshots.len() >= 2,
@@ -337,21 +344,14 @@ async fn brk_b_live_chain_and_optionstrat_roundtrip_work() {
         "BRK.B optionstrat url should encode the dot symbol: {url_value}"
     );
 
-    load_local_env();
-    let client = Client::builder()
-        .credentials_from_env()
-        .expect("credentials should load from env")
-        .build()
-        .expect("alpaca data client should build");
-
-    let resolved = resolve_positions_from_optionstrat_url(&url_value, &client)
+    let (resolved_symbol, positions) = live_facade()
+        .resolve_optionstrat_url(&url_value)
         .await
         .expect("BRK.B optionstrat url should resolve against live snapshots");
 
-    assert_eq!(resolved.underlying_display_symbol, "BRK.B");
-    assert_eq!(resolved.legs.len(), 2);
-    assert_eq!(resolved.positions.len(), 2);
-    for position in &resolved.positions {
+    assert_eq!(resolved_symbol, "BRK.B");
+    assert_eq!(positions.len(), 2);
+    for position in &positions {
         assert_eq!(position.contract_info().underlying_symbol, "BRKB");
         assert!(
             position.snapshot_ref().is_some(),
@@ -381,7 +381,10 @@ async fn map_snapshots_accepts_brk_b_display_symbol_prices() {
     );
     for snapshot in &mapped {
         assert_eq!(snapshot.contract.underlying_symbol, "BRKB");
-        assert_eq!(snapshot.underlying_price, Some(underlying_price));
+        assert_eq!(
+            snapshot.underlying_price,
+            decimal_price_to_f64(Some(underlying_price))
+        );
         assert_ny_timestamp(&snapshot.as_of);
     }
 }

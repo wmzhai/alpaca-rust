@@ -10,7 +10,7 @@
 - `CacheStats`
 - `OptionPricingReference`
 - `ResolvedOptionStratPositions`
-- `latest_close_prices(...)`
+- `AlpacaData::get_prices_for_option(...)`
 - `map_snapshot(...)`
 - `map_snapshot_with_pricing_reference(...)`
 - `map_snapshots(...)`
@@ -25,13 +25,16 @@
 - Enrich Alpaca option snapshots into `alpaca-option` core models
 - Repair missing or invalid provider IV and Greeks with a session-aware pricing
   reference
-- Use realtime stock snapshots during regular session and recent daily-bar
-  closes outside regular session
+- Resolve option-pricing stock references through
+  `AlpacaData::get_prices_for_option(...)`, using realtime stock snapshots during
+  regular session and the last completed trading day's daily-bar close outside
+  regular session
 - Keep application-specific singleton or scheduling logic outside the shared crate
 
 For option chains, call `alpaca-data` directly through
 `client.options().chain_all(...)`, then map snapshots with
-`map_live_snapshots(...)` if enriched `alpaca-option` models are needed.
+`AlpacaData::map_live_snapshots(...)` if enriched `alpaca-option` models are
+needed.
 
 ## Not Included
 

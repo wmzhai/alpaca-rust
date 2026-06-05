@@ -26,9 +26,11 @@ This document defines the current adapter boundary exposed by `alpaca-facade`.
 - `map_snapshot_with_pricing_reference`
 - `map_snapshots_with_pricing_references`
 - `map_live_snapshots`
-- `latest_close_prices`
+- `AlpacaData::get_prices_for_option`
+- `AlpacaData::map_live_snapshots`
 - `pricing_references_for_snapshots`
 - `required_underlying_display_symbols`
+- `underlying_display_symbols`
 - `resolve_positions_from_optionstrat_url`
 - `OptionPricingReference`
 - `ResolvedOptionStratPositions`
@@ -41,7 +43,7 @@ This document defines the current adapter boundary exposed by `alpaca-facade`.
 ```text
 {
   evaluation_time: String,
-  underlying_price: Option<f64>
+  underlying_price: Option<Decimal>
 }
 ```
 
@@ -115,33 +117,36 @@ Current behavior:
 - each contract uses the pricing reference keyed by its OCC symbol
 - missing pricing references leave missing/invalid provider Greeks or IV unrepaired
 
-## `latest_close_prices`
+## `AlpacaData::get_prices_for_option`
 
 | API | Returns | Semantics |
 | --- | --- | --- |
-| `latest_close_prices(client, symbols)` | `HashMap<String, f64>` | resolves each stock symbol to the latest close from recent daily bars |
+| `AlpacaData::get_prices_for_option(symbols)` | `HashMap<String, Decimal>` | resolves each stock symbol to the stock price used by option valuation |
 
 Current behavior:
 
 - symbols are normalized to display form
-- the helper fetches recent stock daily bars and returns the close of the latest valid bar per symbol
-- it does not read stock snapshot `session_close`, `previous_close`, or latest trade/quote price
-- provider request failures return `provider_latest_close_fetch_failed`
+- during regular session, it performs one cache-backed batch stock snapshot request via `CachedClient::stocks(...)`
+- during regular session, it returns the positive realtime snapshot `Decimal` price per symbol
+- outside regular session, it performs one batch `bars_all(...)` request for the last completed trading day's daily bars
+- outside regular session, it returns the positive daily-bar `Decimal` close for that completed trading date
+- it does not loop over symbols for provider requests
+- it does not expose an `f64` stock-price map
 
 ## `map_live_snapshots`
 
 | API | Returns | Semantics |
 | --- | --- | --- |
-| `map_live_snapshots(snapshots, client, underlying_prices?, dividend_yield?)` | `OptionSnapshot[]` | batch-maps provider snapshots and resolves the pricing reference needed for repair |
+| `map_live_snapshots(snapshots, underlying_prices?, dividend_yield?)` | `OptionSnapshot[]` | pure batch mapping from provider snapshots and already loaded pricing references |
+| `AlpacaData::map_live_snapshots(snapshots, known_prices?, dividend_yield?)` | `OptionSnapshot[]` | batch-maps provider snapshots and resolves missing stock-price references through `get_prices_for_option(...)` |
 
 Current behavior:
 
 - the adapter decides the pricing-reference mode from the current New York regular session state
-- during regular session, callers may pass already known `underlying_prices`; the adapter only fetches missing realtime stock snapshot prices
-- regular-session stock snapshot failures degrade to "use only the prices we already have"
-- outside regular session, the adapter ignores realtime/current-price inputs for repair and uses `latest_close_prices(...)`
-- outside regular session, fallback IV and repaired Greeks use the latest daily-bar close as the reference spot
-- outside regular session, daily-bar fetch failures propagate instead of falling back to stock snapshots or latest prices
+- `AlpacaData::map_live_snapshots(...)` first fetches required symbols through `AlpacaData::get_prices_for_option(...)`
+- caller-provided `Decimal` prices are only used as a supplement for symbols that the unified price entry did not return
+- outside regular session, fallback IV and repaired Greeks use the last completed trading day's daily-bar close as the reference spot
+- provider price-fetch failures from `get_prices_for_option(...)` propagate instead of falling back to a different stock-price source
 - mapping reuses `map_snapshots_with_pricing_references(...)`, preserving ordering, symbol lookup, and repair rules
 
 ## `pricing_references_for_snapshots`
@@ -173,17 +178,17 @@ Current behavior:
 | API | Returns | Semantics |
 | --- | --- | --- |
 | `resolve_positions_from_optionstrat_url(value, client)` | `ResolvedOptionStratPositions` | parses an OptionStrat URL into live-enriched strategy legs and positions |
+| `AlpacaData::resolve_optionstrat_url(value)` | `(String, Vec<OptionPosition>)` | parses an OptionStrat URL and enriches positions through the cache-backed facade |
 
 Current behavior:
 
 - the core layer only owns URL parsing and leg-fragment parsing
 - the adapter layer uses `alpaca_data::Client` to fetch provider snapshots directly
-- it reuses `map_live_snapshots(...)` for pricing-reference resolution and snapshot repair
-- returned position snapshots try to include `underlying_price` whenever possible
+- `AlpacaData::resolve_optionstrat_url(...)` reuses `AlpacaData::options(...)`, so missing stock prices are resolved by `AlpacaData::map_live_snapshots(...)` and `get_prices_for_option(...)`
+- returned position snapshots include `underlying_price` when the facade can resolve a valid stock-price reference
 - enrichment stays on the unified snapshot-repair path instead of duplicating provider fallback in higher layers
 - provider request failures are normalized to `provider_snapshot_fetch_failed`
-- regular-session underlying stock request failures degrade to mapped results without newly fetched prices
-- non-regular-session daily close fetch failures propagate as provider close fetch errors
+- stock-price request failures propagate from `get_prices_for_option(...)`
 - missing provider snapshots return `missing_provider_snapshot`
 
 ## Division of Responsibilities with the Core Layer

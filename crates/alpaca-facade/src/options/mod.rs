@@ -5,12 +5,12 @@
 //! Thin bridge helpers that map Alpaca option payloads into `alpaca-option`
 //! core models.
 
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 
 use alpaca_core::decimal;
 use alpaca_data::Client;
 use alpaca_data::options::{OptionsFeed, Snapshot, SnapshotsRequest, ordered_snapshots};
-use alpaca_data::stocks::{BarsRequest, DataFeed, Sort, TimeFrame, display_stock_symbol};
+use alpaca_data::stocks::display_stock_symbol;
 use alpaca_option::contract;
 use alpaca_option::pricing;
 use alpaca_option::url;
@@ -21,8 +21,8 @@ use alpaca_option::{
 use alpaca_time::calendar;
 use alpaca_time::clock;
 use alpaca_time::expiration;
-use alpaca_time::range;
 use alpaca_time::session;
+use rust_decimal::Decimal;
 use rust_decimal::prelude::ToPrimitive;
 use serde::{Deserialize, Serialize};
 
@@ -41,7 +41,7 @@ pub struct ResolvedOptionStratPositions {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct OptionPricingReference {
     pub evaluation_time: String,
-    pub underlying_price: Option<f64>,
+    pub underlying_price: Option<Decimal>,
 }
 
 fn decimal_to_f64(value: Option<rust_decimal::Decimal>) -> Option<f64> {
@@ -95,8 +95,8 @@ fn valid_underlying_price(underlying_price: Option<f64>) -> Option<f64> {
     underlying_price.filter(|value| value.is_finite() && *value > 0.0)
 }
 
-fn decimal_to_valid_price(value: Option<rust_decimal::Decimal>) -> Option<f64> {
-    valid_underlying_price(decimal_to_f64(value))
+fn valid_underlying_price_decimal(underlying_price: Option<Decimal>) -> Option<Decimal> {
+    underlying_price.filter(|value| *value > Decimal::ZERO)
 }
 
 fn valid_iv(implied_volatility: Option<f64>) -> Option<f64> {
@@ -185,7 +185,10 @@ fn repaired_greeks_and_iv(
     let Some(pricing_reference) = pricing_reference else {
         return (fallback_greeks, fallback_iv);
     };
-    let Some(underlying_price) = valid_underlying_price(pricing_reference.underlying_price) else {
+    let Some(underlying_price) = valid_underlying_price_decimal(pricing_reference.underlying_price)
+        .and_then(|price| price.to_f64())
+        .and_then(|price| valid_underlying_price(Some(price)))
+    else {
         return (fallback_greeks, fallback_iv);
     };
 
@@ -247,7 +250,7 @@ fn close_evaluation_time(now: &str) -> OptionResult<String> {
 
 fn pricing_reference_for_snapshot(
     snapshot: &Snapshot,
-    underlying_price: Option<f64>,
+    underlying_price: Option<Decimal>,
     now: &str,
 ) -> OptionResult<OptionPricingReference> {
     let evaluation_time = if session::is_regular_session_at(now) {
@@ -258,18 +261,18 @@ fn pricing_reference_for_snapshot(
 
     Ok(OptionPricingReference {
         evaluation_time,
-        underlying_price: valid_underlying_price(underlying_price),
+        underlying_price: valid_underlying_price_decimal(underlying_price),
     })
 }
 
 fn lookup_underlying_price(
     occ_symbol: &str,
-    underlying_prices: Option<&HashMap<String, f64>>,
-) -> Option<f64> {
+    underlying_prices: Option<&HashMap<String, Decimal>>,
+) -> Option<Decimal> {
     let underlying_prices = underlying_prices?;
     let contract = contract::parse_occ_symbol(occ_symbol)?;
     let display_symbol = display_stock_symbol(&contract.underlying_symbol);
-    valid_underlying_price(
+    valid_underlying_price_decimal(
         underlying_prices
             .get(&contract.underlying_symbol)
             .copied()
@@ -279,8 +282,8 @@ fn lookup_underlying_price(
 
 pub fn pricing_references_for_snapshots(
     snapshots: &HashMap<String, Snapshot>,
-    realtime_prices: Option<&HashMap<String, f64>>,
-    close_prices: Option<&HashMap<String, f64>>,
+    realtime_prices: Option<&HashMap<String, Decimal>>,
+    close_prices: Option<&HashMap<String, Decimal>>,
     now: &str,
 ) -> OptionResult<HashMap<String, OptionPricingReference>> {
     let price_source = if session::is_regular_session_at(now) {
@@ -331,14 +334,17 @@ pub fn map_snapshot_with_pricing_reference(
         quote,
         greeks,
         implied_volatility,
-        underlying_price: pricing_reference.and_then(|reference| reference.underlying_price),
+        underlying_price: pricing_reference
+            .and_then(|reference| reference.underlying_price)
+            .and_then(|price| price.to_f64())
+            .and_then(|price| valid_underlying_price(Some(price))),
     })
 }
 
 pub fn map_snapshot(
     occ_symbol: &str,
     snapshot: &Snapshot,
-    underlying_price: Option<f64>,
+    underlying_price: Option<Decimal>,
     dividend_yield: Option<f64>,
 ) -> OptionResult<OptionSnapshot> {
     let now = clock::now();
@@ -353,7 +359,7 @@ pub fn map_snapshot(
 
 pub fn map_snapshots(
     snapshots: &HashMap<String, Snapshot>,
-    underlying_prices: Option<&HashMap<String, f64>>,
+    underlying_prices: Option<&HashMap<String, Decimal>>,
     dividend_yield: Option<f64>,
 ) -> OptionResult<Vec<OptionSnapshot>> {
     let now = clock::now();
@@ -397,7 +403,7 @@ pub fn required_underlying_display_symbols(snapshots: &HashMap<String, Snapshot>
     symbols
 }
 
-fn underlying_display_symbols(snapshots: &HashMap<String, Snapshot>) -> Vec<String> {
+pub fn underlying_display_symbols(snapshots: &HashMap<String, Snapshot>) -> Vec<String> {
     let mut symbols = ordered_snapshots(snapshots)
         .into_iter()
         .filter_map(|(occ_symbol, _)| {
@@ -410,141 +416,14 @@ fn underlying_display_symbols(snapshots: &HashMap<String, Snapshot>) -> Vec<Stri
     symbols
 }
 
-fn normalized_display_symbols<S: AsRef<str>>(symbols: &[S]) -> Vec<String> {
-    let mut normalized = Vec::new();
-    let mut seen = HashSet::new();
-    for symbol in symbols {
-        let symbol = display_stock_symbol(symbol.as_ref());
-        if !symbol.is_empty() && seen.insert(symbol.clone()) {
-            normalized.push(symbol);
-        }
-    }
-    normalized
-}
-
-fn latest_close_from_daily_bars(bars: &[alpaca_data::stocks::Bar]) -> Option<f64> {
-    let mut latest: Option<(&str, f64)> = None;
-    for bar in bars {
-        let Some(close) = decimal_to_valid_price(bar.c) else {
-            continue;
-        };
-        let timestamp = bar.t.as_deref().unwrap_or_default();
-        if latest
-            .map(|(latest_timestamp, _)| timestamp > latest_timestamp)
-            .unwrap_or(true)
-        {
-            latest = Some((timestamp, close));
-        }
-    }
-    latest.map(|(_, close)| close)
-}
-
-fn latest_close_prices_from_daily_bars(
-    bars_by_symbol: HashMap<String, Vec<alpaca_data::stocks::Bar>>,
-) -> HashMap<String, f64> {
-    bars_by_symbol
-        .into_iter()
-        .filter_map(|(symbol, bars)| {
-            latest_close_from_daily_bars(&bars).map(|price| (symbol, price))
-        })
-        .collect()
-}
-
-pub async fn latest_close_prices<S: AsRef<str>>(
-    client: &Client,
-    symbols: &[S],
-) -> OptionResult<HashMap<String, f64>> {
-    let symbols = normalized_display_symbols(symbols);
-    if symbols.is_empty() {
-        return Ok(HashMap::new());
-    }
-
-    let start = range::add_days(&clock::today(), -14).unwrap_or_else(|_| clock::today());
-    let response = client
-        .stocks()
-        .bars_all(BarsRequest {
-            symbols,
-            timeframe: TimeFrame::day_1(),
-            start: Some(start),
-            end: None,
-            limit: Some(1000),
-            adjustment: None,
-            feed: None,
-            sort: Some(Sort::Desc),
-            asof: None,
-            currency: None,
-            page_token: None,
-        })
-        .await
-        .map_err(|error| {
-            OptionError::new(
-                "provider_latest_close_fetch_failed",
-                format!("failed to load latest daily stock bars via alpaca-data: {error}"),
-            )
-        })?;
-
-    Ok(latest_close_prices_from_daily_bars(response.bars))
-}
-
-async fn fetch_underlying_prices(
-    client: &Client,
+pub fn map_live_snapshots(
     snapshots: &HashMap<String, Snapshot>,
-    known_prices: Option<&HashMap<String, f64>>,
-) -> OptionResult<HashMap<String, f64>> {
-    let mut prices = known_prices.cloned().unwrap_or_default();
-    let symbols = underlying_display_symbols(snapshots);
-    let missing_symbols = symbols
-        .into_iter()
-        .filter(|symbol| valid_underlying_price(prices.get(symbol).copied()).is_none())
-        .collect::<Vec<_>>();
-
-    if missing_symbols.is_empty() {
-        return Ok(prices);
-    }
-
-    let Ok(response) = client
-        .stocks()
-        .snapshots(alpaca_data::stocks::SnapshotsRequest {
-            symbols: missing_symbols,
-            feed: session::is_overnight_window(&clock::now()).then_some(DataFeed::Boats),
-            currency: None,
-        })
-        .await
-    else {
-        return Ok(prices);
-    };
-
-    for (symbol, snapshot) in response {
-        if let Some(price) = snapshot.price().and_then(|price| price.to_f64()) {
-            prices.insert(symbol, price);
-        }
-    }
-    Ok(prices)
-}
-
-pub async fn map_live_snapshots(
-    snapshots: &HashMap<String, Snapshot>,
-    client: &Client,
-    underlying_prices: Option<&HashMap<String, f64>>,
+    underlying_prices: Option<&HashMap<String, Decimal>>,
     dividend_yield: Option<f64>,
 ) -> OptionResult<Vec<OptionSnapshot>> {
     let now = clock::now();
-    let mut realtime_prices = HashMap::new();
-    let mut close_prices = HashMap::new();
-
-    if session::is_regular_session_at(&now) {
-        realtime_prices = fetch_underlying_prices(client, snapshots, underlying_prices).await?;
-    } else {
-        let symbols = underlying_display_symbols(snapshots);
-        close_prices = latest_close_prices(client, &symbols).await?;
-    }
-
-    let pricing_references = pricing_references_for_snapshots(
-        snapshots,
-        (!realtime_prices.is_empty()).then_some(&realtime_prices),
-        (!close_prices.is_empty()).then_some(&close_prices),
-        &now,
-    )?;
+    let pricing_references =
+        pricing_references_for_snapshots(snapshots, underlying_prices, underlying_prices, &now)?;
     map_snapshots_with_pricing_references(
         snapshots,
         (!pricing_references.is_empty()).then_some(&pricing_references),
@@ -576,7 +455,7 @@ pub async fn resolve_positions_from_optionstrat_url(
         .await
         .map_err(|error| OptionError::new("provider_snapshot_fetch_failed", error.to_string()))?
         .snapshots;
-    let mapped_snapshots = map_live_snapshots(&snapshots, client, None, None).await?;
+    let mapped_snapshots = map_live_snapshots(&snapshots, None, None)?;
     let snapshots_by_occ = mapped_snapshots
         .into_iter()
         .map(|snapshot| (snapshot.contract.occ_symbol.clone(), snapshot))
@@ -629,7 +508,6 @@ mod tests {
     use alpaca_data::options::{
         Greeks as ProviderGreeks, Quote as ProviderOptionQuote, Snapshot as ProviderOptionSnapshot,
     };
-    use alpaca_data::stocks::Bar as StockBar;
     use rust_decimal::Decimal;
 
     const OCC_SYMBOL: &str = "QQQ260602C00100000";
@@ -681,8 +559,8 @@ mod tests {
     #[test]
     fn regular_session_pricing_reference_uses_snapshot_time_and_realtime_spot() {
         let snapshots = snapshots_with_one(option_snapshot("2026-06-01 10:00:00", 1.25));
-        let realtime_prices = HashMap::from([("QQQ".to_owned(), 101.25)]);
-        let close_prices = HashMap::from([("QQQ".to_owned(), 99.50)]);
+        let realtime_prices = HashMap::from([("QQQ".to_owned(), decimal(101.25, 2))]);
+        let close_prices = HashMap::from([("QQQ".to_owned(), decimal(99.50, 2))]);
 
         let references = pricing_references_for_snapshots(
             &snapshots,
@@ -696,14 +574,14 @@ mod tests {
             .get(OCC_SYMBOL)
             .expect("test contract should have a pricing reference");
         assert_eq!(reference.evaluation_time, "2026-06-01 10:00:00");
-        assert_eq!(reference.underlying_price, Some(101.25));
+        assert_eq!(reference.underlying_price, Some(decimal(101.25, 2)));
     }
 
     #[test]
     fn non_regular_session_pricing_reference_uses_last_close_time_and_close_spot() {
         let snapshots = snapshots_with_one(option_snapshot("2026-06-01 19:59:00", 1.25));
-        let realtime_prices = HashMap::from([("QQQ".to_owned(), 105.00)]);
-        let close_prices = HashMap::from([("QQQ".to_owned(), 100.00)]);
+        let realtime_prices = HashMap::from([("QQQ".to_owned(), decimal(105.00, 2))]);
+        let close_prices = HashMap::from([("QQQ".to_owned(), decimal(100.00, 2))]);
 
         let references = pricing_references_for_snapshots(
             &snapshots,
@@ -717,7 +595,7 @@ mod tests {
             .get(OCC_SYMBOL)
             .expect("test contract should have a pricing reference");
         assert_eq!(reference.evaluation_time, "2026-06-01 16:00:00");
-        assert_eq!(reference.underlying_price, Some(100.00));
+        assert_eq!(reference.underlying_price, Some(decimal(100.00, 2)));
     }
 
     #[test]
@@ -729,7 +607,7 @@ mod tests {
         let snapshot = option_snapshot("2026-06-01 20:00:00", option_price);
         let reference = OptionPricingReference {
             evaluation_time: evaluation_time.to_owned(),
-            underlying_price: Some(spot),
+            underlying_price: Some(decimal(spot, 2)),
         };
 
         let mapped =
@@ -759,7 +637,7 @@ mod tests {
         });
         let reference = OptionPricingReference {
             evaluation_time: "2026-06-01 10:00:00".to_owned(),
-            underlying_price: Some(100.0),
+            underlying_price: Some(decimal(100.0, 2)),
         };
 
         let mapped =
@@ -768,39 +646,5 @@ mod tests {
 
         assert_eq!(mapped.implied_volatility, Some(0.42));
         assert_eq!(mapped.greeks.as_ref().map(|greeks| greeks.delta), Some(0.5));
-    }
-
-    #[test]
-    fn latest_close_prices_are_derived_only_from_recent_daily_bars() {
-        let daily_bars = HashMap::from([
-            (
-                "QQQ".to_owned(),
-                vec![
-                    StockBar {
-                        t: Some("2026-05-28T04:00:00Z".to_owned()),
-                        c: Some(decimal(97.0, 2)),
-                        ..StockBar::default()
-                    },
-                    StockBar {
-                        t: Some("2026-05-29T04:00:00Z".to_owned()),
-                        c: Some(decimal(99.0, 2)),
-                        ..StockBar::default()
-                    },
-                ],
-            ),
-            (
-                "SPY".to_owned(),
-                vec![StockBar {
-                    t: Some("2026-05-29T04:00:00Z".to_owned()),
-                    c: Some(decimal(501.25, 2)),
-                    ..StockBar::default()
-                }],
-            ),
-        ]);
-
-        let prices = latest_close_prices_from_daily_bars(daily_bars);
-
-        assert_eq!(prices.get("QQQ").copied(), Some(99.0));
-        assert_eq!(prices.get("SPY").copied(), Some(501.25));
     }
 }

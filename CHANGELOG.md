@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Added `AlpacaData::get_prices_for_option` as the single Decimal stock-price source for option valuation, using realtime stock snapshots during regular sessions and one batched daily-bars request outside regular sessions.
+- Reworked facade option snapshot mapping so underlying spot references flow through Decimal maps and only convert to `f64` at the `alpaca-option` pricing boundary.
 - Changed option market data mirror Greeks and implied volatility to deserialize as finite `f64` values instead of `Decimal`, keeping fixed-precision decimals for prices and cash-like fields.
 - Aligned `alpaca-facade` option snapshot fallback pricing so repaired IV and Greeks use explicit pricing references: regular-session repair uses realtime stock snapshots, while non-regular repair uses the latest stock daily-bar close at the last completed trading-day close timestamp.
 - Documented the new pricing-reference helpers and daily-bars-only non-regular close behavior.
