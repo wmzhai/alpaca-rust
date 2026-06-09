@@ -2,8 +2,16 @@
 
 ## Unreleased
 
+## v0.26.1
+
+- Added a static Treasury risk-free-rate curve and wired Black-Scholes defaults, option strategy mark/Greeks, and probability calculations to use term-specific rates.
+- Added matching TypeScript rate exports for `@alpaca/option`.
+- Reworked OptionStrat URL imports to use URL premiums as IV calculation inputs and repair per-leg IV/Greeks with explicit pricing references.
+- Preserved caller-supplied option valuation spot prices while mapping live snapshots, only fetching missing symbols through the IV calculation price source.
+- Added SMH diagonal fixed-IV payoff regression coverage.
+
 - Fixed non-regular option valuation stock prices to fetch completed trading-day closes from SIP regular-session bars, avoiding BOATS overnight daily timestamps being filtered out as the wrong date.
-- Added `AlpacaData::get_prices_for_option` as the single Decimal stock-price source for option valuation, using realtime stock snapshots during regular sessions and one batched daily-bars request outside regular sessions.
+- Added `AlpacaData::get_prices_for_iv_calculation` as the single Decimal stock-price source for IV and Greeks calculation, using realtime stock snapshots during regular sessions and one batched daily-bars request outside regular sessions.
 - Reworked facade option snapshot mapping so underlying spot references flow through Decimal maps and only convert to `f64` at the `alpaca-option` pricing boundary.
 - Changed option market data mirror Greeks and implied volatility to deserialize as finite `f64` values instead of `Decimal`, keeping fixed-precision decimals for prices and cash-like fields.
 - Aligned `alpaca-facade` option snapshot fallback pricing so repaired IV and Greeks use explicit pricing references: regular-session repair uses realtime stock snapshots, while non-regular repair uses the latest stock daily-bar close at the last completed trading-day close timestamp.

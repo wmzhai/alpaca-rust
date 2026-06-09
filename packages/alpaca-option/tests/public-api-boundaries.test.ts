@@ -11,6 +11,7 @@ import {
   payoff,
   pricing,
   probability,
+  rate,
   snapshot,
   url,
 } from '../src/index';
@@ -1390,6 +1391,20 @@ test('payoff and probability boundary cases are explicit', () => {
     dividendYield: 0,
     volatility: 0.2,
   }), 'invalid_probability_input');
+});
+
+test('default risk-free rate curve interpolates and clamps edges', () => {
+  assert.equal(rate.riskFreeRateForYears(1 / 12), 0.0370);
+  assert.equal(rate.riskFreeRateForYears(1), 0.0385);
+  assert.equal(rate.riskFreeRateForYears(2), 0.0415);
+  assert.equal(rate.riskFreeRateForYears(30), 0.0503);
+  assert.equal(rate.riskFreeRateForYears(0.001), 0.0370);
+  assert.equal(rate.riskFreeRateForYears(50), 0.0503);
+
+  const expected18MonthRate = 0.0385 + (0.0415 - 0.0385) * 0.5;
+  assert.ok(Math.abs(rate.riskFreeRateForYears(1.5) - expected18MonthRate) < 1e-12);
+  assert.equal(rate.riskFreeRateForYears(Number.NaN), rate.DEFAULT_RISK_FREE_RATE);
+  assert.equal(rate.riskFreeRateForYears(Number.POSITIVE_INFINITY), rate.DEFAULT_RISK_FREE_RATE);
 });
 
 test('numeric.brentSolve surfaces bracketing and convergence errors', () => {

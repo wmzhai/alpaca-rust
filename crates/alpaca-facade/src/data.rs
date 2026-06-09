@@ -1,8 +1,13 @@
-use crate::{map_live_snapshots, underlying_display_symbols};
+use crate::{
+    apply_optionstrat_premium_model, map_live_snapshots as map_option_snapshots_with_prices,
+    map_snapshots_with_pricing_references, pricing_references_for_snapshots,
+    underlying_display_symbols,
+};
 use ::chrono::NaiveDateTime;
 use alpaca_data::Client;
 use alpaca_data::cache::{CacheStats as RawCacheStats, CachedClient, StockBarsRequest};
 use alpaca_data::corporate_actions::{CorporateActionType, ListRequest};
+use alpaca_data::options::Snapshot as ProviderOptionSnapshot;
 use alpaca_data::stocks::{
     self, BarPoint, BarsRequest, DataFeed, Sort, TimeFrame, preferred_feed as preferred_stock_feed,
 };
@@ -269,13 +274,25 @@ impl AlpacaData {
             .iter()
             .map(|leg| leg.contract.occ_symbol.clone())
             .collect::<Vec<_>>();
-        let snapshots = self.options(&contracts).await.map_err(|error| {
+        let raw_snapshots = self.raw.options(&contracts).await.map_err(|error| {
             OptionError::new("provider_snapshot_fetch_failed", error.to_string())
         })?;
+        let pricing_references = self
+            .iv_calculation_pricing_references(&raw_snapshots)
+            .await?;
+        let dividend_yield = self.option_pricing_inputs();
+        let snapshots = map_snapshots_with_pricing_references(
+            &raw_snapshots,
+            Some(&pricing_references),
+            Some(dividend_yield),
+        )?
+        .into_iter()
+        .map(|snapshot| (snapshot.contract.occ_symbol.clone(), snapshot))
+        .collect::<HashMap<_, _>>();
 
         let mut positions = Vec::with_capacity(legs.len());
         for leg in legs {
-            let snapshot = snapshots
+            let mut snapshot = snapshots
                 .get(&leg.contract.occ_symbol)
                 .ok_or_else(|| {
                     OptionError::new(
@@ -284,6 +301,13 @@ impl AlpacaData {
                     )
                 })?
                 .clone();
+            apply_optionstrat_premium_model(
+                &mut snapshot,
+                leg.premium_per_contract,
+                pricing_references.get(&leg.contract.occ_symbol),
+                Some(dividend_yield),
+            )?;
+            let avg_cost = leg.premium_per_contract.unwrap_or_else(|| snapshot.price());
 
             positions.push(OptionPosition {
                 contract: leg.contract.occ_symbol.clone(),
@@ -292,10 +316,7 @@ impl AlpacaData {
                     OrderSide::Buy => leg.ratio_quantity as i32,
                     OrderSide::Sell => -(leg.ratio_quantity as i32),
                 },
-                avg_cost: alpaca_core::decimal::from_f64(
-                    leg.premium_per_contract.unwrap_or(0.0),
-                    2,
-                ),
+                avg_cost: alpaca_core::decimal::from_f64(avg_cost, 2),
                 leg_type: match leg.order_side {
                     OrderSide::Buy => format!("long{}", leg.contract.option_right.as_str()),
                     OrderSide::Sell => format!("short{}", leg.contract.option_right.as_str()),
@@ -307,6 +328,29 @@ impl AlpacaData {
         }
 
         Ok((parsed.underlying_display_symbol, positions))
+    }
+
+    async fn iv_calculation_pricing_references(
+        &self,
+        snapshots: &HashMap<String, ProviderOptionSnapshot>,
+    ) -> Result<HashMap<String, crate::OptionPricingReference>, OptionError> {
+        let symbols = underlying_display_symbols(snapshots);
+        let prices = if symbols.is_empty() {
+            HashMap::new()
+        } else {
+            self.get_prices_for_iv_calculation(&symbols)
+                .await
+                .map_err(|error| {
+                    OptionError::new("provider_stock_price_fetch_failed", error.to_string())
+                })?
+        };
+        let now = clock::now();
+        pricing_references_for_snapshots(
+            snapshots,
+            (!prices.is_empty()).then_some(&prices),
+            (!prices.is_empty()).then_some(&prices),
+            &now,
+        )
     }
 
     pub async fn cash_dividends_total(
@@ -354,20 +398,28 @@ impl AlpacaData {
         self.day_bars(&requested).await.remove(symbol)
     }
 
-    pub async fn get_prices_for_option<S: AsRef<str>>(
+    pub async fn get_prices_for_iv_calculation<S: AsRef<str>>(
         &self,
         symbols: &[S],
     ) -> Result<HashMap<String, Decimal>> {
-        let requested = Self::normalize_stock_symbols(symbols);
-        if requested.is_empty() {
-            return Ok(HashMap::new());
-        }
-
         if session::is_regular_session_at(&clock::now()) {
-            self.realtime_prices_for_option(&requested).await
-        } else {
-            self.completed_daily_close_prices_for_option(&requested)
+            let snapshots = self
+                .raw
+                .stocks(symbols)
                 .await
+                .context("failed to load stock snapshots via alpaca-data")?;
+            Ok(snapshots
+                .into_iter()
+                .filter_map(|(symbol, snapshot)| {
+                    snapshot
+                        .price()
+                        .filter(|price| *price > Decimal::ZERO)
+                        .map(|price| (symbol, price))
+                })
+                .collect())
+        } else {
+            let requested = Self::normalize_stock_symbols(symbols);
+            self.close_prices(&requested).await
         }
     }
 
@@ -554,23 +606,30 @@ impl AlpacaData {
         dividend_yield: Option<f64>,
     ) -> Result<Vec<OptionSnapshot>> {
         let symbols = underlying_display_symbols(snapshots);
-        let mut prices = if symbols.is_empty() {
-            HashMap::new()
-        } else {
-            self.get_prices_for_option(&symbols)
+        let mut prices = known_prices
+            .into_iter()
+            .flat_map(|prices| prices.iter())
+            .filter(|(_, price)| **price > Decimal::ZERO)
+            .map(|(symbol, price)| (symbol.clone(), *price))
+            .collect::<HashMap<_, _>>();
+        let missing_symbols = symbols
+            .iter()
+            .filter(|symbol| !prices.contains_key(*symbol))
+            .cloned()
+            .collect::<Vec<_>>();
+        if !missing_symbols.is_empty() {
+            let fetched_prices = self
+                .get_prices_for_iv_calculation(&missing_symbols)
                 .await
-                .context("failed to load underlying stock prices for options")?
-        };
-
-        if let Some(known_prices) = known_prices {
-            for (symbol, price) in known_prices {
-                if *price > Decimal::ZERO {
-                    prices.entry(symbol.clone()).or_insert(*price);
+                .context("failed to load underlying stock prices for options")?;
+            for (symbol, price) in fetched_prices {
+                if price > Decimal::ZERO {
+                    prices.entry(symbol).or_insert(price);
                 }
             }
         }
 
-        map_live_snapshots(
+        map_option_snapshots_with_prices(
             snapshots,
             (!prices.is_empty()).then_some(&prices),
             dividend_yield,
@@ -578,34 +637,7 @@ impl AlpacaData {
         .context("failed to map option snapshots into alpaca-option models")
     }
 
-    async fn realtime_prices_for_option(
-        &self,
-        requested: &[(String, String)],
-    ) -> Result<HashMap<String, Decimal>> {
-        let symbols = Self::unique_resolved_symbols(requested);
-        if symbols.is_empty() {
-            return Ok(HashMap::new());
-        }
-
-        let snapshots = self
-            .raw
-            .stocks(&symbols)
-            .await
-            .context("failed to load stock snapshots via alpaca-data")?;
-
-        Ok(requested
-            .iter()
-            .filter_map(|(original, resolved)| {
-                snapshots
-                    .get(resolved)
-                    .and_then(|snapshot| snapshot.price())
-                    .filter(|price| *price > Decimal::ZERO)
-                    .map(|price| (original.clone(), price))
-            })
-            .collect())
-    }
-
-    async fn completed_daily_close_prices_for_option(
+    async fn close_prices(
         &self,
         requested: &[(String, String)],
     ) -> Result<HashMap<String, Decimal>> {
@@ -628,7 +660,8 @@ impl AlpacaData {
                 end: Some(end),
                 limit: Some(1000),
                 adjustment: None,
-                feed: Some(completed_daily_close_feed()),
+                // Regular-session closes only; overnight BOATS daily bars can land on the next UTC date.
+                feed: Some(DataFeed::Sip),
                 sort: Some(Sort::Asc),
                 asof: None,
                 currency: None,
@@ -641,9 +674,20 @@ impl AlpacaData {
         Ok(requested
             .iter()
             .filter_map(|(original, resolved)| {
-                bars.get(resolved)
-                    .and_then(|values| completed_daily_bar_close(values, &completed_date))
-                    .map(|price| (original.clone(), price))
+                let close = bars.get(resolved).and_then(|values| {
+                    values
+                        .iter()
+                        .filter_map(|bar| {
+                            let close = bar.c.filter(|price| *price > Decimal::ZERO)?;
+                            let timestamp = bar.t.as_deref().unwrap_or_default();
+                            timestamp.starts_with(&completed_date).then_some((timestamp, close))
+                        })
+                        .max_by(|(left_timestamp, _), (right_timestamp, _)| {
+                            left_timestamp.cmp(right_timestamp)
+                        })
+                        .map(|(_, close)| close)
+                })?;
+                Some((original.clone(), close))
             })
             .collect())
     }
@@ -708,42 +752,9 @@ impl AlpacaData {
     }
 }
 
-fn completed_daily_close_feed() -> DataFeed {
-    // Completed trading-day closes are regular-session bars. BOATS overnight
-    // daily bars can be timestamped on the next UTC date and are not this input.
-    DataFeed::Sip
-}
-
-fn completed_daily_bar_close(
-    bars: &[alpaca_data::stocks::Bar],
-    completed_date: &str,
-) -> Option<Decimal> {
-    let mut selected: Option<(&str, Decimal)> = None;
-    for bar in bars {
-        let Some(close) = bar.c.filter(|price| *price > Decimal::ZERO) else {
-            continue;
-        };
-        let timestamp = bar.t.as_deref().unwrap_or_default();
-        if !timestamp.starts_with(completed_date) {
-            continue;
-        }
-        if selected
-            .map(|(selected_timestamp, _)| timestamp > selected_timestamp)
-            .unwrap_or(true)
-        {
-            selected = Some((timestamp, close));
-        }
-    }
-    selected.map(|(_, close)| close)
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    fn dec(value: i64, scale: u32) -> Decimal {
-        Decimal::new(value, scale)
-    }
 
     #[test]
     fn option_price_symbols_preserve_requested_keys_and_deduplicate_provider_symbols() {
@@ -763,52 +774,4 @@ mod tests {
         );
     }
 
-    #[test]
-    fn completed_daily_close_feed_uses_regular_session_bars() {
-        assert_eq!(completed_daily_close_feed(), DataFeed::Sip);
-        assert_eq!(preferred_stock_feed(true), DataFeed::Boats);
-    }
-
-    #[test]
-    fn completed_daily_bar_close_uses_only_requested_completed_date() {
-        let bars = vec![
-            alpaca_data::stocks::Bar {
-                t: Some("2026-06-03T04:00:00Z".to_owned()),
-                c: Some(dec(99_00, 2)),
-                ..alpaca_data::stocks::Bar::default()
-            },
-            alpaca_data::stocks::Bar {
-                t: Some("2026-06-04T04:00:00Z".to_owned()),
-                c: Some(dec(101_25, 2)),
-                ..alpaca_data::stocks::Bar::default()
-            },
-        ];
-
-        assert_eq!(
-            completed_daily_bar_close(&bars, "2026-06-04"),
-            Some(dec(101_25, 2))
-        );
-        assert_eq!(completed_daily_bar_close(&bars, "2026-06-02"), None);
-    }
-
-    #[test]
-    fn completed_daily_bar_close_ignores_non_positive_prices() {
-        let bars = vec![
-            alpaca_data::stocks::Bar {
-                t: Some("2026-06-04T04:00:00Z".to_owned()),
-                c: Some(Decimal::ZERO),
-                ..alpaca_data::stocks::Bar::default()
-            },
-            alpaca_data::stocks::Bar {
-                t: Some("2026-06-04T04:00:01Z".to_owned()),
-                c: Some(dec(101_25, 2)),
-                ..alpaca_data::stocks::Bar::default()
-            },
-        ];
-
-        assert_eq!(
-            completed_daily_bar_close(&bars, "2026-06-04"),
-            Some(dec(101_25, 2))
-        );
-    }
 }

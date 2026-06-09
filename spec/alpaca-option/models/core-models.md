@@ -167,7 +167,7 @@ Notes:
 - `positions` use the same `OptionPosition` model as live strategy holdings; the OCC symbol is parsed from `contract`, and runtime valuation inputs such as IV come from the position `snapshot`
 - `qty` is the strategy-level quantity and is distinct from each position's signed ratio `qty`
 - `entry_cost` is the aggregate entry cost for the whole structure; when it is empty, the lower layer sums `avg_cost * position.qty * 100` for each leg and multiplies by strategy `qty`
-- strategy valuation uses `DEFAULT_RISK_FREE_RATE` internally and uses `position.snapshot.implied_volatility` directly
+- strategy valuation interpolates the default risk-free rate from each leg's remaining years and uses `position.snapshot.implied_volatility` directly
 
 ### `StrategyBreakEvenSideInput`
 

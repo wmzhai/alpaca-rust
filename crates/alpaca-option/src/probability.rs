@@ -1,6 +1,6 @@
-use crate::DEFAULT_RISK_FREE_RATE;
 use crate::error::{OptionError, OptionResult};
 use crate::numeric::normal_cdf;
+use crate::rate::risk_free_rate_for_years;
 
 fn ensure_finite(name: &str, value: f64) -> OptionResult<()> {
     if value.is_finite() {
@@ -38,7 +38,7 @@ pub fn expiry_probability_in_range(
         lower_price,
         upper_price,
         years,
-        DEFAULT_RISK_FREE_RATE,
+        risk_free_rate_for_years(years),
         dividend_yield,
         volatility,
     )

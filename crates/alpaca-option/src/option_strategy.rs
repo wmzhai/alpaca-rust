@@ -1,8 +1,8 @@
-use crate::DEFAULT_RISK_FREE_RATE;
 use crate::contract;
 use crate::error::{OptionError, OptionResult};
 use crate::numeric;
 use crate::pricing;
+use crate::rate::risk_free_rate_for_years;
 use crate::snapshot;
 use crate::types::{
     Greeks, OptionContract, OptionPosition, OptionRight, OptionStrategyCurvePoint,
@@ -11,8 +11,8 @@ use crate::types::{
 };
 use alpaca_time::clock;
 use alpaca_time::expiration;
-use rust_decimal::Decimal;
 use rust_decimal::prelude::ToPrimitive;
+use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
@@ -426,12 +426,6 @@ impl OptionStrategy {
                 format!("underlying_price must be non-negative: {underlying_price}"),
             ));
         }
-        ensure_finite(
-            "invalid_strategy_payoff_input",
-            "rate",
-            DEFAULT_RISK_FREE_RATE,
-        )?;
-
         let mut total = 0.0;
         for position in positions {
             let option_right = Self::prepared_option_right(position)?;
@@ -444,7 +438,7 @@ impl OptionStrategy {
                     spot: underlying_price,
                     strike,
                     years,
-                    rate: DEFAULT_RISK_FREE_RATE,
+                    rate: risk_free_rate_for_years(years),
                     dividend_yield,
                     volatility: Self::prepared_implied_volatility(position)?,
                     option_right,
@@ -485,12 +479,6 @@ impl OptionStrategy {
             "underlying_price",
             underlying_price,
         )?;
-        ensure_finite(
-            "invalid_strategy_payoff_input",
-            "rate",
-            DEFAULT_RISK_FREE_RATE,
-        )?;
-
         let mut total = Greeks::default();
         for position in positions {
             let option_right = Self::prepared_option_right(position)?;
@@ -503,7 +491,7 @@ impl OptionStrategy {
                     spot: underlying_price,
                     strike,
                     years,
-                    rate: DEFAULT_RISK_FREE_RATE,
+                    rate: risk_free_rate_for_years(years),
                     dividend_yield,
                     volatility: Self::prepared_implied_volatility(position)?,
                     option_right,

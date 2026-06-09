@@ -1,12 +1,12 @@
 use alpaca_core::float;
-use rust_decimal::Decimal;
 use rust_decimal::prelude::ToPrimitive;
+use rust_decimal::Decimal;
 use serde::{Deserialize, Deserializer, Serialize};
 use ts_rs::TS;
 
-use crate::DEFAULT_RISK_FREE_RATE;
 use crate::contract;
 use crate::error::{OptionError, OptionResult};
+use crate::rate::risk_free_rate_for_years;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[serde(rename_all = "lowercase")]
@@ -317,7 +317,7 @@ impl BlackScholesInput {
             spot,
             strike,
             years,
-            rate: DEFAULT_RISK_FREE_RATE,
+            rate: risk_free_rate_for_years(years),
             dividend_yield,
             volatility,
             option_right,
@@ -359,7 +359,7 @@ impl BlackScholesImpliedVolatilityInput {
             spot,
             strike,
             years,
-            rate: DEFAULT_RISK_FREE_RATE,
+            rate: risk_free_rate_for_years(years),
             dividend_yield,
             option_right,
             lower_bound: None,

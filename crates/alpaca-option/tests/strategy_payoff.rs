@@ -1,9 +1,10 @@
 use alpaca_option::option_strategy;
 use alpaca_option::pricing;
+use alpaca_option::rate;
 use alpaca_option::{
-    DEFAULT_RISK_FREE_RATE, Greeks, OptionContract, OptionPosition, OptionQuote, OptionRight,
-    OptionSnapshot, OptionStrategy, OptionStrategyInput, StrategyBreakEvenInput,
-    StrategyBreakEvenSideInput, StrategyPnlInput, StrategyPnlPeakSearchInput,
+    Greeks, OptionContract, OptionPosition, OptionQuote, OptionRight, OptionSnapshot,
+    OptionStrategy, OptionStrategyInput, StrategyBreakEvenInput, StrategyBreakEvenSideInput,
+    StrategyPnlInput, StrategyPnlPeakSearchInput,
 };
 use alpaca_time::expiration;
 use rust_decimal::Decimal;
@@ -338,11 +339,12 @@ fn strategy_pnl_mixes_expired_and_unexpired_positions() {
         strategy_position("2025-04-24", 95.0, OptionRight::Put, 1, 1.0, 0.25),
     ];
 
+    let long_years = expiration::years("2025-04-24", Some(evaluation_time), None);
     let expected_long_value = pricing::price_black_scholes(&alpaca_option::BlackScholesInput {
         spot: 97.0,
         strike: 95.0,
-        years: expiration::years("2025-04-24", Some(evaluation_time), None),
-        rate: DEFAULT_RISK_FREE_RATE,
+        years: long_years,
+        rate: rate::risk_free_rate_for_years(long_years),
         dividend_yield: 0.0,
         volatility: 0.25,
         option_right: OptionRight::Put,
@@ -379,7 +381,7 @@ fn strategy_pnl_uses_snapshot_implied_volatility_directly() {
         spot: 102.0,
         strike: 100.0,
         years,
-        rate: DEFAULT_RISK_FREE_RATE,
+        rate: rate::risk_free_rate_for_years(years),
         dividend_yield: 0.0,
         volatility: 0.20,
         option_right: OptionRight::Call,
@@ -389,7 +391,7 @@ fn strategy_pnl_uses_snapshot_implied_volatility_directly() {
         spot: 102.0,
         strike: 95.0,
         years,
-        rate: DEFAULT_RISK_FREE_RATE,
+        rate: rate::risk_free_rate_for_years(years),
         dividend_yield: 0.0,
         volatility: 0.30,
         option_right: OptionRight::Put,
@@ -411,6 +413,77 @@ fn strategy_pnl_uses_snapshot_implied_volatility_directly() {
         (actual - expected).abs() < 1e-9,
         "actual={actual}, expected={expected}"
     );
+}
+
+#[test]
+fn option_strategy_marks_and_greeks_diagonal_with_term_rates_per_leg() {
+    let evaluation_time = "2026-06-08 16:00:00";
+    let positions = vec![
+        strategy_position("2026-07-17", 100.0, OptionRight::Put, -1, 2.0, 0.28),
+        strategy_position("2027-06-11", 95.0, OptionRight::Put, 1, 6.0, 0.32),
+    ];
+
+    let strategy =
+        OptionStrategy::prepare(&positions, 1, evaluation_time, Some(0.0), Some(0.01)).unwrap();
+    let spot = 98.0;
+
+    let short_years = expiration::years("2026-07-17", Some(evaluation_time), None);
+    let long_years = expiration::years("2027-06-11", Some(evaluation_time), None);
+    let short_value = pricing::price_black_scholes(&alpaca_option::BlackScholesInput {
+        spot,
+        strike: 100.0,
+        years: short_years,
+        rate: rate::risk_free_rate_for_years(short_years),
+        dividend_yield: 0.01,
+        volatility: 0.28,
+        option_right: OptionRight::Put,
+    })
+    .unwrap();
+    let long_value = pricing::price_black_scholes(&alpaca_option::BlackScholesInput {
+        spot,
+        strike: 95.0,
+        years: long_years,
+        rate: rate::risk_free_rate_for_years(long_years),
+        dividend_yield: 0.01,
+        volatility: 0.32,
+        option_right: OptionRight::Put,
+    })
+    .unwrap();
+
+    let actual_mark = strategy.mark_value_at(spot).unwrap();
+    let expected_mark = (long_value - short_value) * 100.0;
+    assert!(
+        (actual_mark - expected_mark).abs() < 1e-9,
+        "actual={actual_mark}, expected={expected_mark}"
+    );
+
+    let short_greeks = pricing::greeks_black_scholes(&alpaca_option::BlackScholesInput {
+        spot,
+        strike: 100.0,
+        years: short_years,
+        rate: rate::risk_free_rate_for_years(short_years),
+        dividend_yield: 0.01,
+        volatility: 0.28,
+        option_right: OptionRight::Put,
+    })
+    .unwrap();
+    let long_greeks = pricing::greeks_black_scholes(&alpaca_option::BlackScholesInput {
+        spot,
+        strike: 95.0,
+        years: long_years,
+        rate: rate::risk_free_rate_for_years(long_years),
+        dividend_yield: 0.01,
+        volatility: 0.32,
+        option_right: OptionRight::Put,
+    })
+    .unwrap();
+    let actual_greeks = strategy.greeks_at(spot).unwrap();
+
+    assert!((actual_greeks.delta - (long_greeks.delta - short_greeks.delta) * 100.0).abs() < 1e-9);
+    assert!((actual_greeks.gamma - (long_greeks.gamma - short_greeks.gamma) * 100.0).abs() < 1e-9);
+    assert!((actual_greeks.vega - (long_greeks.vega - short_greeks.vega) * 100.0).abs() < 1e-9);
+    assert!((actual_greeks.theta - (long_greeks.theta - short_greeks.theta) * 100.0).abs() < 1e-9);
+    assert!((actual_greeks.rho - (long_greeks.rho - short_greeks.rho) * 100.0).abs() < 1e-9);
 }
 
 #[test]
@@ -767,6 +840,61 @@ fn option_strategy_pnl_peak_from_current_finds_smh_diagonal_delta_turn() {
 }
 
 #[test]
+fn option_strategy_pnl_peak_matches_optionstrat_iv_smh_diagonal() {
+    let evaluation_time = "2026-06-08 16:00:00";
+    let current_price = 598.16;
+    let long_price = 208.25;
+    let short_price = 68.71;
+    let positions = vec![
+        strategy_position("2027-09-17", 470.0, OptionRight::Call, 1, long_price, 0.493),
+        strategy_position(
+            "2026-07-24",
+            560.0,
+            OptionRight::Call,
+            -1,
+            short_price,
+            0.518,
+        ),
+    ];
+    let strategy = OptionStrategy::prepare(
+        &positions,
+        1,
+        evaluation_time,
+        Some((long_price - short_price) * 100.0),
+        Some(0.0),
+    )
+    .unwrap();
+
+    let peak = strategy
+        .pnl_peak_from_current_including_non_positive(&StrategyPnlPeakSearchInput {
+            current_price,
+            step_hint: None,
+            left_boundary: 1.0,
+            right_boundary: current_price * 3.0,
+            tolerance: Some(1e-9),
+            max_search_steps: Some(512),
+        })
+        .unwrap();
+    let peak_delta = strategy.greeks_at(peak.spot).unwrap().delta;
+
+    assert!(
+        (peak.spot - 654.11).abs() <= 0.05,
+        "peak spot should match the OptionStrat-IV diagonal calculation, got {}",
+        peak.spot
+    );
+    assert!(
+        (peak.pnl - 239.49).abs() <= 0.75,
+        "peak pnl should match the OptionStrat-IV diagonal calculation, got {}",
+        peak.pnl
+    );
+    assert!(
+        peak_delta.abs() <= 0.01,
+        "peak spot should be at the delta turn, got delta {}",
+        peak_delta
+    );
+}
+
+#[test]
 fn option_strategy_prepare_preserves_snapshot_implied_volatility() {
     let mut position = strategy_position("2026-05-15", 450.0, OptionRight::Call, 1, 2.50, 0.10);
     position.snapshot.quote.mark = Some(8.00);
@@ -848,7 +976,7 @@ fn option_strategy_aggregates_model_greeks_with_qty() {
         spot: 102.0,
         strike: 100.0,
         years,
-        rate: DEFAULT_RISK_FREE_RATE,
+        rate: rate::risk_free_rate_for_years(years),
         dividend_yield: 0.0,
         volatility: 0.22,
         option_right: OptionRight::Call,
@@ -858,7 +986,7 @@ fn option_strategy_aggregates_model_greeks_with_qty() {
         spot: 102.0,
         strike: 105.0,
         years,
-        rate: DEFAULT_RISK_FREE_RATE,
+        rate: rate::risk_free_rate_for_years(years),
         dividend_yield: 0.0,
         volatility: 0.30,
         option_right: OptionRight::Call,
@@ -895,7 +1023,7 @@ fn option_strategy_prepares_from_option_positions_and_uses_instance_greeks() {
         spot: 102.0,
         strike: 100.0,
         years,
-        rate: DEFAULT_RISK_FREE_RATE,
+        rate: rate::risk_free_rate_for_years(years),
         dividend_yield: 0.0,
         volatility: 0.25,
         option_right: OptionRight::Call,
@@ -905,7 +1033,7 @@ fn option_strategy_prepares_from_option_positions_and_uses_instance_greeks() {
         spot: 102.0,
         strike: 105.0,
         years,
-        rate: DEFAULT_RISK_FREE_RATE,
+        rate: rate::risk_free_rate_for_years(years),
         dividend_yield: 0.0,
         volatility: 0.25,
         option_right: OptionRight::Call,

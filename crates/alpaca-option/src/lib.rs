@@ -20,6 +20,7 @@ pub mod option_strategy;
 pub mod payoff;
 pub mod pricing;
 pub mod probability;
+pub mod rate;
 pub mod snapshot;
 pub mod types;
 pub mod url;
@@ -31,7 +32,8 @@ pub use liquidity::{LiquidityBatchResponse, LiquidityData, LiquidityOptionData, 
 pub use market_structure::{
     analyze_market_structure, filter_market_structure_records, gamma_exposure,
 };
-pub use option_strategy::{OptionStrategy, unique_break_even_points};
+pub use option_strategy::{unique_break_even_points, OptionStrategy};
+pub use rate::{risk_free_rate_for_years, RiskFreeRatePoint, DEFAULT_RISK_FREE_RATE_CURVE};
 pub use types::{
     AssignmentRiskLevel, BlackScholesImpliedVolatilityInput, BlackScholesInput, ContractDisplay,
     ExecutionAction, ExecutionLeg, ExecutionLegInput, ExecutionQuoteRange, ExecutionSnapshot,

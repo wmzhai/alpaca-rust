@@ -9,6 +9,7 @@ import {
   intrinsicValue,
   priceBlackScholes,
 } from './pricing';
+import { riskFreeRateForYears } from './rate';
 import type {
   Greeks,
   OptionContract,
@@ -27,7 +28,6 @@ import type {
 } from './types';
 
 const CONTRACT_MULTIPLIER = 100;
-const DEFAULT_RISK_FREE_RATE = 0.0368;
 
 function ensureFinite(code: string, name: string, value: number): void {
   if (!Number.isFinite(value)) {
@@ -197,7 +197,6 @@ function strategyMarkValuePrepared(input: {
   if (input.underlying_price < 0) {
     fail('invalid_strategy_payoff_input', `underlyingPrice must be non-negative: ${input.underlying_price}`);
   }
-  ensureFinite('invalid_strategy_payoff_input', 'rate', DEFAULT_RISK_FREE_RATE);
 
   let total = 0;
   for (const position of input.positions) {
@@ -210,7 +209,7 @@ function strategyMarkValuePrepared(input: {
           spot: input.underlying_price,
           strike,
           years,
-          rate: DEFAULT_RISK_FREE_RATE,
+          rate: riskFreeRateForYears(years),
           dividendYield: input.dividend_yield,
           volatility: preparedImpliedVolatility(position),
           optionRight,
@@ -241,7 +240,6 @@ function strategyGreeksPrepared(input: {
   dividend_yield: number;
 }): Greeks {
   ensurePositive('invalid_strategy_payoff_input', 'underlyingPrice', input.underlying_price);
-  ensureFinite('invalid_strategy_payoff_input', 'rate', DEFAULT_RISK_FREE_RATE);
 
   const total = zeroGreeks();
   for (const position of input.positions) {
@@ -254,7 +252,7 @@ function strategyGreeksPrepared(input: {
           spot: input.underlying_price,
           strike,
           years,
-          rate: DEFAULT_RISK_FREE_RATE,
+          rate: riskFreeRateForYears(years),
           dividendYield: input.dividend_yield,
           volatility: preparedImpliedVolatility(position),
           optionRight,

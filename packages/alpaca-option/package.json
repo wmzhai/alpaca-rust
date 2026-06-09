@@ -18,7 +18,8 @@
     "./math/black76": "./src/math/black76.ts",
     "./math/geometric-asian": "./src/math/geometricAsian.ts",
     "./market-structure": "./src/marketStructure.ts",
-    "./option-strategy": "./src/optionStrategy.ts"
+    "./option-strategy": "./src/optionStrategy.ts",
+    "./rate": "./src/rate.ts"
   },
   "dependencies": {
     "@alpaca/time": "file:../alpaca-time"

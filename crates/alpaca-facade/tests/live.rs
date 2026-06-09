@@ -159,11 +159,11 @@ async fn fetch_live_stock_prices(symbols: &[&str]) -> HashMap<String, Decimal> {
         .collect()
 }
 
-async fn fetch_live_option_prices(symbols: &[&str]) -> HashMap<String, Decimal> {
+async fn fetch_live_iv_calculation_prices(symbols: &[&str]) -> HashMap<String, Decimal> {
     live_facade()
-        .get_prices_for_option(symbols)
+        .get_prices_for_iv_calculation(symbols)
         .await
-        .expect("live facade option pricing stock prices should load")
+        .expect("live facade IV calculation stock prices should load")
 }
 
 fn live_client() -> Client {
@@ -237,7 +237,7 @@ async fn map_snapshots_sorts_live_symbols() {
 #[tokio::test]
 async fn map_live_snapshots_fetches_underlying_prices() {
     let (symbol, snapshots) = discover_live_snapshots(8).await;
-    let stock_prices = fetch_live_option_prices(&[symbol.as_str()]).await;
+    let stock_prices = fetch_live_iv_calculation_prices(&[symbol.as_str()]).await;
     let expected_price = stock_prices.get(&symbol).copied();
 
     let mapped = live_facade()
@@ -255,7 +255,7 @@ async fn map_live_snapshots_fetches_underlying_prices() {
 #[tokio::test]
 async fn resolve_positions_from_optionstrat_url_uses_live_snapshots() {
     let (underlying_symbol, snapshots) = discover_live_snapshots(8).await;
-    let stock_prices = fetch_live_option_prices(&[underlying_symbol.as_str()]).await;
+    let stock_prices = fetch_live_iv_calculation_prices(&[underlying_symbol.as_str()]).await;
     let underlying_price = stock_prices.get(&underlying_symbol).copied();
     let mut symbols = snapshots.keys().cloned().collect::<Vec<_>>();
     symbols.sort();
@@ -302,7 +302,7 @@ async fn resolve_positions_from_optionstrat_url_uses_live_snapshots() {
 #[tokio::test]
 async fn brk_b_live_chain_and_optionstrat_roundtrip_work() {
     let snapshots = fetch_live_snapshots_for("BRK.B", 8).await;
-    let stock_prices = fetch_live_option_prices(&["BRK.B"]).await;
+    let stock_prices = fetch_live_iv_calculation_prices(&["BRK.B"]).await;
     let underlying_price = stock_prices.get("BRK.B").copied();
     assert!(
         snapshots.len() >= 2,

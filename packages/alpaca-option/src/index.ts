@@ -11,6 +11,7 @@ export * as optionStrategy from './optionStrategy';
 export * as payoff from './payoff';
 export * as pricing from './pricing';
 export * as probability from './probability';
+export * as rate from './rate';
 export * as snapshot from './snapshot';
 export * as url from './url';
 

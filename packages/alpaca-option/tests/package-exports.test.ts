@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { OptionStrategy, analysis, marketStructure, optionStrategy, pricing } from '@alpaca/option';
+import { OptionStrategy, analysis, marketStructure, optionStrategy, pricing, rate } from '@alpaca/option';
 import * as mathAmerican from '@alpaca/option/math/american';
 import * as mathBachelier from '@alpaca/option/math/bachelier';
 import * as mathBarrier from '@alpaca/option/math/barrier';
@@ -9,15 +9,18 @@ import * as mathBlack76 from '@alpaca/option/math/black76';
 import * as mathGeometricAsian from '@alpaca/option/math/geometric-asian';
 import * as marketStructureSubpath from '@alpaca/option/market-structure';
 import * as optionStrategySubpath from '@alpaca/option/option-strategy';
+import * as rateSubpath from '@alpaca/option/rate';
 
 test('package exports expose public core and approved math subpaths', () => {
   assert.equal(typeof analysis.otmPercent, 'function');
   assert.equal(typeof marketStructure.analyzeMarketStructure, 'function');
   assert.equal(typeof pricing.priceBlackScholes, 'function');
+  assert.equal(typeof rate.riskFreeRateForYears, 'function');
   assert.equal(typeof OptionStrategy.fromInput, 'function');
   assert.equal(typeof optionStrategy.strategyPnl, 'function');
   assert.equal(typeof marketStructureSubpath.analyzeMarketStructure, 'function');
   assert.equal(typeof optionStrategySubpath.OptionStrategy.fromInput, 'function');
+  assert.equal(typeof rateSubpath.riskFreeRateForYears, 'function');
   assert.equal(typeof mathAmerican.treePrice, 'function');
   assert.equal(typeof mathBachelier.price, 'function');
   assert.equal(typeof mathBarrier.price, 'function');

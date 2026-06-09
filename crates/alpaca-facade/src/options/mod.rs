@@ -242,6 +242,64 @@ fn repaired_greeks_and_iv(
     (Some(greeks), Some(implied_volatility))
 }
 
+pub fn apply_optionstrat_premium_model(
+    snapshot: &mut OptionSnapshot,
+    premium_per_contract: Option<f64>,
+    pricing_reference: Option<&OptionPricingReference>,
+    dividend_yield: Option<f64>,
+) -> OptionResult<()> {
+    let Some(option_price) = premium_per_contract.filter(|value| value.is_finite() && *value > 0.0)
+    else {
+        return Ok(());
+    };
+    let Some(pricing_reference) = pricing_reference else {
+        return Ok(());
+    };
+    let Some(underlying_price) = valid_underlying_price_decimal(pricing_reference.underlying_price)
+        .and_then(|price| price.to_f64())
+        .and_then(|price| valid_underlying_price(Some(price)))
+    else {
+        return Ok(());
+    };
+
+    let contract = snapshot.contract.clone();
+    let years = expiration::years(
+        &contract.expiration_date,
+        Some(&pricing_reference.evaluation_time),
+        None,
+    )
+    .max(MIN_TIME_YEARS);
+    let dividend_yield = dividend_yield.unwrap_or(DEFAULT_DIVIDEND_YIELD);
+    let Ok(implied_volatility) = pricing::implied_volatility_from_price(
+        &alpaca_option::BlackScholesImpliedVolatilityInput::new(
+            option_price,
+            underlying_price,
+            contract.strike,
+            years,
+            dividend_yield,
+            contract.option_right.clone(),
+        ),
+    )
+    .map(|value| value.min(MAX_INFERRED_IV)) else {
+        return Ok(());
+    };
+
+    snapshot.implied_volatility = Some(implied_volatility);
+    snapshot.underlying_price = Some(underlying_price);
+    if let Ok(greeks) = pricing::greeks_black_scholes(&alpaca_option::BlackScholesInput::new(
+        underlying_price,
+        contract.strike,
+        years,
+        dividend_yield,
+        implied_volatility,
+        contract.option_right,
+    )) {
+        snapshot.greeks = Some(greeks);
+    }
+
+    Ok(())
+}
+
 fn close_evaluation_time(now: &str) -> OptionResult<String> {
     calendar::last_completed_trading_date(Some(now))
         .map(|date| format!("{date} 16:00:00"))
@@ -620,6 +678,64 @@ mod tests {
                 .implied_volatility
                 .expect("fallback IV should be inferred"),
             expected_iv,
+            1e-5,
+        );
+    }
+
+    #[test]
+    fn optionstrat_premium_model_overrides_provider_iv_using_reference_close() {
+        let evaluation_time = "2026-06-01 16:00:00";
+        let expected_iv = 0.493;
+        let spot = 100.0;
+        let premium = option_price_for(spot, evaluation_time, expected_iv);
+        let contract = contract::parse_occ_symbol(OCC_SYMBOL).expect("test OCC should parse");
+        let mut snapshot = OptionSnapshot {
+            as_of: "2026-06-01 20:00:00".to_owned(),
+            contract: contract.clone(),
+            quote: OptionQuote {
+                bid: Some(premium),
+                ask: Some(premium),
+                mark: Some(premium),
+                last: Some(premium),
+            },
+            greeks: None,
+            implied_volatility: Some(0.12),
+            underlying_price: None,
+        };
+        let reference = OptionPricingReference {
+            evaluation_time: evaluation_time.to_owned(),
+            underlying_price: Some(decimal(spot, 2)),
+        };
+
+        apply_optionstrat_premium_model(&mut snapshot, Some(premium), Some(&reference), Some(0.0))
+            .expect("premium model should apply");
+
+        assert_eq!(snapshot.underlying_price, Some(spot));
+        assert_close(
+            snapshot
+                .implied_volatility
+                .expect("URL premium should infer IV"),
+            expected_iv,
+            1e-5,
+        );
+        let expected_greeks =
+            pricing::greeks_black_scholes(&alpaca_option::BlackScholesInput::new(
+                spot,
+                contract.strike,
+                expiration::years(&contract.expiration_date, Some(evaluation_time), None)
+                    .max(MIN_TIME_YEARS),
+                0.0,
+                expected_iv,
+                contract.option_right,
+            ))
+            .expect("expected greeks should compute");
+        assert_close(
+            snapshot
+                .greeks
+                .as_ref()
+                .expect("URL premium should repair greeks")
+                .delta,
+            expected_greeks.delta,
             1e-5,
         );
     }

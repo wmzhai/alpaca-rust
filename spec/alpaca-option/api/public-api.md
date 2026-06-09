@@ -32,6 +32,7 @@ Notes:
 - `payoff`
 - `pricing`
 - `probability`
+- `rate`
 - `snapshot`
 - `url`
 
@@ -156,6 +157,21 @@ Field-level definitions live in `../models/core-models.md`.
 | --- | --- | --- |
 | `probability.expiry_probability_in_range(input)` / `probability.expiryProbabilityInRange(input)` | `number` | computes the probability from spot, bounds, years, rate, dividend yield, and volatility |
 
+## `rate`
+
+### Responsibilities
+
+- default risk-free rate curve
+- years-to-rate interpolation for default Black-Scholes and strategy valuation paths
+
+### API
+
+| API | Returns | Semantics |
+| --- | --- | --- |
+| `RiskFreeRatePoint` | model | curve point with `years` and annualized decimal `rate` |
+| `DEFAULT_RISK_FREE_RATE_CURVE` | point list | static Treasury par yield curve used by default valuation paths |
+| `risk_free_rate_for_years(years)` / `rate.riskFreeRateForYears(years)` | `number` | clamps below the shortest point, clamps above the longest point, linearly interpolates between adjacent points, and falls back to `DEFAULT_RISK_FREE_RATE` only for non-finite inputs |
+
 ## `analysis`
 
 ### Responsibilities
@@ -214,7 +230,7 @@ Field-level definitions live in `../models/core-models.md`.
 
 | API | Returns | Semantics |
 | --- | --- | --- |
-| `option_strategy.strategy_pnl(input)` / `optionStrategy.strategyPnl(input)` | `number` | revalues the full position set at `evaluation_time`; expired legs use intrinsic value, live legs use BSM with `DEFAULT_RISK_FREE_RATE`; when `entry_cost` is omitted, the implementation sums `avg_entry_price * quantity * 100` for each leg and multiplies by strategy `qty` |
+| `option_strategy.strategy_pnl(input)` / `optionStrategy.strategyPnl(input)` | `number` | revalues the full position set at `evaluation_time`; expired legs use intrinsic value, live legs use BSM with a risk-free rate interpolated from each leg's remaining years; when `entry_cost` is omitted, the implementation sums `avg_entry_price * quantity * 100` for each leg and multiplies by strategy `qty` |
 | `option_strategy.strategy_break_even_points(input)` / `optionStrategy.strategyBreakEvenPoints(input)` | `number[]` | searches for strategy-level PnL roots inside `[lower_bound, upper_bound]` using scan plus Brent refinement and returns sorted break-even points |
 | `option_strategy.unique_break_even_points(points, tolerance)` / `optionStrategy.uniqueBreakEvenPoints(points, tolerance)` | `number[]` | filters non-finite values, deduplicates near-equal roots, and returns sorted break-even points |
 | `OptionPosition::from_snapshot(...)` / position object helpers | `OptionPosition` | builds a canonical position from an `OptionSnapshot`, quantity, average cost, and leg type |

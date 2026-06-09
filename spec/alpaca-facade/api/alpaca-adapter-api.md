@@ -26,7 +26,7 @@ This document defines the current adapter boundary exposed by `alpaca-facade`.
 - `map_snapshot_with_pricing_reference`
 - `map_snapshots_with_pricing_references`
 - `map_live_snapshots`
-- `AlpacaData::get_prices_for_option`
+- `AlpacaData::get_prices_for_iv_calculation`
 - `AlpacaData::map_live_snapshots`
 - `pricing_references_for_snapshots`
 - `required_underlying_display_symbols`
@@ -117,11 +117,11 @@ Current behavior:
 - each contract uses the pricing reference keyed by its OCC symbol
 - missing pricing references leave missing/invalid provider Greeks or IV unrepaired
 
-## `AlpacaData::get_prices_for_option`
+## `AlpacaData::get_prices_for_iv_calculation`
 
 | API | Returns | Semantics |
 | --- | --- | --- |
-| `AlpacaData::get_prices_for_option(symbols)` | `HashMap<String, Decimal>` | resolves each stock symbol to the stock price used by option valuation |
+| `AlpacaData::get_prices_for_iv_calculation(symbols)` | `HashMap<String, Decimal>` | resolves each stock symbol to the stock price used by IV and Greeks calculation |
 
 Current behavior:
 
@@ -138,15 +138,15 @@ Current behavior:
 | API | Returns | Semantics |
 | --- | --- | --- |
 | `map_live_snapshots(snapshots, underlying_prices?, dividend_yield?)` | `OptionSnapshot[]` | pure batch mapping from provider snapshots and already loaded pricing references |
-| `AlpacaData::map_live_snapshots(snapshots, known_prices?, dividend_yield?)` | `OptionSnapshot[]` | batch-maps provider snapshots and resolves missing stock-price references through `get_prices_for_option(...)` |
+| `AlpacaData::map_live_snapshots(snapshots, known_prices?, dividend_yield?)` | `OptionSnapshot[]` | batch-maps provider snapshots and resolves missing stock-price references through `get_prices_for_iv_calculation(...)` |
 
 Current behavior:
 
 - the adapter decides the pricing-reference mode from the current New York regular session state
-- `AlpacaData::map_live_snapshots(...)` first fetches required symbols through `AlpacaData::get_prices_for_option(...)`
+- `AlpacaData::map_live_snapshots(...)` first fetches required symbols through `AlpacaData::get_prices_for_iv_calculation(...)`
 - caller-provided `Decimal` prices are only used as a supplement for symbols that the unified price entry did not return
 - outside regular session, fallback IV and repaired Greeks use the last completed trading day's daily-bar close as the reference spot
-- provider price-fetch failures from `get_prices_for_option(...)` propagate instead of falling back to a different stock-price source
+- provider price-fetch failures from `get_prices_for_iv_calculation(...)` propagate instead of falling back to a different stock-price source
 - mapping reuses `map_snapshots_with_pricing_references(...)`, preserving ordering, symbol lookup, and repair rules
 
 ## `pricing_references_for_snapshots`
@@ -184,11 +184,11 @@ Current behavior:
 
 - the core layer only owns URL parsing and leg-fragment parsing
 - the adapter layer uses `alpaca_data::Client` to fetch provider snapshots directly
-- `AlpacaData::resolve_optionstrat_url(...)` reuses `AlpacaData::options(...)`, so missing stock prices are resolved by `AlpacaData::map_live_snapshots(...)` and `get_prices_for_option(...)`
+- `AlpacaData::resolve_optionstrat_url(...)` fetches raw provider snapshots, resolves stock prices through `get_prices_for_iv_calculation(...)`, and applies URL premiums as the IV-calculation source when present
 - returned position snapshots include `underlying_price` when the facade can resolve a valid stock-price reference
 - enrichment stays on the unified snapshot-repair path instead of duplicating provider fallback in higher layers
 - provider request failures are normalized to `provider_snapshot_fetch_failed`
-- stock-price request failures propagate from `get_prices_for_option(...)`
+- stock-price request failures propagate from `get_prices_for_iv_calculation(...)`
 - missing provider snapshots return `missing_provider_snapshot`
 
 ## Division of Responsibilities with the Core Layer

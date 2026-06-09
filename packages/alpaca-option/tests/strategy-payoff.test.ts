@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { expiration as timeExpiration } from '@alpaca/time';
 
 import { OptionError } from '../src/error';
-import { OptionStrategy, optionStrategy, payoff, pricing } from '../src/index';
+import { OptionStrategy, optionStrategy, payoff, pricing, rate } from '../src/index';
 import type {
   Greeks,
   OptionContract,
@@ -14,8 +14,6 @@ import type {
   StrategyBreakEvenInput,
   StrategyPnlInput,
 } from '../src/index';
-
-const DEFAULT_RISK_FREE_RATE = 0.0368;
 
 function contract(expirationDate: string, strike: number, optionRight: 'call' | 'put'): OptionContract {
   const rightCode = optionRight === 'call' ? 'C' : 'P';
@@ -321,11 +319,12 @@ test('strategyPnl mixes expired and unexpired positions', () => {
     strategyPosition('2025-04-24', 95, 'put', 1, 1, 0.25),
   ];
 
+  const longYears = timeExpiration.years('2025-04-24', evaluationTime);
   const expectedLongValue = pricing.priceBlackScholes({
     spot: 97,
     strike: 95,
-    years: timeExpiration.years('2025-04-24', evaluationTime),
-    rate: DEFAULT_RISK_FREE_RATE,
+    years: longYears,
+    rate: rate.riskFreeRateForYears(longYears),
     dividendYield: 0,
     volatility: 0.25,
     optionRight: 'put',
@@ -356,7 +355,7 @@ test('strategyPnl uses snapshot implied volatility directly', () => {
     spot: 102,
     strike: 100,
     years,
-    rate: DEFAULT_RISK_FREE_RATE,
+    rate: rate.riskFreeRateForYears(years),
     dividendYield: 0,
     volatility: 0.20,
     optionRight: 'call',
@@ -365,7 +364,7 @@ test('strategyPnl uses snapshot implied volatility directly', () => {
     spot: 102,
     strike: 95,
     years,
-    rate: DEFAULT_RISK_FREE_RATE,
+    rate: rate.riskFreeRateForYears(years),
     dividendYield: 0,
     volatility: 0.30,
     optionRight: 'put',
@@ -382,6 +381,73 @@ test('strategyPnl uses snapshot implied volatility directly', () => {
   } satisfies StrategyPnlInput);
 
   assert.ok(Math.abs(actual - expected) < 1e-9, `actual=${actual}, expected=${expected}`);
+});
+
+test('OptionStrategy marks and Greeks diagonal with term rates per leg', () => {
+  const evaluationTime = '2026-06-08 16:00:00';
+  const positions = [
+    strategyPosition('2026-07-17', 100, 'put', -1, 2, 0.28),
+    strategyPosition('2027-06-11', 95, 'put', 1, 6, 0.32),
+  ];
+
+  const strategy = OptionStrategy.prepare({
+    positions,
+    qty: 1,
+    evaluation_time: evaluationTime,
+    entry_cost: 0,
+    dividend_yield: 0.01,
+  });
+  const spot = 98;
+  const shortYears = timeExpiration.years('2026-07-17', evaluationTime);
+  const longYears = timeExpiration.years('2027-06-11', evaluationTime);
+
+  const shortValue = pricing.priceBlackScholes({
+    spot,
+    strike: 100,
+    years: shortYears,
+    rate: rate.riskFreeRateForYears(shortYears),
+    dividendYield: 0.01,
+    volatility: 0.28,
+    optionRight: 'put',
+  });
+  const longValue = pricing.priceBlackScholes({
+    spot,
+    strike: 95,
+    years: longYears,
+    rate: rate.riskFreeRateForYears(longYears),
+    dividendYield: 0.01,
+    volatility: 0.32,
+    optionRight: 'put',
+  });
+  const actualMark = strategy.markValueAt(spot);
+  const expectedMark = (longValue - shortValue) * 100;
+  assert.ok(Math.abs(actualMark - expectedMark) < 1e-9, `actual=${actualMark}, expected=${expectedMark}`);
+
+  const shortGreeks = pricing.greeksBlackScholes({
+    spot,
+    strike: 100,
+    years: shortYears,
+    rate: rate.riskFreeRateForYears(shortYears),
+    dividendYield: 0.01,
+    volatility: 0.28,
+    optionRight: 'put',
+  });
+  const longGreeks = pricing.greeksBlackScholes({
+    spot,
+    strike: 95,
+    years: longYears,
+    rate: rate.riskFreeRateForYears(longYears),
+    dividendYield: 0.01,
+    volatility: 0.32,
+    optionRight: 'put',
+  });
+  const actualGreeks = strategy.greeksAt(spot);
+
+  assert.ok(Math.abs(actualGreeks.delta - (longGreeks.delta - shortGreeks.delta) * 100) < 1e-9);
+  assert.ok(Math.abs(actualGreeks.gamma - (longGreeks.gamma - shortGreeks.gamma) * 100) < 1e-9);
+  assert.ok(Math.abs(actualGreeks.vega - (longGreeks.vega - shortGreeks.vega) * 100) < 1e-9);
+  assert.ok(Math.abs(actualGreeks.theta - (longGreeks.theta - shortGreeks.theta) * 100) < 1e-9);
+  assert.ok(Math.abs(actualGreeks.rho - (longGreeks.rho - shortGreeks.rho) * 100) < 1e-9);
 });
 
 test('strategyBreakEvenPoints finds credit strangle roots', () => {
@@ -642,7 +708,7 @@ test('OptionStrategy aggregates model Greeks with qty', () => {
     spot: 102,
     strike: 100,
     years,
-    rate: DEFAULT_RISK_FREE_RATE,
+    rate: rate.riskFreeRateForYears(years),
     dividendYield: 0,
     volatility: 0.22,
     optionRight: 'call',
@@ -651,7 +717,7 @@ test('OptionStrategy aggregates model Greeks with qty', () => {
     spot: 102,
     strike: 105,
     years,
-    rate: DEFAULT_RISK_FREE_RATE,
+    rate: rate.riskFreeRateForYears(years),
     dividendYield: 0,
     volatility: 0.30,
     optionRight: 'call',
@@ -684,7 +750,7 @@ test('OptionStrategy prepares from option positions and uses instance Greeks', (
     spot: 102,
     strike: 100,
     years,
-    rate: DEFAULT_RISK_FREE_RATE,
+    rate: rate.riskFreeRateForYears(years),
     dividendYield: 0,
     volatility: 0.25,
     optionRight: 'call',
@@ -693,7 +759,7 @@ test('OptionStrategy prepares from option positions and uses instance Greeks', (
     spot: 102,
     strike: 105,
     years,
-    rate: DEFAULT_RISK_FREE_RATE,
+    rate: rate.riskFreeRateForYears(years),
     dividendYield: 0,
     volatility: 0.25,
     optionRight: 'call',

@@ -9,6 +9,7 @@ use alpaca_option::numeric;
 use alpaca_option::payoff;
 use alpaca_option::pricing;
 use alpaca_option::probability;
+use alpaca_option::rate;
 use alpaca_option::snapshot;
 use alpaca_option::types::{
     ContractDisplay, ExecutionSnapshot, Greeks, OptionChainRecord, OptionContract, OptionPosition,
@@ -1590,7 +1591,7 @@ fn default_risk_free_rate_is_runtime_default_not_test_oracle_input() {
 
     let default_input =
         alpaca_option::BlackScholesInput::new(100.0, 100.0, 0.25, 0.0, 0.2, OptionRight::Call);
-    assert_eq!(default_input.rate, DEFAULT_RISK_FREE_RATE);
+    assert_eq!(default_input.rate, rate::risk_free_rate_for_years(0.25));
 
     let test_input = default_input.with_rate(TEST_RISK_FREE_RATE);
     assert_eq!(test_input.rate, TEST_RISK_FREE_RATE);
@@ -1603,10 +1604,54 @@ fn default_risk_free_rate_is_runtime_default_not_test_oracle_input() {
         0.0,
         OptionRight::Call,
     );
-    assert_eq!(default_iv_input.rate, DEFAULT_RISK_FREE_RATE);
+    assert_eq!(default_iv_input.rate, rate::risk_free_rate_for_years(0.25));
 
     let test_iv_input = default_iv_input.with_rate(TEST_RISK_FREE_RATE);
     assert_eq!(test_iv_input.rate, TEST_RISK_FREE_RATE);
+}
+
+#[test]
+fn default_risk_free_rate_curve_uses_treasury_par_curve_terms() {
+    assert_eq!(rate::risk_free_rate_for_years(1.0 / 12.0), 0.0370);
+    assert_eq!(rate::risk_free_rate_for_years(1.0), 0.0385);
+    assert_eq!(rate::risk_free_rate_for_years(2.0), 0.0415);
+    assert_eq!(rate::risk_free_rate_for_years(30.0), 0.0503);
+}
+
+#[test]
+fn risk_free_rate_curve_interpolates_and_clamps_edges() {
+    assert_eq!(rate::risk_free_rate_for_years(0.001), 0.0370);
+    assert_eq!(rate::risk_free_rate_for_years(50.0), 0.0503);
+
+    let expected_18_month_rate = 0.0385 + (0.0415 - 0.0385) * 0.5;
+    assert!((rate::risk_free_rate_for_years(1.5) - expected_18_month_rate).abs() < 1e-12);
+
+    assert_eq!(
+        rate::risk_free_rate_for_years(f64::NAN),
+        DEFAULT_RISK_FREE_RATE
+    );
+    assert_eq!(
+        rate::risk_free_rate_for_years(f64::INFINITY),
+        DEFAULT_RISK_FREE_RATE
+    );
+}
+
+#[test]
+fn default_probability_path_uses_term_rate_for_years() {
+    let default_probability =
+        probability::expiry_probability_in_range(100.0, 95.0, 110.0, 1.5, 0.01, 0.25).unwrap();
+    let explicit_probability = probability::expiry_probability_in_range_with_rate(
+        100.0,
+        95.0,
+        110.0,
+        1.5,
+        rate::risk_free_rate_for_years(1.5),
+        0.01,
+        0.25,
+    )
+    .unwrap();
+
+    assert!((default_probability - explicit_probability).abs() < 1e-12);
 }
 
 #[test]
