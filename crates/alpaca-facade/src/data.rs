@@ -4,7 +4,7 @@ use alpaca_data::Client;
 use alpaca_data::cache::{CacheStats as RawCacheStats, CachedClient, StockBarsRequest};
 use alpaca_data::corporate_actions::{CorporateActionType, ListRequest};
 use alpaca_data::stocks::{
-    self, BarPoint, BarsRequest, Sort, TimeFrame, preferred_feed as preferred_stock_feed,
+    self, BarPoint, BarsRequest, DataFeed, Sort, TimeFrame, preferred_feed as preferred_stock_feed,
 };
 use alpaca_option::contract;
 use alpaca_option::url;
@@ -628,9 +628,7 @@ impl AlpacaData {
                 end: Some(end),
                 limit: Some(1000),
                 adjustment: None,
-                feed: Some(preferred_stock_feed(session::is_overnight_window(
-                    &clock::now(),
-                ))),
+                feed: Some(completed_daily_close_feed()),
                 sort: Some(Sort::Asc),
                 asof: None,
                 currency: None,
@@ -710,6 +708,12 @@ impl AlpacaData {
     }
 }
 
+fn completed_daily_close_feed() -> DataFeed {
+    // Completed trading-day closes are regular-session bars. BOATS overnight
+    // daily bars can be timestamped on the next UTC date and are not this input.
+    DataFeed::Sip
+}
+
 fn completed_daily_bar_close(
     bars: &[alpaca_data::stocks::Bar],
     completed_date: &str,
@@ -757,6 +761,12 @@ mod tests {
             AlpacaData::unique_resolved_symbols(&requested),
             vec!["BRK.B".to_owned(), "SPY".to_owned()]
         );
+    }
+
+    #[test]
+    fn completed_daily_close_feed_uses_regular_session_bars() {
+        assert_eq!(completed_daily_close_feed(), DataFeed::Sip);
+        assert_eq!(preferred_stock_feed(true), DataFeed::Boats);
     }
 
     #[test]
