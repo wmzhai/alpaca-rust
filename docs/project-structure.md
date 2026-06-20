@@ -13,7 +13,7 @@ companions, and supporting documentation/test assets.
 | `crates/alpaca-trade` | `alpaca-trade` | Trading HTTP SDK | Account, orders, positions, activities, contracts, watchlists |
 | `crates/alpaca-mock` | `alpaca-mock` | Executable mock server | Market-data-backed trade validation |
 | `crates/alpaca-time` | `alpaca-time` | Time semantics | New York time, trading calendar, expiration helpers |
-| `crates/alpaca-option` | `alpaca-option` | Option semantics | Contracts, snapshots, pricing, payoff, URL helpers |
+| `crates/alpaca-option` | `alpaca-option` | Option semantics | Contracts, snapshots, chains, pricing, payoff, rates, market structure, liquidity, strategy state, URL helpers |
 | `crates/alpaca-facade` | `alpaca-facade` | Convenience facade | High-level composition of the lower workspace crates |
 
 ## Optional Workspace Plus Features
@@ -44,7 +44,6 @@ companions:
 | --- | --- |
 | `docs/` | Public user-facing documentation |
 | `spec/` | Crate-scoped API, model, and semantics contracts |
-| `memory/` | Local collaboration memory and routing notes |
 | `fixtures/` | Shared JSON fixtures for `alpaca-time` and `alpaca-option` |
 | `tests/support/live/` | Shared live-test support for Rust crates |
 | `tools/api-coverage/` | API coverage manifests and audit tooling |

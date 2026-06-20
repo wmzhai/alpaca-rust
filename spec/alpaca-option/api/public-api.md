@@ -12,7 +12,7 @@ Notes:
 
 - Rust uses `snake_case`
 - TypeScript uses `camelCase`
-- root exports must stay mirrored across Rust and TypeScript
+- shared semantic modules should stay mirrored across Rust and TypeScript unless a host-specific difference is documented here
 - each semantic capability keeps a single public name
 - tolerance, fallback, and lenient parsing must converge inside the canonical API itself
 - provider-specific logic does not enter the core public API
@@ -28,13 +28,21 @@ Notes:
 - `display`
 - `executionQuote` / `execution_quote`
 - `expirationSelection` / `expiration_selection`
+- `marketStructure` / `market_structure`
 - `numeric`
+- `optionStrategy` / `option_strategy`
 - `payoff`
 - `pricing`
 - `probability`
 - `rate`
 - `snapshot`
 - `url`
+
+### Rust-only module with shared model types
+
+- `liquidity`
+  - Rust exposes constructors and aggregate helpers for liquidity data models.
+  - TypeScript shares the liquidity model types through the root type exports.
 
 ### Shared types and errors
 
@@ -92,6 +100,10 @@ Notes:
 - `OptionStratUrlInput`
 - `OptionChain`
 - `OptionChainRecord`
+- `MarketStructureOptionRecord`
+- `MarketStructureFilters`
+- `MarketStructureLevel`
+- `MarketStructureAnalysis`
 - `LiquidityOptionData`
 - `LiquidityStats`
 - `LiquidityData`
@@ -155,7 +167,8 @@ Field-level definitions live in `../models/core-models.md`.
 
 | API | Returns | Semantics |
 | --- | --- | --- |
-| `probability.expiry_probability_in_range(input)` / `probability.expiryProbabilityInRange(input)` | `number` | computes the probability from spot, bounds, years, rate, dividend yield, and volatility |
+| `probability.expiry_probability_in_range(...)` / `probability.expiryProbabilityInRange(input)` | `number` | computes the probability from spot, bounds, years, dividend yield, and volatility; Rust selects the default curve rate from `years`, while TypeScript accepts the explicit rate in the input object |
+| Rust: `probability.expiry_probability_in_range_with_rate(...)` | `number` | explicit-rate Rust variant for callers that should not use the default curve |
 
 ## `rate`
 
@@ -380,6 +393,32 @@ Field-level definitions live in `../models/core-models.md`.
 | `numeric.round(value, decimals)` | `number` | rounds to a fixed number of decimal places |
 | `numeric.linspace(start, end, count)` | `number[]` | generates an evenly spaced sequence |
 | `numeric.brent_solve(...)` / `numeric.brentSolve(...)` | `number` | Brent root finding |
+| `numeric.refine_bracketed_root(...)` / `numeric.refineBracketedRoot(...)` | `number` | root refinement for already bracketed functions |
+| `numeric.evaluate_points(points, evaluate)` / `numeric.evaluatePoints(points, evaluate)` | `number[]` | evaluates a function at finite points and rejects non-finite outputs |
+| `numeric.scan_range_extrema(...)` / `numeric.scanRangeExtrema(...)` | `RangeExtrema` | scans a range for minimum and maximum evaluated values |
+
+## `market_structure`
+
+### Responsibilities
+
+- gamma-exposure calculation
+- filtering market-structure records
+- strike-level aggregation
+
+### API
+
+| API | Returns | Semantics |
+| --- | --- | --- |
+| `market_structure.gamma_exposure(record, underlying_price)` / `marketStructure.gammaExposure(record, underlyingPrice)` | `number \| null` | computes signed gamma exposure, positive for calls and negative for puts |
+| `market_structure.filter_market_structure_records(records, filters)` / `marketStructure.filterMarketStructureRecords(records, filters)` | `MarketStructureOptionRecord[]` | applies expiration, right, strike, DTE, and open-interest filters |
+| `market_structure.analyze_market_structure(records)` / `marketStructure.analyzeMarketStructure(records)` | `MarketStructureAnalysis` | aggregates records into strike levels, exposure totals, put/call ratios, and warning labels |
+
+## `liquidity`
+
+Rust exposes a `liquidity` module for constructing and aggregating
+`LiquidityOptionData`, `LiquidityStats`, `LiquidityData`, and
+`LiquidityBatchResponse`. TypeScript exposes the same model types from the root
+package types but does not currently expose a dedicated `liquidity` namespace.
 
 ## `math`
 

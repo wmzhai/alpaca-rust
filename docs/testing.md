@@ -57,7 +57,6 @@ Current mock-focused coverage:
 - market-data bridge coverage: `crates/alpaca-mock/tests/market_data_real_api.rs`
 - contract-style mock verification in `alpaca-trade`:
   - deterministic mid-price fill contract in `crates/alpaca-trade/tests/orders_api.rs` via `orders_mock_mid_price_fill_contract`, covering stock, single-option, and multi-leg create/replace flows at mid or composite-mid
-  - `crates/alpaca-trade/tests/orders_mock_contract.rs`
   - `crates/alpaca-trade/tests/positions_mock_contract.rs`
 
 ## Release-Confidence Commands
@@ -67,7 +66,7 @@ cargo fmt --check
 cargo check --workspace
 cargo test --doc
 python3 tools/docs/generate-doc-site
-npm run build --prefix website
+pnpm run build:website
 ```
 
 ## Scope Notes

@@ -48,7 +48,7 @@ Implemented resource groups:
 - websocket and stream APIs
 - crypto trading surfaces
 - fixed-income trading surfaces
-- high-level order orchestration or state-machine helpers
+- application-owned strategy orchestration or cross-provider execution engines
 
 ## Status
 

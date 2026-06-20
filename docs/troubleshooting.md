@@ -50,8 +50,8 @@ Rebuild with:
 
 ```bash
 python3 tools/docs/generate-doc-site
-npm ci --prefix website
-npm run build --prefix website
+pnpm install --frozen-lockfile
+pnpm run build:website
 ```
 
 ## Downstream `cargo publish --dry-run` Fails Before First Release
@@ -64,9 +64,9 @@ Expected publish order:
 2. `alpaca-rest-http`
 3. `alpaca-data`
 4. `alpaca-trade`
-5. `alpaca-mock`
-6. `alpaca-time`
-7. `alpaca-option`
+5. `alpaca-time`
+6. `alpaca-option`
+7. `alpaca-mock`
 8. `alpaca-facade`
 
 ## Published Crate Name Versus Source Directory

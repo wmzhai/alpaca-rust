@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+## v0.27.0
+
+- Bumped the publishable Rust workspace, website metadata, generated docs metadata, and public install snippets to `0.27.0`.
+- Updated the public `alpaca-trade` reference to document the current activity, order lifecycle, and position reconciliation helpers.
+- Updated the public `alpaca-option` reference and API spec to cover market structure, liquidity model types, risk-free-rate exports, option-strategy state, and numeric search helpers.
+- Aligned testing, examples, troubleshooting, and release docs with the current mainline test names, mock lifecycle example, pnpm website build command, and publishing order.
+
 ## v0.26.1
 
 - Added a static Treasury risk-free-rate curve and wired Black-Scholes defaults, option strategy mark/Greeks, and probability calculations to use term-specific rates.

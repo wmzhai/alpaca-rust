@@ -4,7 +4,7 @@ This checklist defines the public release bar for `alpaca-rust`.
 
 ## Current Release Baseline
 
-- The current published release line is `v0.26.1`
+- The current published release line is `v0.27.0`
 - `.github/workflows/github-pages.yml` is the only release workflow
 - The release workflow publishes crates and GitHub Releases only on semantic version tags matching `v*.*.*`
 - crates.io Trusted Publishing must remain configured for all published Rust crates:
@@ -50,6 +50,7 @@ performs staged dry-runs inside the dependency-ordered publish loop.
 Use this flow for a patch release. Set `VERSION` once and reuse it consistently.
 
 1. Update the release metadata on `main`
+   - bump the root `VERSION` file
    - bump `[workspace.package].version` in `Cargo.toml`
    - bump all in-workspace dependency version pins in crate `Cargo.toml` files
    - bump the website package version in `website/package.json`
@@ -75,7 +76,7 @@ cargo publish --dry-run --locked --allow-dirty --no-verify -p alpaca-time
 3. Commit and push `main`
 
 ```bash
-git add Cargo.toml crates docs website CHANGELOG.md .github/workflows/github-pages.yml memory AGENTS.md design.md
+git add VERSION Cargo.toml README.md crates docs website CHANGELOG.md .github/workflows/github-pages.yml AGENTS.md package.json pnpm-lock.yaml packages
 git commit -m "chore: prepare v${VERSION} release"
 git push origin main
 ```

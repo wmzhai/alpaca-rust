@@ -12,6 +12,27 @@
 - `cancel`
 - `get_by_client_order_id`
 
+## Lifecycle Helpers
+
+The mirror methods above stay close to Alpaca's official request and response
+shapes. The resource client also exposes opt-in lifecycle helpers for callers
+that need to wait for stable order state or recover from request uncertainty:
+
+- `create_resolved`
+- `get_effective`
+- `wait_for`
+- `cancel_resolved`
+- `replace_resolved`
+- `submit_with_policy`
+- `submit_resolved`
+- `close_option_legs`
+- `recover_market_close`
+- `transition_resolved`
+
+Supporting public types include `WaitFor`, `ResolvedOrder`,
+`ReplaceResolution`, `SubmitOrderRequest`, `SubmitOrderStyle`,
+`SubmitOrderPolicy`, `TransitionOrderPolicy`, and `TransitionResolution`.
+
 ## Typical Request
 
 ```rust
@@ -41,10 +62,11 @@ let order = client
 
 - path identifiers are validated to reject empty strings and `/`
 - symbol-like text fields reject empty or whitespace-only values
-- the public API mirrors the official request shape instead of inventing higher-level workflow helpers
+- direct mirror methods preserve the official request shape
+- lifecycle helpers are explicit opt-in conveniences and do not replace the raw order endpoints
 
 ## Not Implemented Here
 
-- order strategy orchestration
+- application-owned order strategy orchestration
 - smart defaults based on account state
-- complex execution policy engines outside the official request contract
+- cross-provider execution engines outside the Alpaca contract

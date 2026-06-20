@@ -10,19 +10,19 @@
 - `activities`
 - `alpaca-mock`
 
-## Validation matrix
+## Validation Matrix
 
-The workspace keeps two mainline test lanes:
+The workspace keeps both mainline lanes in `mainline_api.rs`:
 
-- `mainline_real_api.rs` exercises the paper trading API end to end with a real order open/close lifecycle.
-- `mainline_mock_api.rs` exercises the same resource chain against `alpaca-mock`, while market prices still come from `alpaca-data`.
+- `trade_mainline_lifecycle_live_paper` exercises the paper trading API end to end with a real order open/close lifecycle.
+- `trade_mainline_lifecycle_mock` exercises the same resource chain against `alpaca-mock`, while market prices still come from `alpaca-data`.
 - `orders_api.rs` also keeps a deterministic mock contract lane that locks stock, single-option, and multi-leg create/replace fills at mid or composite-mid prices.
 
 The recommended commands are:
 
 ```bash
-cargo test -p alpaca-trade --test mainline_real_api -- --nocapture
-cargo test -p alpaca-trade --test mainline_mock_api -- --nocapture
+cargo test -p alpaca-trade --test mainline_api trade_mainline_lifecycle_live_paper -- --nocapture
+cargo test -p alpaca-trade --test mainline_api trade_mainline_lifecycle_mock -- --nocapture
 cargo test -p alpaca-trade --tests -- --nocapture
 cargo test -p alpaca-mock -- --nocapture
 ```

@@ -34,7 +34,7 @@ const resourceCards = [
   {title: 'alpaca-trade', to: '/docs/reference/alpaca-trade', body: 'Trading client coverage for account, assets, orders, positions, activities, and watchlists.'},
   {title: 'alpaca-mock', to: '/docs/reference/alpaca-mock', body: 'Executable mock server flows for trade lifecycle verification and market-data-backed simulations.'},
   {title: 'alpaca-time', to: '/docs/reference/alpaca-time', body: 'New York time, trading-calendar, expiration, and display semantics shared across the Rust workspace.'},
-  {title: 'alpaca-option', to: '/docs/reference/alpaca-option', body: 'Provider-neutral option contracts, snapshots, pricing, payoff, and URL helpers.'},
+  {title: 'alpaca-option', to: '/docs/reference/alpaca-option', body: 'Provider-neutral contracts, chains, pricing, rates, market structure, liquidity, strategy state, and URL helpers.'},
   {title: 'alpaca-facade', to: '/docs/reference/alpaca-facade', body: 'High-level convenience adapters that compose the lower workspace crates.'},
 ];
 

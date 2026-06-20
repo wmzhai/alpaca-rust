@@ -43,7 +43,7 @@ Maintainer: Weiming Zhai <wmzhai@gmail.com>
 - Alpaca Trading HTTP support for account, activities, assets, calendar, clock, options contracts, orders, portfolio history, positions, and watchlists
 - Shared low-level transport, credentials, query, pagination, and serde primitives
 - New York time and US trading-calendar semantics
-- Provider-neutral option contracts, snapshots, pricing, payoff, and URL helpers
+- Provider-neutral option contracts, snapshots, chains, pricing, payoff, rates, market structure, liquidity, strategy state, and URL helpers
 - A high-level facade crate that combines raw cache primitives with option enrichment helpers
 - An executable mock server for trade-mainline and contract-style validation
 
@@ -77,7 +77,7 @@ Use `alpaca-data` for market data:
 
 ```toml
 [dependencies]
-alpaca-data = "0.26.1"
+alpaca-data = "0.27.0"
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
 ```
 
@@ -94,7 +94,7 @@ Use `alpaca-trade` for trading resources:
 
 ```toml
 [dependencies]
-alpaca-trade = "0.26.1"
+alpaca-trade = "0.27.0"
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
 ```
 
@@ -112,8 +112,8 @@ Use `alpaca-facade` for the high-level composition layer:
 
 ```toml
 [dependencies]
-alpaca-facade = "0.26.1"
-alpaca-data = "0.26.1"
+alpaca-facade = "0.27.0"
+alpaca-data = "0.27.0"
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
 ```
 
@@ -163,7 +163,7 @@ ALPACA_TRADE_BASE_URL=http://127.0.0.1:3847
 ### Semantic Core
 
 - `alpaca-time`: New York time, trading calendar, expiration, and display semantics
-- `alpaca-option`: provider-neutral option contracts, snapshots, chains, pricing, payoff, and URL helpers
+- `alpaca-option`: provider-neutral option contracts, snapshots, chains, pricing, payoff, rates, market structure, liquidity, strategy state, and URL helpers
 
 ### Convenience Facade
 

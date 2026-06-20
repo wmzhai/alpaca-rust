@@ -57,6 +57,7 @@ The default builder targets Alpaca paper trading. Use `Client::builder().live()`
 
 - `activities().list(...)`
 - `activities().list_all(...)`
+- `activities().list_option_activity_records(...)`
 - `assets().list(...)`
 - `assets().get(...)`
 
@@ -82,11 +83,24 @@ The default builder targets Alpaca paper trading. Use `Client::builder().live()`
 - `orders().replace(...)`
 - `orders().cancel(...)`
 - `orders().get_by_client_order_id(...)`
+- `orders().create_resolved(...)`
+- `orders().get_effective(...)`
+- `orders().wait_for(...)`
+- `orders().cancel_resolved(...)`
+- `orders().replace_resolved(...)`
+- `orders().submit_with_policy(...)`
+- `orders().submit_resolved(...)`
+- `orders().close_option_legs(...)`
+- `orders().recover_market_close(...)`
+- `orders().transition_resolved(...)`
 
 ### Portfolio / Positions / Watchlists
 
 - `portfolio_history().get(...)`
 - `positions().list()`
+- `positions().option_qty_map()`
+- `positions().structure_quantity(...)`
+- `positions().reconcile_signed_positions(...)`
 - `positions().get(...)`
 - `positions().close_all(...)`
 - `positions().close(...)`
@@ -110,7 +124,7 @@ The default builder targets Alpaca paper trading. Use `Client::builder().live()`
 - broker APIs
 - FIX
 - crypto / fixed-income trading surfaces
-- high-level order orchestration
+- application-owned strategy orchestration or provider fallback systems
 
 ## Environment Variables
 

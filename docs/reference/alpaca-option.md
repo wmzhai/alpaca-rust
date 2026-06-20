@@ -5,21 +5,30 @@ workspace.
 
 ## Main Modules
 
+- `analysis`
+- `chain`
 - `contract`
 - `display`
-- `snapshot`
-- `analysis`
-- `pricing`
-- `payoff`
-- `probability`
 - `execution_quote`
+- `expiration_selection`
+- `liquidity`
+- `market_structure`
+- `math`
+- `numeric`
+- `option_strategy`
+- `payoff`
+- `pricing`
+- `probability`
+- `rate`
+- `snapshot`
 - `url`
 
 ## Typical Uses
 
 - Parse and format OCC option contracts
 - Work with canonical option snapshots, positions, chains, and execution quotes
-- Compute pricing, Greeks, payoff, break-even points, and probability helpers
+- Compute pricing, Greeks, payoff, break-even points, probability helpers, and risk-free-rate defaults
+- Analyze market structure, gamma exposure, liquidity models, and option-strategy state
 - Build and parse OptionStrat-compatible URLs and leg fragments
 
 ## Optional Companion
@@ -31,7 +40,7 @@ The TypeScript package exports the following namespaces from `@alpaca/option`:
 
 - `analysis`, `chain`, `contract`, `display`, `executionQuote`, `expirationSelection`
 - `math` and sub-exports (`american`, `bachelier`, `barrier`, `black76`, `geometricAsian`)
-- `numeric`, `optionStrategy`, `payoff`, `pricing`, `probability`, `snapshot`, `url`
+- `marketStructure`, `numeric`, `optionStrategy`, `payoff`, `pricing`, `probability`, `rate`, `snapshot`, `url`
 - `OptionStrategy` class
 - `OptionError`
 
@@ -40,7 +49,8 @@ Package metadata:
 - `private: true`
 - `@alpaca/option` (`1.10.4`)
 - extra exports: `./math/american`, `./math/bachelier`, `./math/barrier`,
-  `./math/black76`, `./math/geometric-asian`, `./option-strategy`.
+  `./math/black76`, `./math/geometric-asian`, `./market-structure`,
+  `./option-strategy`, and `./rate`.
 - dedicated TS tests cover public API boundary and fixture metadata expectations.
 
 ## Not Included

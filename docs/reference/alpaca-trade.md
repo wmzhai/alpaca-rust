@@ -24,7 +24,7 @@
 - FIX
 - crypto / fixed-income trading surfaces
 - websocket / stream APIs
-- high-level order orchestration helpers
+- application-owned strategy orchestration or provider fallback systems
 
 ### Optional Companion
 
@@ -91,6 +91,7 @@ generates `packages/alpaca-trade/src/generated/Execution.ts` via `ts-rs`.
 
 - `activities().list(...)`
 - `activities().list_all(...)`
+- `activities().list_option_activity_records(...)`
 
 ### Convenience Helpers
 
@@ -126,6 +127,23 @@ generates `packages/alpaca-trade/src/generated/Execution.ts` via `ts-rs`.
 
 ### Convenience Helpers
 
+- `orders().create_resolved(...)`
+- `orders().get_effective(...)`
+- `orders().wait_for(...)`
+- `orders().cancel_resolved(...)`
+- `orders().replace_resolved(...)`
+- `orders().submit_with_policy(...)`
+- `orders().submit_resolved(...)`
+- `orders().close_option_legs(...)`
+- `orders().recover_market_close(...)`
+- `orders().transition_resolved(...)`
+- `SubmitOrderRequest`
+- `SubmitOrderStyle`
+- `SubmitOrderPolicy`
+- `TransitionOrderPolicy`
+- `TransitionResolution`
+- `WaitFor`
+- `ResolvedOrder`
 - `OrderSide::as_str()`
 - `OrderType::as_str()`
 - `TimeInForce::as_str()`
@@ -141,6 +159,9 @@ generates `packages/alpaca-trade/src/generated/Execution.ts` via `ts-rs`.
 ## Positions
 
 - `positions().list()`
+- `positions().option_qty_map()`
+- `positions().structure_quantity(...)`
+- `positions().reconcile_signed_positions(...)`
 - `positions().get(...)`
 - `positions().close_all(...)`
 - `positions().close(...)`

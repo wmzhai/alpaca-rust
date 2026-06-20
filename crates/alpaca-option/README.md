@@ -5,21 +5,30 @@
 
 Core modules:
 
+- `analysis`
+- `chain`
 - `contract`
 - `display`
-- `snapshot`
-- `analysis`
-- `pricing`
-- `payoff`
-- `probability`
 - `execution_quote`
+- `expiration_selection`
+- `liquidity`
+- `market_structure`
+- `math`
+- `numeric`
+- `option_strategy`
+- `payoff`
+- `pricing`
+- `probability`
+- `rate`
+- `snapshot`
 - `url`
 
 Use this crate when you need:
 
 - OCC contract parsing and display helpers
 - canonical option snapshots, positions, chains, and execution quotes
-- Black-Scholes-style pricing, Greeks, payoff, and probability helpers
+- Black-Scholes-style pricing, Greeks, payoff, probability, and risk-free-rate helpers
+- market-structure analysis, liquidity models, and reusable option-strategy state
 - OptionStrat-compatible URL and leg helpers
 
 This crate intentionally does not include:
