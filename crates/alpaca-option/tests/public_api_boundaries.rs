@@ -702,6 +702,12 @@ fn optionstrat_helpers_cover_query_hash_optional_premium_and_underlying_mismatch
     assert_eq!(signed_short_legs[0].ratio_quantity, 2);
     assert_eq!(signed_short_legs[0].premium_per_contract, Some(0.9));
 
+    let signed_premium_legs =
+        url::parse_optionstrat_leg_fragments("QQQ", &[".QQQ260702C775x1@-1.92".to_string()])
+            .unwrap();
+    assert_eq!(signed_premium_legs.len(), 1);
+    assert_eq!(signed_premium_legs[0].premium_per_contract, Some(-1.92));
+
     let prefix_short_legs =
         url::parse_optionstrat_leg_fragments("SPY", &["-.SPY250321P580x2@2.45".to_string()])
             .unwrap();
@@ -734,6 +740,15 @@ fn optionstrat_helpers_cover_query_hash_optional_premium_and_underlying_mismatch
             ..Default::default()
         }),
         Some(".SPY250321P580x-1@2.45".to_string())
+    );
+    assert_eq!(
+        url::build_optionstrat_leg_fragment(&alpaca_option::OptionStratLegInput {
+            occ_symbol: "QQQ260702C00775000".to_string(),
+            quantity: 1,
+            premium_per_contract: Some(-1.92),
+            ..Default::default()
+        }),
+        Some(".QQQ260702C775x1@-1.92".to_string())
     );
     assert_eq!(
         url::build_optionstrat_leg_fragment(&alpaca_option::OptionStratLegInput {
@@ -863,11 +878,15 @@ fn optionstrat_helpers_cover_query_hash_optional_premium_and_underlying_mismatch
                 Some(
                     "https://optionstrat.com/build/custom/SPY/.SPY250321C600x2?ref=abc".to_string()
                 ),
+                Some(
+                    "https://optionstrat.com/build/custom/SPY/.SPY250321C610x1@-1.92"
+                        .to_string()
+                ),
             ],
             Some("SPY"),
         ),
         Some(
-            "https://optionstrat.com/build/custom/SPY/.SPY250321P580x-1@2.45,.SPY250321C600x2"
+            "https://optionstrat.com/build/custom/SPY/.SPY250321P580x-1@2.45,.SPY250321C600x2,.SPY250321C610x1@-1.92"
                 .to_string()
         )
     );

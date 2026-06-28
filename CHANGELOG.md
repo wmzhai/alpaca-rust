@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+## v0.27.1
+
+- Preserved signed OptionStrat URL premiums in the Rust and TypeScript helpers so calibrated residual legs can emit costs such as `@-1.92`.
+- Added public API boundary coverage for building, parsing, and merging signed OptionStrat premiums.
+
 ## v0.27.0
 
 - Bumped the publishable Rust workspace, website metadata, generated docs metadata, and public install snippets to `0.27.0`.

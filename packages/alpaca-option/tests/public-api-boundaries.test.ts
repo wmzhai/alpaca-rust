@@ -310,6 +310,10 @@ test('optionstrat helpers cover query/hash, optional premium, and underlying mis
   assert.equal(signedShortLegs[0].ratioQuantity, 2);
   assert.equal(signedShortLegs[0].premiumPerContract, 0.9);
 
+  const signedPremiumLegs = url.parseOptionstratLegFragments('QQQ', ['.QQQ260702C775x1@-1.92']);
+  assert.equal(signedPremiumLegs.length, 1);
+  assert.equal(signedPremiumLegs[0].premiumPerContract, -1.92);
+
   const prefixShortLegs = url.parseOptionstratLegFragments('SPY', ['-.SPY250321P580x2@2.45']);
   assert.equal(prefixShortLegs.length, 1);
   assert.equal(prefixShortLegs[0].orderSide, 'sell');
@@ -329,6 +333,14 @@ test('optionstrat helpers cover query/hash, optional premium, and underlying mis
       premiumPerContract: 2.45,
     }),
     '.SPY250321P580x-1@2.45',
+  );
+  assert.equal(
+    url.buildOptionstratLegFragment({
+      occSymbol: 'QQQ260702C00775000',
+      quantity: 1,
+      premiumPerContract: -1.92,
+    }),
+    '.QQQ260702C775x1@-1.92',
   );
   assert.equal(
     url.buildOptionstratLegFragment({
@@ -486,10 +498,11 @@ test('optionstrat helpers cover query/hash, optional premium, and underlying mis
         'https://optionstrat.com/build/custom/SPY/-.SPY250321P580x1@2.45',
         'https://optionstrat.com/build/custom/BRK%2FB/.BRKB250620P480x1@1.23',
         'https://optionstrat.com/build/custom/SPY/.SPY250321C600x2?ref=abc',
+        'https://optionstrat.com/build/custom/SPY/.SPY250321C610x1@-1.92',
       ],
       'SPY',
     ),
-    'https://optionstrat.com/build/custom/SPY/.SPY250321P580x-1@2.45,.SPY250321C600x2',
+    'https://optionstrat.com/build/custom/SPY/.SPY250321P580x-1@2.45,.SPY250321C600x2,.SPY250321C610x1@-1.92',
   );
   assert.equal(
     url.mergeOptionstratUrls([

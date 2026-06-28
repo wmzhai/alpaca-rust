@@ -76,7 +76,7 @@ function resolvePositionLeg(position: OptionPosition): OptionStratLegInput | nul
 
   const premiumPerContract = (() => {
     const avgCost = Number(position.avg_cost);
-    if (Number.isFinite(avgCost) && Math.abs(avgCost) > 1e-12) {
+    if (Number.isFinite(avgCost) && (avgCost > 1e-12 || avgCost < -1e-12)) {
       return avgCost;
     }
 
@@ -106,7 +106,7 @@ export function buildOptionstratLegFragment(input: OptionStratLegInput): string 
 
     const premiumSuffix = leg.premiumPerContract == null
       ? ''
-      : `@${Math.abs(leg.premiumPerContract).toFixed(2)}`;
+      : `@${leg.premiumPerContract.toFixed(2)}`;
     return `.${compactContract}x${leg.quantity}${premiumSuffix}`;
   } catch {
     return null;
@@ -302,7 +302,7 @@ function parseOptionstratLegFragment(fragment: string, underlyingDisplaySymbol: 
         if (!Number.isFinite(value)) {
           fail('invalid_optionstrat_leg_fragment', `invalid optionstrat leg fragment: ${fragment}`);
         }
-        return Math.abs(value);
+        return value;
       })();
 
   return {

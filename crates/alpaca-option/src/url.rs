@@ -81,7 +81,7 @@ pub fn build_optionstrat_leg_fragment(input: &OptionStratLegInput) -> Option<Str
 
     let premium_suffix = leg
         .premium_per_contract
-        .map(|premium| format!("@{:.2}", premium.abs()))
+        .map(|premium| format!("@{:.2}", premium))
         .unwrap_or_default();
 
     Some(format!(
@@ -332,8 +332,7 @@ fn parse_optionstrat_leg_fragment(
                 )
             })
         })
-        .transpose()?
-        .map(f64::abs);
+        .transpose()?;
 
     Ok(StrategyLegInput {
         contract: parse_occ_symbol(&occ_symbol).ok_or_else(|| {
