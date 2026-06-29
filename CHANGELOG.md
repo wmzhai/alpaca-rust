@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+## v0.27.2
+
+- Fixed `alpaca-mock` to reject non-positive simple order and replace `limit_price` values while preserving negative `mleg` credit limit prices.
+- Added regression coverage for simple create/replace rejection and `mleg` credit limit acceptance.
+
 ## v0.27.1
 
 - Preserved signed OptionStrat URL premiums in the Rust and TypeScript helpers so calibrated residual legs can emit costs such as `@-1.92`.

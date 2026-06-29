@@ -4,7 +4,7 @@ This checklist defines the public release bar for `alpaca-rust`.
 
 ## Current Release Baseline
 
-- The current published release line is `v0.27.1`
+- The current published release line is `v0.27.2`
 - `.github/workflows/github-pages.yml` is the only release workflow
 - The release workflow publishes crates and GitHub Releases only on semantic version tags matching `v*.*.*`
 - crates.io Trusted Publishing must remain configured for all published Rust crates:

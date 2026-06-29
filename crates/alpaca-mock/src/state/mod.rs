@@ -228,6 +228,7 @@ impl MockServerState {
         let order_class = input.order_class.clone().unwrap_or(OrderClass::Simple);
         let order_type = input.order_type.clone().unwrap_or(OrderType::Market);
         let time_in_force = input.time_in_force.clone().unwrap_or(TimeInForce::Day);
+        validate_limit_price_for_order_class(&order_class, input.limit_price)?;
         let requested_symbol = input
             .symbol
             .clone()
@@ -608,6 +609,7 @@ impl MockServerState {
             .await?;
         let request_side = current.request_side.clone();
         let replacement_limit_price = input.limit_price.or(current.order.limit_price);
+        validate_limit_price_for_order_class(&current.order.order_class, replacement_limit_price)?;
         let replacement_qty = input.qty.or(current.order.qty);
         let replacement_client_order_id = input
             .client_order_id
@@ -1414,6 +1416,21 @@ fn normalize_qty(
     }
 
     Ok(qty)
+}
+
+fn validate_limit_price_for_order_class(
+    order_class: &OrderClass,
+    limit_price: Option<Decimal>,
+) -> Result<(), MockStateError> {
+    if *order_class != OrderClass::Mleg
+        && limit_price.is_some_and(|limit_price| limit_price <= Decimal::ZERO)
+    {
+        return Err(MockStateError::Conflict(
+            "simple limit_price must be greater than 0".to_owned(),
+        ));
+    }
+
+    Ok(())
 }
 
 fn resolve_close_qty(
@@ -2337,6 +2354,106 @@ mod tests {
 
     fn option_snapshot() -> InstrumentSnapshot {
         InstrumentSnapshot::option(Decimal::new(120, 2), Decimal::new(140, 2))
+    }
+
+    #[tokio::test]
+    async fn simple_limit_order_rejects_negative_limit_price() {
+        let state = MockServerState::new().with_market_snapshot("OPT", option_snapshot());
+
+        let error = state
+            .create_order(
+                "mock-key",
+                CreateOrderInput {
+                    symbol: Some("OPT".to_owned()),
+                    qty: Some(Decimal::ONE),
+                    side: Some(OrderSide::Sell),
+                    order_type: Some(OrderType::Limit),
+                    limit_price: Some(Decimal::new(-2, 2)),
+                    ..CreateOrderInput::default()
+                },
+            )
+            .await
+            .expect_err("simple limit orders should reject negative limit_price");
+
+        assert_eq!(
+            error,
+            MockStateError::Conflict("simple limit_price must be greater than 0".to_owned())
+        );
+    }
+
+    #[tokio::test]
+    async fn mleg_limit_order_allows_negative_credit_limit_price() {
+        let state = MockServerState::new()
+            .with_market_snapshot("OPT-BUY", option_snapshot())
+            .with_market_snapshot("OPT-SELL", option_snapshot());
+
+        let order = state
+            .create_order(
+                "mock-key",
+                CreateOrderInput {
+                    qty: Some(Decimal::ONE),
+                    order_type: Some(OrderType::Limit),
+                    order_class: Some(OrderClass::Mleg),
+                    limit_price: Some(Decimal::new(-2, 2)),
+                    legs: Some(vec![
+                        OptionLegRequest {
+                            symbol: "OPT-BUY".to_owned(),
+                            ratio_qty: 1,
+                            side: Some(OrderSide::Buy),
+                            position_intent: None,
+                        },
+                        OptionLegRequest {
+                            symbol: "OPT-SELL".to_owned(),
+                            ratio_qty: 1,
+                            side: Some(OrderSide::Sell),
+                            position_intent: None,
+                        },
+                    ]),
+                    ..CreateOrderInput::default()
+                },
+            )
+            .await
+            .expect("mleg credit limit orders should allow negative limit_price");
+
+        assert_eq!(order.order_class, OrderClass::Mleg);
+        assert_eq!(order.limit_price, Some(Decimal::new(-2, 2)));
+    }
+
+    #[tokio::test]
+    async fn simple_replace_order_rejects_negative_limit_price() {
+        let state = MockServerState::new().with_market_snapshot("AAPL", equity_snapshot());
+        let order = state
+            .create_order(
+                "mock-key",
+                CreateOrderInput {
+                    symbol: Some("AAPL".to_owned()),
+                    qty: Some(Decimal::ONE),
+                    side: Some(OrderSide::Buy),
+                    order_type: Some(OrderType::Limit),
+                    limit_price: Some(Decimal::new(90, 0)),
+                    ..CreateOrderInput::default()
+                },
+            )
+            .await
+            .expect("non-marketable simple limit order should be accepted");
+        assert_eq!(order.status, OrderStatus::New);
+
+        let error = state
+            .replace_order(
+                "mock-key",
+                &order.id,
+                ReplaceOrderInput {
+                    limit_price: Some(Decimal::new(-2, 2)),
+                    ..ReplaceOrderInput::default()
+                },
+            )
+            .await
+            .expect_err("simple replace orders should reject negative limit_price");
+
+        assert_eq!(
+            error,
+            MockStateError::Conflict("simple limit_price must be greater than 0".to_owned())
+        );
     }
 
     fn build_test_mleg_order(order_type: OrderType, limit_price: Option<Decimal>) -> Order {
