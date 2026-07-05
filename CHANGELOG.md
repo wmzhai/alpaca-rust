@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Added `dealer_view` market-structure exposure mode alongside the existing `gex_proxy` mode.
+- Added mode-aware market-structure analysis options in the Rust crate and TypeScript package while preserving `gex_proxy` as the default.
+- Changed market-structure call and put wall selection to rank by absolute gamma strength so dealer-view sign reversal does not fall back to open interest.
+
 ## v0.27.2
 
 - Fixed `alpaca-mock` to reject non-positive simple order and replace `limit_price` values while preserving negative `mleg` credit limit prices.

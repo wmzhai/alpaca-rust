@@ -30,14 +30,16 @@ pub const DEFAULT_RISK_FREE_RATE: f64 = 0.0368;
 pub use error::{OptionError, OptionResult};
 pub use liquidity::{LiquidityBatchResponse, LiquidityData, LiquidityOptionData, LiquidityStats};
 pub use market_structure::{
-    analyze_market_structure, filter_market_structure_records, gamma_exposure,
+    analyze_market_structure, analyze_market_structure_with_options,
+    filter_market_structure_records, gamma_exposure, gamma_exposure_with_mode,
 };
 pub use option_strategy::{unique_break_even_points, OptionStrategy};
 pub use rate::{risk_free_rate_for_years, RiskFreeRatePoint, DEFAULT_RISK_FREE_RATE_CURVE};
 pub use types::{
     AssignmentRiskLevel, BlackScholesImpliedVolatilityInput, BlackScholesInput, ContractDisplay,
     ExecutionAction, ExecutionLeg, ExecutionLegInput, ExecutionQuoteRange, ExecutionSnapshot,
-    Greeks, GreeksInput, MarketStructureAnalysis, MarketStructureFilters, MarketStructureLevel,
+    Greeks, GreeksInput, MarketStructureAnalysis, MarketStructureAnalysisOptions,
+    MarketStructureExposureMode, MarketStructureFilters, MarketStructureLevel,
     MarketStructureOptionRecord, MoneynessLabel, OptionChain, OptionChainRecord, OptionContract,
     OptionPosition, OptionQuote, OptionRight, OptionRightCode, OptionSnapshot, OptionStratLegInput,
     OptionStratStockInput, OptionStratUrlInput, OptionStrategyCurvePoint, OptionStrategyInput,

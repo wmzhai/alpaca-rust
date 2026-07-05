@@ -4,6 +4,9 @@ use alpaca_option::chain;
 use alpaca_option::contract;
 use alpaca_option::display;
 use alpaca_option::execution_quote;
+use alpaca_option::market_structure::{
+    analyze_market_structure_with_options, gamma_exposure_with_mode,
+};
 use alpaca_option::math;
 use alpaca_option::numeric;
 use alpaca_option::payoff;
@@ -12,8 +15,9 @@ use alpaca_option::probability;
 use alpaca_option::rate;
 use alpaca_option::snapshot;
 use alpaca_option::types::{
-    ContractDisplay, ExecutionSnapshot, Greeks, OptionChainRecord, OptionContract, OptionPosition,
-    OptionQuote, OptionRight, OptionRightCode, OptionSnapshot,
+    ContractDisplay, ExecutionSnapshot, Greeks, MarketStructureAnalysisOptions,
+    MarketStructureExposureMode, MarketStructureOptionRecord, OptionChainRecord, OptionContract,
+    OptionPosition, OptionQuote, OptionRight, OptionRightCode, OptionSnapshot,
 };
 use alpaca_option::url;
 use alpaca_option::{
@@ -1734,4 +1738,103 @@ fn option_right_from_str_absorbs_common_case_and_code_variants() {
     assert_eq!(OptionRight::from_str(" Put ").unwrap(), OptionRight::Put);
     assert_eq!(OptionRight::from_str("C").unwrap(), OptionRight::Call);
     assert_eq!(OptionRight::from_str("p").unwrap(), OptionRight::Put);
+}
+
+fn market_structure_record(
+    option_right: OptionRight,
+    strike: f64,
+    gamma: f64,
+    open_interest: f64,
+    spot: f64,
+) -> MarketStructureOptionRecord {
+    MarketStructureOptionRecord {
+        as_of: "2026-07-02 10:30:00".to_string(),
+        underlying_symbol: "QQQ".to_string(),
+        occ_symbol: match option_right {
+            OptionRight::Call => format!("QQQ260801C{:08}", (strike * 1000.0).round() as u64),
+            OptionRight::Put => format!("QQQ260801P{:08}", (strike * 1000.0).round() as u64),
+        },
+        expiration_date: "2026-08-01".to_string(),
+        option_right,
+        strike,
+        underlying_price: Some(spot),
+        bid: Some(1.0),
+        ask: Some(1.1),
+        mark: Some(1.05),
+        last: None,
+        implied_volatility: Some(0.25),
+        delta: None,
+        gamma: Some(gamma),
+        vega: None,
+        theta: None,
+        rho: None,
+        open_interest: Some(open_interest),
+        open_interest_date: Some("2026-07-01".to_string()),
+        multiplier: Some(100.0),
+        minute_volume: None,
+        daily_volume: None,
+        latest_trade_size: None,
+        bid_size: None,
+        ask_size: None,
+    }
+}
+
+#[test]
+fn market_structure_dealer_view_reverses_proxy_signs_without_changing_abs_exposure() {
+    let call = market_structure_record(OptionRight::Call, 500.0, 0.01, 10.0, 100.0);
+    let put = market_structure_record(OptionRight::Put, 95.0, 0.02, 20.0, 100.0);
+    let call_oi_fallback_trap =
+        market_structure_record(OptionRight::Call, 510.0, 0.0, 500.0, 100.0);
+    let put_oi_fallback_trap = market_structure_record(OptionRight::Put, 85.0, 0.0, 600.0, 100.0);
+    let records = vec![
+        call.clone(),
+        put.clone(),
+        call_oi_fallback_trap,
+        put_oi_fallback_trap,
+    ];
+
+    assert_eq!(
+        gamma_exposure_with_mode(&call, 100.0, MarketStructureExposureMode::GexProxy),
+        Some(1_000.0)
+    );
+    assert_eq!(
+        gamma_exposure_with_mode(&call, 100.0, MarketStructureExposureMode::DealerView),
+        Some(-1_000.0)
+    );
+    assert_eq!(
+        gamma_exposure_with_mode(&put, 100.0, MarketStructureExposureMode::GexProxy),
+        Some(-4_000.0)
+    );
+    assert_eq!(
+        gamma_exposure_with_mode(&put, 100.0, MarketStructureExposureMode::DealerView),
+        Some(4_000.0)
+    );
+
+    let proxy = analyze_market_structure_with_options(
+        &records,
+        &MarketStructureAnalysisOptions {
+            mode: MarketStructureExposureMode::GexProxy,
+        },
+    );
+    let dealer = analyze_market_structure_with_options(
+        &records,
+        &MarketStructureAnalysisOptions {
+            mode: MarketStructureExposureMode::DealerView,
+        },
+    );
+
+    assert_eq!(proxy.net_gamma_exposure, -3_000.0);
+    assert_eq!(dealer.net_gamma_exposure, 3_000.0);
+    assert_eq!(
+        proxy.absolute_gamma_exposure,
+        dealer.absolute_gamma_exposure
+    );
+    assert_eq!(
+        dealer.call_wall.as_ref().map(|level| level.strike),
+        Some(500.0)
+    );
+    assert_eq!(
+        dealer.put_wall.as_ref().map(|level| level.strike),
+        Some(95.0)
+    );
 }

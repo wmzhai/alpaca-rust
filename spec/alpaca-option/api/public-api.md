@@ -410,8 +410,10 @@ Field-level definitions live in `../models/core-models.md`.
 | API | Returns | Semantics |
 | --- | --- | --- |
 | `market_structure.gamma_exposure(record, underlying_price)` / `marketStructure.gammaExposure(record, underlyingPrice)` | `number \| null` | computes signed gamma exposure, positive for calls and negative for puts |
+| `market_structure.gamma_exposure_with_mode(record, underlying_price, mode)` / `marketStructure.gammaExposure(record, underlyingPrice, mode)` | `number \| null` | computes signed gamma exposure using either `gex_proxy` or `dealer_view` mode |
 | `market_structure.filter_market_structure_records(records, filters)` / `marketStructure.filterMarketStructureRecords(records, filters)` | `MarketStructureOptionRecord[]` | applies expiration, right, strike, DTE, and open-interest filters |
 | `market_structure.analyze_market_structure(records)` / `marketStructure.analyzeMarketStructure(records)` | `MarketStructureAnalysis` | aggregates records into strike levels, exposure totals, put/call ratios, and warning labels |
+| `market_structure.analyze_market_structure_with_options(records, options)` / `marketStructure.analyzeMarketStructure(records, options)` | `MarketStructureAnalysis` | aggregates records into strike levels using the selected exposure mode |
 
 ## `liquidity`
 

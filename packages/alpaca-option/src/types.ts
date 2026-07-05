@@ -291,6 +291,12 @@ export type MarketStructureAnalysis = {
   warnings: string[];
 };
 
+export type MarketStructureExposureMode = 'gex_proxy' | 'dealer_view';
+
+export type MarketStructureAnalysisOptions = {
+  mode?: MarketStructureExposureMode;
+};
+
 export type LiquidityOptionData = {
   occ_symbol: string;
   option_right: string;

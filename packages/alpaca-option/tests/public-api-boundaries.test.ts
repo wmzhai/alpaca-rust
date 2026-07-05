@@ -19,12 +19,15 @@ import { OptionError } from '../src/error';
 import * as mathAmerican from '../src/math/american';
 import * as mathBarrier from '../src/math/barrier';
 import * as mathGeometricAsian from '../src/math/geometricAsian';
+import { analyzeMarketStructure, gammaExposure } from '../src/marketStructure';
 import type {
   LiquidityBatchResponse,
   LiquidityData,
   LiquidityOptionData,
+  MarketStructureOptionRecord,
   LiquidityStats,
   OptionContract,
+  OptionRight,
   OptionPosition,
   OptionSnapshot,
 } from '../src/index';
@@ -59,6 +62,42 @@ function sampleSnapshot(bid: number | null, ask: number | null): OptionSnapshot 
     greeks: null,
     implied_volatility: null,
     underlying_price: null,
+  };
+}
+
+function marketStructureRecord(
+  optionRight: OptionRight,
+  strike: number,
+  gamma: number,
+  openInterest: number,
+  spot: number,
+): MarketStructureOptionRecord {
+  return {
+    as_of: '2026-07-02 10:30:00',
+    underlying_symbol: 'QQQ',
+    occ_symbol: `QQQ260801${optionRight === 'call' ? 'C' : 'P'}${String(Math.round(strike * 1000)).padStart(8, '0')}`,
+    expiration_date: '2026-08-01',
+    option_right: optionRight,
+    strike,
+    underlying_price: spot,
+    bid: 1,
+    ask: 1.1,
+    mark: 1.05,
+    last: null,
+    implied_volatility: 0.25,
+    delta: null,
+    gamma,
+    vega: null,
+    theta: null,
+    rho: null,
+    open_interest: openInterest,
+    open_interest_date: '2026-07-01',
+    multiplier: 100,
+    minute_volume: null,
+    daily_volume: null,
+    latest_trade_size: null,
+    bid_size: null,
+    ask_size: null,
   };
 }
 
@@ -242,6 +281,28 @@ test('snapshot helpers use canonical snapshots directly', () => {
     },
     iv: 0.22,
   }), false);
+});
+
+test('marketStructure dealer view reverses proxy signs without changing abs exposure', () => {
+  const call = marketStructureRecord('call', 500, 0.01, 10, 100);
+  const put = marketStructureRecord('put', 95, 0.02, 20, 100);
+  const callOiFallbackTrap = marketStructureRecord('call', 510, 0, 500, 100);
+  const putOiFallbackTrap = marketStructureRecord('put', 85, 0, 600, 100);
+  const records = [call, put, callOiFallbackTrap, putOiFallbackTrap];
+
+  assert.equal(gammaExposure(call, 100, 'gex_proxy'), 1_000);
+  assert.equal(gammaExposure(call, 100, 'dealer_view'), -1_000);
+  assert.equal(gammaExposure(put, 100, 'gex_proxy'), -4_000);
+  assert.equal(gammaExposure(put, 100, 'dealer_view'), 4_000);
+
+  const proxy = analyzeMarketStructure(records, { mode: 'gex_proxy' });
+  const dealer = analyzeMarketStructure(records, { mode: 'dealer_view' });
+
+  assert.equal(proxy.net_gamma_exposure, -3_000);
+  assert.equal(dealer.net_gamma_exposure, 3_000);
+  assert.equal(proxy.absolute_gamma_exposure, dealer.absolute_gamma_exposure);
+  assert.equal(dealer.call_wall?.strike, 500);
+  assert.equal(dealer.put_wall?.strike, 95);
 });
 
 test('contract.buildOccSymbol and parseOccSymbol absorb invalid OCC inputs directly', () => {

@@ -3,8 +3,8 @@ use std::cmp::Ordering;
 use alpaca_time::clock;
 
 use crate::types::{
-    MarketStructureAnalysis, MarketStructureFilters, MarketStructureLevel,
-    MarketStructureOptionRecord, OptionRight,
+    MarketStructureAnalysis, MarketStructureAnalysisOptions, MarketStructureExposureMode,
+    MarketStructureFilters, MarketStructureLevel, MarketStructureOptionRecord, OptionRight,
 };
 
 #[derive(Debug, Clone, Default)]
@@ -44,21 +44,19 @@ impl LevelAccumulator {
 }
 
 pub fn gamma_exposure(record: &MarketStructureOptionRecord, underlying_price: f64) -> Option<f64> {
-    let gamma = finite(record.gamma?)?;
-    let open_interest = finite(record.open_interest?)?;
-    let multiplier = finite(record.multiplier?)?;
-    let spot = finite(underlying_price)?;
+    gamma_exposure_with_mode(
+        record,
+        underlying_price,
+        MarketStructureExposureMode::GexProxy,
+    )
+}
 
-    if open_interest < 0.0 || multiplier <= 0.0 || spot <= 0.0 {
-        return None;
-    }
-
-    let exposure = gamma * open_interest * multiplier * spot * spot * 0.01;
-    let signed_exposure = match record.option_right {
-        OptionRight::Call => exposure,
-        OptionRight::Put => -exposure,
-    };
-    finite(signed_exposure)
+pub fn gamma_exposure_with_mode(
+    record: &MarketStructureOptionRecord,
+    underlying_price: f64,
+    mode: MarketStructureExposureMode,
+) -> Option<f64> {
+    gamma_exposure_from_gamma(record, underlying_price, record.gamma?, mode)
 }
 
 pub fn filter_market_structure_records(
@@ -78,6 +76,13 @@ pub fn filter_market_structure_records(
 
 pub fn analyze_market_structure(
     records: &[MarketStructureOptionRecord],
+) -> MarketStructureAnalysis {
+    analyze_market_structure_with_options(records, &MarketStructureAnalysisOptions::default())
+}
+
+pub fn analyze_market_structure_with_options(
+    records: &[MarketStructureOptionRecord],
+    options: &MarketStructureAnalysisOptions,
 ) -> MarketStructureAnalysis {
     let records_count = records.len();
     let underlying_price = records
@@ -113,7 +118,7 @@ pub fn analyze_market_structure(
                 .unwrap_or(0.0)
                 .max(0.0);
             let volume = activity_volume(record);
-            let exposure = gamma_exposure(record, spot).unwrap_or(0.0);
+            let exposure = gamma_exposure_with_mode(record, spot, options.mode).unwrap_or(0.0);
 
             let index = accumulators
                 .iter()
@@ -160,8 +165,13 @@ pub fn analyze_market_structure(
 
     let call_wall_strike = levels
         .iter()
-        .filter(|level| level.call_gamma_exposure > 0.0)
-        .max_by(|left, right| compare_f64(left.call_gamma_exposure, right.call_gamma_exposure))
+        .filter(|level| level.call_gamma_exposure != 0.0)
+        .max_by(|left, right| {
+            compare_f64(
+                left.call_gamma_exposure.abs(),
+                right.call_gamma_exposure.abs(),
+            )
+        })
         .map(|level| level.strike)
         .or_else(|| {
             levels
@@ -174,16 +184,19 @@ pub fn analyze_market_structure(
         });
     let put_wall_strike = levels
         .iter()
-        .filter(|level| level.put_gamma_exposure < 0.0)
-        .min_by(|left, right| compare_f64(left.put_gamma_exposure, right.put_gamma_exposure))
+        .filter(|level| level.put_gamma_exposure != 0.0)
+        .max_by(|left, right| {
+            compare_f64(
+                left.put_gamma_exposure.abs(),
+                right.put_gamma_exposure.abs(),
+            )
+        })
         .map(|level| level.strike)
         .or_else(|| {
             levels
                 .iter()
                 .filter(|level| level.put_open_interest > 0.0)
-                .max_by(|left, right| {
-                    compare_f64(left.put_open_interest, right.put_open_interest)
-                })
+                .max_by(|left, right| compare_f64(left.put_open_interest, right.put_open_interest))
                 .map(|level| level.strike)
         });
     let absolute_wall_strike = levels
@@ -367,8 +380,36 @@ fn level_by_strike(
         .cloned()
 }
 
+fn gamma_exposure_from_gamma(
+    record: &MarketStructureOptionRecord,
+    spot: f64,
+    gamma: f64,
+    mode: MarketStructureExposureMode,
+) -> Option<f64> {
+    let gamma = finite(gamma)?;
+    let open_interest = finite(record.open_interest?)?;
+    let multiplier = finite(record.multiplier?)?;
+    let spot = finite(spot)?;
+    if open_interest < 0.0 || multiplier <= 0.0 || spot <= 0.0 {
+        return None;
+    }
+
+    let exposure = gamma * open_interest * multiplier * spot * spot * 0.01;
+    let signed_exposure = match (mode, record.option_right.clone()) {
+        (MarketStructureExposureMode::GexProxy, OptionRight::Call)
+        | (MarketStructureExposureMode::DealerView, OptionRight::Put) => exposure,
+        (MarketStructureExposureMode::GexProxy, OptionRight::Put)
+        | (MarketStructureExposureMode::DealerView, OptionRight::Call) => -exposure,
+    };
+    finite(signed_exposure)
+}
+
 fn finite(value: f64) -> Option<f64> {
-    if value.is_finite() { Some(value) } else { None }
+    if value.is_finite() {
+        Some(value)
+    } else {
+        None
+    }
 }
 
 fn finite_positive(value: f64) -> Option<f64> {

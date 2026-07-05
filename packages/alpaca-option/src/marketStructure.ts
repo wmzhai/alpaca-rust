@@ -2,6 +2,8 @@ import { clock as timeClock } from '@alpaca/time';
 
 import type {
   MarketStructureAnalysis,
+  MarketStructureAnalysisOptions,
+  MarketStructureExposureMode,
   MarketStructureFilters,
   MarketStructureLevel,
   MarketStructureOptionRecord,
@@ -9,6 +11,8 @@ import type {
 
 export type {
   MarketStructureAnalysis,
+  MarketStructureAnalysisOptions,
+  MarketStructureExposureMode,
   MarketStructureFilters,
   MarketStructureLevel,
   MarketStructureOptionRecord,
@@ -27,26 +31,11 @@ type LevelAccumulator = {
 export function gammaExposure(
   record: MarketStructureOptionRecord,
   underlyingPrice: number,
+  mode: MarketStructureExposureMode = 'gex_proxy',
 ): number | null {
   const gamma = finite(record.gamma);
-  const openInterest = finite(record.open_interest);
-  const multiplier = finite(record.multiplier);
-  const spot = finite(underlyingPrice);
-
-  if (
-    gamma == null ||
-    openInterest == null ||
-    multiplier == null ||
-    spot == null ||
-    openInterest < 0 ||
-    multiplier <= 0 ||
-    spot <= 0
-  ) {
-    return null;
-  }
-
-  const exposure = gamma * openInterest * multiplier * spot * spot * 0.01;
-  return finite(record.option_right === 'put' ? -exposure : exposure);
+  if (gamma == null) return null;
+  return gammaExposureFromGamma(record, underlyingPrice, gamma, mode);
 }
 
 export function filterMarketStructureRecords(
@@ -65,7 +54,9 @@ export function filterMarketStructureRecords(
 
 export function analyzeMarketStructure(
   records: MarketStructureOptionRecord[],
+  options: MarketStructureAnalysisOptions = {},
 ): MarketStructureAnalysis {
+  const mode = options.mode ?? 'gex_proxy';
   const recordsCount = records.length;
   const underlyingPrice =
     records
@@ -96,7 +87,7 @@ export function analyzeMarketStructure(
 
       const openInterest = Math.max(finite(record.open_interest) ?? 0, 0);
       const volume = activityVolume(record);
-      const exposure = gammaExposure(record, underlyingPrice) ?? 0;
+      const exposure = gammaExposure(record, underlyingPrice, mode) ?? 0;
       let level = accumulators.find((candidate) => sameStrike(candidate.strike, strike));
       if (!level) {
         level = {
@@ -136,8 +127,8 @@ export function analyzeMarketStructure(
 
   const callWallStrike =
     maxBy(
-      levels.filter((level) => level.call_gamma_exposure > 0),
-      (level) => level.call_gamma_exposure,
+      levels.filter((level) => level.call_gamma_exposure !== 0),
+      (level) => Math.abs(level.call_gamma_exposure),
     )?.strike ??
     maxBy(
       levels.filter((level) => level.call_open_interest > 0),
@@ -145,9 +136,9 @@ export function analyzeMarketStructure(
     )?.strike ??
     null;
   const putWallStrike =
-    minBy(
-      levels.filter((level) => level.put_gamma_exposure < 0),
-      (level) => level.put_gamma_exposure,
+    maxBy(
+      levels.filter((level) => level.put_gamma_exposure !== 0),
+      (level) => Math.abs(level.put_gamma_exposure),
     )?.strike ??
     maxBy(
       levels.filter((level) => level.put_open_interest > 0),
@@ -307,6 +298,35 @@ function levelByStrike(
   return levels.find((level) => sameStrike(level.strike, strike)) ?? null;
 }
 
+function gammaExposureFromGamma(
+  record: MarketStructureOptionRecord,
+  spot: number,
+  gamma: number,
+  mode: MarketStructureExposureMode,
+): number | null {
+  const openInterest = finite(record.open_interest);
+  const multiplier = finite(record.multiplier);
+  const finiteGamma = finite(gamma);
+  const finiteSpot = finite(spot);
+  if (
+    finiteGamma == null ||
+    openInterest == null ||
+    multiplier == null ||
+    finiteSpot == null ||
+    openInterest < 0 ||
+    multiplier <= 0 ||
+    finiteSpot <= 0
+  ) {
+    return null;
+  }
+
+  const exposure = finiteGamma * openInterest * multiplier * finiteSpot * finiteSpot * 0.01;
+  const positive =
+    (mode === 'gex_proxy' && record.option_right === 'call') ||
+    (mode === 'dealer_view' && record.option_right === 'put');
+  return finite(positive ? exposure : -exposure);
+}
+
 function finite(value: number | null | undefined): number | null {
   return typeof value === 'number' && Number.isFinite(value) ? value : null;
 }
@@ -326,19 +346,6 @@ function maxBy<T>(values: T[], score: (value: T) => number): T | undefined {
   for (const value of values) {
     const current = score(value);
     if (current > bestScore) {
-      best = value;
-      bestScore = current;
-    }
-  }
-  return best;
-}
-
-function minBy<T>(values: T[], score: (value: T) => number): T | undefined {
-  let best: T | undefined;
-  let bestScore = Number.POSITIVE_INFINITY;
-  for (const value of values) {
-    const current = score(value);
-    if (current < bestScore) {
       best = value;
       bestScore = current;
     }

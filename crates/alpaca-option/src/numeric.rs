@@ -62,7 +62,11 @@ pub fn normal_cdf(x: f64) -> f64 {
     }
 
     let tail = normal_cdf_tail(x.abs());
-    if x > 0.0 { 1.0 - tail } else { tail }
+    if x > 0.0 {
+        1.0 - tail
+    } else {
+        tail
+    }
 }
 
 pub fn normal_pdf(x: f64) -> f64 {

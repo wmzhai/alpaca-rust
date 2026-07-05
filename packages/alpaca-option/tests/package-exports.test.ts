@@ -14,11 +14,19 @@ import * as rateSubpath from '@alpaca/option/rate';
 test('package exports expose public core and approved math subpaths', () => {
   assert.equal(typeof analysis.otmPercent, 'function');
   assert.equal(typeof marketStructure.analyzeMarketStructure, 'function');
+  assert.equal(
+    'analyzeMarketStructureSpotProfile' in marketStructure,
+    false,
+  );
   assert.equal(typeof pricing.priceBlackScholes, 'function');
   assert.equal(typeof rate.riskFreeRateForYears, 'function');
   assert.equal(typeof OptionStrategy.fromInput, 'function');
   assert.equal(typeof optionStrategy.strategyPnl, 'function');
   assert.equal(typeof marketStructureSubpath.analyzeMarketStructure, 'function');
+  assert.equal(
+    'analyzeMarketStructureSpotProfile' in marketStructureSubpath,
+    false,
+  );
   assert.equal(typeof optionStrategySubpath.OptionStrategy.fromInput, 'function');
   assert.equal(typeof rateSubpath.riskFreeRateForYears, 'function');
   assert.equal(typeof mathAmerican.treePrice, 'function');

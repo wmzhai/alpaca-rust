@@ -1088,6 +1088,25 @@ pub struct MarketStructureAnalysis {
     pub warnings: Vec<String>,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "snake_case")]
+pub enum MarketStructureExposureMode {
+    GexProxy,
+    DealerView,
+}
+
+impl Default for MarketStructureExposureMode {
+    fn default() -> Self {
+        Self::GexProxy
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default, TS)]
+pub struct MarketStructureAnalysisOptions {
+    #[serde(default)]
+    pub mode: MarketStructureExposureMode,
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct PayoffLegInput {
     pub option_right: OptionRight,
