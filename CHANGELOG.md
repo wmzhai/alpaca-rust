@@ -2,9 +2,13 @@
 
 ## Unreleased
 
+## v0.28.0
+
 - Added `dealer_view` market-structure exposure mode alongside the existing `gex_proxy` mode.
 - Added mode-aware market-structure analysis options in the Rust crate and TypeScript package while preserving `gex_proxy` as the default.
 - Changed market-structure call and put wall selection to rank by absolute gamma strength so dealer-view sign reversal does not fall back to open interest.
+- Removed deprecated PDT/DTBP fields from the `alpaca-trade` account and account-configuration models after Alpaca removed them from Trading API responses.
+- Added `crypto_status` to the `alpaca-trade` account model and aligned `alpaca-mock` account responses plus API coverage metadata with the current Trading API schema.
 
 ## v0.27.2
 

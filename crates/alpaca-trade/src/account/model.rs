@@ -7,6 +7,7 @@ pub struct Account {
     pub account_number: String,
     pub status: String,
     pub currency: Option<String>,
+    pub crypto_status: Option<String>,
     #[serde(
         default,
         deserialize_with = "alpaca_core::decimal::deserialize_option_decimal_from_string_or_number"
@@ -37,7 +38,6 @@ pub struct Account {
         deserialize_with = "alpaca_core::decimal::deserialize_option_decimal_from_string_or_number"
     )]
     pub pending_transfer_out: Option<Decimal>,
-    pub pattern_day_trader: Option<bool>,
     pub trade_suspended_by_user: Option<bool>,
     pub trading_blocked: Option<bool>,
     pub transfers_blocked: Option<bool>,
@@ -89,18 +89,12 @@ pub struct Account {
         deserialize_with = "alpaca_core::decimal::deserialize_option_decimal_from_string_or_number"
     )]
     pub sma: Option<Decimal>,
-    pub daytrade_count: Option<i64>,
     pub balance_asof: Option<String>,
     #[serde(
         default,
         deserialize_with = "alpaca_core::decimal::deserialize_option_decimal_from_string_or_number"
     )]
     pub last_maintenance_margin: Option<Decimal>,
-    #[serde(
-        default,
-        deserialize_with = "alpaca_core::decimal::deserialize_option_decimal_from_string_or_number"
-    )]
-    pub daytrading_buying_power: Option<Decimal>,
     #[serde(
         default,
         deserialize_with = "alpaca_core::decimal::deserialize_option_decimal_from_string_or_number"

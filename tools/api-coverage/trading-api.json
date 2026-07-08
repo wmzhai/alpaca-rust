@@ -57,9 +57,8 @@
           "buying_power|string",
           "cash|string",
           "created_at|string",
+          "crypto_status|string",
           "currency|string",
-          "daytrade_count|integer",
-          "daytrading_buying_power|string",
           "equity|string",
           "id|string",
           "initial_margin|string",
@@ -73,7 +72,6 @@
           "options_approved_level|integer|enum=0,1,2,3",
           "options_buying_power|string",
           "options_trading_level|integer|enum=0,1,2,3",
-          "pattern_day_trader|boolean",
           "pending_reg_taf_fees|string",
           "pending_transfer_in|string",
           "pending_transfer_out|string",
@@ -151,12 +149,10 @@
         "status": "200",
         "field_signatures": [
           "disable_overnight_trading|boolean",
-          "dtbp_check|string|enum=both,entry,exit",
           "fractional_trading|boolean",
           "max_margin_multiplier|string",
           "max_options_trading_level|integer|enum=0,1,2,3",
           "no_shorting|boolean",
-          "pdt_check|string",
           "ptp_no_exception_entry|boolean",
           "suspend_trade|boolean",
           "trade_confirm_email|string"
@@ -172,12 +168,10 @@
       "parameter_contract": {
         "signatures": [
           "disable_overnight_trading|body|optional|boolean",
-          "dtbp_check|body|optional|string|enum=both,entry,exit",
           "fractional_trading|body|optional|boolean",
           "max_margin_multiplier|body|optional|string",
           "max_options_trading_level|body|optional|integer|enum=0,1,2,3",
           "no_shorting|body|optional|boolean",
-          "pdt_check|body|optional|string",
           "ptp_no_exception_entry|body|optional|boolean",
           "suspend_trade|body|optional|boolean",
           "trade_confirm_email|body|optional|string"
@@ -187,12 +181,10 @@
         "status": "200",
         "field_signatures": [
           "disable_overnight_trading|boolean",
-          "dtbp_check|string|enum=both,entry,exit",
           "fractional_trading|boolean",
           "max_margin_multiplier|string",
           "max_options_trading_level|integer|enum=0,1,2,3",
           "no_shorting|boolean",
-          "pdt_check|string",
           "ptp_no_exception_entry|boolean",
           "suspend_trade|boolean",
           "trade_confirm_email|string"
