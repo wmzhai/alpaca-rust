@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Raised the workspace Rust version and pinned toolchain and GitHub Pages builds to Rust `1.97.0`.
+
 ## v0.28.0
 
 - Added `dealer_view` market-structure exposure mode alongside the existing `gex_proxy` mode.
