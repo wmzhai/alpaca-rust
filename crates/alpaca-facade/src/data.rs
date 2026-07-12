@@ -6,7 +6,7 @@ use crate::{
 use ::chrono::NaiveDateTime;
 use alpaca_data::Client;
 use alpaca_data::cache::{CacheStats as RawCacheStats, CachedClient, StockBarsRequest};
-use alpaca_data::corporate_actions::{CorporateActionType, ListRequest};
+use alpaca_data::corporate_actions::{CorporateActionType, ListRequest, Region};
 use alpaca_data::options::Snapshot as ProviderOptionSnapshot;
 use alpaca_data::stocks::{
     self, BarPoint, BarsRequest, DataFeed, Sort, TimeFrame, preferred_feed as preferred_stock_feed,
@@ -366,6 +366,7 @@ impl AlpacaData {
                 symbols: Some(vec![symbol.to_owned()]),
                 cusips: None,
                 types: Some(vec![CorporateActionType::CashDividend]),
+                region: Some(Region::Us),
                 start: Some(start_date.to_string()),
                 end: Some(end_date.to_string()),
                 ids: None,

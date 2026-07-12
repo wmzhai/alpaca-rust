@@ -52,7 +52,7 @@ Maintainer: Weiming Zhai <wmzhai@gmail.com>
 The current published Rust release line does not implement:
 
 - WebSocket or stream APIs
-- crypto, forex, fixed income, logos, or screener APIs
+- index, crypto, forex, fixed income, logos, or screener APIs
 - Broker API or FIX
 - third-party provider clients
 - application singletons, strategy orchestration, or provider fallback systems
@@ -77,7 +77,7 @@ Use `alpaca-data` for market data:
 
 ```toml
 [dependencies]
-alpaca-data = "0.28.0"
+alpaca-data = "0.29.0"
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
 ```
 
@@ -94,7 +94,7 @@ Use `alpaca-trade` for trading resources:
 
 ```toml
 [dependencies]
-alpaca-trade = "0.28.0"
+alpaca-trade = "0.29.0"
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
 ```
 
@@ -112,8 +112,8 @@ Use `alpaca-facade` for the high-level composition layer:
 
 ```toml
 [dependencies]
-alpaca-facade = "0.28.0"
-alpaca-data = "0.28.0"
+alpaca-facade = "0.29.0"
+alpaca-data = "0.29.0"
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
 ```
 

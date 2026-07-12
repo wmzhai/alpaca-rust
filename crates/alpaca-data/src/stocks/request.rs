@@ -114,6 +114,15 @@ impl BarsRequest {
         query.push_opt("page_token", self.page_token);
         query.finish()
     }
+
+    pub(crate) fn single_symbol(&self) -> Option<String> {
+        normalized_single_stock_symbol(&self.symbols)
+    }
+
+    pub(crate) fn into_single_query(mut self) -> Vec<(String, String)> {
+        self.symbols.clear();
+        self.into_query()
+    }
 }
 
 impl AuctionsRequest {
@@ -134,6 +143,15 @@ impl AuctionsRequest {
         query.push_opt("page_token", self.page_token);
         query.push_opt("sort", self.sort);
         query.finish()
+    }
+
+    pub(crate) fn single_symbol(&self) -> Option<String> {
+        normalized_single_stock_symbol(&self.symbols)
+    }
+
+    pub(crate) fn into_single_query(mut self) -> Vec<(String, String)> {
+        self.symbols.clear();
+        self.into_query()
     }
 }
 
@@ -156,6 +174,15 @@ impl QuotesRequest {
         query.push_opt("page_token", self.page_token);
         query.finish()
     }
+
+    pub(crate) fn single_symbol(&self) -> Option<String> {
+        normalized_single_stock_symbol(&self.symbols)
+    }
+
+    pub(crate) fn into_single_query(mut self) -> Vec<(String, String)> {
+        self.symbols.clear();
+        self.into_query()
+    }
 }
 
 impl TradesRequest {
@@ -177,6 +204,15 @@ impl TradesRequest {
         query.push_opt("page_token", self.page_token);
         query.finish()
     }
+
+    pub(crate) fn single_symbol(&self) -> Option<String> {
+        normalized_single_stock_symbol(&self.symbols)
+    }
+
+    pub(crate) fn into_single_query(mut self) -> Vec<(String, String)> {
+        self.symbols.clear();
+        self.into_query()
+    }
 }
 
 impl LatestBarsRequest {
@@ -186,6 +222,15 @@ impl LatestBarsRequest {
 
     pub(crate) fn into_query(self) -> Vec<(String, String)> {
         latest_batch_query(self.symbols, self.feed, self.currency)
+    }
+
+    pub(crate) fn single_symbol(&self) -> Option<String> {
+        normalized_single_stock_symbol(&self.symbols)
+    }
+
+    pub(crate) fn into_single_query(mut self) -> Vec<(String, String)> {
+        self.symbols.clear();
+        self.into_query()
     }
 }
 
@@ -197,6 +242,15 @@ impl LatestQuotesRequest {
     pub(crate) fn into_query(self) -> Vec<(String, String)> {
         latest_batch_query(self.symbols, self.feed, self.currency)
     }
+
+    pub(crate) fn single_symbol(&self) -> Option<String> {
+        normalized_single_stock_symbol(&self.symbols)
+    }
+
+    pub(crate) fn into_single_query(mut self) -> Vec<(String, String)> {
+        self.symbols.clear();
+        self.into_query()
+    }
 }
 
 impl LatestTradesRequest {
@@ -207,6 +261,15 @@ impl LatestTradesRequest {
     pub(crate) fn into_query(self) -> Vec<(String, String)> {
         latest_batch_query(self.symbols, self.feed, self.currency)
     }
+
+    pub(crate) fn single_symbol(&self) -> Option<String> {
+        normalized_single_stock_symbol(&self.symbols)
+    }
+
+    pub(crate) fn into_single_query(mut self) -> Vec<(String, String)> {
+        self.symbols.clear();
+        self.into_query()
+    }
 }
 
 impl SnapshotsRequest {
@@ -216,6 +279,15 @@ impl SnapshotsRequest {
 
     pub(crate) fn into_query(self) -> Vec<(String, String)> {
         latest_batch_query(self.symbols, self.feed, self.currency)
+    }
+
+    pub(crate) fn single_symbol(&self) -> Option<String> {
+        normalized_single_stock_symbol(&self.symbols)
+    }
+
+    pub(crate) fn into_single_query(mut self) -> Vec<(String, String)> {
+        self.symbols.clear();
+        self.into_query()
     }
 }
 
@@ -299,6 +371,19 @@ fn normalized_stock_symbols(symbols: &[String]) -> Vec<String> {
         .iter()
         .map(|symbol| normalized_stock_symbol(symbol))
         .collect()
+}
+
+fn normalized_single_stock_symbol(symbols: &[String]) -> Option<String> {
+    (symbols.len() == 1).then(|| encoded_stock_path_segment(&normalized_stock_symbol(&symbols[0])))
+}
+
+fn encoded_stock_path_segment(symbol: &str) -> String {
+    let mut url = reqwest::Url::parse("https://example.invalid/")
+        .expect("constant stock path encoding URL should parse");
+    url.path_segments_mut()
+        .expect("constant stock path encoding URL should support path segments")
+        .push(symbol);
+    url.path().trim_start_matches('/').to_owned()
 }
 
 fn validate_limit(limit: Option<u32>, min: u32, max: u32) -> Result<(), Error> {

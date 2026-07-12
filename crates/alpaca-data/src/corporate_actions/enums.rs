@@ -9,6 +9,31 @@ pub enum Sort {
     Desc,
 }
 
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
+pub enum Region {
+    #[default]
+    Us,
+    NonUs,
+    All,
+}
+
+impl Region {
+    #[must_use]
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Self::Us => "us",
+            Self::NonUs => "non_us",
+            Self::All => "all",
+        }
+    }
+}
+
+impl Display for Region {
+    fn fmt(&self, formatter: &mut Formatter<'_>) -> fmt::Result {
+        formatter.write_str(self.as_str())
+    }
+}
+
 impl Display for Sort {
     fn fmt(&self, formatter: &mut Formatter<'_>) -> fmt::Result {
         formatter.write_str(match self {
@@ -34,6 +59,8 @@ pub enum CorporateActionType {
     NameChange,
     WorthlessRemoval,
     RightsDistribution,
+    PartialCall,
+    Reorganization,
 }
 
 impl CorporateActionType {
@@ -53,6 +80,8 @@ impl CorporateActionType {
             Self::NameChange => "name_change",
             Self::WorthlessRemoval => "worthless_removal",
             Self::RightsDistribution => "rights_distribution",
+            Self::PartialCall => "partial_call",
+            Self::Reorganization => "reorganization",
         }
     }
 }
@@ -61,4 +90,18 @@ impl Display for CorporateActionType {
     fn fmt(&self, formatter: &mut Formatter<'_>) -> fmt::Result {
         formatter.write_str(self.as_str())
     }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum CashDividendSubType {
+    Interest,
+    ReturnOfCapital,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum PartialCallLotteryType {
+    Original,
+    Supplemental,
 }

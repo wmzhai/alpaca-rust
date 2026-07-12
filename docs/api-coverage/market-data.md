@@ -5,7 +5,7 @@ This document is the public companion for `tools/api-coverage/market-data-api.js
 ## Scope
 
 - Included: Alpaca Market Data HTTP API families used by the first US-equities-and-options-focused release
-- Excluded: crypto, forex, fixed income, logos, screener, stream, websocket
+- Excluded or deferred: crypto, forex, fixed income, index, logos, screener, stream, websocket
 
 ## Adopted Families
 
@@ -18,7 +18,7 @@ This document is the public companion for `tools/api-coverage/market-data-api.js
 
 Summary from `tools/api-coverage/market-data-api.json`:
 
-- official total operations: `47`
+- official total operations: `50`
 - adopted-family total operations: `28`
 - implemented mirror operations: `28`
 - open adopted-scope mirror gaps: `0`
@@ -53,6 +53,7 @@ Implemented adopted single-endpoint families:
 - crypto market data
 - forex market data
 - fixed income market data
+- index data, deferred to `optworks#173` until the Paper entitlement can verify the real API
 - logos
 - screener
 - stream and websocket APIs
@@ -64,6 +65,8 @@ This is the current path-aware and contract-aware coverage-audit baseline for `a
 - The machine-readable manifest exists.
 - The audit entrypoint exists.
 - Path-level adopted-family coverage checks are wired.
+- Conditional single-symbol route dispatch is checked inside each declared method's actual `single_symbol` branch.
 - Parameter-level and response-level drift checks are wired against the current manifest contract snapshots.
+- Corporate Actions additionally checks the 15 action types plus required-field and nullability paths.
 - Planned gaps and untracked official families are surfaced.
 - Explicit exclusions are tracked in the manifest instead of being left as silent unknowns.

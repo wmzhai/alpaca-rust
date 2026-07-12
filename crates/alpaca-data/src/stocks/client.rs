@@ -7,6 +7,10 @@ use serde::de::DeserializeOwned;
 
 use crate::{Error, client::ClientInner, pagination};
 
+use super::response::{
+    AuctionSingleResponse, BarSingleResponse, LatestBarSingleResponse, LatestQuoteSingleResponse,
+    LatestTradeSingleResponse, QuoteSingleResponse, SnapshotSingleResponse, TradeSingleResponse,
+};
 use super::{
     AuctionsRequest, AuctionsResponse, BarsRequest, BarsResponse, ConditionCodesRequest,
     ConditionCodesResponse, ExchangeCodesResponse, LatestBarsRequest, LatestBarsResponse,
@@ -27,6 +31,18 @@ impl StocksClient {
 
     pub async fn bars(&self, request: BarsRequest) -> Result<BarsResponse, Error> {
         request.validate()?;
+        if let Some(symbol) = request.single_symbol() {
+            let path = format!("/v2/stocks/{symbol}/bars");
+            let response = self
+                .get_json::<BarSingleResponse>(
+                    "stocks.bar_single",
+                    path,
+                    request.into_single_query(),
+                )
+                .await?;
+            return Ok(response.into());
+        }
+
         self.get_json("stocks.bars", "/v2/stocks/bars", request.into_query())
             .await
     }
@@ -42,6 +58,18 @@ impl StocksClient {
 
     pub async fn auctions(&self, request: AuctionsRequest) -> Result<AuctionsResponse, Error> {
         request.validate()?;
+        if let Some(symbol) = request.single_symbol() {
+            let path = format!("/v2/stocks/{symbol}/auctions");
+            let response = self
+                .get_json::<AuctionSingleResponse>(
+                    "stocks.auction_single",
+                    path,
+                    request.into_single_query(),
+                )
+                .await?;
+            return Ok(response.into());
+        }
+
         self.get_json(
             "stocks.auctions",
             "/v2/stocks/auctions",
@@ -61,6 +89,18 @@ impl StocksClient {
 
     pub async fn quotes(&self, request: QuotesRequest) -> Result<QuotesResponse, Error> {
         request.validate()?;
+        if let Some(symbol) = request.single_symbol() {
+            let path = format!("/v2/stocks/{symbol}/quotes");
+            let response = self
+                .get_json::<QuoteSingleResponse>(
+                    "stocks.quote_single",
+                    path,
+                    request.into_single_query(),
+                )
+                .await?;
+            return Ok(response.into());
+        }
+
         self.get_json("stocks.quotes", "/v2/stocks/quotes", request.into_query())
             .await
     }
@@ -76,6 +116,18 @@ impl StocksClient {
 
     pub async fn trades(&self, request: TradesRequest) -> Result<TradesResponse, Error> {
         request.validate()?;
+        if let Some(symbol) = request.single_symbol() {
+            let path = format!("/v2/stocks/{symbol}/trades");
+            let response = self
+                .get_json::<TradeSingleResponse>(
+                    "stocks.trade_single",
+                    path,
+                    request.into_single_query(),
+                )
+                .await?;
+            return Ok(response.into());
+        }
+
         self.get_json("stocks.trades", "/v2/stocks/trades", request.into_query())
             .await
     }
@@ -94,6 +146,18 @@ impl StocksClient {
         request: LatestBarsRequest,
     ) -> Result<LatestBarsResponse, Error> {
         request.validate()?;
+        if let Some(symbol) = request.single_symbol() {
+            let path = format!("/v2/stocks/{symbol}/bars/latest");
+            let response = self
+                .get_json::<LatestBarSingleResponse>(
+                    "stocks.latest_bar",
+                    path,
+                    request.into_single_query(),
+                )
+                .await?;
+            return Ok(response.into());
+        }
+
         self.get_json(
             "stocks.latest_bars",
             "/v2/stocks/bars/latest",
@@ -107,6 +171,18 @@ impl StocksClient {
         request: LatestQuotesRequest,
     ) -> Result<LatestQuotesResponse, Error> {
         request.validate()?;
+        if let Some(symbol) = request.single_symbol() {
+            let path = format!("/v2/stocks/{symbol}/quotes/latest");
+            let response = self
+                .get_json::<LatestQuoteSingleResponse>(
+                    "stocks.latest_quote",
+                    path,
+                    request.into_single_query(),
+                )
+                .await?;
+            return Ok(response.into());
+        }
+
         self.get_json(
             "stocks.latest_quotes",
             "/v2/stocks/quotes/latest",
@@ -120,6 +196,18 @@ impl StocksClient {
         request: LatestTradesRequest,
     ) -> Result<LatestTradesResponse, Error> {
         request.validate()?;
+        if let Some(symbol) = request.single_symbol() {
+            let path = format!("/v2/stocks/{symbol}/trades/latest");
+            let response = self
+                .get_json::<LatestTradeSingleResponse>(
+                    "stocks.latest_trade",
+                    path,
+                    request.into_single_query(),
+                )
+                .await?;
+            return Ok(response.into());
+        }
+
         self.get_json(
             "stocks.latest_trades",
             "/v2/stocks/trades/latest",
@@ -130,6 +218,18 @@ impl StocksClient {
 
     pub async fn snapshots(&self, request: SnapshotsRequest) -> Result<SnapshotsResponse, Error> {
         request.validate()?;
+        if let Some(symbol) = request.single_symbol() {
+            let path = format!("/v2/stocks/{symbol}/snapshot");
+            let response = self
+                .get_json::<SnapshotSingleResponse>(
+                    "stocks.snapshot",
+                    path,
+                    request.into_single_query(),
+                )
+                .await?;
+            return Ok(response.into());
+        }
+
         self.get_json(
             "stocks.snapshots",
             "/v2/stocks/snapshots",

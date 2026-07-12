@@ -17,6 +17,7 @@ let actions = client
     .corporate_actions()
     .list(corporate_actions::ListRequest {
         symbols: Some(vec!["AAPL".into()]),
+        region: Some(corporate_actions::Region::Us),
         start: Some("2026-01-01".into()),
         end: Some("2026-12-31".into()),
         ..corporate_actions::ListRequest::default()
@@ -31,6 +32,8 @@ let actions = client
 - `ids` cannot be combined with the other official filter fields
 - `symbols`, `cusips`, and `ids` must be non-empty when provided
 - `symbols` are normalized through the stock display-symbol rules before the SDK sends the request
+- `region` supports `us`, `non_us`, and `all`; Alpaca defaults omitted regions to `us`
+- all 15 official action types are typed, including `PartialCall`, `Reorganization`, and nested `ReorganizationStockMovement`
 - `list_all` only expands pagination; it does not reinterpret the official payload
 
 ## Not Implemented Here

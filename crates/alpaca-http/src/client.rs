@@ -118,10 +118,11 @@ impl HttpClient {
         let started_at = Instant::now();
 
         loop {
+            let observed_url = url_with_query(&url, request.query());
             self.observer.on_request_start(&RequestStart {
                 operation: request.operation().map(ToOwned::to_owned),
                 method: request.method(),
-                url: url.clone(),
+                url: observed_url,
             });
 
             let request_builder = self.build_request(&url, request, authenticator)?;
@@ -274,6 +275,19 @@ impl HttpClient {
 
         Ok(builder)
     }
+}
+
+fn url_with_query(url: &str, query: &[(String, String)]) -> String {
+    if query.is_empty() {
+        return url.to_owned();
+    }
+    let Ok(mut parsed) = reqwest::Url::parse(url) else {
+        return url.to_owned();
+    };
+    parsed
+        .query_pairs_mut()
+        .extend_pairs(query.iter().map(|(key, value)| (key, value)));
+    parsed.into()
 }
 
 impl Default for HttpClientBuilder {

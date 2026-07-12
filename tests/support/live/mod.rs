@@ -14,7 +14,10 @@ pub use env::{
     TRADE_SECRET_KEY_ENV, TradeServiceConfig, workspace_root_from_manifest_dir,
 };
 pub use error::SupportError;
-pub use http::{JsonProbeResponse, LiveHttpProbe};
+pub use http::{
+    JsonProbeResponse, LiveHttpProbe, LiveRequestObserver, observed_query, observed_query_value,
+    observed_request_lines, unique_observed_requests,
+};
 pub use options::{
     DayWindow, ObservedOptionContract, OptionContractType, discover_active_option_contract,
     discover_option_contracts, full_day_window_from_timestamp, parse_occ_option_symbol,

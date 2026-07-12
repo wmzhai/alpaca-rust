@@ -44,7 +44,7 @@ let response = client
 # Ok::<(), alpaca_data::Error>(())
 ```
 
-Use batch latest endpoints directly, even for a single symbol:
+Use the canonical latest methods for either one or multiple symbols:
 
 ```rust
 use alpaca_data::{Client, stocks};
@@ -65,6 +65,14 @@ let latest = client
 
 - historical multi-symbol endpoints require a non-empty `symbols` list
 - latest and snapshot reads also use the canonical batch request types, including single-symbol calls
+- `latest_bars` dispatches one-symbol requests to the official `/v2/stocks/{symbol}/bars/latest` route and normalizes the wire response back into `LatestBarsResponse`
+- `bars` / `bars_all` dispatch one-symbol requests and pagination to `/v2/stocks/{symbol}/bars`, while multi-symbol requests continue to use `/v2/stocks/bars`
+- `latest_quotes` dispatches one-symbol requests to `/v2/stocks/{symbol}/quotes/latest` and preserves the canonical map response
+- `quotes` / `quotes_all` dispatch one-symbol requests and pagination to `/v2/stocks/{symbol}/quotes`, while multi-symbol requests continue to use `/v2/stocks/quotes`
+- `latest_trades` dispatches one-symbol requests to `/v2/stocks/{symbol}/trades/latest` and preserves the canonical map response
+- `trades` / `trades_all` dispatch one-symbol requests and pagination to `/v2/stocks/{symbol}/trades`, while multi-symbol requests continue to use `/v2/stocks/trades`
+- `snapshots` dispatches one-symbol requests to `/v2/stocks/{symbol}/snapshot` and normalizes the wire response into the existing symbol-keyed map
+- `auctions` / `auctions_all` dispatch one-symbol requests and pagination to `/v2/stocks/{symbol}/auctions`; the official route only supports the SIP auction feed
 - historical endpoints support `feed`, `sort`, `asof`, `currency`, and pagination where the official route supports them
 - `limit` validation follows the official endpoint contract instead of silently auto-chunking requests
 

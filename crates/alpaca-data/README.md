@@ -101,6 +101,7 @@ It does not own scheduling, business clocks, option-chain enrichment, or IV / Gr
 - crypto
 - forex
 - fixed income
+- index
 - logos
 - screener
 - websocket / stream APIs

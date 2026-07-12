@@ -3,7 +3,7 @@ set -euo pipefail
 
 TOOL_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$TOOL_ROOT/../.." && pwd)"
-OPENAPI_SOURCE="${ALPACA_MARKET_DATA_OPENAPI_URL:-https://docs.alpaca.markets/openapi/market-data-api.json}"
+OPENAPI_SOURCE="${ALPACA_MARKET_DATA_OPENAPI_URL:-https://docs.alpaca.markets/us/openapi/market-data-api.json}"
 MANIFEST_PATH="${ALPACA_MARKET_DATA_MANIFEST_PATH:-$TOOL_ROOT/market-data-api.json}"
 DOCS_PATH="${ALPACA_MARKET_DATA_DOCS_PATH:-$REPO_ROOT/docs/api-coverage/market-data.md}"
 OBSERVED_AT="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
@@ -40,6 +40,7 @@ require_tool sort
 require_tool mktemp
 require_tool date
 require_tool grep
+require_tool awk
 
 if [ ! -f "$MANIFEST_PATH" ]; then
   echo "error: missing market-data manifest at $MANIFEST_PATH" >&2
@@ -60,12 +61,17 @@ official_adopted_ops_file="$(mktemp)"
 manifest_covered_ops_file="$(mktemp)"
 manifest_mirror_ops_file="$(mktemp)"
 manifest_mirror_methods_file="$(mktemp)"
+manifest_route_dispatches_file="$(mktemp)"
 missing_contract_ops_file="$(mktemp)"
 stale_mirror_ops_file="$(mktemp)"
 missing_method_defs_file="$(mktemp)"
+missing_route_dispatches_file="$(mktemp)"
 untracked_official_tags_file="$(mktemp)"
 parameter_drift_file="$(mktemp)"
 response_drift_file="$(mktemp)"
+official_ca_schema_contract_file="$(mktemp)"
+manifest_ca_schema_contract_file="$(mktemp)"
+schema_contract_drift_file="$(mktemp)"
 
 cleanup() {
   rm -f \
@@ -78,12 +84,17 @@ cleanup() {
     "$manifest_covered_ops_file" \
     "$manifest_mirror_ops_file" \
     "$manifest_mirror_methods_file" \
+    "$manifest_route_dispatches_file" \
     "$missing_contract_ops_file" \
     "$stale_mirror_ops_file" \
     "$missing_method_defs_file" \
+    "$missing_route_dispatches_file" \
     "$untracked_official_tags_file" \
     "$parameter_drift_file" \
-    "$response_drift_file"
+    "$response_drift_file" \
+    "$official_ca_schema_contract_file" \
+    "$manifest_ca_schema_contract_file" \
+    "$schema_contract_drift_file"
 }
 trap cleanup EXIT
 
@@ -215,6 +226,42 @@ def field_signatures($root; $schema; $path):
       [{path: $path, type: (type_label($resolved) + (if $resolved.enum? != null then "|enum=" + ($resolved.enum | map(scalar_string) | sort | join(",")) else "" end))}]
     end;
 
+def schema_nullable($schema):
+  (($schema.nullable // false) == true)
+  or (($schema.type? | type) == "array" and (($schema.type | index("null")) != null));
+
+def required_field_paths($root; $schema; $path):
+  normalized_schema($root; $schema) as $resolved
+  | if (($resolved.properties? | type) == "object") or ($resolved.additionalProperties? != null) or (type_label($resolved) == "object") then
+      [($resolved.properties // {})
+       | to_entries[]?
+       | .key as $name
+       | (if ($path | length) == 0 then $name else $path + "." + $name end) as $child_path
+       | ((if (($resolved.required // []) | index($name)) != null then [$child_path] else [] end)
+          + required_field_paths($root; .value; $child_path))]
+      | add // []
+    elif ($resolved.items? != null) or (type_label($resolved) == "array") then
+      if $resolved.items? != null then required_field_paths($root; $resolved.items; ($path + "[]")) else [] end
+    else
+      []
+    end;
+
+def nullable_field_paths($root; $schema; $path):
+  normalized_schema($root; $schema) as $resolved
+  | ((if ($path | length) > 0 and schema_nullable($resolved) then [$path] else [] end)
+     + if (($resolved.properties? | type) == "object") or ($resolved.additionalProperties? != null) or (type_label($resolved) == "object") then
+         [($resolved.properties // {})
+          | to_entries[]?
+          | .key as $name
+          | (if ($path | length) == 0 then $name else $path + "." + $name end) as $child_path
+          | nullable_field_paths($root; .value; $child_path)]
+         | add // []
+       elif ($resolved.items? != null) or (type_label($resolved) == "array") then
+         if $resolved.items? != null then nullable_field_paths($root; $resolved.items; ($path + "[]")) else [] end
+       else
+         []
+       end);
+
 def response_contract($root; $operation):
   ($operation.responses // {}) as $responses
   | ([$responses
@@ -274,6 +321,53 @@ extract_response_contract() {
   " "$openapi_file"
 }
 
+extract_corporate_actions_schema_contract() {
+  jq -c "$JQ_LIB
+    . as \$root
+    | \$root.paths[\"/v1/corporate-actions\"].get.responses[\"200\"].content[\"application/json\"].schema as \$schema
+    | {
+        action_types: ([\$root.components.schemas.corporate_actions.properties[]?.items[\"\$ref\"] | split(\"/\")[-1]] | unique | sort),
+        required_field_paths: (required_field_paths(\$root; \$schema; \"\") | unique | sort),
+        nullable_field_paths: (nullable_field_paths(\$root; \$schema; \"\") | unique | sort)
+      }
+  " "$openapi_file"
+}
+
+extract_rust_method_block() {
+  local client_file="$1"
+  local method="$2"
+
+  awk -v signature="pub async fn ${method}(" '
+    index($0, signature) {
+      found = 1
+    }
+    found && index($0, signature) == 0 && $0 ~ /^[[:space:]]*pub async fn [[:alnum:]_]+\(/ {
+      exit
+    }
+    found {
+      print
+    }
+  ' "$client_file"
+}
+
+extract_single_symbol_dispatch_block() {
+  awk '
+    $0 ~ /^[[:space:]]*if let Some\(symbol\) = request\.single_symbol\(\) \{$/ {
+      found = 1
+    }
+    found {
+      print
+    }
+    found && $0 ~ /return Ok\(response\.into\(\)\);/ {
+      returned = 1
+      next
+    }
+    returned && $0 ~ /^[[:space:]]*\}$/ {
+      exit
+    }
+  '
+}
+
 jq -r '
   .paths
   | to_entries[]
@@ -303,6 +397,47 @@ jq -r '
 
 jq -r '.mirror_layer[]? | [.method, .path] | @tsv' "$MANIFEST_PATH" | sort -u >"$manifest_mirror_ops_file"
 jq -r '.mirror_layer[]? | [.path, .local_resource, .mirror_method] | @tsv' "$MANIFEST_PATH" >"$manifest_mirror_methods_file"
+jq -r '
+  .mirror_layer[]?
+  | select(.route_dispatch.kind == "single_symbol")
+  | [
+      .path,
+      .local_resource,
+      .mirror_method,
+      .route_dispatch.operation,
+      .route_dispatch.path_template
+    ]
+  | @tsv
+' "$MANIFEST_PATH" >"$manifest_route_dispatches_file"
+
+extract_corporate_actions_schema_contract >"$official_ca_schema_contract_file"
+jq -c '
+  ([.mirror_layer[]? | select(.method == "GET" and .path == "/v1/corporate-actions") | .schema_contract][0] // {}) as $contract
+  | {
+      action_types: (($contract.action_types // []) | unique | sort),
+      required_field_paths: (($contract.required_field_paths // []) | unique | sort),
+      nullable_field_paths: (($contract.nullable_field_paths // []) | unique | sort)
+    }
+' "$MANIFEST_PATH" >"$manifest_ca_schema_contract_file"
+
+for constraint in action_types required_field_paths nullable_field_paths; do
+  official_constraint_file="$(mktemp)"
+  manifest_constraint_file="$(mktemp)"
+  jq -r --arg constraint "$constraint" '.[$constraint][]?' "$official_ca_schema_contract_file" >"$official_constraint_file"
+  jq -r --arg constraint "$constraint" '.[$constraint][]?' "$manifest_ca_schema_contract_file" >"$manifest_constraint_file"
+
+  while IFS= read -r value; do
+    [ -n "$value" ] || continue
+    printf '%s\tmissing\t%s\n' "$constraint" "$value" >>"$schema_contract_drift_file"
+  done < <(comm -23 "$official_constraint_file" "$manifest_constraint_file")
+
+  while IFS= read -r value; do
+    [ -n "$value" ] || continue
+    printf '%s\tstale\t%s\n' "$constraint" "$value" >>"$schema_contract_drift_file"
+  done < <(comm -13 "$official_constraint_file" "$manifest_constraint_file")
+
+  rm -f "$official_constraint_file" "$manifest_constraint_file"
+done
 
 comm -23 "$official_adopted_ops_file" "$manifest_covered_ops_file" >"$missing_contract_ops_file"
 comm -23 "$manifest_mirror_ops_file" "$official_adopted_ops_file" >"$stale_mirror_ops_file"
@@ -317,6 +452,25 @@ while IFS=$'\t' read -r path resource method; do
     printf '%s\t%s\t%s\t%s\n' "$path" "$resource" "$method" "$client_file" >>"$missing_method_defs_file"
   fi
 done <"$manifest_mirror_methods_file"
+
+while IFS=$'\t' read -r path resource method operation path_template; do
+  [ -n "$path" ] || continue
+  client_file="$REPO_ROOT/crates/alpaca-data/src/$resource/client.rs"
+  method_block=""
+  dispatch_block=""
+  if [ -f "$client_file" ]; then
+    method_block="$(extract_rust_method_block "$client_file" "$method")"
+    dispatch_block="$(printf '%s\n' "$method_block" | extract_single_symbol_dispatch_block)"
+  fi
+  if [ "$path" != "$path_template" ] \
+    || [ -z "$dispatch_block" ] \
+    || ! grep -F "let path = format!(\"$path_template\");" <<<"$dispatch_block" >/dev/null 2>&1 \
+    || ! grep -F "request.into_single_query()" <<<"$dispatch_block" >/dev/null 2>&1 \
+    || ! grep -F "\"$operation\"" <<<"$dispatch_block" >/dev/null 2>&1 \
+    || ! grep -F "return Ok(response.into());" <<<"$dispatch_block" >/dev/null 2>&1; then
+    printf '%s\t%s\t%s\t%s\n' "$path" "$resource" "$method" "$client_file" >>"$missing_route_dispatches_file"
+  fi
+done <"$manifest_route_dispatches_file"
 
 while IFS=$'\t' read -r method path; do
   [ -n "$method" ] || continue
@@ -413,10 +567,12 @@ manifest_planned_gaps="$(jq -r '(.planned_gaps // []) | length' "$MANIFEST_PATH"
 missing_contract_count="$(wc -l <"$missing_contract_ops_file" | tr -d ' ')"
 stale_mirror_count="$(wc -l <"$stale_mirror_ops_file" | tr -d ' ')"
 missing_method_count="$(wc -l <"$missing_method_defs_file" | tr -d ' ')"
+missing_route_dispatch_count="$(wc -l <"$missing_route_dispatches_file" | tr -d ' ')"
 untracked_tag_count="$(wc -l <"$untracked_official_tags_file" | tr -d ' ')"
 parameter_drift_count="$(wc -l <"$parameter_drift_file" | tr -d ' ')"
 response_drift_count="$(wc -l <"$response_drift_file" | tr -d ' ')"
-blocking_count=$((missing_contract_count + stale_mirror_count + missing_method_count + parameter_drift_count + response_drift_count))
+schema_contract_drift_count="$(wc -l <"$schema_contract_drift_file" | tr -d ' ')"
+blocking_count=$((missing_contract_count + stale_mirror_count + missing_method_count + missing_route_dispatch_count + parameter_drift_count + response_drift_count + schema_contract_drift_count))
 
 echo "alpaca-rust market-data coverage audit"
 echo "Official source: $official_title v$official_version"
@@ -434,7 +590,7 @@ echo "- Manifest planned gaps: $manifest_planned_gaps"
 echo
 echo "Findings"
 if [ "$blocking_count" -eq 0 ]; then
-  echo "- No blocking path-level drift detected in market-data coverage."
+  echo "- No blocking contract drift detected in market-data coverage."
 fi
 if [ "$manifest_planned_gaps" -gt 0 ]; then
   echo "- The manifest still records $manifest_planned_gaps planned market-data gap(s) listed below."
@@ -470,6 +626,15 @@ if [ "$missing_method_count" -gt 0 ]; then
   done <"$missing_method_defs_file"
 fi
 
+if [ "$missing_route_dispatch_count" -gt 0 ]; then
+  echo
+  echo "Blocking: single-symbol mirror paths missing explicit source dispatch"
+  while IFS=$'\t' read -r path resource method client_file; do
+    [ -n "$path" ] || continue
+    echo "- $path => ${resource}.${method} needs one single-symbol branch binding its query, path, operation, and canonical conversion in $client_file"
+  done <"$missing_route_dispatches_file"
+fi
+
 if [ "$parameter_drift_count" -gt 0 ]; then
   echo
   echo "Blocking: parameter drift in adopted-family mirror contracts"
@@ -492,6 +657,15 @@ if [ "$response_drift_count" -gt 0 ]; then
       echo "  ${change_kind} response field signature: $signature"
     fi
   done <"$response_drift_file"
+fi
+
+if [ "$schema_contract_drift_count" -gt 0 ]; then
+  echo
+  echo "Blocking: Corporate Actions action-type, required-field, or nullability drift"
+  while IFS=$'\t' read -r constraint change_kind value; do
+    [ -n "$value" ] || continue
+    echo "- ${change_kind} ${constraint}: $value"
+  done <"$schema_contract_drift_file"
 fi
 
 if [ "$manifest_planned_gaps" -gt 0 ]; then
@@ -517,8 +691,14 @@ fi
 if [ "$missing_method_count" -gt 0 ]; then
   echo "- Implement or remove any market-data mirror entries whose source methods do not exist."
 fi
+if [ "$missing_route_dispatch_count" -gt 0 ]; then
+  echo "- Implement the declared single-symbol route dispatch instead of relying on a shared method name alone."
+fi
 if [ "$parameter_drift_count" -gt 0 ] || [ "$response_drift_count" -gt 0 ]; then
   echo "- Refresh parameter and response contracts for any adopted market-data mirrors that drifted from the current official OpenAPI."
+fi
+if [ "$schema_contract_drift_count" -gt 0 ]; then
+  echo "- Refresh the Corporate Actions action-type, required-field, and nullability contract."
 fi
 if [ "$manifest_planned_gaps" -gt 0 ]; then
   echo "- Use the listed planned gaps as the initial market-data implementation backlog."

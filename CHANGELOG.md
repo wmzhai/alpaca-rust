@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+## v0.29.0
+
+- Aligned the adopted surface with Alpaca Market Data API `1.1`, including conditional dispatch to all eight single-symbol stock routes while preserving the canonical public request and response APIs.
+- Expanded Corporate Actions with typed regions, all 15 action types, currency, ISIN, subtype, partial-call, reorganization, and nested stock-movement fields plus complete pagination merging.
+- Strengthened Market Data coverage auditing and real Paper-key integration tests, while deferring Index endpoints until the required entitlement is available.
 - Raised the workspace Rust version and pinned toolchain and GitHub Pages builds to Rust `1.97.0`.
 
 ## v0.28.0

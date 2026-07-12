@@ -3,13 +3,14 @@ use alpaca_core::{QueryWriter, pagination::PaginatedRequest};
 use crate::Error;
 use crate::symbols::display_stock_symbol;
 
-use super::{CorporateActionType, Sort};
+use super::{CorporateActionType, Region, Sort};
 
 #[derive(Clone, Debug, Default)]
 pub struct ListRequest {
     pub symbols: Option<Vec<String>>,
     pub cusips: Option<Vec<String>>,
     pub types: Option<Vec<CorporateActionType>>,
+    pub region: Option<Region>,
     pub start: Option<String>,
     pub end: Option<String>,
     pub ids: Option<Vec<String>>,
@@ -37,6 +38,7 @@ impl ListRequest {
             && (self.symbols.is_some()
                 || self.cusips.is_some()
                 || self.types.is_some()
+                || self.region.is_some()
                 || self.start.is_some()
                 || self.end.is_some())
         {
@@ -65,6 +67,7 @@ impl ListRequest {
         if let Some(types) = self.types {
             query.push_csv("types", types.into_iter().map(|value| value.to_string()));
         }
+        query.push_opt("region", self.region);
         query.push_opt("start", self.start);
         query.push_opt("end", self.end);
         if let Some(ids) = self.ids {
@@ -127,6 +130,7 @@ mod tests {
             symbols: Some(vec![" brk/b ".to_owned(), "aapl".to_owned()]),
             cusips: None,
             types: Some(vec![CorporateActionType::CashDividend]),
+            region: None,
             start: Some("2025-01-01".to_owned()),
             end: Some("2025-01-31".to_owned()),
             ids: None,
