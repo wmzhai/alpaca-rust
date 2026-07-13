@@ -69,11 +69,37 @@ impl OrdersClient {
         request: CreateRequest,
         target: WaitFor,
     ) -> Result<ResolvedOrder, Error> {
-        let created = self.create(request).await?;
-        Ok(ResolvedOrder {
-            order: self.wait_for(&created.id, target).await?,
-            recovered_after_request_error: false,
-        })
+        let recovery_request = request.clone();
+        match self.create(request).await {
+            Ok(created) => Ok(ResolvedOrder {
+                order: self.wait_for(&created.id, target).await?,
+                recovered_after_request_error: false,
+            }),
+            Err(error) => match self
+                .recover_create_by_client_order_id(&recovery_request, target)
+                .await?
+            {
+                Some(order) => Ok(ResolvedOrder {
+                    order,
+                    recovered_after_request_error: true,
+                }),
+                None => Err(error),
+            },
+        }
+    }
+
+    pub(crate) async fn recover_created_once(
+        &self,
+        request: &CreateRequest,
+        target: WaitFor,
+    ) -> Result<Option<ResolvedOrder>, Error> {
+        let Some(order) = self.find_created_by_client_order_id(request).await? else {
+            return Ok(None);
+        };
+        Ok(Some(ResolvedOrder {
+            order: self.wait_for(&order.id, target).await?,
+            recovered_after_request_error: true,
+        }))
     }
 
     pub async fn get_effective(&self, order_id: &str) -> Result<Order, Error> {
@@ -192,6 +218,118 @@ impl OrdersClient {
 
         Ok(None)
     }
+
+    async fn recover_create_by_client_order_id(
+        &self,
+        request: &CreateRequest,
+        target: WaitFor,
+    ) -> Result<Option<Order>, Error> {
+        if request.client_order_id.is_none() {
+            return Ok(None);
+        }
+
+        for attempt in 1..=DEFAULT_WAIT_ATTEMPTS {
+            if let Some(order) = self.find_created_by_client_order_id(request).await? {
+                return Ok(Some(self.wait_for(&order.id, target).await?));
+            }
+            if attempt < DEFAULT_WAIT_ATTEMPTS {
+                sleep(wait_delay(attempt)).await;
+            }
+        }
+
+        Ok(None)
+    }
+
+    async fn find_created_by_client_order_id(
+        &self,
+        request: &CreateRequest,
+    ) -> Result<Option<Order>, Error> {
+        let Some(client_order_id) = request.client_order_id.as_deref() else {
+            return Ok(None);
+        };
+        match self.get_by_client_order_id(client_order_id).await {
+            Ok(order) => {
+                validate_recovered_create_shape(request, &order)?;
+                Ok(Some(order))
+            }
+            Err(error) if error.meta().is_some_and(|meta| meta.status() == 404) => Ok(None),
+            Err(error) => Err(error),
+        }
+    }
+}
+
+fn validate_recovered_create_shape(request: &CreateRequest, order: &Order) -> Result<(), Error> {
+    let mismatch = |field: &str| {
+        Error::InvalidRequest(format!(
+            "recovered order does not match create request: {field}"
+        ))
+    };
+
+    if request.client_order_id.as_deref() != Some(order.client_order_id.as_str()) {
+        return Err(mismatch("client_order_id"));
+    }
+    if request
+        .symbol
+        .as_ref()
+        .is_some_and(|symbol| symbol != &order.symbol)
+    {
+        return Err(mismatch("symbol"));
+    }
+    if request.qty != order.qty {
+        return Err(mismatch("qty"));
+    }
+    if request.side.is_some_and(|side| side != order.side) {
+        return Err(mismatch("side"));
+    }
+    if request.r#type != Some(order.r#type) {
+        return Err(mismatch("type"));
+    }
+    if request.time_in_force != Some(order.time_in_force) {
+        return Err(mismatch("time_in_force"));
+    }
+    if request.limit_price != order.limit_price {
+        return Err(mismatch("limit_price"));
+    }
+    if request.order_class != Some(order.order_class) {
+        return Err(mismatch("order_class"));
+    }
+    if request
+        .extended_hours
+        .is_some_and(|extended_hours| extended_hours != order.extended_hours)
+    {
+        return Err(mismatch("extended_hours"));
+    }
+    if request
+        .position_intent
+        .is_some_and(|position_intent| Some(position_intent) != order.position_intent)
+    {
+        return Err(mismatch("position_intent"));
+    }
+
+    match (&request.legs, &order.legs) {
+        (None, None) => {}
+        (None, Some(legs)) if legs.is_empty() => {}
+        (Some(expected), Some(actual)) if expected.len() == actual.len() => {
+            let mut matched = vec![false; actual.len()];
+            for expected_leg in expected {
+                let Some((index, _)) = actual.iter().enumerate().find(|(index, actual_leg)| {
+                    !matched[*index]
+                        && actual_leg.symbol == expected_leg.symbol
+                        && actual_leg.ratio_qty == Some(expected_leg.ratio_qty)
+                        && expected_leg.side.is_none_or(|side| side == actual_leg.side)
+                        && expected_leg.position_intent.is_none_or(|position_intent| {
+                            Some(position_intent) == actual_leg.position_intent
+                        })
+                }) else {
+                    return Err(mismatch("legs"));
+                };
+                matched[index] = true;
+            }
+        }
+        _ => return Err(mismatch("legs")),
+    }
+
+    Ok(())
 }
 
 fn wait_delay(attempt: usize) -> Duration {

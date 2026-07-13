@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Added `SubmitOrderRequest` builders for client order IDs and explicit simple-order position intent.
+- Made client-ID creates recoverable after ambiguous request failures with recovered-order shape validation.
+- Made strict recreate transitions require a stable client order ID and preserve parent or nested child fill evidence instead of creating a duplicate replacement.
+
 ## v0.29.0
 
 - Aligned the adopted surface with Alpaca Market Data API `1.1`, including conditional dispatch to all eight single-symbol stock routes while preserving the canonical public request and response APIs.

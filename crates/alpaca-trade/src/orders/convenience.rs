@@ -28,11 +28,14 @@ pub enum SubmitOrderRequest {
         style: SubmitOrderStyle,
         time_in_force: Option<TimeInForce>,
         extended_hours: Option<bool>,
+        position_intent: Option<PositionIntent>,
+        client_order_id: Option<String>,
     },
     Mleg {
         qty: i32,
         style: SubmitOrderStyle,
         legs: Vec<OptionLegRequest>,
+        client_order_id: Option<String>,
     },
 }
 
@@ -348,6 +351,19 @@ impl Order {
     pub fn filled_qty_i32(&self) -> i32 {
         self.filled_qty.trunc().to_i32().unwrap_or(0)
     }
+
+    fn has_fill_evidence(&self) -> bool {
+        self.filled_qty > Decimal::ZERO
+            || self
+                .legs
+                .as_deref()
+                .is_some_and(|legs| legs.iter().any(Self::has_fill_evidence))
+    }
+
+    fn can_recreate_after_cancel(&self, policy: TransitionOrderPolicy) -> bool {
+        self.status == OrderStatus::Canceled
+            && (!matches!(policy, TransitionOrderPolicy::Recreate) || !self.has_fill_evidence())
+    }
 }
 
 impl CloseOptionLeg {
@@ -446,12 +462,46 @@ impl SubmitOrderRequest {
             style,
             time_in_force,
             extended_hours,
+            position_intent: None,
+            client_order_id: None,
         }
     }
 
     #[must_use]
     pub fn mleg(qty: i32, style: SubmitOrderStyle, legs: Vec<OptionLegRequest>) -> Self {
-        Self::Mleg { qty, style, legs }
+        Self::Mleg {
+            qty,
+            style,
+            legs,
+            client_order_id: None,
+        }
+    }
+
+    #[must_use]
+    pub fn with_client_order_id(mut self, client_order_id: impl Into<String>) -> Self {
+        match &mut self {
+            Self::Simple {
+                client_order_id: current,
+                ..
+            }
+            | Self::Mleg {
+                client_order_id: current,
+                ..
+            } => *current = Some(client_order_id.into()),
+        }
+        self
+    }
+
+    #[must_use]
+    pub fn with_position_intent(mut self, position_intent: PositionIntent) -> Self {
+        if let Self::Simple {
+            position_intent: current,
+            ..
+        } = &mut self
+        {
+            *current = Some(position_intent);
+        }
+        self
     }
 
     #[must_use]
@@ -486,8 +536,33 @@ impl SubmitOrderRequest {
                 style,
                 time_in_force,
                 extended_hours,
-            } => CreateRequest::simple(&symbol, qty, side, style, time_in_force, extended_hours),
-            Self::Mleg { qty, style, legs } => CreateRequest::mleg(qty, style, legs),
+                position_intent,
+                client_order_id,
+            } => {
+                let mut request = CreateRequest::simple(
+                    &symbol,
+                    qty,
+                    side,
+                    style,
+                    time_in_force,
+                    extended_hours,
+                )?;
+                request.position_intent = position_intent;
+                request.client_order_id = client_order_id;
+                request.validate()?;
+                Ok(request)
+            }
+            Self::Mleg {
+                qty,
+                style,
+                legs,
+                client_order_id,
+            } => {
+                let mut request = CreateRequest::mleg(qty, style, legs)?;
+                request.client_order_id = client_order_id;
+                request.validate()?;
+                Ok(request)
+            }
         }
     }
 
@@ -779,16 +854,35 @@ impl OrdersClient {
     ) -> Result<TransitionResolution, Error> {
         let current_order = self.get_effective(order_id).await?;
         if request.requires_recreate(&current_order, policy) {
+            let wait_for = request.default_wait_for();
+            let create_request = request.clone().into_create_request()?;
+            if matches!(policy, TransitionOrderPolicy::Recreate) {
+                if create_request.client_order_id.is_none() {
+                    return Err(Error::InvalidRequest(
+                        "recreate transition requires client_order_id".to_owned(),
+                    ));
+                }
+                if let Some(recovered) =
+                    self.recover_created_once(&create_request, wait_for).await?
+                {
+                    return Ok(TransitionResolution::NewOrder {
+                        resolved: recovered,
+                        recreated: true,
+                    });
+                }
+            }
+
             let canceled = self.cancel_resolved(&current_order.id).await?;
-            if canceled.order.status != OrderStatus::Canceled {
+            if !canceled.order.can_recreate_after_cancel(policy) {
                 return Ok(TransitionResolution::OriginalOrderTerminal(canceled));
             }
 
-            let recreated = self.submit_resolved(request, None).await?;
+            let recreated = self.create_resolved(create_request, wait_for).await?;
             return Ok(TransitionResolution::NewOrder {
                 resolved: ResolvedOrder {
                     order: recreated.order,
-                    recovered_after_request_error: canceled.recovered_after_request_error,
+                    recovered_after_request_error: canceled.recovered_after_request_error
+                        || recreated.recovered_after_request_error,
                 },
                 recreated: true,
             });
@@ -992,12 +1086,20 @@ mod tests {
             SubmitOrderStyle::Limit {
                 limit_price: Decimal::new(125, 2),
             },
-            vec![OptionLegRequest {
-                symbol: "SPY260424C00550000".to_owned(),
-                ratio_qty: 1,
-                side: Some(OrderSide::Buy),
-                position_intent: Some(PositionIntent::BuyToOpen),
-            }],
+            vec![
+                OptionLegRequest {
+                    symbol: "SPY260424C00550000".to_owned(),
+                    ratio_qty: 1,
+                    side: Some(OrderSide::Buy),
+                    position_intent: Some(PositionIntent::BuyToOpen),
+                },
+                OptionLegRequest {
+                    symbol: "SPY260424C00555000".to_owned(),
+                    ratio_qty: 1,
+                    side: Some(OrderSide::Sell),
+                    position_intent: Some(PositionIntent::SellToOpen),
+                },
+            ],
         );
         assert_eq!(limit.default_wait_for(), WaitFor::Stable);
     }
@@ -1058,6 +1160,8 @@ mod tests {
         assert_eq!(simple.symbol.as_deref(), Some("SPY"));
         assert_eq!(simple.limit_price, Some(Decimal::new(321, 2)));
         assert_eq!(simple.extended_hours, Some(true));
+        assert_eq!(simple.position_intent, None);
+        assert_eq!(simple.client_order_id, None);
 
         let mleg = SubmitOrderRequest::mleg(
             2,
@@ -1082,6 +1186,91 @@ mod tests {
         assert_eq!(mleg.order_class, Some(OrderClass::Mleg));
         assert_eq!(mleg.qty, Some(Decimal::from(2)));
         assert_eq!(mleg.r#type, Some(OrderType::Market));
+        assert_eq!(mleg.client_order_id, None);
+    }
+
+    #[test]
+    fn submit_request_preserves_client_order_id_for_simple_and_mleg() {
+        let simple = SubmitOrderRequest::simple(
+            "SPY",
+            1,
+            OrderSide::Buy,
+            SubmitOrderStyle::Market,
+            None,
+            None,
+        )
+        .with_client_order_id("qty-simple-1")
+        .into_create_request()
+        .expect("simple submit request should preserve client_order_id");
+        assert_eq!(simple.client_order_id.as_deref(), Some("qty-simple-1"));
+
+        let mleg = SubmitOrderRequest::mleg(
+            1,
+            SubmitOrderStyle::Market,
+            vec![
+                OptionLegRequest {
+                    symbol: "SPY260424C00550000".to_owned(),
+                    ratio_qty: 1,
+                    side: Some(OrderSide::Buy),
+                    position_intent: Some(PositionIntent::BuyToOpen),
+                },
+                OptionLegRequest {
+                    symbol: "SPY260424C00555000".to_owned(),
+                    ratio_qty: 1,
+                    side: Some(OrderSide::Sell),
+                    position_intent: Some(PositionIntent::SellToOpen),
+                },
+            ],
+        )
+        .with_client_order_id("qty-mleg-1")
+        .into_create_request()
+        .expect("mleg submit request should preserve client_order_id");
+        assert_eq!(mleg.client_order_id.as_deref(), Some("qty-mleg-1"));
+    }
+
+    #[test]
+    fn simple_submit_request_preserves_explicit_position_intent() {
+        let request = SubmitOrderRequest::simple(
+            "SPY260424C00550000",
+            1,
+            OrderSide::Sell,
+            SubmitOrderStyle::Market,
+            None,
+            None,
+        )
+        .with_position_intent(PositionIntent::SellToClose)
+        .into_create_request()
+        .expect("simple submit request should preserve position_intent");
+
+        assert_eq!(request.position_intent, Some(PositionIntent::SellToClose));
+    }
+
+    #[test]
+    fn canceled_order_with_parent_or_child_fill_cannot_be_recreated() {
+        let parent_fill = Order {
+            status: OrderStatus::Canceled,
+            filled_qty: Decimal::ONE,
+            ..Default::default()
+        };
+        assert!(!parent_fill.can_recreate_after_cancel(TransitionOrderPolicy::Recreate));
+        assert!(parent_fill.can_recreate_after_cancel(TransitionOrderPolicy::Auto));
+
+        let child_fill = Order {
+            status: OrderStatus::Canceled,
+            legs: Some(vec![Order {
+                filled_qty: Decimal::ONE,
+                ..Default::default()
+            }]),
+            ..Default::default()
+        };
+        assert!(!child_fill.can_recreate_after_cancel(TransitionOrderPolicy::Recreate));
+        assert!(child_fill.can_recreate_after_cancel(TransitionOrderPolicy::Auto));
+
+        let zero_fill = Order {
+            status: OrderStatus::Canceled,
+            ..Default::default()
+        };
+        assert!(zero_fill.can_recreate_after_cancel(TransitionOrderPolicy::Recreate));
     }
 
     #[test]
@@ -1141,6 +1330,7 @@ mod tests {
             }],
         );
         assert!(!open_mleg.requires_recreate(&open_mleg_current, TransitionOrderPolicy::Auto));
+        assert!(open_mleg.requires_recreate(&open_mleg_current, TransitionOrderPolicy::Recreate));
     }
 
     #[test]

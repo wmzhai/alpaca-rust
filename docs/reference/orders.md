@@ -33,6 +33,26 @@ Supporting public types include `WaitFor`, `ResolvedOrder`,
 `ReplaceResolution`, `SubmitOrderRequest`, `SubmitOrderStyle`,
 `SubmitOrderPolicy`, `TransitionOrderPolicy`, and `TransitionResolution`.
 
+`SubmitOrderRequest` supports additive builders for caller-owned order identity
+and explicit simple-order intent:
+
+- `with_client_order_id(...)` applies to simple and multi-leg create requests.
+- `with_position_intent(...)` applies an explicit `PositionIntent` to simple
+  requests.
+
+When a create request has a client order ID, `create_resolved` recovers an
+ambiguous create by looking up that ID, validating the recovered order shape,
+and waiting for the requested stable state. A recovered order must match the
+submitted class, quantity, execution fields, legs, ratios, sides, and position
+intents.
+
+`TransitionOrderPolicy::Recreate` is the strict cancel-and-create mode. A
+recreate request must include a stable client order ID so a response-loss retry
+can adopt the same replacement. After cancellation, the transition recursively
+checks the parent and nested child fill quantities; it creates the replacement
+only when all fill evidence is zero. `TransitionOrderPolicy::Auto` keeps its
+existing replace/recreate selection semantics.
+
 ## Typical Request
 
 ```rust
@@ -64,6 +84,7 @@ let order = client
 - symbol-like text fields reject empty or whitespace-only values
 - direct mirror methods preserve the official request shape
 - lifecycle helpers are explicit opt-in conveniences and do not replace the raw order endpoints
+- strict recreate callers own the stable client order ID for each replacement generation
 
 ## Not Implemented Here
 
