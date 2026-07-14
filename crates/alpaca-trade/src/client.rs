@@ -346,6 +346,75 @@ impl ClientInner {
             .map_err(Error::from)
     }
 
+    pub(crate) async fn send_ok_json<T>(
+        &self,
+        request: RequestParts,
+    ) -> Result<HttpResponse<T>, Error>
+    where
+        T: DeserializeOwned,
+    {
+        self.http
+            .send_json_expected(
+                &self.base_url,
+                request,
+                reqwest::StatusCode::OK,
+                Some(&self.auth),
+            )
+            .await
+            .map_err(Error::from)
+    }
+
+    pub(crate) async fn send_multi_status_json<T>(
+        &self,
+        request: RequestParts,
+    ) -> Result<HttpResponse<T>, Error>
+    where
+        T: DeserializeOwned,
+    {
+        self.http
+            .send_json_expected(
+                &self.base_url,
+                request,
+                reqwest::StatusCode::MULTI_STATUS,
+                Some(&self.auth),
+            )
+            .await
+            .map_err(Error::from)
+    }
+
+    pub(crate) async fn send_ok_json_or_empty<T>(
+        &self,
+        request: RequestParts,
+    ) -> Result<HttpResponse<Option<T>>, Error>
+    where
+        T: DeserializeOwned,
+    {
+        self.http
+            .send_json_or_empty_expected(
+                &self.base_url,
+                request,
+                reqwest::StatusCode::OK,
+                Some(&self.auth),
+            )
+            .await
+            .map_err(Error::from)
+    }
+
+    pub(crate) async fn send_ok_empty(
+        &self,
+        request: RequestParts,
+    ) -> Result<HttpResponse<NoContent>, Error> {
+        self.http
+            .send_empty_expected(
+                &self.base_url,
+                request,
+                reqwest::StatusCode::OK,
+                Some(&self.auth),
+            )
+            .await
+            .map_err(Error::from)
+    }
+
     #[allow(dead_code)]
     pub(crate) async fn send_text(
         &self,

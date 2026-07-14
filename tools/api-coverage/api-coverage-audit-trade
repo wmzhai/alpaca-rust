@@ -1,561 +1,710 @@
-#!/usr/bin/env bash
-set -euo pipefail
+#!/usr/bin/env python3
+"""Audit canonical Trading API contracts and their source/mock/network bindings."""
 
-TOOL_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$TOOL_ROOT/../.." && pwd)"
-OPENAPI_SOURCE="${ALPACA_TRADING_OPENAPI_URL:-https://docs.alpaca.markets/openapi/trading-api.json}"
-MANIFEST_PATH="${ALPACA_TRADING_MANIFEST_PATH:-$TOOL_ROOT/trading-api.json}"
-DOCS_PATH="${ALPACA_TRADING_DOCS_PATH:-$REPO_ROOT/docs/api-coverage/trading.md}"
-OBSERVED_AT="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+from __future__ import annotations
 
-if [ "$#" -ne 0 ]; then
-  echo "error: ./tools/api-coverage/api-coverage-audit-trade does not accept command-line arguments" >&2
-  exit 2
-fi
+import json
+import os
+import pathlib
+import re
+import sys
+from typing import Any
 
-require_tool() {
-  if ! command -v "$1" >/dev/null 2>&1; then
-    echo "error: required tool '$1' is not installed" >&2
-    exit 2
-  fi
+sys.dont_write_bytecode = True
+
+from trading_coverage_lib import (  # noqa: E402
+    CANONICAL_OPENAPI_URL,
+    canonical_operation_map,
+    load_openapi,
+    operation_count,
+    sha256,
+)
+
+
+TOOL_ROOT = pathlib.Path(__file__).resolve().parent
+REPO_ROOT = TOOL_ROOT.parent.parent
+OPENAPI_SOURCE = os.environ.get("ALPACA_TRADING_OPENAPI_URL", CANONICAL_OPENAPI_URL)
+MANIFEST_PATH = pathlib.Path(
+    os.environ.get("ALPACA_TRADING_MANIFEST_PATH", TOOL_ROOT / "trading-api.json")
+)
+
+EXPECTED_PENDING = {
+    "optionDoNotExercise",
 }
 
-fetch_openapi() {
-  local source="$1"
-  local destination="$2"
-
-  if [[ "$source" == file://* ]]; then
-    cp "${source#file://}" "$destination"
-  elif [ -f "$source" ]; then
-    cp "$source" "$destination"
-  else
-    curl -fsSL "$source" >"$destination"
-  fi
+HELPER_STATUSES: dict[str, int | str] = {
+    "send_ok_json": 200,
+    "send_ok_json_or_empty": 200,
+    "send_multi_status_json": 207,
+    "send_ok_empty": 200,
+    "send_no_content": 204,
+    "send_json": "any_2xx",
 }
 
-require_tool curl
-require_tool jq
-require_tool comm
-require_tool sort
-require_tool mktemp
-require_tool date
-require_tool grep
 
-if [ ! -f "$MANIFEST_PATH" ]; then
-  echo "error: missing trading manifest at $MANIFEST_PATH" >&2
-  exit 2
-fi
+class Audit:
+    def __init__(self) -> None:
+        self.errors: list[str] = []
 
-if [ ! -f "$DOCS_PATH" ]; then
-  echo "error: missing trading docs at $DOCS_PATH" >&2
-  exit 2
-fi
+    def check(self, condition: bool, message: str) -> None:
+        if not condition:
+            self.errors.append(message)
 
-openapi_file="$(mktemp)"
-official_ops_file="$(mktemp)"
-official_tags_file="$(mktemp)"
-adopted_tags_file="$(mktemp)"
-excluded_tags_file="$(mktemp)"
-excluded_ops_file="$(mktemp)"
-official_adopted_ops_file="$(mktemp)"
-manifest_covered_ops_file="$(mktemp)"
-manifest_mirror_ops_file="$(mktemp)"
-manifest_mirror_methods_file="$(mktemp)"
-missing_contract_ops_file="$(mktemp)"
-stale_mirror_ops_file="$(mktemp)"
-missing_method_defs_file="$(mktemp)"
-untracked_official_tags_file="$(mktemp)"
-parameter_drift_file="$(mktemp)"
-response_drift_file="$(mktemp)"
 
-cleanup() {
-  rm -f \
-    "$openapi_file" \
-    "$official_ops_file" \
-    "$official_tags_file" \
-    "$adopted_tags_file" \
-    "$excluded_tags_file" \
-    "$excluded_ops_file" \
-    "$official_adopted_ops_file" \
-    "$manifest_covered_ops_file" \
-    "$manifest_mirror_ops_file" \
-    "$manifest_mirror_methods_file" \
-    "$missing_contract_ops_file" \
-    "$stale_mirror_ops_file" \
-    "$missing_method_defs_file" \
-    "$untracked_official_tags_file" \
-    "$parameter_drift_file" \
-    "$response_drift_file"
-}
-trap cleanup EXIT
+def _read_json(path: pathlib.Path) -> dict[str, Any]:
+    try:
+        return json.loads(path.read_text())
+    except FileNotFoundError as error:
+        raise SystemExit(f"error: missing trading manifest at {path}") from error
+    except json.JSONDecodeError as error:
+        raise SystemExit(
+            f"error: invalid JSON in trading manifest {path}: {error}"
+        ) from error
 
-fetch_openapi "$OPENAPI_SOURCE" "$openapi_file"
 
-read -r -d '' JQ_LIB <<'JQ' || true
-def pointer_target($root; $ref):
-  ($ref | sub("^#/"; "") | split("/") | map(gsub("~1"; "/") | gsub("~0"; "~")))
-  | reduce .[] as $segment ($root; .[$segment]);
+def _repo_file(relative_path: str) -> pathlib.Path:
+    return REPO_ROOT / relative_path
 
-def deref($root; $node):
-  if ($node | type) == "object" and $node["$ref"]? != null then
-    deref($root; pointer_target($root; $node["$ref"]))
-  else
-    $node
-  end;
 
-def merge_schema($left; $right):
-  ($left * $right)
-  | if ($left.required? != null) or ($right.required? != null) then
-      .required = ((($left.required // []) + ($right.required // [])) | unique | sort)
-    else
-      .
-    end
-  | if ($left.properties? != null) or ($right.properties? != null) then
-      .properties = (($left.properties // {}) * ($right.properties // {}))
-    else
-      .
-    end;
+def _read_repo_file(audit: Audit, relative_path: str) -> str | None:
+    path = _repo_file(relative_path)
+    if not path.is_file():
+        audit.errors.append(f"missing bound source file: {relative_path}")
+        return None
+    return path.read_text()
 
-def normalized_schema($root; $schema):
-  deref($root; $schema) as $resolved
-  | if ($resolved.allOf? | type) == "array" then
-      reduce $resolved.allOf[] as $part (($resolved | del(.allOf)); merge_schema(.; normalized_schema($root; $part)))
-    else
-      $resolved
-    end;
 
-def scalar_string:
-  if . == null then
-    "null"
-  elif type == "string" then
-    .
-  else
-    tostring
-  end;
+def _balanced_block(text: str, start: int, opening: str, closing: str) -> str | None:
+    opening_index = text.find(opening, start)
+    if opening_index < 0:
+        return None
+    depth = 0
+    for index in range(opening_index, len(text)):
+        character = text[index]
+        if character == opening:
+            depth += 1
+        elif character == closing:
+            depth -= 1
+            if depth == 0:
+                return text[start : index + 1]
+    return None
 
-def type_label($schema):
-  if $schema == null then
-    "unknown"
-  elif ($schema.type? | type) == "array" then
-    ($schema.type | map(tostring) | sort | join("|"))
-  elif $schema.type? != null then
-    ($schema.type | tostring)
-  elif $schema.properties? != null or $schema.additionalProperties? != null then
-    "object"
-  elif $schema.items? != null then
-    "array"
-  elif $schema.enum? != null then
-    "string"
-  else
-    "unknown"
-  end;
 
-def parameter_signatures($root; $path_item; $operation):
-  (($path_item.parameters // []) + ($operation.parameters // []))
-  | map(deref($root; .))
-  | unique_by(.name + "|" + .in)
-  | sort_by(.in, .name)
-  | map(
-      normalized_schema($root; .schema) as $schema
-      | [
-          .name,
-          .in,
-          (if .required then "required" else "optional" end),
-          type_label($schema),
-          (if $schema.items? != null then "items=" + type_label(normalized_schema($root; $schema.items)) else empty end),
-          (if $schema.enum? != null then "enum=" + ($schema.enum | map(scalar_string) | sort | join(",")) else empty end),
-          (if $schema.default? != null then "default=" + ($schema.default | scalar_string) else empty end)
-        ]
-      | map(select(length > 0))
-      | join("|")
-    );
-
-def body_signatures($root; $operation):
-  ($operation.requestBody // null) as $request_body
-  | if $request_body == null then
-      []
-    else
-      ($request_body | deref($root; .)) as $resolved_body
-      | (($resolved_body.content["application/json"].schema // ($resolved_body.content | to_entries[0]? | .value.schema) // null)) as $schema
-      | if $schema == null then
-          []
-        else
-          normalized_schema($root; $schema) as $body_schema
-          | [
-              ($body_schema.properties // {})
-              | to_entries[]?
-              | .key as $name
-              | normalized_schema($root; .value) as $field_schema
-              | [
-                  $name,
-                  "body",
-                  (if (($body_schema.required // []) | index($name)) != null then "required" else "optional" end),
-                  type_label($field_schema),
-                  (if $field_schema.items? != null then "items=" + type_label(normalized_schema($root; $field_schema.items)) else empty end),
-                  (if $field_schema.enum? != null then "enum=" + ($field_schema.enum | map(scalar_string) | sort | join(",")) else empty end),
-                  (if $field_schema.default? != null then "default=" + ($field_schema.default | scalar_string) else empty end)
-                ]
-              | map(select(length > 0))
-              | join("|")
-            ]
-          | sort
-        end
-    end;
-
-def field_signatures($root; $schema; $path):
-  normalized_schema($root; $schema) as $resolved
-  | if (($resolved.properties? | type) == "object") or ($resolved.additionalProperties? != null) or (type_label($resolved) == "object") then
-      ((if ($path | length) > 0 then [{path: $path, type: "object"}] else [] end)
-      + ([($resolved.properties // {}) | to_entries[]? | field_signatures($root; .value; (if ($path | length) == 0 then .key else $path + "." + .key end))] | add // [])
-      + (if $resolved.additionalProperties? != null then field_signatures($root; $resolved.additionalProperties; (if ($path | length) == 0 then "*" else $path + ".*" end)) else [] end))
-    elif ($resolved.items? != null) or (type_label($resolved) == "array") then
-      ((if ($path | length) > 0 then [{path: $path, type: "array"}] else [] end)
-      + (if $resolved.items? != null then field_signatures($root; $resolved.items; ($path + "[]")) else [] end))
-    elif ($path | length) == 0 then
-      []
-    else
-      [{path: $path, type: (type_label($resolved) + (if $resolved.enum? != null then "|enum=" + ($resolved.enum | map(scalar_string) | sort | join(",")) else "" end))}]
-    end;
-
-def response_contract($root; $operation):
-  ($operation.responses // {}) as $responses
-  | ([$responses
-      | keys[]
-      | select(test("^[0-9]{3}$"))
-      | tonumber
-      | select(. >= 200 and . < 300)]
-     | sort
-     | .[0]? // "default") as $status_candidate
-  | (if $status_candidate == "default" and $responses["default"] == null then null else ($status_candidate | tostring) end) as $status
-  | if $status == null then
-      {status: null, field_signatures: []}
-    else
-      ($responses[$status] | deref($root; .)) as $response
-      | (($response.content // {}) as $content
-      | ($content["application/json"].schema // ($content | to_entries[0]? | .value.schema) // null)) as $schema
-      | {
-          status: $status,
-          field_signatures: (
-            if $schema == null then
-              []
-            else
-              [field_signatures($root; $schema; "")[] | "\(.path)|\(.type)"] | unique | sort
-            end
-          )
-        }
-    end;
-JQ
-
-extract_parameter_signatures() {
-  local method="$1"
-  local path="$2"
-  jq -r --arg method "$method" --arg path "$path" "$JQ_LIB
-    . as \$root
-    | (\$root.paths[\$path] // empty) as \$path_item
-    | (\$path_item[(\$method | ascii_downcase)] // empty) as \$operation
-      | if \$operation == null then
-        empty
-      else
-        (parameter_signatures(\$root; \$path_item; \$operation) + body_signatures(\$root; \$operation))[]
-      end
-  " "$openapi_file" | sort -u
-}
-
-extract_response_contract() {
-  local method="$1"
-  local path="$2"
-  jq -c --arg method "$method" --arg path "$path" "$JQ_LIB
-    . as \$root
-    | (\$root.paths[\$path] // empty) as \$path_item
-    | (\$path_item[(\$method | ascii_downcase)] // empty) as \$operation
-    | if \$operation == null then
-        {status: null, field_signatures: []}
-      else
-        response_contract(\$root; \$operation)
-      end
-  " "$openapi_file"
-}
-
-jq -r '
-  .paths
-  | to_entries[]
-  | .key as $path
-  | .value
-  | to_entries[]
-  | select(.value | type == "object")
-  | [(.key | ascii_upcase), $path, ((.value.tags // [])[0] // "")]
-  | @tsv
-' "$openapi_file" | sort -u >"$official_ops_file"
-
-cut -f3 "$official_ops_file" | grep -v '^$' | sort -u >"$official_tags_file"
-jq -r '.local.adopted_tags[]?' "$MANIFEST_PATH" | sort -u >"$adopted_tags_file"
-jq -r '.excluded_families[]? | (.tag // .family // empty)' "$MANIFEST_PATH" | sort -u >"$excluded_tags_file"
-jq -r '.excluded_operations[]? | select(.method != null and .path != null) | [.method, .path] | @tsv' "$MANIFEST_PATH" | sort -u >"$excluded_ops_file"
-
-while IFS=$'\t' read -r method path tag; do
-  [ -n "$tag" ] || continue
-  if grep -Fx "$tag" "$adopted_tags_file" >/dev/null 2>&1; then
-    printf '%s\t%s\n' "$method" "$path"
-  fi
-done <"$official_ops_file" | sort -u >"$official_adopted_ops_file"
-
-if [ -s "$excluded_ops_file" ]; then
-  filtered_official_adopted_ops_file="$(mktemp)"
-  comm -23 "$official_adopted_ops_file" "$excluded_ops_file" >"$filtered_official_adopted_ops_file"
-  mv "$filtered_official_adopted_ops_file" "$official_adopted_ops_file"
-fi
-
-jq -r '
-  (.mirror_layer[]? | [.method, .path] | @tsv),
-  (.planned_gaps[]? | select(.method != null and .path != null) | [.method, .path] | @tsv)
-' "$MANIFEST_PATH" | sort -u >"$manifest_covered_ops_file"
-
-jq -r '.mirror_layer[]? | [.method, .path] | @tsv' "$MANIFEST_PATH" | sort -u >"$manifest_mirror_ops_file"
-if [ -s "$excluded_ops_file" ]; then
-  filtered_manifest_covered_ops_file="$(mktemp)"
-  filtered_manifest_mirror_ops_file="$(mktemp)"
-  comm -23 "$manifest_covered_ops_file" "$excluded_ops_file" >"$filtered_manifest_covered_ops_file"
-  comm -23 "$manifest_mirror_ops_file" "$excluded_ops_file" >"$filtered_manifest_mirror_ops_file"
-  mv "$filtered_manifest_covered_ops_file" "$manifest_covered_ops_file"
-  mv "$filtered_manifest_mirror_ops_file" "$manifest_mirror_ops_file"
-fi
-
-jq -r '
-  . as $manifest
-  | .mirror_layer[]? as $entry
-  | select(
-      (($manifest.excluded_operations // [])
-        | any(.method == $entry.method and .path == $entry.path)) | not
+def _function_block(text: str, function_name: str) -> str | None:
+    pattern = re.compile(
+        rf"(?:pub(?:\(crate\))?\s+)?async\s+fn\s+{re.escape(function_name)}\b|"
+        rf"(?:pub(?:\(crate\))?\s+)?fn\s+{re.escape(function_name)}\b"
     )
-  | [$entry.path, $entry.local_resource, $entry.mirror_method]
-  | @tsv
-' "$MANIFEST_PATH" >"$manifest_mirror_methods_file"
+    match = pattern.search(text)
+    if match is None:
+        return None
+    return _balanced_block(text, match.start(), "{", "}")
 
-comm -23 "$official_adopted_ops_file" "$manifest_covered_ops_file" >"$missing_contract_ops_file"
-comm -23 "$manifest_mirror_ops_file" "$official_adopted_ops_file" >"$stale_mirror_ops_file"
 
-while IFS=$'\t' read -r path resource method; do
-  [ -n "$path" ] || continue
-  [ -n "$resource" ] || continue
-  [ -n "$method" ] || continue
+def _type_block(text: str, type_name: str) -> str | None:
+    pattern = re.compile(rf"\bpub\s+(?:struct|enum)\s+{re.escape(type_name)}\b")
+    match = pattern.search(text)
+    if match is None:
+        return None
+    semicolon = text.find(";", match.end())
+    brace = text.find("{", match.end())
+    if semicolon >= 0 and (brace < 0 or semicolon < brace):
+        return text[match.start() : semicolon + 1]
+    return _balanced_block(text, match.start(), "{", "}")
 
-  client_file="$REPO_ROOT/crates/alpaca-trade/src/$resource/client.rs"
-  if [ ! -f "$client_file" ] || ! grep -F "pub async fn ${method}(" "$client_file" >/dev/null 2>&1; then
-    printf '%s\t%s\t%s\t%s\n' "$path" "$resource" "$method" "$client_file" >>"$missing_method_defs_file"
-  fi
-done <"$manifest_mirror_methods_file"
 
-while IFS=$'\t' read -r method path; do
-  [ -n "$method" ] || continue
-  [ -n "$path" ] || continue
-  if ! jq -e --arg method "$method" --arg path "$path" '
-    .paths[$path][($method | ascii_downcase)]? != null
-  ' "$openapi_file" >/dev/null 2>&1; then
-    continue
-  fi
+def _route_block(text: str, path: str) -> str | None:
+    pattern = re.compile(rf"\.route\(\s*{re.escape(json.dumps(path))}\s*,")
+    match = pattern.search(text)
+    if match is None:
+        return None
+    return _balanced_block(text, match.start(), "(", ")")
 
-  official_parameter_file="$(mktemp)"
-  manifest_parameter_file="$(mktemp)"
-  official_response_file="$(mktemp)"
-  manifest_response_file="$(mktemp)"
 
-  extract_parameter_signatures "$method" "$path" >"$official_parameter_file"
-  jq -r --arg method "$method" --arg path "$path" '
-    .mirror_layer[]
-    | select(.method == $method and .path == $path)
-    | .parameter_contract.signatures[]?
-  ' "$MANIFEST_PATH" | sort -u >"$manifest_parameter_file"
+def _compact(text: str) -> str:
+    return re.sub(r"\s+", "", text)
 
-  if ! cmp -s "$manifest_parameter_file" "$official_parameter_file"; then
-    while IFS= read -r signature; do
-      [ -n "$signature" ] || continue
-      printf '%s\t%s\tmissing\t%s\n' "$method" "$path" "$signature" >>"$parameter_drift_file"
-    done < <(comm -23 "$manifest_parameter_file" "$official_parameter_file")
 
-    while IFS= read -r signature; do
-      [ -n "$signature" ] || continue
-      printf '%s\t%s\tadded\t%s\n' "$method" "$path" "$signature" >>"$parameter_drift_file"
-    done < <(comm -13 "$manifest_parameter_file" "$official_parameter_file")
-  fi
+def _normalized_path_template(path: str) -> str:
+    return re.sub(r"\{[^{}]*\}", "{}", path)
 
-  extract_response_contract "$method" "$path" >"$official_response_file"
-  jq -c --arg method "$method" --arg path "$path" '
-    .mirror_layer[]
-    | select(.method == $method and .path == $path)
-    | {
-        status: (.response_contract.status // null),
-        field_signatures: (.response_contract.field_signatures // [])
-      }
-  ' "$MANIFEST_PATH" >"$manifest_response_file"
 
-  official_status="$(jq -r '.status // "null"' "$official_response_file")"
-  manifest_status="$(jq -r '.status // "null"' "$manifest_response_file")"
+def _request_contract_keys(contract: dict[str, Any]) -> set[tuple[str, str]]:
+    keys = {
+        (parameter["in"], parameter["name"]) for parameter in contract["parameters"]
+    }
+    request_body = contract.get("request_body")
+    if request_body is not None:
+        keys.update(("body", field["path"]) for field in request_body.get("fields", []))
+    return keys
 
-  jq -r '.field_signatures[]?' "$official_response_file" | sort -u >"${official_response_file}.fields"
-  jq -r '.field_signatures[]?' "$manifest_response_file" | sort -u >"${manifest_response_file}.fields"
 
-  if [ "$official_status" != "$manifest_status" ]; then
-    printf '%s\t%s\tstatus\tmanifest=%s official=%s\n' "$method" "$path" "$manifest_status" "$official_status" >>"$response_drift_file"
-  fi
+def _bound_request_keys(source_binding: dict[str, Any]) -> set[tuple[str, str]]:
+    keys = {
+        (binding["location"], binding["contract_path"])
+        for binding in source_binding.get("argument_bindings", [])
+    }
+    for model in source_binding.get("request_models", []):
+        keys.update(
+            (model["location"], field["contract_path"])
+            for field in model.get("field_bindings", [])
+        )
+    return keys
 
-  if ! cmp -s "${manifest_response_file}.fields" "${official_response_file}.fields"; then
-    while IFS= read -r signature; do
-      [ -n "$signature" ] || continue
-      printf '%s\t%s\tmissing\t%s\n' "$method" "$path" "$signature" >>"$response_drift_file"
-    done < <(comm -23 "${manifest_response_file}.fields" "${official_response_file}.fields")
 
-    while IFS= read -r signature; do
-      [ -n "$signature" ] || continue
-      printf '%s\t%s\tadded\t%s\n' "$method" "$path" "$signature" >>"$response_drift_file"
-    done < <(comm -13 "${manifest_response_file}.fields" "${official_response_file}.fields")
-  fi
+def _exception_keys(entry: dict[str, Any]) -> set[tuple[str, str]]:
+    return {
+        (exception["location"], exception["path"])
+        for exception in entry.get("contract_exceptions", [])
+        if exception.get("status") == "explicitly_deferred"
+    }
 
-  rm -f \
-    "$official_parameter_file" \
-    "$manifest_parameter_file" \
-    "$official_response_file" \
-    "$manifest_response_file" \
-    "${official_response_file}.fields" \
-    "${manifest_response_file}.fields"
-done <"$manifest_mirror_ops_file"
 
-while IFS= read -r tag; do
-  [ -n "$tag" ] || continue
-  if grep -Fx "$tag" "$adopted_tags_file" >/dev/null 2>&1; then
-    continue
-  fi
-  if grep -Fx "$tag" "$excluded_tags_file" >/dev/null 2>&1; then
-    continue
-  fi
-  printf '%s\n' "$tag"
-done <"$official_tags_file" | sort -u >"$untracked_official_tags_file"
+def _has_option_exercise_response_body_deviation(entry: dict[str, Any]) -> bool:
+    if entry.get("operation_id") != "optionExercise":
+        return False
+    canonical_response = entry.get("contract", {}).get("response", {})
+    if canonical_response.get("status") != 200 or canonical_response.get("schema") is not None:
+        return False
+    return any(
+        deviation.get("location") == "response"
+        and deviation.get("path") == "body"
+        and deviation.get("aspect") == "presence"
+        and deviation.get("canonical") == "empty"
+        and deviation.get("observed") == "json_object"
+        and deviation.get("implemented") == "json_or_empty"
+        and bool(deviation.get("reason"))
+        for deviation in entry.get("observed_contract_deviations", [])
+    )
 
-official_title="$(jq -r '.info.title // .official.title // "unknown"' "$openapi_file")"
-official_version="$(jq -r '.info.version // "unknown"' "$openapi_file")"
-official_total_paths="$(wc -l <"$official_ops_file" | tr -d ' ')"
-official_adopted_total_paths="$(wc -l <"$official_adopted_ops_file" | tr -d ' ')"
-manifest_generated_at="$(jq -r '.generated_at // "unknown"' "$MANIFEST_PATH")"
-manifest_mirror_paths="$(wc -l <"$manifest_mirror_ops_file" | tr -d ' ')"
-manifest_planned_gaps="$(jq -r '(.planned_gaps // []) | length' "$MANIFEST_PATH")"
-excluded_operation_count="$(wc -l <"$excluded_ops_file" | tr -d ' ')"
-missing_contract_count="$(wc -l <"$missing_contract_ops_file" | tr -d ' ')"
-stale_mirror_count="$(wc -l <"$stale_mirror_ops_file" | tr -d ' ')"
-missing_method_count="$(wc -l <"$missing_method_defs_file" | tr -d ' ')"
-untracked_tag_count="$(wc -l <"$untracked_official_tags_file" | tr -d ' ')"
-parameter_drift_count="$(wc -l <"$parameter_drift_file" | tr -d ' ')"
-response_drift_count="$(wc -l <"$response_drift_file" | tr -d ' ')"
-blocking_count=$((missing_contract_count + stale_mirror_count + missing_method_count + parameter_drift_count + response_drift_count))
 
-echo "alpaca-rust trading coverage audit"
-echo "Official source: $official_title v$official_version"
-echo "Official OpenAPI: $OPENAPI_SOURCE"
-echo "Observed at: $OBSERVED_AT"
-echo "Local manifest: $MANIFEST_PATH"
-echo "Manifest generated_at: $manifest_generated_at"
-echo "Coverage docs: $DOCS_PATH"
-echo
-echo "Summary"
-echo "- Official total operations: $official_total_paths"
-echo "- Adopted-scope official operations: $official_adopted_total_paths"
-echo "- Explicitly excluded operations: $excluded_operation_count"
-echo "- Manifest mirror operations in scope: $manifest_mirror_paths"
-echo "- Manifest planned gaps: $manifest_planned_gaps"
-echo
-echo "Findings"
-if [ "$blocking_count" -eq 0 ]; then
-  echo "- No blocking path-level drift detected in trading coverage."
-fi
-if [ "$manifest_planned_gaps" -gt 0 ]; then
-  echo "- The manifest still records $manifest_planned_gaps planned trading gap(s) listed below."
-fi
-if [ "$blocking_count" -eq 0 ] && [ "$manifest_planned_gaps" -eq 0 ] && [ "$untracked_tag_count" -eq 0 ]; then
-  echo "- No additional warnings or planned gaps were detected."
-fi
+def _audit_manifest_metadata(
+    audit: Audit,
+    manifest: dict[str, Any],
+    document: dict[str, Any],
+    payload: bytes,
+    canonical: dict[str, dict[str, Any]],
+) -> None:
+    audit.check(manifest.get("manifest_version") == 2, "manifest_version must be 2")
+    official = manifest.get("official", {})
+    audit.check(
+        official.get("openapi_url") == CANONICAL_OPENAPI_URL,
+        "manifest canonical OpenAPI URL drifted",
+    )
+    audit.check(
+        official.get("fetched_on") == manifest.get("generated_at"),
+        "manifest canonical fetch date is missing or inconsistent",
+    )
+    audit.check(
+        official.get("openapi_version") == document.get("openapi"),
+        "manifest OpenAPI version drifted",
+    )
+    audit.check(
+        official.get("api_version") == document.get("info", {}).get("version"),
+        "manifest API version drifted",
+    )
+    audit.check(
+        official.get("sha256") == sha256(payload),
+        "manifest canonical OpenAPI SHA-256 drifted",
+    )
+    audit.check(
+        official.get("total_operations") == operation_count(document),
+        "manifest official operation count drifted",
+    )
 
-if [ "$missing_contract_count" -gt 0 ]; then
-  echo
-  echo "Blocking: official adopted-family paths missing from the local coverage contract"
-  while IFS=$'\t' read -r method path; do
-    [ -n "$path" ] || continue
-    echo "- $method $path"
-  done <"$missing_contract_ops_file"
-fi
+    entries = manifest.get("mirror_layer", [])
+    entry_ids = [entry.get("operation_id") for entry in entries]
+    audit.check(
+        len(entries) == 38,
+        f"manifest must contain 38 adopted rows, found {len(entries)}",
+    )
+    audit.check(
+        len(entry_ids) == len(set(entry_ids)),
+        "manifest contains duplicate adopted operationId rows",
+    )
 
-if [ "$stale_mirror_count" -gt 0 ]; then
-  echo
-  echo "Blocking: local mirror paths no longer exist in the current official OpenAPI"
-  while IFS=$'\t' read -r method path; do
-    [ -n "$path" ] || continue
-    echo "- $method $path"
-  done <"$stale_mirror_ops_file"
-fi
+    adopted_ids = set(entry_ids)
+    official_ids = set(canonical)
+    excluded_entries = manifest.get("excluded_operations", [])
+    excluded_ids = [entry.get("operation_id") for entry in excluded_entries]
+    audit.check(
+        len(excluded_ids) == len(set(excluded_ids)),
+        "manifest contains duplicate excluded operationId rows",
+    )
+    audit.check(
+        adopted_ids.isdisjoint(excluded_ids),
+        "an operation is both adopted and excluded",
+    )
+    audit.check(
+        adopted_ids | set(excluded_ids) == official_ids,
+        "official operation classification is incomplete or stale",
+    )
 
-if [ "$missing_method_count" -gt 0 ]; then
-  echo
-  echo "Blocking: mirror methods declared in the manifest but missing from source"
-  while IFS=$'\t' read -r path resource method client_file; do
-    [ -n "$path" ] || continue
-    echo "- $path => ${resource}.${method} expected in $client_file"
-  done <"$missing_method_defs_file"
-fi
+    operations_by_tag: dict[str, set[str]] = {}
+    for operation_id, operation in canonical.items():
+        operations_by_tag.setdefault(operation["tag"], set()).add(operation_id)
+    expected_excluded_families = sorted(
+        tag
+        for tag, operation_ids in operations_by_tag.items()
+        if operation_ids and operation_ids <= set(excluded_ids)
+    )
+    excluded_families = manifest.get("excluded_families", [])
+    audit.check(
+        sorted(family.get("tag") for family in excluded_families)
+        == expected_excluded_families,
+        "fully excluded family inventory drifted",
+    )
+    audit.check(
+        all(
+            family.get("status") == "explicitly_excluded"
+            for family in excluded_families
+        ),
+        "excluded family lacks explicit status",
+    )
 
-if [ "$parameter_drift_count" -gt 0 ]; then
-  echo
-  echo "Blocking: parameter drift in adopted-family mirror contracts"
-  while IFS=$'\t' read -r method path change_kind signature; do
-    [ -n "$path" ] || continue
-    echo "- $method $path"
-    echo "  ${change_kind} parameter signature: $signature"
-  done <"$parameter_drift_file"
-fi
+    for excluded in excluded_entries:
+        operation_id = excluded.get("operation_id")
+        official_operation = canonical.get(operation_id)
+        if official_operation is None:
+            audit.errors.append(f"excluded operation no longer exists: {operation_id}")
+            continue
+        for key in ("tag", "method", "path"):
+            audit.check(
+                excluded.get(key) == official_operation.get(key),
+                f"excluded operation binding drift: {operation_id} {key}",
+            )
+        audit.check(
+            excluded.get("status") == "explicitly_excluded",
+            f"excluded operation lacks explicit status: {operation_id}",
+        )
+        audit.check(
+            bool(excluded.get("reason")),
+            f"excluded operation lacks reason: {operation_id}",
+        )
 
-if [ "$response_drift_count" -gt 0 ]; then
-  echo
-  echo "Blocking: response-field drift in adopted-family mirror contracts"
-  while IFS=$'\t' read -r method path change_kind signature; do
-    [ -n "$path" ] || continue
-    echo "- $method $path"
-    if [ "$change_kind" = "status" ]; then
-      echo "  response status drift: $signature"
-    else
-      echo "  ${change_kind} response field signature: $signature"
-    fi
-  done <"$response_drift_file"
-fi
+    adopted_tags = sorted({entry.get("tag") for entry in entries})
+    audit.check(
+        manifest.get("local", {}).get("adopted_tags") == adopted_tags,
+        "adopted tag inventory drifted",
+    )
+    audit.check("Clock" in adopted_tags, "Clock must be an independently adopted tag")
+    audit.check(
+        all(
+            entry.get("tag") == "Clock"
+            for entry in entries
+            if entry.get("operation_id") in {"LegacyClock", "Clock"}
+        ),
+        "Clock operations must not be classified under Calendar",
+    )
 
-if [ "$manifest_planned_gaps" -gt 0 ]; then
-  echo
-  echo "Open planned gaps"
-  jq -r '.planned_gaps[]? | select(.method != null and .path != null) | "- \(.method) \(.path)"' "$MANIFEST_PATH"
-fi
+    statuses = [entry.get("validation", {}).get("status") for entry in entries]
+    pending_ids = {
+        entry.get("operation_id")
+        for entry in entries
+        if entry.get("validation", {}).get("status") == "pending_market_open"
+    }
+    audit.check(
+        pending_ids == EXPECTED_PENDING,
+        f"pending inventory drifted: {sorted(pending_ids)}",
+    )
+    audit.check(
+        statuses.count("closed") == 37, "manifest must contain 37 closed operations"
+    )
+    audit.check(
+        statuses.count("pending_market_open") == 1,
+        "manifest must contain 1 pending operation",
+    )
 
-if [ "$untracked_tag_count" -gt 0 ]; then
-  echo
-  echo "Warning: official resource families not tracked in the manifest"
-  while IFS= read -r tag; do
-    [ -n "$tag" ] || continue
-    echo "- $tag"
-  done <"$untracked_official_tags_file"
-fi
+    expected_summary = {
+        "official_total_operations": len(canonical),
+        "adopted_operations": len(entries),
+        "closed_operations": statuses.count("closed"),
+        "pending_operations": statuses.count("pending_market_open"),
+        "explicitly_excluded_operations": len(excluded_entries),
+    }
+    audit.check(
+        manifest.get("summary") == expected_summary,
+        "manifest summary does not match row-level status",
+    )
 
-echo
-echo "Recommended changes"
-if [ "$missing_contract_count" -gt 0 ] || [ "$stale_mirror_count" -gt 0 ]; then
-  echo "- Refresh the trading coverage manifest so the adopted-family contract matches the current official OpenAPI."
-fi
-if [ "$missing_method_count" -gt 0 ]; then
-  echo "- Implement or remove any trading mirror entries whose source methods do not exist."
-fi
-if [ "$parameter_drift_count" -gt 0 ] || [ "$response_drift_count" -gt 0 ]; then
-  echo "- Refresh parameter and response contracts for any adopted trading mirrors that drifted from the current official OpenAPI."
-fi
-if [ "$manifest_planned_gaps" -gt 0 ]; then
-  echo "- Use the listed planned gaps as the initial trading implementation backlog."
-fi
-if [ "$untracked_tag_count" -gt 0 ]; then
-  echo "- Classify any newly observed official trading families as planned or explicitly excluded."
-fi
 
-if [ "$blocking_count" -gt 0 ]; then
-  exit 1
-fi
+def _audit_source_binding(audit: Audit, entry: dict[str, Any]) -> None:
+    operation_id = entry["operation_id"]
+    closed = entry["validation"]["status"] == "closed"
+    binding = entry.get("source_binding", {})
+    expected_binding_status = (
+        "contract_bound" if closed else "contract_bound_pending_validation"
+    )
+    audit.check(
+        binding.get("status") == expected_binding_status,
+        f"{operation_id}: source binding status drifted",
+    )
+
+    client_file = binding.get("client_file")
+    client_method = binding.get("client_method")
+    if not client_file or not client_method:
+        audit.errors.append(f"{operation_id}: incomplete client source binding")
+        return
+    client_text = _read_repo_file(audit, client_file)
+    if client_text is None:
+        return
+    method_block = _function_block(client_text, client_method)
+    if method_block is None:
+        audit.errors.append(
+            f"{operation_id}: missing client method {client_method} in {client_file}"
+        )
+        return
+    compact_block = _compact(method_block)
+
+    audit.check(
+        f"Method::{entry['method']}" in method_block,
+        f"{operation_id}: client method does not construct {entry['method']} request",
+    )
+    expected_path = _normalized_path_template(entry["path"])
+    literal_paths = re.findall(r'"(/v[0-9][^"\\]*)"', method_block)
+    actual_paths = {_normalized_path_template(path) for path in literal_paths}
+    audit.check(
+        expected_path in actual_paths,
+        f"{operation_id}: client method path does not match {entry['path']}",
+    )
+
+    operation_label = binding.get("operation_label")
+    audit.check(
+        f'.with_operation("{operation_label}")' in compact_block,
+        f"{operation_id}: bound operation label {operation_label!r} is absent from client method",
+    )
+    audit.check(
+        operation_label == operation_id,
+        f"{operation_id}: contract-bound source label is not canonical",
+    )
+
+    transport = binding.get("transport", {})
+    helper = transport.get("helper")
+    audit.check(
+        helper in HELPER_STATUSES,
+        f"{operation_id}: unknown transport helper {helper!r}",
+    )
+    if helper in HELPER_STATUSES:
+        audit.check(
+            transport.get("success_status") == HELPER_STATUSES[helper],
+            f"{operation_id}: declared transport status does not match helper {helper}",
+        )
+    wire_type = transport.get("wire_type")
+    if wire_type is None:
+        audit.check(
+            f".{helper}(" in compact_block,
+            f"{operation_id}: transport helper {helper} absent from method block",
+        )
+    else:
+        audit.check(
+            f".{helper}::<{_compact(wire_type)}>(" in compact_block,
+            f"{operation_id}: transport helper/wire type binding is absent ({helper}::<{wire_type}>)",
+        )
+    canonical_response = entry["contract"]["response"]
+    audit.check(
+        transport.get("success_status") == canonical_response["status"],
+        f"{operation_id}: contract-bound transport status differs from canonical success status",
+    )
+    audit.check(
+        helper != "send_json",
+        f"{operation_id}: contract-bound operation uses unpinned generic send_json",
+    )
+    if canonical_response["schema"] is None:
+        if _has_option_exercise_response_body_deviation(entry):
+            expected_empty_helper = "send_ok_json_or_empty"
+        else:
+            expected_empty_helper = (
+                "send_ok_empty"
+                if canonical_response["status"] == 200
+                else "send_no_content"
+            )
+        audit.check(
+            helper == expected_empty_helper,
+            f"{operation_id}: empty canonical response must use {expected_empty_helper}",
+        )
+    else:
+        expected_json_helper = (
+            "send_multi_status_json"
+            if canonical_response["status"] == 207
+            else "send_ok_json"
+        )
+        audit.check(
+            helper == expected_json_helper,
+            f"{operation_id}: JSON canonical response must use {expected_json_helper}",
+        )
+
+    response_model = binding.get("response_model", {})
+    api_type = response_model.get("api_type")
+    if api_type:
+        audit.check(
+            f"->Result<{_compact(api_type)},Error>" in compact_block,
+            f"{operation_id}: client return type does not match bound API type {api_type}",
+        )
+    response_file = response_model.get("file")
+    response_type = response_model.get("type")
+    if response_file and response_type:
+        response_text = _read_repo_file(audit, response_file)
+        if response_text is not None:
+            audit.check(
+                _type_block(response_text, response_type) is not None,
+                f"{operation_id}: response model {response_type} missing from {response_file}",
+            )
+    else:
+        audit.errors.append(f"{operation_id}: incomplete response model binding")
+
+    signature = method_block.split("{", 1)[0]
+    for argument_binding in binding.get("argument_bindings", []):
+        argument_name = argument_binding.get("rust_argument")
+        audit.check(
+            re.search(rf"\b{re.escape(argument_name)}\s*:", signature) is not None,
+            f"{operation_id}: bound request argument {argument_name} is absent from client signature",
+        )
+
+    for request_model in binding.get("request_models", []):
+        model_file = request_model.get("file")
+        model_type = request_model.get("type")
+        model_text = _read_repo_file(audit, model_file)
+        if model_text is None:
+            continue
+        block = _type_block(model_text, model_type)
+        if block is None:
+            audit.errors.append(
+                f"{operation_id}: request model {model_type} missing from {model_file}"
+            )
+            continue
+        for field_binding in request_model.get("field_bindings", []):
+            rust_field = field_binding.get("rust_field")
+            audit.check(
+                re.search(rf"\bpub\s+{re.escape(rust_field)}\s*:", block) is not None,
+                f"{operation_id}: request field {rust_field} missing from {model_type}",
+            )
+
+    canonical_request_keys = _request_contract_keys(entry["contract"])
+    bound_request_keys = _bound_request_keys(binding)
+    exceptions = _exception_keys(entry)
+    audit.check(
+        canonical_request_keys - exceptions == bound_request_keys,
+        f"{operation_id}: declarative request binding does not cover the canonical request contract "
+        f"(missing={sorted(canonical_request_keys - exceptions - bound_request_keys)}, "
+        f"extra={sorted(bound_request_keys - canonical_request_keys)})",
+    )
+
+
+def _audit_mock_binding(audit: Audit, entry: dict[str, Any]) -> None:
+    operation_id = entry["operation_id"]
+    closed = entry["validation"]["status"] == "closed"
+    binding = entry.get("mock_binding", {})
+    expected_status = (
+        "network_validated" if closed else "implementation_ready_pending_validation"
+    )
+    audit.check(
+        binding.get("status") == expected_status,
+        f"{operation_id}: mock binding status drifted",
+    )
+    audit.check(
+        binding.get("route_method") == entry["method"],
+        f"{operation_id}: mock route method binding drifted",
+    )
+
+    route_file = binding.get("route_file")
+    handler_file = binding.get("handler_file")
+    handler = binding.get("handler")
+    if not route_file or not handler_file or not handler:
+        audit.errors.append(f"{operation_id}: incomplete mock route/handler binding")
+        return
+    route_text = _read_repo_file(audit, route_file)
+    if route_text is not None:
+        route = _route_block(route_text, entry["path"])
+        if route is None:
+            audit.errors.append(
+                f"{operation_id}: mock route missing for {entry['path']}"
+            )
+        else:
+            compact_route = _compact(route)
+            route_method = entry["method"].lower()
+            audit.check(
+                f"{route_method}(handlers::{handler})" in compact_route,
+                f"{operation_id}: mock {entry['method']} route is not bound to handlers::{handler}",
+            )
+    handler_text = _read_repo_file(audit, handler_file)
+    if handler_text is not None:
+        audit.check(
+            _function_block(handler_text, handler) is not None,
+            f"{operation_id}: mock handler {handler} missing from {handler_file}",
+        )
+
+
+def _audit_consumer_binding(audit: Audit, entry: dict[str, Any]) -> None:
+    operation_id = entry["operation_id"]
+    closed = entry["validation"]["status"] == "closed"
+    binding = entry.get("consumer_binding", {})
+    validation = entry.get("validation", {})
+    if closed:
+        audit.check(
+            binding.get("status") == "paper_and_mock_validated",
+            f"{operation_id}: consumer validation status drifted",
+        )
+        audit.check(
+            validation.get("verified_targets") == ["paper", "mock"],
+            f"{operation_id}: closed targets must be Paper and mock",
+        )
+        scenario_file = binding.get("scenario_file")
+        scenario = binding.get("scenario")
+        if not scenario_file or not scenario:
+            audit.errors.append(f"{operation_id}: missing network scenario binding")
+            return
+        scenario_text = _read_repo_file(audit, scenario_file)
+        if scenario_text is None:
+            return
+        scenario_block = _function_block(scenario_text, scenario)
+        if scenario_block is None:
+            audit.errors.append(
+                f"{operation_id}: bound network scenario {scenario} is missing"
+            )
+            return
+        audit.check(
+            operation_id in scenario_block,
+            f"{operation_id}: network scenario {scenario} does not name the canonical operationId",
+        )
+    else:
+        audit.check(
+            binding.get("status") == "scenario_ready_pending_validation",
+            f"{operation_id}: pending consumer status drifted",
+        )
+        audit.check(
+            bool(binding.get("scenario")),
+            f"{operation_id}: pending operation lacks a compiled scenario",
+        )
+        scenario_file = binding.get("scenario_file")
+        scenario = binding.get("scenario")
+        if scenario_file and scenario:
+            scenario_text = _read_repo_file(audit, scenario_file)
+            if scenario_text is not None:
+                scenario_block = _function_block(scenario_text, scenario)
+                if scenario_block is None:
+                    audit.errors.append(
+                        f"{operation_id}: pending network scenario {scenario} is missing"
+                    )
+                else:
+                    audit.check(
+                        operation_id in scenario_block,
+                        f"{operation_id}: pending network scenario {scenario} does not name the canonical operationId",
+                    )
+        audit.check(
+            validation.get("verified_targets") == [],
+            f"{operation_id}: pending operation must not claim verified targets",
+        )
+        audit.check(
+            validation.get("required_targets") == ["paper", "mock"],
+            f"{operation_id}: pending operation must retain both required targets",
+        )
+        audit.check(
+            bool(validation.get("reason")),
+            f"{operation_id}: pending operation lacks a reason",
+        )
+
+
+def _audit_rows(
+    audit: Audit,
+    manifest: dict[str, Any],
+    canonical: dict[str, dict[str, Any]],
+) -> None:
+    for entry in manifest.get("mirror_layer", []):
+        operation_id = entry.get("operation_id")
+        official = canonical.get(operation_id)
+        if official is None:
+            audit.errors.append(f"adopted operation no longer exists: {operation_id}")
+            continue
+        for key in ("operation_id", "tag", "method", "path"):
+            audit.check(
+                entry.get(key) == official.get(key),
+                f"{operation_id}: canonical {key} drifted",
+            )
+        audit.check(
+            entry.get("contract") == official.get("contract"),
+            f"{operation_id}: canonical request/response contract drifted",
+        )
+        _audit_source_binding(audit, entry)
+        _audit_mock_binding(audit, entry)
+        _audit_consumer_binding(audit, entry)
+
+
+def main() -> int:
+    if len(sys.argv) != 1:
+        print(
+            "error: api-coverage-audit-trade does not accept command-line arguments",
+            file=sys.stderr,
+        )
+        return 2
+
+    manifest = _read_json(MANIFEST_PATH)
+    try:
+        document, payload = load_openapi(OPENAPI_SOURCE)
+        canonical = canonical_operation_map(document)
+    except Exception as error:
+        print(
+            f"error: failed to load canonical Trading OpenAPI from {OPENAPI_SOURCE}: {error}",
+            file=sys.stderr,
+        )
+        return 2
+
+    audit = Audit()
+    _audit_manifest_metadata(audit, manifest, document, payload, canonical)
+    _audit_rows(audit, manifest, canonical)
+
+    entries = manifest.get("mirror_layer", [])
+    closed = [
+        entry
+        for entry in entries
+        if entry.get("validation", {}).get("status") == "closed"
+    ]
+    pending = [
+        entry
+        for entry in entries
+        if entry.get("validation", {}).get("status") == "pending_market_open"
+    ]
+
+    print("alpaca-rust trading coverage audit")
+    print(
+        f"Official source: {document.get('info', {}).get('title')} v{document.get('info', {}).get('version')}"
+    )
+    print(f"Official OpenAPI: {OPENAPI_SOURCE}")
+    print(f"OpenAPI version: {document.get('openapi')}")
+    print(f"OpenAPI SHA-256: {sha256(payload)}")
+    print(f"Local manifest: {MANIFEST_PATH}")
+    print()
+    print("Summary")
+    print(f"- Official operations: {len(canonical)}")
+    print(f"- Adopted operations: {len(entries)}")
+    print(f"- Closed Paper/mock operations: {len(closed)}")
+    print(f"- Expected pending operations: {len(pending)}")
+    print(
+        f"- Explicitly excluded operations: {len(manifest.get('excluded_operations', []))}"
+    )
+    print()
+    print("Pending validation (expected, not counted as closed)")
+    for entry in pending:
+        source_binding = entry["source_binding"]
+        transport = source_binding["transport"]
+        canonical_status = entry["contract"]["response"]["status"]
+        print(
+            f"- {entry['operation_id']}: {entry['method']} {entry['path']}; "
+            f"source label={source_binding['operation_label']}, "
+            f"source transport={transport['helper']}[{transport['success_status']}], "
+            f"canonical status={canonical_status}; {entry['validation']['reason']}"
+        )
+
+    if audit.errors:
+        print()
+        print(f"Blocking findings ({len(audit.errors)})")
+        for error in audit.errors:
+            print(f"- {error}")
+        return 1
+
+    print()
+    print("Result: PASS with 37 closed operations and 1 explicit pending operation.")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

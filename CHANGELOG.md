@@ -2,9 +2,18 @@
 
 ## Unreleased
 
+## v0.30.0
+
+- Aligned the adopted non-crypto Trading REST surface with Alpaca Trading API `2.0.1`, binding all 38 adopted operations to their exact source, mock route, request, response, status, and network-scenario contracts.
+- Added the distinct activity-by-type endpoint, typed asset/calendar/clock/portfolio contracts, order cursors and nested reads, advanced order instructions, corrected position-close responses, complete watchlist lifecycles, and option exercise/do-not-exercise support.
 - Added `SubmitOrderRequest` builders for client order IDs and explicit simple-order position intent.
 - Made client-ID creates recoverable after ambiguous request failures with recovered-order shape validation.
 - Made strict recreate transitions require a stable client order ID and preserve parent or nested child fill evidence instead of creating a duplicate replacement.
+- Aligned fractional-share order validation with observed Paper behavior: create requests accept `day` market, limit, stop, and stop-limit orders, while replacement quantities remain whole-share only.
+- Replaced recursive order legs with typed `OrderLeg` values, made order reads accept an explicit `GetRequest`, reused `Order` for position-close responses, and aligned public account, asset, position, and watchlist fields with current requiredness and typed values.
+- Expanded `alpaca-mock` into a stateful HTTP implementation for all 38 adopted operations, including assets, option contracts, calendars, clocks, portfolio history, configurations, watchlists, strict order status codes, and position instructions.
+- Replaced local, fixture-based, silent-skip, and in-process API-crate tests with fail-fast network-only suites that exercise canonical APIs or a standalone mock service through the public clients. Thirty-seven operations completed full Paper/mock scenario closure; do-not-exercise has a verified raw Paper strict-empty `200` and a passing mock scenario, while its Paper exact-scenario cleanup replay remains explicitly unclaimed.
+- Updated the crate README, Trading coverage baseline, testing guide, mainline guide, and resource references for the new contracts and migration points.
 
 ## v0.29.0
 

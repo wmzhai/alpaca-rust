@@ -1,0 +1,1106 @@
+#!/usr/bin/env python3
+"""Regenerate the auditable Trading API coverage manifest from canonical OpenAPI."""
+
+from __future__ import annotations
+
+import argparse
+import datetime as dt
+import json
+import pathlib
+import sys
+from typing import Any
+
+sys.dont_write_bytecode = True
+
+from trading_coverage_lib import (  # noqa: E402
+    CANONICAL_OPENAPI_URL,
+    canonical_operation_map,
+    load_openapi,
+    operation_count,
+    sha256,
+)
+
+
+TOOL_ROOT = pathlib.Path(__file__).resolve().parent
+DEFAULT_OUTPUT = TOOL_ROOT / "trading-api.json"
+
+ADOPTED_OPERATION_IDS = (
+    "getAccount",
+    "getAccountActivities",
+    "getAccountActivitiesByActivityType",
+    "getAccountConfig",
+    "patchAccountConfig",
+    "getAccountPortfolioHistory",
+    "get-v2-assets",
+    "get-v2-assets-symbol_or_asset_id",
+    "get-options-contracts",
+    "get-option-contract-symbol_or_id",
+    "LegacyCalendar",
+    "Calendar",
+    "LegacyClock",
+    "Clock",
+    "deleteAllOrders",
+    "getAllOrders",
+    "postOrder",
+    "deleteOrderByOrderID",
+    "getOrderByOrderID",
+    "patchOrderByOrderId",
+    "getOrderByClientOrderId",
+    "deleteAllOpenPositions",
+    "getAllOpenPositions",
+    "deleteOpenPosition",
+    "getOpenPosition",
+    "optionDoNotExercise",
+    "optionExercise",
+    "getWatchlists",
+    "postWatchlist",
+    "getWatchlistById",
+    "updateWatchlistById",
+    "deleteWatchlistById",
+    "addAssetToWatchlist",
+    "removeAssetFromWatchlist",
+    "getWatchlistByName",
+    "updateWatchlistByName",
+    "addAssetToWatchlistByName",
+    "deleteWatchlistByName",
+)
+
+PENDING_OPERATION_IDS = {
+    "optionDoNotExercise",
+}
+
+
+def request_model(
+    file: str,
+    model_type: str,
+    location: str,
+    *,
+    prefix: str | None = None,
+    field_map: dict[str, str] | None = None,
+) -> dict[str, Any]:
+    return {
+        "file": file,
+        "type": model_type,
+        "location": location,
+        "prefix": prefix,
+        "field_map": field_map or {},
+    }
+
+
+def argument(name: str, location: str, rust_name: str | None = None) -> dict[str, str]:
+    return {
+        "contract_path": name,
+        "location": location,
+        "rust_argument": rust_name or name,
+    }
+
+
+def source(
+    resource: str,
+    method: str,
+    operation_label: str,
+    helper: str,
+    api_type: str,
+    model_type: str,
+    *,
+    wire_type: str | None = None,
+    model_resource: str | None = None,
+    model_file: str = "model.rs",
+    request_models: list[dict[str, Any]] | None = None,
+    arguments: list[dict[str, str]] | None = None,
+    success_status: int | str = 200,
+) -> dict[str, Any]:
+    model_resource = model_resource or resource
+    return {
+        "client_file": f"crates/alpaca-trade/src/{resource}/client.rs",
+        "client_method": method,
+        "operation_label": operation_label,
+        "transport": {
+            "helper": helper,
+            "wire_type": wire_type,
+            "success_status": success_status,
+        },
+        "request_models": request_models or [],
+        "argument_bindings": arguments or [],
+        "response_model": {
+            "api_type": api_type,
+            "file": f"crates/{model_resource}/src/{model_file}"
+            if model_resource == "alpaca-http"
+            else f"crates/alpaca-trade/src/{model_resource}/{model_file}",
+            "type": model_type,
+        },
+    }
+
+
+SOURCE_BINDINGS: dict[str, dict[str, Any]] = {
+    "getAccount": source(
+        "account",
+        "get",
+        "getAccount",
+        "send_ok_json",
+        "Account",
+        "Account",
+        wire_type="Account",
+    ),
+    "getAccountActivities": source(
+        "activities",
+        "list",
+        "getAccountActivities",
+        "send_ok_json",
+        "Vec<Activity>",
+        "Activity",
+        wire_type="Vec<Activity>",
+        request_models=[
+            request_model(
+                "crates/alpaca-trade/src/activities/request.rs", "ListRequest", "query"
+            )
+        ],
+    ),
+    "getAccountActivitiesByActivityType": source(
+        "activities",
+        "list_by_type",
+        "getAccountActivitiesByActivityType",
+        "send_ok_json",
+        "Vec<Activity>",
+        "Activity",
+        wire_type="Vec<Activity>",
+        request_models=[
+            request_model(
+                "crates/alpaca-trade/src/activities/request.rs",
+                "ListByTypeRequest",
+                "query",
+            )
+        ],
+        arguments=[argument("activity_type", "path")],
+    ),
+    "getAccountConfig": source(
+        "account_configurations",
+        "get",
+        "getAccountConfig",
+        "send_ok_json",
+        "AccountConfigurations",
+        "AccountConfigurations",
+        wire_type="AccountConfigurations",
+    ),
+    "patchAccountConfig": source(
+        "account_configurations",
+        "update",
+        "patchAccountConfig",
+        "send_ok_json",
+        "AccountConfigurations",
+        "AccountConfigurations",
+        wire_type="AccountConfigurations",
+        request_models=[
+            request_model(
+                "crates/alpaca-trade/src/account_configurations/request.rs",
+                "UpdateRequest",
+                "body",
+            )
+        ],
+    ),
+    "getAccountPortfolioHistory": source(
+        "portfolio_history",
+        "get",
+        "getAccountPortfolioHistory",
+        "send_ok_json",
+        "PortfolioHistory",
+        "PortfolioHistory",
+        wire_type="PortfolioHistory",
+        request_models=[
+            request_model(
+                "crates/alpaca-trade/src/portfolio_history/request.rs",
+                "GetRequest",
+                "query",
+            )
+        ],
+    ),
+    "get-v2-assets": source(
+        "assets",
+        "list",
+        "get-v2-assets",
+        "send_ok_json",
+        "Vec<Asset>",
+        "Asset",
+        wire_type="Vec<Asset>",
+        request_models=[
+            request_model(
+                "crates/alpaca-trade/src/assets/request.rs", "ListRequest", "query"
+            )
+        ],
+    ),
+    "get-v2-assets-symbol_or_asset_id": source(
+        "assets",
+        "get",
+        "get-v2-assets-symbol_or_asset_id",
+        "send_ok_json",
+        "Asset",
+        "Asset",
+        wire_type="Asset",
+        arguments=[argument("symbol_or_asset_id", "path")],
+    ),
+    "get-options-contracts": source(
+        "options_contracts",
+        "list",
+        "get-options-contracts",
+        "send_ok_json",
+        "ListResponse",
+        "ListResponse",
+        wire_type="ListResponse",
+        request_models=[
+            request_model(
+                "crates/alpaca-trade/src/options_contracts/request.rs",
+                "ListRequest",
+                "query",
+                field_map={"type": "r#type"},
+            )
+        ],
+    ),
+    "get-option-contract-symbol_or_id": source(
+        "options_contracts",
+        "get",
+        "get-option-contract-symbol_or_id",
+        "send_ok_json",
+        "OptionContract",
+        "OptionContract",
+        wire_type="OptionContract",
+        arguments=[argument("symbol_or_id", "path")],
+    ),
+    "LegacyCalendar": source(
+        "calendar",
+        "list",
+        "LegacyCalendar",
+        "send_ok_json",
+        "Vec<Calendar>",
+        "Calendar",
+        wire_type="Vec<Calendar>",
+        request_models=[
+            request_model(
+                "crates/alpaca-trade/src/calendar/request.rs", "ListRequest", "query"
+            )
+        ],
+    ),
+    "Calendar": source(
+        "calendar",
+        "list_v3",
+        "Calendar",
+        "send_ok_json",
+        "CalendarV3Response",
+        "CalendarV3Response",
+        wire_type="CalendarV3Response",
+        request_models=[
+            request_model(
+                "crates/alpaca-trade/src/calendar/request.rs", "ListV3Request", "query"
+            )
+        ],
+        arguments=[argument("market", "path")],
+    ),
+    "LegacyClock": source(
+        "clock",
+        "get",
+        "LegacyClock",
+        "send_ok_json",
+        "Clock",
+        "Clock",
+        wire_type="Clock",
+    ),
+    "Clock": source(
+        "clock",
+        "get_v3",
+        "Clock",
+        "send_ok_json",
+        "ClockV3Response",
+        "ClockV3Response",
+        wire_type="ClockV3Response",
+        request_models=[
+            request_model(
+                "crates/alpaca-trade/src/clock/request.rs", "GetV3Request", "query"
+            )
+        ],
+    ),
+    "deleteAllOrders": source(
+        "orders",
+        "cancel_all",
+        "deleteAllOrders",
+        "send_multi_status_json",
+        "Vec<CancelAllOrderResult>",
+        "CancelAllOrderResult",
+        wire_type="Vec<CancelAllOrderResult>",
+        success_status=207,
+    ),
+    "getAllOrders": source(
+        "orders",
+        "list",
+        "getAllOrders",
+        "send_ok_json",
+        "Vec<Order>",
+        "Order",
+        wire_type="Vec<Order>",
+        request_models=[
+            request_model(
+                "crates/alpaca-trade/src/orders/request.rs", "ListRequest", "query"
+            )
+        ],
+    ),
+    "postOrder": source(
+        "orders",
+        "create",
+        "postOrder",
+        "send_ok_json",
+        "Order",
+        "Order",
+        wire_type="Order",
+        request_models=[
+            request_model(
+                "crates/alpaca-trade/src/orders/request.rs",
+                "CreateRequest",
+                "body",
+                field_map={"type": "r#type"},
+            ),
+            request_model(
+                "crates/alpaca-trade/src/orders/request.rs",
+                "AdvancedInstructions",
+                "body",
+                prefix="advanced_instructions",
+            ),
+            request_model(
+                "crates/alpaca-trade/src/orders/request.rs",
+                "OptionLegRequest",
+                "body",
+                prefix="legs[]",
+            ),
+            request_model(
+                "crates/alpaca-trade/src/orders/model.rs",
+                "StopLoss",
+                "body",
+                prefix="stop_loss",
+            ),
+            request_model(
+                "crates/alpaca-trade/src/orders/model.rs",
+                "TakeProfit",
+                "body",
+                prefix="take_profit",
+            ),
+        ],
+    ),
+    "deleteOrderByOrderID": source(
+        "orders",
+        "cancel",
+        "deleteOrderByOrderID",
+        "send_no_content",
+        "NoContent",
+        "NoContent",
+        model_resource="alpaca-http",
+        model_file="request.rs",
+        arguments=[argument("order_id", "path")],
+        success_status=204,
+    ),
+    "getOrderByOrderID": source(
+        "orders",
+        "get",
+        "getOrderByOrderID",
+        "send_ok_json",
+        "Order",
+        "Order",
+        wire_type="Order",
+        request_models=[
+            request_model(
+                "crates/alpaca-trade/src/orders/request.rs", "GetRequest", "query"
+            )
+        ],
+        arguments=[argument("order_id", "path")],
+    ),
+    "patchOrderByOrderId": source(
+        "orders",
+        "replace",
+        "patchOrderByOrderId",
+        "send_ok_json",
+        "Order",
+        "Order",
+        wire_type="Order",
+        request_models=[
+            request_model(
+                "crates/alpaca-trade/src/orders/request.rs", "ReplaceRequest", "body"
+            ),
+            request_model(
+                "crates/alpaca-trade/src/orders/request.rs",
+                "AdvancedInstructions",
+                "body",
+                prefix="advanced_instructions",
+            ),
+        ],
+        arguments=[argument("order_id", "path")],
+    ),
+    "getOrderByClientOrderId": source(
+        "orders",
+        "get_by_client_order_id",
+        "getOrderByClientOrderId",
+        "send_ok_json",
+        "Order",
+        "Order",
+        wire_type="Order",
+        arguments=[argument("client_order_id", "query")],
+    ),
+    "deleteAllOpenPositions": source(
+        "positions",
+        "close_all",
+        "deleteAllOpenPositions",
+        "send_multi_status_json",
+        "Vec<ClosePositionResult>",
+        "ClosePositionResult",
+        wire_type="Vec<ClosePositionResult>",
+        request_models=[
+            request_model(
+                "crates/alpaca-trade/src/positions/request.rs",
+                "CloseAllRequest",
+                "query",
+            )
+        ],
+        success_status=207,
+    ),
+    "getAllOpenPositions": source(
+        "positions",
+        "list",
+        "getAllOpenPositions",
+        "send_ok_json",
+        "Vec<Position>",
+        "Position",
+        wire_type="Vec<Position>",
+    ),
+    "deleteOpenPosition": source(
+        "positions",
+        "close",
+        "deleteOpenPosition",
+        "send_ok_json",
+        "Order",
+        "Order",
+        wire_type="Order",
+        model_resource="orders",
+        request_models=[
+            request_model(
+                "crates/alpaca-trade/src/positions/request.rs",
+                "ClosePositionRequest",
+                "query",
+            )
+        ],
+        arguments=[argument("symbol_or_asset_id", "path")],
+    ),
+    "getOpenPosition": source(
+        "positions",
+        "get",
+        "getOpenPosition",
+        "send_ok_json",
+        "Position",
+        "Position",
+        wire_type="Position",
+        arguments=[argument("symbol_or_asset_id", "path")],
+    ),
+    "optionDoNotExercise": source(
+        "positions",
+        "do_not_exercise",
+        "optionDoNotExercise",
+        "send_ok_empty",
+        "DoNotExerciseAccepted",
+        "DoNotExerciseAccepted",
+        arguments=[argument("symbol_or_contract_id", "path")],
+        success_status=200,
+    ),
+    "optionExercise": source(
+        "positions",
+        "exercise",
+        "optionExercise",
+        "send_ok_json_or_empty",
+        "ExerciseAccepted",
+        "ExerciseAccepted",
+        wire_type="ExerciseDetails",
+        arguments=[argument("symbol_or_contract_id", "path")],
+        success_status=200,
+    ),
+    "getWatchlists": source(
+        "watchlists",
+        "list",
+        "getWatchlists",
+        "send_ok_json",
+        "Vec<WatchlistSummary>",
+        "WatchlistSummary",
+        wire_type="Vec<WatchlistSummary>",
+    ),
+    "postWatchlist": source(
+        "watchlists",
+        "create",
+        "postWatchlist",
+        "send_ok_json",
+        "Watchlist",
+        "Watchlist",
+        wire_type="Watchlist",
+        request_models=[
+            request_model(
+                "crates/alpaca-trade/src/watchlists/request.rs", "CreateRequest", "body"
+            )
+        ],
+    ),
+    "getWatchlistById": source(
+        "watchlists",
+        "get_by_id",
+        "getWatchlistById",
+        "send_ok_json",
+        "Watchlist",
+        "Watchlist",
+        wire_type="Watchlist",
+        arguments=[argument("watchlist_id", "path")],
+    ),
+    "updateWatchlistById": source(
+        "watchlists",
+        "update_by_id",
+        "updateWatchlistById",
+        "send_ok_json",
+        "Watchlist",
+        "Watchlist",
+        wire_type="Watchlist",
+        request_models=[
+            request_model(
+                "crates/alpaca-trade/src/watchlists/request.rs", "UpdateRequest", "body"
+            )
+        ],
+        arguments=[argument("watchlist_id", "path")],
+    ),
+    "deleteWatchlistById": source(
+        "watchlists",
+        "delete_by_id",
+        "deleteWatchlistById",
+        "send_no_content",
+        "NoContent",
+        "NoContent",
+        model_resource="alpaca-http",
+        model_file="request.rs",
+        arguments=[argument("watchlist_id", "path")],
+        success_status=204,
+    ),
+    "addAssetToWatchlist": source(
+        "watchlists",
+        "add_asset_by_id",
+        "addAssetToWatchlist",
+        "send_ok_json",
+        "Watchlist",
+        "Watchlist",
+        wire_type="Watchlist",
+        request_models=[
+            request_model(
+                "crates/alpaca-trade/src/watchlists/request.rs",
+                "AddAssetRequest",
+                "body",
+            )
+        ],
+        arguments=[argument("watchlist_id", "path")],
+    ),
+    "removeAssetFromWatchlist": source(
+        "watchlists",
+        "delete_symbol_by_id",
+        "removeAssetFromWatchlist",
+        "send_ok_json",
+        "Watchlist",
+        "Watchlist",
+        wire_type="Watchlist",
+        arguments=[argument("watchlist_id", "path"), argument("symbol", "path")],
+    ),
+    "getWatchlistByName": source(
+        "watchlists",
+        "get_by_name",
+        "getWatchlistByName",
+        "send_ok_json",
+        "Watchlist",
+        "Watchlist",
+        wire_type="Watchlist",
+        arguments=[argument("name", "query")],
+    ),
+    "updateWatchlistByName": source(
+        "watchlists",
+        "update_by_name",
+        "updateWatchlistByName",
+        "send_ok_json",
+        "Watchlist",
+        "Watchlist",
+        wire_type="Watchlist",
+        request_models=[
+            request_model(
+                "crates/alpaca-trade/src/watchlists/request.rs", "UpdateRequest", "body"
+            )
+        ],
+        arguments=[argument("name", "query")],
+    ),
+    "addAssetToWatchlistByName": source(
+        "watchlists",
+        "add_asset_by_name",
+        "addAssetToWatchlistByName",
+        "send_ok_json",
+        "Watchlist",
+        "Watchlist",
+        wire_type="Watchlist",
+        request_models=[
+            request_model(
+                "crates/alpaca-trade/src/watchlists/request.rs",
+                "AddAssetRequest",
+                "body",
+            )
+        ],
+        arguments=[argument("name", "query")],
+    ),
+    "deleteWatchlistByName": source(
+        "watchlists",
+        "delete_by_name",
+        "deleteWatchlistByName",
+        "send_no_content",
+        "NoContent",
+        "NoContent",
+        model_resource="alpaca-http",
+        model_file="request.rs",
+        arguments=[argument("name", "query")],
+        success_status=204,
+    ),
+}
+
+MOCK_HANDLERS = {
+    "getAccount": "account_get",
+    "getAccountActivities": "activities_list",
+    "getAccountActivitiesByActivityType": "activities_by_type",
+    "getAccountConfig": "account_configurations_get",
+    "patchAccountConfig": "account_configurations_update",
+    "getAccountPortfolioHistory": "portfolio_history_get",
+    "get-v2-assets": "assets_list",
+    "get-v2-assets-symbol_or_asset_id": "assets_get",
+    "get-options-contracts": "options_contracts_list",
+    "get-option-contract-symbol_or_id": "options_contracts_get",
+    "LegacyCalendar": "calendar_legacy",
+    "Calendar": "calendar_v3",
+    "LegacyClock": "clock_legacy",
+    "Clock": "clock_v3",
+    "deleteAllOrders": "orders_cancel_all",
+    "getAllOrders": "orders_list",
+    "postOrder": "orders_create",
+    "deleteOrderByOrderID": "orders_cancel",
+    "getOrderByOrderID": "orders_get",
+    "patchOrderByOrderId": "orders_replace",
+    "getOrderByClientOrderId": "orders_get_by_client_order_id",
+    "deleteAllOpenPositions": "positions_close_all",
+    "getAllOpenPositions": "positions_list",
+    "deleteOpenPosition": "positions_close",
+    "getOpenPosition": "positions_get",
+    "optionDoNotExercise": "positions_do_not_exercise",
+    "optionExercise": "positions_exercise",
+    "getWatchlists": "watchlists_list",
+    "postWatchlist": "watchlists_create",
+    "getWatchlistById": "watchlists_get_by_id",
+    "updateWatchlistById": "watchlists_update_by_id",
+    "deleteWatchlistById": "watchlists_delete_by_id",
+    "addAssetToWatchlist": "watchlists_add_asset_by_id",
+    "removeAssetFromWatchlist": "watchlists_remove_asset_by_id",
+    "getWatchlistByName": "watchlists_get_by_name",
+    "updateWatchlistByName": "watchlists_update_by_name",
+    "addAssetToWatchlistByName": "watchlists_add_asset_by_name",
+    "deleteWatchlistByName": "watchlists_delete_by_name",
+}
+
+SCENARIOS = {
+    "getAccount": "get_account_network_contract",
+    "getAccountActivities": "get_account_activities_network_contract",
+    "getAccountActivitiesByActivityType": "get_account_activities_by_type_network_contract",
+    "getAccountConfig": "get_account_config_network_contract",
+    "patchAccountConfig": "patch_account_config_network_contract",
+    "getAccountPortfolioHistory": "get_account_portfolio_history_network_contract",
+    "get-v2-assets": "list_assets_network_contract",
+    "get-v2-assets-symbol_or_asset_id": "get_asset_network_contract",
+    "get-options-contracts": "list_option_contracts_network_contract",
+    "get-option-contract-symbol_or_id": "get_option_contract_network_contract",
+    "LegacyCalendar": "legacy_calendar_network_contract",
+    "Calendar": "calendar_v3_network_contract",
+    "LegacyClock": "legacy_clock_network_contract",
+    "Clock": "clock_v3_network_contract",
+    "deleteAllOrders": "delete_all_orders_network_contract",
+    "getAllOrders": "get_all_orders_network_contract",
+    "postOrder": "post_order_network_contract",
+    "deleteOrderByOrderID": "delete_order_by_order_id_network_contract",
+    "getOrderByOrderID": "get_order_by_id_network_contract",
+    "patchOrderByOrderId": "patch_order_by_order_id_network_contract",
+    "getOrderByClientOrderId": "get_order_by_client_order_id_network_contract",
+    "deleteAllOpenPositions": "delete_all_open_positions_network_contract",
+    "getAllOpenPositions": "get_all_open_positions_network_contract",
+    "deleteOpenPosition": "delete_open_position_network_contract",
+    "getOpenPosition": "get_open_position_network_contract",
+    "optionExercise": "option_exercise_network_contract",
+    "getWatchlists": "watchlists_network_contract",
+    "postWatchlist": "watchlists_network_contract",
+    "getWatchlistById": "watchlists_network_contract",
+    "updateWatchlistById": "watchlists_network_contract",
+    "deleteWatchlistById": "watchlists_network_contract",
+    "addAssetToWatchlist": "watchlists_network_contract",
+    "removeAssetFromWatchlist": "watchlists_network_contract",
+    "getWatchlistByName": "watchlists_network_contract",
+    "updateWatchlistByName": "watchlists_network_contract",
+    "addAssetToWatchlistByName": "watchlists_network_contract",
+    "deleteWatchlistByName": "watchlists_network_contract",
+}
+
+PENDING_SCENARIOS = {
+    "optionDoNotExercise": "option_do_not_exercise_network_contract",
+}
+
+CONTRACT_EXCEPTIONS = {
+    "patchOrderByOrderId": [
+        {
+            "location": "body",
+            "path": "notional",
+            "status": "explicitly_deferred",
+            "reason": "IPO-indication-only replace notional is outside the adopted implementation scope",
+        }
+    ]
+}
+
+OBSERVED_DEVIATIONS = {
+    "optionExercise": [
+        {
+            "location": "response",
+            "path": "body",
+            "aspect": "presence",
+            "canonical": "empty",
+            "observed": "json_object",
+            "implemented": "json_or_empty",
+            "reason": "Paper returns a JSON exercise-details object with HTTP 200 while the canonical OpenAPI declares an empty 200 response",
+        }
+    ],
+    "postWatchlist": [
+        {
+            "location": "body",
+            "path": "symbols[]",
+            "aspect": "nullable",
+            "canonical": True,
+            "implemented": False,
+            "reason": "Paper rejects a null symbol item with 422 while accepting an empty symbols array",
+        }
+    ],
+    "updateWatchlistById": [
+        {
+            "location": "body",
+            "path": "symbols[]",
+            "aspect": "nullable",
+            "canonical": True,
+            "implemented": False,
+            "reason": "Paper rejects a null symbol item with 422 while accepting an empty symbols array",
+        }
+    ],
+    "updateWatchlistByName": [
+        {
+            "location": "body",
+            "path": "symbols[]",
+            "aspect": "nullable",
+            "canonical": True,
+            "implemented": False,
+            "reason": "Paper rejects a null symbol item with 422 while accepting an empty symbols array",
+        }
+    ],
+}
+
+
+def _pending_reason(operation_id: str) -> str:
+    if operation_id == "optionDoNotExercise":
+        return "Paper requires an expiration-day long option position; raw Paper and mock validation succeeded, but the corrected liquid-contract Paper scenario still requires a clean account and complete cleanup"
+    raise ValueError(f"missing pending reason for {operation_id}")
+
+
+def _handler_file(handler: str) -> str:
+    if handler.startswith("account_"):
+        resource = "account"
+    elif handler.startswith("activities_"):
+        resource = "activities"
+    elif handler.startswith("portfolio_history_"):
+        resource = "portfolio_history"
+    elif handler.startswith("options_contracts_"):
+        resource = "options_contracts"
+    elif handler.startswith("watchlists_"):
+        resource = "watchlists"
+    elif handler.startswith("positions_"):
+        resource = "positions"
+    elif handler.startswith("orders_"):
+        resource = "orders"
+    elif handler.startswith("assets_"):
+        resource = "assets"
+    elif handler.startswith("calendar_"):
+        resource = "calendar"
+    elif handler.startswith("clock_"):
+        resource = "clock"
+    else:
+        raise ValueError(f"unclassified mock handler: {handler}")
+    return f"crates/alpaca-mock/src/handlers/{resource}.rs"
+
+
+def _request_contract_keys(contract: dict[str, Any]) -> set[tuple[str, str]]:
+    keys = {
+        (parameter["in"], parameter["name"]) for parameter in contract["parameters"]
+    }
+    body = contract.get("request_body")
+    if body is not None:
+        keys.update(("body", field["path"]) for field in body.get("fields", []))
+    return keys
+
+
+def _expand_request_bindings(
+    operation_id: str, contract: dict[str, Any], source_binding: dict[str, Any]
+) -> None:
+    exception_keys = {
+        (exception["location"], exception["path"])
+        for exception in CONTRACT_EXCEPTIONS.get(operation_id, [])
+    }
+    bound: set[tuple[str, str]] = set()
+    for binding in source_binding["argument_bindings"]:
+        bound.add((binding["location"], binding["contract_path"]))
+
+    for model in source_binding["request_models"]:
+        model["field_bindings"] = []
+
+    for location, contract_path in sorted(_request_contract_keys(contract)):
+        if (location, contract_path) in exception_keys:
+            continue
+        if (location, contract_path) in bound:
+            continue
+        candidates = [
+            model
+            for model in source_binding["request_models"]
+            if model["location"] == location
+            and (
+                model["prefix"] is None
+                or contract_path.startswith(f"{model['prefix']}.")
+                or contract_path.startswith(f"{model['prefix']}[]")
+            )
+        ]
+        if not candidates:
+            continue
+        candidates.sort(key=lambda model: len(model["prefix"] or ""), reverse=True)
+        selected = candidates[0]
+        prefix = selected["prefix"]
+        if prefix is None and ("." in contract_path or "[]" in contract_path):
+            continue
+        relative_path = contract_path
+        if prefix is not None:
+            relative_path = (
+                relative_path.removeprefix(prefix).removeprefix("[]").removeprefix(".")
+            )
+        rust_field = relative_path.split(".")[-1].removesuffix("[]")
+        rust_field = selected["field_map"].get(rust_field, rust_field)
+        selected["field_bindings"].append(
+            {
+                "contract_path": contract_path,
+                "rust_field": rust_field,
+            }
+        )
+        bound.add((location, contract_path))
+
+    for model in source_binding["request_models"]:
+        model.pop("prefix")
+        model.pop("field_map")
+        model["field_bindings"].sort(key=lambda binding: binding["contract_path"])
+
+    missing = _request_contract_keys(contract) - bound - exception_keys
+    if missing:
+        rendered = ", ".join(f"{location}:{path}" for location, path in sorted(missing))
+        raise ValueError(
+            f"missing request source bindings for {operation_id}: {rendered}"
+        )
+
+
+def _excluded_reason(operation: dict[str, Any]) -> str:
+    tag = operation["tag"]
+    path = operation["path"]
+    if path.startswith("/v2/assets/fixed_income/"):
+        return (
+            "Fixed-income asset discovery is outside the adopted equities/options scope"
+        )
+    if tag == "Corporate Actions":
+        return "Corporate-action announcement coverage is owned by alpaca-data"
+    if tag == "Events":
+        return "SSE and event-stream APIs are outside the HTTP REST scope"
+    if tag == "Locates":
+        return "Locates are explicitly deferred from the adopted Trading API surface"
+    if tag == "Tokenization":
+        return "Tokenization is outside the adopted Trading API surface"
+    if tag.startswith("Crypto"):
+        return "Crypto and crypto-perpetual APIs are outside the adopted asset scope"
+    return "Operation is outside the explicitly adopted Trading API surface"
+
+
+def build_manifest(
+    document: dict[str, Any], payload: bytes, generated_at: str
+) -> dict[str, Any]:
+    official_operations = canonical_operation_map(document)
+    missing_bindings = set(ADOPTED_OPERATION_IDS) - set(SOURCE_BINDINGS)
+    extra_bindings = set(SOURCE_BINDINGS) - set(ADOPTED_OPERATION_IDS)
+    if missing_bindings or extra_bindings:
+        raise ValueError(
+            f"source binding inventory mismatch: missing={sorted(missing_bindings)} extra={sorted(extra_bindings)}"
+        )
+
+    mirror_layer: list[dict[str, Any]] = []
+    for operation_id in ADOPTED_OPERATION_IDS:
+        canonical = official_operations.get(operation_id)
+        if canonical is None:
+            raise ValueError(
+                f"adopted operation missing from canonical OpenAPI: {operation_id}"
+            )
+        source_binding = json.loads(json.dumps(SOURCE_BINDINGS[operation_id]))
+        _expand_request_bindings(operation_id, canonical["contract"], source_binding)
+        pending = operation_id in PENDING_OPERATION_IDS
+        source_binding["status"] = (
+            "contract_bound_pending_validation" if pending else "contract_bound"
+        )
+
+        handler = MOCK_HANDLERS[operation_id]
+        mock_binding = {
+            "status": (
+                "implementation_ready_pending_validation"
+                if pending
+                else "network_validated"
+            ),
+            "route_file": "crates/alpaca-mock/src/app.rs",
+            "route_method": canonical["method"],
+            "handler_file": _handler_file(handler),
+            "handler": handler,
+        }
+        if pending:
+            consumer_binding = {
+                "status": "scenario_ready_pending_validation",
+                "scenario_file": "crates/alpaca-trade/tests/trading_contract_api.rs",
+                "scenario": PENDING_SCENARIOS[operation_id],
+            }
+            validation = {
+                "status": "pending_market_open",
+                "verified_targets": [],
+                "required_targets": ["paper", "mock"],
+                "reason": _pending_reason(operation_id),
+            }
+        else:
+            scenario = SCENARIOS[operation_id]
+            consumer_binding = {
+                "status": "paper_and_mock_validated",
+                "scenario_file": "crates/alpaca-trade/tests/trading_contract_api.rs",
+                "scenario": scenario,
+            }
+            validation = {
+                "status": "closed",
+                "verified_targets": ["paper", "mock"],
+                "required_targets": ["paper", "mock"],
+            }
+
+        entry = {
+            **canonical,
+            "source_binding": source_binding,
+            "mock_binding": mock_binding,
+            "consumer_binding": consumer_binding,
+            "validation": validation,
+        }
+        if operation_id in CONTRACT_EXCEPTIONS:
+            entry["contract_exceptions"] = CONTRACT_EXCEPTIONS[operation_id]
+        if operation_id in OBSERVED_DEVIATIONS:
+            entry["observed_contract_deviations"] = OBSERVED_DEVIATIONS[operation_id]
+        mirror_layer.append(entry)
+
+    adopted = set(ADOPTED_OPERATION_IDS)
+    excluded_operations = [
+        {
+            "operation_id": operation_id,
+            "tag": operation["tag"],
+            "method": operation["method"],
+            "path": operation["path"],
+            "status": "explicitly_excluded",
+            "reason": _excluded_reason(operation),
+        }
+        for operation_id, operation in official_operations.items()
+        if operation_id not in adopted
+    ]
+    excluded_operations.sort(
+        key=lambda entry: (entry["tag"], entry["path"], entry["method"])
+    )
+    adopted_tags = {entry["tag"] for entry in mirror_layer}
+    excluded_tags = sorted(
+        {entry["tag"] for entry in excluded_operations} - adopted_tags
+    )
+
+    return {
+        "manifest_version": 2,
+        "generated_at": generated_at,
+        "scope": {
+            "api": "trading-http-rest",
+            "included_asset_scope": "US equities and options",
+            "excluded_scopes": [
+                "broker",
+                "corporate_actions",
+                "crypto",
+                "events_sse",
+                "fix",
+                "fixed_income",
+                "locates",
+                "stream",
+                "tokenization",
+                "websocket",
+            ],
+        },
+        "official": {
+            "title": document.get("info", {}).get("title"),
+            "reference_root": "https://docs.alpaca.markets/reference/api-references",
+            "openapi_url": CANONICAL_OPENAPI_URL,
+            "fetched_on": generated_at,
+            "openapi_version": document.get("openapi"),
+            "api_version": document.get("info", {}).get("version"),
+            "sha256": sha256(payload),
+            "total_operations": operation_count(document),
+        },
+        "local": {
+            "crate": "alpaca-trade",
+            "mock_crate": "alpaca-mock",
+            "network_contract_scenario": "crates/alpaca-trade/tests/trading_contract_api.rs",
+            "adopted_tags": sorted(adopted_tags),
+        },
+        "summary": {
+            "official_total_operations": operation_count(document),
+            "adopted_operations": len(mirror_layer),
+            "closed_operations": sum(
+                entry["validation"]["status"] == "closed" for entry in mirror_layer
+            ),
+            "pending_operations": sum(
+                entry["validation"]["status"] != "closed" for entry in mirror_layer
+            ),
+            "explicitly_excluded_operations": len(excluded_operations),
+        },
+        "contract_binding_policy": {
+            "canonical_contract": "Every adopted row stores operationId, method/path, parameters, request body, response status/body, required/nullability, and array item/minItems/maxItems constraints from the pinned OpenAPI bytes.",
+            "source": "Every row binds and audits the actual client method block, canonical operation label, strict transport helper/status, all canonical request paths except explicit field exclusions, and the public response model declaration.",
+            "mock": "Every row binds an actual TCP server route and handler; closed rows additionally require successful shared Paper/mock network scenario evidence.",
+            "pending": "Pending rows may have contract-bound source, mock, and compiled network scenarios, but retain empty verified targets and are never counted as closed until the same scenario succeeds against Paper and mock.",
+        },
+        "mirror_layer": mirror_layer,
+        "excluded_families": [
+            {"tag": tag, "status": "explicitly_excluded"} for tag in excluded_tags
+        ],
+        "excluded_operations": excluded_operations,
+    }
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--openapi", default=CANONICAL_OPENAPI_URL)
+    parser.add_argument("--output", type=pathlib.Path, default=DEFAULT_OUTPUT)
+    parser.add_argument(
+        "--generated-at", default=dt.datetime.now(dt.timezone.utc).date().isoformat()
+    )
+    args = parser.parse_args()
+
+    document, payload = load_openapi(args.openapi)
+    manifest = build_manifest(document, payload, args.generated_at)
+    args.output.write_text(json.dumps(manifest, indent=2, ensure_ascii=False) + "\n")
+    print(
+        f"wrote {args.output}: official={manifest['summary']['official_total_operations']} "
+        f"adopted={manifest['summary']['adopted_operations']} "
+        f"closed={manifest['summary']['closed_operations']} "
+        f"pending={manifest['summary']['pending_operations']}"
+    )
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

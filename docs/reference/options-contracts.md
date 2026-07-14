@@ -7,6 +7,10 @@
 - `list`
 - `get`
 
+Canonical operations `get-options-contracts` and
+`get-option-contract-symbol_or_id` are closed against both Paper and the
+standalone mock HTTP service.
+
 ## Convenience Methods
 
 - `list_all`
@@ -34,6 +38,8 @@ let contracts = client
 - `underlying_symbols` must be non-empty when provided
 - `limit` follows the official route bounds
 - strike filters use `rust_decimal::Decimal`
+- expiration filters require `YYYY-MM-DD`, and a lower strike bound cannot exceed the upper bound
+- `ppind` is accepted as a list filter and retained as an optional Paper-observed response extension even though the canonical response schema does not declare it
 
 ## Not Implemented Here
 

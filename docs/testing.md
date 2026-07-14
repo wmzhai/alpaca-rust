@@ -16,7 +16,7 @@ Trading tests use:
 
 ## Market Data Tests
 
-Run the currently implemented market-data integration suite:
+Run the strict market-data network suite:
 
 ```bash
 cargo test -p alpaca-data --tests -- --nocapture
@@ -25,23 +25,36 @@ cargo test -p alpaca-data --tests -- --nocapture
 Current market-data test files:
 
 - `crates/alpaca-data/tests/stocks_real_api.rs`
-- `crates/alpaca-data/tests/options_real_api.rs`
-- `crates/alpaca-data/tests/news_real_api.rs`
 - `crates/alpaca-data/tests/corporate_actions_real_api.rs`
+
+Every retained test sends at least one request to the canonical Alpaca Data
+API. Missing credentials fail the test; there are no unit, fixture, recorder,
+ignored, or silent-skip tests in `alpaca-data`.
 
 ## Trading Tests
 
-Run the trading integration suite:
+Run the shared Trading network suite against one explicit target:
 
 ```bash
-cargo test -p alpaca-trade --tests -- --nocapture
+cargo test -p alpaca-trade --test trading_contract_api -- --nocapture --test-threads=1
 ```
 
-Notable test lanes:
+`T127_TRADING_TARGET` must be `paper` or `mock`. Paper requires the canonical
+`https://paper-api.alpaca.markets` base URL and Paper credentials. Mock requires
+a loopback URL for a separately running `alpaca-mock` process. Missing target,
+base URL, key, or secret fails immediately.
 
-- real API reads: account, assets, calendar, clock, portfolio history, watchlists, options contracts
-- write-path and contract tests: orders, positions, activities
-- trade mainline: `crates/alpaca-trade/tests/mainline_api.rs`
+All 28 retained tests live in
+`crates/alpaca-trade/tests/trading_contract_api.rs`. Each test sends HTTP
+requests through the public `alpaca-trade` client and verifies observed method,
+path, status, and request ID. The crate has no unit, serde-only, algorithm-only,
+fixture, in-process router, or mock-only tests.
+
+`optionDoNotExercise` is the sole pending Trading operation. Paper accepts that
+instruction only for a long option position on its expiration day. Run its
+corrected exact Paper scenario only with a clean account so state assertions and
+cleanup can complete; raw Paper and mock `200` responses alone do not establish
+closure.
 
 ## Mock Tests
 
@@ -55,16 +68,14 @@ Current mock-focused coverage:
 
 - route coverage: `crates/alpaca-mock/tests/app_routes.rs`
 - market-data bridge coverage: `crates/alpaca-mock/tests/market_data_real_api.rs`
-- contract-style mock verification in `alpaca-trade`:
-  - deterministic mid-price fill contract in `crates/alpaca-trade/tests/orders_api.rs` via `orders_mock_mid_price_fill_contract`, covering stock, single-option, and multi-leg create/replace flows at mid or composite-mid
-  - `crates/alpaca-trade/tests/positions_mock_contract.rs`
+- Trading contract verification: run `trading_contract_api` against the
+  separately running mock HTTP service.
 
 ## Release-Confidence Commands
 
 ```bash
 cargo fmt --check
 cargo check --workspace
-cargo test --doc
 python3 tools/docs/generate-doc-site
 pnpm run build:website
 ```
@@ -73,5 +84,6 @@ pnpm run build:website
 
 - mock verification does not replace official live API verification
 - market-data-backed mock flows still depend on real `alpaca-data` calls
-- deterministic mock contract tests may seed explicit mock snapshots to lock fill semantics; they still do not replace live verification
-- tests should not silently fall back to invented market data
+- `alpaca-data` and `alpaca-trade` tests must always cross their public HTTP API
+  boundary; local-only tests are intentionally not retained
+- tests must not silently skip or fall back to invented market data

@@ -18,6 +18,6 @@ pub struct Watchlist {
     pub created_at: String,
     pub updated_at: String,
     pub name: String,
-    #[serde(default)]
-    pub assets: Vec<Asset>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub assets: Option<Vec<Asset>>,
 }

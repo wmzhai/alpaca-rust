@@ -3,11 +3,17 @@ use std::sync::{Arc, RwLock};
 
 mod account;
 mod activities;
+mod assets;
+mod calendar;
+mod clock;
 mod executions;
 mod market_data;
+mod options_contracts;
 mod positions;
+mod watchlists;
 
 use chrono::{SecondsFormat, Utc};
+use chrono_tz::America::New_York;
 use rust_decimal::Decimal;
 use rust_decimal::prelude::{FromPrimitive, ToPrimitive};
 use serde::Serialize;
@@ -16,14 +22,26 @@ use thiserror::Error;
 use alpaca_option::{
     OptionContract, OptionQuote, OrderSide as QuoteOrderSide, QuotedLeg, execution_quote,
 };
-use alpaca_trade::activities::Activity;
+use alpaca_trade::account_configurations::{AccountConfigurations, UpdateRequest};
+use alpaca_trade::activities::{Activity, ActivityCategory};
+use alpaca_trade::assets::{Asset, AssetAttribute, AssetClass, AssetStatus, Exchange};
+use alpaca_trade::calendar::{Calendar, CalendarTimezone, CalendarV3Response, DateType, Market};
+use alpaca_trade::clock::{Clock, ClockV3Response};
+use alpaca_trade::options_contracts::{
+    ContractStatus, ContractStyle, ContractType, ListResponse,
+    OptionContract as TradeOptionContract,
+};
 use alpaca_trade::orders::{
-    CancelAllOrderResult, OptionLegRequest, Order, OrderClass, OrderSide, OrderStatus, OrderType,
-    PositionIntent, SortDirection, StopLoss, TakeProfit, TimeInForce,
+    AdvancedInstructions, CancelAllOrderResult, OptionLegRequest, Order, OrderAssetClass,
+    OrderClass, OrderLeg, OrderSide, OrderStatus, OrderType, PositionIntent, QueryOrderStatus,
+    SortDirection, StopLoss, TakeProfit, TimeInForce,
 };
+use alpaca_trade::portfolio_history::PortfolioHistory;
 use alpaca_trade::positions::{
-    ClosePositionBody, ClosePositionResult, ExercisePositionBody, Position,
+    ClosePositionResult, ExerciseDetails, Position, PositionExchange,
+    PositionSide as TradePositionSide,
 };
+use alpaca_trade::watchlists::{Watchlist, WatchlistSummary};
 
 use activities::{
     ActivityEvent, ActivityEventKind, is_public_activity, matches_activity_type, project_activity,
@@ -31,6 +49,7 @@ use activities::{
 use executions::ExecutionFact;
 pub use market_data::{DEFAULT_STOCK_SYMBOL, InstrumentSnapshot, LiveMarketDataBridge};
 use positions::{OptionContractType, PositionBook, parse_option_symbol, project_position};
+use watchlists::WatchlistBook;
 
 #[derive(Debug, Clone)]
 pub struct MockServerState {
@@ -49,11 +68,13 @@ struct SharedState {
 pub(crate) struct VirtualAccountState {
     account_profile: account::AccountProfile,
     cash_ledger: account::CashLedger,
+    account_configurations: AccountConfigurations,
     orders: HashMap<String, StoredOrder>,
     client_order_ids: HashMap<String, String>,
     executions: Vec<ExecutionFact>,
     positions: PositionBook,
     activities: Vec<ActivityEvent>,
+    watchlists: WatchlistBook,
     sequence_clock: u64,
 }
 
@@ -82,6 +103,7 @@ pub struct CreateOrderInput {
     pub take_profit: Option<TakeProfit>,
     pub stop_loss: Option<StopLoss>,
     pub legs: Option<Vec<OptionLegRequest>>,
+    pub advanced_instructions: Option<AdvancedInstructions>,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -92,6 +114,7 @@ pub struct ReplaceOrderInput {
     pub stop_price: Option<Decimal>,
     pub trail: Option<Decimal>,
     pub client_order_id: Option<String>,
+    pub advanced_instructions: Option<AdvancedInstructions>,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -102,22 +125,55 @@ pub struct ClosePositionInput {
 
 #[derive(Debug, Clone, Default)]
 pub struct ListOrdersFilter {
-    pub status: Option<String>,
+    pub status: Option<QueryOrderStatus>,
+    pub limit: Option<u32>,
+    pub after: Option<String>,
+    pub until: Option<String>,
+    pub direction: Option<SortDirection>,
     pub symbols: Option<Vec<String>>,
     pub side: Option<OrderSide>,
-    pub asset_class: Option<String>,
+    pub asset_classes: Option<Vec<OrderAssetClass>>,
     pub nested: Option<bool>,
+    pub before_order_id: Option<String>,
+    pub after_order_id: Option<String>,
 }
 
 #[derive(Debug, Clone, Default)]
 pub struct ListActivitiesFilter {
     pub activity_types: Option<Vec<String>>,
+    pub category: Option<ActivityCategory>,
     pub date: Option<String>,
     pub until: Option<String>,
     pub after: Option<String>,
     pub direction: Option<SortDirection>,
     pub page_size: Option<u32>,
     pub page_token: Option<String>,
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct ListAssetsFilter {
+    pub status: Option<AssetStatus>,
+    pub asset_class: Option<AssetClass>,
+    pub exchange: Option<Exchange>,
+    pub attributes: Option<Vec<AssetAttribute>>,
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct ListOptionContractsFilter {
+    pub underlying_symbols: Option<Vec<String>>,
+    pub show_deliverables: Option<bool>,
+    pub status: Option<ContractStatus>,
+    pub expiration_date: Option<String>,
+    pub expiration_date_gte: Option<String>,
+    pub expiration_date_lte: Option<String>,
+    pub root_symbol: Option<String>,
+    pub contract_type: Option<ContractType>,
+    pub style: Option<ContractStyle>,
+    pub strike_price_gte: Option<Decimal>,
+    pub strike_price_lte: Option<Decimal>,
+    pub page_token: Option<String>,
+    pub limit: Option<u32>,
+    pub ppind: Option<bool>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -145,6 +201,8 @@ pub enum MarketDataBridgeError {
 pub enum MockStateError {
     #[error("{0}")]
     NotFound(String),
+    #[error("{0}")]
+    Forbidden(String),
     #[error("{0}")]
     Conflict(String),
     #[error("{0}")]
@@ -218,6 +276,214 @@ impl MockServerState {
             .get(api_key)
             .expect("account should exist after ensure_account");
         account::project_account(state)
+    }
+
+    #[must_use]
+    pub fn project_account_configurations(&self, api_key: &str) -> AccountConfigurations {
+        self.ensure_account(api_key);
+        let accounts = self
+            .inner
+            .accounts
+            .read()
+            .expect("accounts lock should not poison");
+        accounts
+            .get(api_key)
+            .expect("account should exist after ensure_account")
+            .account_configurations
+            .clone()
+    }
+
+    pub fn update_account_configurations(
+        &self,
+        api_key: &str,
+        request: UpdateRequest,
+    ) -> AccountConfigurations {
+        self.ensure_account(api_key);
+        let mut accounts = self
+            .inner
+            .accounts
+            .write()
+            .expect("accounts lock should not poison");
+        let configuration = &mut accounts
+            .get_mut(api_key)
+            .expect("account should exist after ensure_account")
+            .account_configurations;
+
+        if let Some(value) = request.trade_confirm_email {
+            configuration.trade_confirm_email = Some(value);
+        }
+        if let Some(value) = request.suspend_trade {
+            configuration.suspend_trade = Some(value);
+        }
+        if let Some(value) = request.no_shorting {
+            configuration.no_shorting = Some(value);
+        }
+        if let Some(value) = request.fractional_trading {
+            configuration.fractional_trading = Some(value);
+        }
+        if let Some(value) = request.max_margin_multiplier {
+            configuration.max_margin_multiplier = Some(value);
+        }
+        if let Some(value) = request.max_options_trading_level {
+            configuration.max_options_trading_level = Some(value);
+        }
+        if let Some(value) = request.ptp_no_exception_entry {
+            configuration.ptp_no_exception_entry = Some(value);
+        }
+        if let Some(value) = request.disable_overnight_trading {
+            configuration.disable_overnight_trading = Some(value);
+        }
+
+        configuration.clone()
+    }
+
+    #[must_use]
+    pub fn project_portfolio_history(&self, api_key: &str, timeframe: &str) -> PortfolioHistory {
+        self.ensure_account(api_key);
+        let accounts = self
+            .inner
+            .accounts
+            .read()
+            .expect("accounts lock should not poison");
+        let account = accounts
+            .get(api_key)
+            .expect("account should exist after ensure_account");
+        let equity = cash_balance(account);
+
+        PortfolioHistory {
+            timestamp: vec![Utc::now().timestamp()],
+            equity: vec![equity],
+            profit_loss: vec![Decimal::ZERO],
+            profit_loss_pct: vec![Decimal::ZERO],
+            base_value: equity,
+            base_value_asof: None,
+            timeframe: timeframe.to_owned(),
+            cashflow: None,
+        }
+    }
+
+    #[must_use]
+    pub fn list_watchlists(&self, api_key: &str) -> Vec<WatchlistSummary> {
+        self.with_watchlists(api_key, |watchlists, _| watchlists.summaries())
+    }
+
+    pub fn create_watchlist(
+        &self,
+        api_key: &str,
+        name: String,
+        symbols: Option<Vec<String>>,
+    ) -> Result<Watchlist, MockStateError> {
+        self.with_watchlists(api_key, |watchlists, account_id| {
+            watchlists.create(account_id, name, symbols)
+        })
+    }
+
+    pub fn get_watchlist_by_id(
+        &self,
+        api_key: &str,
+        watchlist_id: &str,
+    ) -> Result<Watchlist, MockStateError> {
+        self.with_watchlists(api_key, |watchlists, _| watchlists.get_by_id(watchlist_id))
+    }
+
+    pub fn get_watchlist_by_name(
+        &self,
+        api_key: &str,
+        name: &str,
+    ) -> Result<Watchlist, MockStateError> {
+        self.with_watchlists(api_key, |watchlists, _| watchlists.get_by_name(name))
+    }
+
+    pub fn update_watchlist_by_id(
+        &self,
+        api_key: &str,
+        watchlist_id: &str,
+        name: Option<String>,
+        symbols: Option<Vec<String>>,
+    ) -> Result<Watchlist, MockStateError> {
+        self.with_watchlists(api_key, |watchlists, _| {
+            watchlists.update_by_id(watchlist_id, name, symbols)
+        })
+    }
+
+    pub fn update_watchlist_by_name(
+        &self,
+        api_key: &str,
+        current_name: &str,
+        name: Option<String>,
+        symbols: Option<Vec<String>>,
+    ) -> Result<Watchlist, MockStateError> {
+        self.with_watchlists(api_key, |watchlists, _| {
+            watchlists.update_by_name(current_name, name, symbols)
+        })
+    }
+
+    pub fn delete_watchlist_by_id(
+        &self,
+        api_key: &str,
+        watchlist_id: &str,
+    ) -> Result<(), MockStateError> {
+        self.with_watchlists(api_key, |watchlists, _| {
+            watchlists.delete_by_id(watchlist_id)
+        })
+    }
+
+    pub fn delete_watchlist_by_name(
+        &self,
+        api_key: &str,
+        name: &str,
+    ) -> Result<(), MockStateError> {
+        self.with_watchlists(api_key, |watchlists, _| watchlists.delete_by_name(name))
+    }
+
+    pub fn add_watchlist_asset_by_id(
+        &self,
+        api_key: &str,
+        watchlist_id: &str,
+        symbol: &str,
+    ) -> Result<Watchlist, MockStateError> {
+        self.with_watchlists(api_key, |watchlists, _| {
+            watchlists.add_asset_by_id(watchlist_id, symbol)
+        })
+    }
+
+    pub fn add_watchlist_asset_by_name(
+        &self,
+        api_key: &str,
+        name: &str,
+        symbol: &str,
+    ) -> Result<Watchlist, MockStateError> {
+        self.with_watchlists(api_key, |watchlists, _| {
+            watchlists.add_asset_by_name(name, symbol)
+        })
+    }
+
+    pub fn remove_watchlist_asset_by_id(
+        &self,
+        api_key: &str,
+        watchlist_id: &str,
+        symbol: &str,
+    ) -> Result<Watchlist, MockStateError> {
+        self.with_watchlists(api_key, |watchlists, _| {
+            watchlists.remove_asset_by_id(watchlist_id, symbol)
+        })
+    }
+
+    fn with_watchlists<T>(
+        &self,
+        api_key: &str,
+        operation: impl FnOnce(&mut WatchlistBook, &str) -> T,
+    ) -> T {
+        let mut accounts = self
+            .inner
+            .accounts
+            .write()
+            .expect("accounts lock should not poison");
+        let account = accounts
+            .entry(api_key.to_owned())
+            .or_insert_with(|| VirtualAccountState::new(api_key));
+        let account_id = account.account_profile.id.clone();
+        operation(&mut account.watchlists, &account_id)
     }
 
     pub async fn create_order(
@@ -334,7 +600,7 @@ impl MockServerState {
                     .clone()
             },
             notional: input.notional,
-            qty: Some(qty),
+            qty: input.notional.is_none().then_some(qty),
             filled_qty: Decimal::ZERO,
             filled_avg_price: None,
             order_class: order_class.clone(),
@@ -430,41 +696,74 @@ impl MockServerState {
         let symbol_filter = filter.symbols.map(|symbols| {
             symbols
                 .into_iter()
-                .map(|symbol| symbol.trim().to_owned())
+                .map(|symbol| symbol.trim().to_ascii_uppercase())
                 .filter(|symbol| !symbol.is_empty())
                 .collect::<HashSet<_>>()
         });
 
-        let mut orders = account
-            .orders
-            .values()
-            .filter(|stored| {
-                let order = &stored.order;
-                matches_status_filter(order, filter.status.as_deref())
-                    && symbol_filter
-                        .as_ref()
-                        .is_none_or(|symbols| symbols.contains(&order.symbol))
-                    && filter.side.as_ref().is_none_or(|side| &order.side == side)
-                    && filter
-                        .asset_class
-                        .as_deref()
-                        .is_none_or(|asset_class| order.asset_class == asset_class)
-            })
-            .map(|stored| order_for_list(&stored.order, filter.nested.unwrap_or(false)))
-            .collect::<Vec<_>>();
-        orders.sort_by(|left, right| right.created_at.cmp(&left.created_at));
+        let before_anchor = filter
+            .before_order_id
+            .as_ref()
+            .and_then(|order_id| account.orders.get(order_id))
+            .map(|stored| stored.order.clone());
+        let after_anchor = filter
+            .after_order_id
+            .as_ref()
+            .and_then(|order_id| account.orders.get(order_id))
+            .map(|stored| stored.order.clone());
+        let direction = filter.direction.unwrap_or(SortDirection::Desc);
+        let limit = filter.limit.unwrap_or(50) as usize;
+        let nested = filter.nested.unwrap_or(false);
+
+        let mut orders =
+            account
+                .orders
+                .values()
+                .filter(|stored| {
+                    let order = &stored.order;
+                    matches_status_filter(order, filter.status)
+                        && matches_order_symbols(
+                            order,
+                            symbol_filter.as_ref(),
+                            filter.asset_classes.as_deref(),
+                        )
+                        && filter.side.as_ref().is_none_or(|side| &order.side == side)
+                        && matches_order_asset_classes(order, filter.asset_classes.as_deref())
+                        && filter.after.as_ref().is_none_or(|after| {
+                            compare_timestamp(&order.submitted_at, after).is_gt()
+                        })
+                        && filter.until.as_ref().is_none_or(|until| {
+                            compare_timestamp(&order.submitted_at, until).is_lt()
+                        })
+                        && before_anchor
+                            .as_ref()
+                            .is_none_or(|anchor| compare_order_submission(order, anchor).is_lt())
+                        && after_anchor
+                            .as_ref()
+                            .is_none_or(|anchor| compare_order_submission(order, anchor).is_gt())
+                })
+                .map(|stored| &stored.order)
+                .collect::<Vec<_>>();
+        orders.sort_by(|left, right| compare_order_submission(left, right));
+        if direction == SortDirection::Desc {
+            orders.reverse();
+        }
         orders
+            .into_iter()
+            .take(limit)
+            .map(|order| order_for_list(order, nested))
+            .collect()
     }
 
     #[must_use]
-    pub fn get_order(&self, api_key: &str, order_id: &str) -> Option<Order> {
+    pub fn get_order(&self, api_key: &str, order_id: &str, nested: bool) -> Option<Order> {
         self.inner
             .accounts
             .read()
             .expect("accounts lock should not poison")
             .get(api_key)
             .and_then(|account| account.orders.get(order_id))
-            .map(|stored| stored.order.clone())
+            .map(|stored| order_for_list(&stored.order, nested))
     }
 
     #[must_use]
@@ -501,11 +800,13 @@ impl MockServerState {
                 .collect::<Vec<_>>()
         });
         let direction = filter.direction.unwrap_or(SortDirection::Desc);
+        let category = filter.category;
 
         let mut events = account
             .activities
             .iter()
             .filter(|event| is_public_activity(event))
+            .filter(|_| !matches!(category, Some(ActivityCategory::NonTradeActivity)))
             .filter(|event| {
                 requested_types.as_ref().is_none_or(|activity_types| {
                     activity_types
@@ -558,6 +859,172 @@ impl MockServerState {
         }
 
         activities
+    }
+
+    #[must_use]
+    pub fn list_assets(&self, filter: ListAssetsFilter) -> Vec<Asset> {
+        assets::catalog()
+            .into_iter()
+            .filter(|asset| filter.status.is_none_or(|value| asset.status == value))
+            .filter(|asset| filter.asset_class.is_none_or(|value| asset.class == value))
+            .filter(|asset| filter.exchange.is_none_or(|value| asset.exchange == value))
+            .filter(|asset| {
+                filter.attributes.as_ref().is_none_or(|requested| {
+                    asset
+                        .attributes
+                        .as_ref()
+                        .is_some_and(|actual| requested.iter().any(|value| actual.contains(value)))
+                })
+            })
+            .collect()
+    }
+
+    #[must_use]
+    pub fn get_asset(&self, symbol_or_asset_id: &str) -> Option<Asset> {
+        assets::catalog().into_iter().find(|asset| {
+            asset.id == symbol_or_asset_id || asset.symbol.eq_ignore_ascii_case(symbol_or_asset_id)
+        })
+    }
+
+    #[must_use]
+    pub fn list_option_contracts(&self, filter: ListOptionContractsFilter) -> ListResponse {
+        if filter.page_token.is_some() {
+            return ListResponse {
+                option_contracts: Vec::new(),
+                next_page_token: None,
+            };
+        }
+
+        let mut contracts = options_contracts::catalog()
+            .into_iter()
+            .filter(|contract| {
+                filter.underlying_symbols.as_ref().is_none_or(|symbols| {
+                    symbols
+                        .iter()
+                        .any(|symbol| contract.underlying_symbol.eq_ignore_ascii_case(symbol))
+                })
+            })
+            .filter(|contract| {
+                filter
+                    .status
+                    .as_ref()
+                    .is_none_or(|status| contract.status == *status)
+            })
+            .filter(|contract| {
+                filter
+                    .expiration_date
+                    .as_ref()
+                    .is_none_or(|date| contract.expiration_date == *date)
+            })
+            .filter(|contract| {
+                filter
+                    .expiration_date_gte
+                    .as_ref()
+                    .is_none_or(|date| contract.expiration_date >= *date)
+            })
+            .filter(|contract| {
+                filter
+                    .expiration_date_lte
+                    .as_ref()
+                    .is_none_or(|date| contract.expiration_date <= *date)
+            })
+            .filter(|contract| {
+                filter
+                    .root_symbol
+                    .as_ref()
+                    .is_none_or(|root| contract.root_symbol.as_ref() == Some(root))
+            })
+            .filter(|contract| {
+                filter
+                    .contract_type
+                    .as_ref()
+                    .is_none_or(|contract_type| contract.r#type == *contract_type)
+            })
+            .filter(|contract| {
+                filter
+                    .style
+                    .as_ref()
+                    .is_none_or(|style| contract.style == *style)
+            })
+            .filter(|contract| {
+                filter
+                    .strike_price_gte
+                    .is_none_or(|value| contract.strike_price >= value)
+            })
+            .filter(|contract| {
+                filter
+                    .strike_price_lte
+                    .is_none_or(|value| contract.strike_price <= value)
+            })
+            .filter(|contract| {
+                filter
+                    .ppind
+                    .is_none_or(|value| contract.ppind == Some(value))
+            })
+            .map(|mut contract| {
+                if filter.show_deliverables != Some(true) {
+                    contract.deliverables = None;
+                }
+                contract
+            })
+            .collect::<Vec<TradeOptionContract>>();
+
+        contracts.truncate(filter.limit.unwrap_or(100) as usize);
+        ListResponse {
+            option_contracts: contracts,
+            next_page_token: None,
+        }
+    }
+
+    #[must_use]
+    pub fn get_option_contract(&self, symbol_or_id: &str) -> Option<TradeOptionContract> {
+        options_contracts::catalog().into_iter().find(|contract| {
+            contract.id == symbol_or_id || contract.symbol.eq_ignore_ascii_case(symbol_or_id)
+        })
+    }
+
+    #[must_use]
+    pub fn legacy_calendar(
+        &self,
+        start: Option<chrono::NaiveDate>,
+        end: Option<chrono::NaiveDate>,
+        date_type: DateType,
+    ) -> Vec<Calendar> {
+        calendar::legacy_catalog()
+            .into_iter()
+            .filter(|day| {
+                let selected_date = match date_type {
+                    DateType::Trading => day.date.as_str(),
+                    DateType::Settlement => day.settlement_date.as_str(),
+                };
+                chrono::NaiveDate::parse_from_str(selected_date, "%Y-%m-%d")
+                    .ok()
+                    .is_some_and(|date| {
+                        start.is_none_or(|start| date >= start) && end.is_none_or(|end| date <= end)
+                    })
+            })
+            .collect()
+    }
+
+    #[must_use]
+    pub fn calendar_v3(
+        &self,
+        market: Market,
+        start: Option<chrono::NaiveDate>,
+        end: Option<chrono::NaiveDate>,
+        timezone: Option<CalendarTimezone>,
+    ) -> CalendarV3Response {
+        calendar::v3_calendar(market, start, end, timezone)
+    }
+
+    #[must_use]
+    pub fn legacy_clock(&self) -> Clock {
+        clock::legacy_clock()
+    }
+
+    #[must_use]
+    pub fn clock_v3(&self, markets: Vec<Market>, time: Option<String>) -> ClockV3Response {
+        clock::clock_v3(markets, time)
     }
 
     pub async fn replace_order(
@@ -953,7 +1420,7 @@ impl MockServerState {
         api_key: &str,
         symbol_or_asset_id: &str,
         input: ClosePositionInput,
-    ) -> Result<ClosePositionBody, MockStateError> {
+    ) -> Result<Order, MockStateError> {
         let position = {
             let accounts = self
                 .inner
@@ -1050,7 +1517,7 @@ impl MockServerState {
         )]);
         apply_fill_effects(account, &order, &request_side, Some(&market_quotes));
 
-        Ok(ClosePositionBody::from(order))
+        Ok(order)
     }
 
     pub async fn close_all_positions(
@@ -1110,7 +1577,7 @@ impl MockServerState {
             .ok_or_else(|| {
                 MockStateError::NotFound(format!("position {symbol_or_contract_id} was not found"))
             })?;
-        ensure_exercisable_long_option_position(&position)?;
+        ensure_do_not_exercise_eligible_position(&position)?;
         account
             .positions
             .record_do_not_exercise(&position.instrument_identity.symbol, &now);
@@ -1135,7 +1602,7 @@ impl MockServerState {
         &self,
         api_key: &str,
         symbol_or_contract_id: &str,
-    ) -> Result<ExercisePositionBody, MockStateError> {
+    ) -> Result<ExerciseDetails, MockStateError> {
         let now = now_string();
         let mut accounts = self
             .inner
@@ -1222,7 +1689,7 @@ impl MockServerState {
             underlying_cash_delta,
         ));
 
-        Ok(ExercisePositionBody {
+        Ok(ExerciseDetails {
             qty_exercised: option_qty,
             qty_remaining: Decimal::ZERO,
         })
@@ -1347,11 +1814,13 @@ impl VirtualAccountState {
         Self {
             account_profile: account::AccountProfile::new(api_key),
             cash_ledger: account::CashLedger::seeded_default(),
+            account_configurations: account::default_account_configurations(),
             orders: HashMap::new(),
             client_order_ids: HashMap::new(),
             executions: Vec::new(),
             positions: PositionBook::default(),
             activities: Vec::new(),
+            watchlists: WatchlistBook::default(),
             sequence_clock: 0,
         }
     }
@@ -1437,25 +1906,23 @@ fn resolve_close_qty(
     position: &positions::InstrumentPosition,
     input: &ClosePositionInput,
 ) -> Result<Decimal, MockStateError> {
+    if input.qty.is_some() && input.percentage.is_some() {
+        return Err(MockStateError::Conflict(
+            "qty and percentage are mutually exclusive".to_owned(),
+        ));
+    }
+
     let available = position.net_qty.abs();
     let qty = if let Some(qty) = input.qty {
+        validate_close_amount("qty", qty, None)?;
         qty
     } else if let Some(percentage) = input.percentage {
-        if percentage <= Decimal::ZERO || percentage > Decimal::new(100, 0) {
-            return Err(MockStateError::Conflict(
-                "close percentage must be greater than 0 and at most 100".to_owned(),
-            ));
-        }
-        (available * percentage / Decimal::new(100, 0)).round_dp(8)
+        validate_close_amount("percentage", percentage, Some(Decimal::new(100, 0)))?;
+        (available * percentage / Decimal::new(100, 0)).round_dp(9)
     } else {
         available
     };
 
-    if qty <= Decimal::ZERO {
-        return Err(MockStateError::Conflict(
-            "close quantity must be greater than 0".to_owned(),
-        ));
-    }
     if qty > available {
         return Err(MockStateError::Conflict(format!(
             "close quantity {qty} exceeds available position quantity {available}"
@@ -1463,6 +1930,30 @@ fn resolve_close_qty(
     }
 
     Ok(qty)
+}
+
+fn validate_close_amount(
+    name: &str,
+    value: Decimal,
+    maximum: Option<Decimal>,
+) -> Result<(), MockStateError> {
+    if value <= Decimal::ZERO {
+        return Err(MockStateError::Conflict(format!(
+            "{name} must be greater than 0"
+        )));
+    }
+    if maximum.is_some_and(|maximum| value > maximum) {
+        return Err(MockStateError::Conflict(format!(
+            "{name} must be at most 100"
+        )));
+    }
+    if value.scale() > 9 {
+        return Err(MockStateError::Conflict(format!(
+            "{name} must have at most 9 decimal places"
+        )));
+    }
+
+    Ok(())
 }
 
 fn reference_price(side: &OrderSide, snapshot: &InstrumentSnapshot) -> Decimal {
@@ -1701,29 +2192,67 @@ fn is_terminal_status(status: &OrderStatus) -> bool {
     )
 }
 
-fn matches_status_filter(order: &Order, status: Option<&str>) -> bool {
-    match status {
-        None => true,
-        Some(value) if value.eq_ignore_ascii_case("all") => true,
-        Some(value) if value.eq_ignore_ascii_case("open") => !is_terminal_status(&order.status),
-        Some(value) if value.eq_ignore_ascii_case("closed") => is_terminal_status(&order.status),
-        Some(_) => true,
+fn matches_status_filter(order: &Order, status: Option<QueryOrderStatus>) -> bool {
+    match status.unwrap_or(QueryOrderStatus::Open) {
+        QueryOrderStatus::All => true,
+        QueryOrderStatus::Open => !is_terminal_status(&order.status),
+        QueryOrderStatus::Closed => is_terminal_status(&order.status),
     }
 }
 
 fn order_for_list(order: &Order, nested: bool) -> Order {
-    if nested || order.order_class == OrderClass::Mleg {
+    if nested {
         return order.clone();
     }
 
     let mut projected = order.clone();
-    if matches!(
-        projected.order_class,
-        OrderClass::Bracket | OrderClass::Oco | OrderClass::Oto
-    ) {
-        projected.legs = None;
-    }
+    projected.legs = None;
     projected
+}
+
+fn matches_order_asset_classes(order: &Order, asset_classes: Option<&[OrderAssetClass]>) -> bool {
+    asset_classes.is_none_or(|asset_classes| {
+        asset_classes.is_empty()
+            || asset_classes.contains(&OrderAssetClass::All)
+            || asset_classes
+                .iter()
+                .any(|asset_class| asset_class.to_string() == order.asset_class)
+    })
+}
+
+fn matches_order_symbols(
+    order: &Order,
+    symbols: Option<&HashSet<String>>,
+    asset_classes: Option<&[OrderAssetClass]>,
+) -> bool {
+    symbols.is_none_or(|symbols| {
+        symbols.contains(&order.symbol.to_ascii_uppercase())
+            || (asset_classes
+                .is_some_and(|asset_classes| asset_classes.contains(&OrderAssetClass::UsOption))
+                && positions::parse_option_symbol(&order.symbol).is_some_and(|contract| {
+                    symbols.contains(&contract.underlying_symbol.to_ascii_uppercase())
+                }))
+    })
+}
+
+fn compare_order_submission(left: &Order, right: &Order) -> std::cmp::Ordering {
+    compare_timestamp(&left.submitted_at, &right.submitted_at)
+        .then_with(|| mock_order_sequence(&left.id).cmp(&mock_order_sequence(&right.id)))
+        .then_with(|| left.id.cmp(&right.id))
+}
+
+fn compare_timestamp(left: &str, right: &str) -> std::cmp::Ordering {
+    match (
+        chrono::DateTime::parse_from_rfc3339(left),
+        chrono::DateTime::parse_from_rfc3339(right),
+    ) {
+        (Ok(left), Ok(right)) => left.cmp(&right),
+        _ => left.cmp(right),
+    }
+}
+
+fn mock_order_sequence(order_id: &str) -> Option<u64> {
+    order_id.rsplit('-').next()?.parse().ok()
 }
 
 fn event_matches_date(event: &ActivityEvent, date: &str) -> bool {
@@ -1951,7 +2480,7 @@ fn requested_symbols(symbol: Option<&str>, legs: Option<&[OptionLegRequest]>) ->
     symbols
 }
 
-fn option_leg_requests_from_orders(legs: &[Order]) -> Vec<OptionLegRequest> {
+fn option_leg_requests_from_orders(legs: &[OrderLeg]) -> Vec<OptionLegRequest> {
     legs.iter()
         .map(|leg| OptionLegRequest {
             symbol: leg.symbol.clone(),
@@ -1975,8 +2504,8 @@ fn build_order_legs(
     take_profit: Option<TakeProfit>,
     stop_loss: Option<StopLoss>,
     mleg_legs: Option<&[OptionLegRequest]>,
-    previous_legs: Option<&[Order]>,
-) -> Result<Option<Vec<Order>>, MockStateError> {
+    previous_legs: Option<&[OrderLeg]>,
+) -> Result<Option<Vec<OrderLeg>>, MockStateError> {
     match order_class {
         OrderClass::Simple => Ok(None),
         OrderClass::Mleg => Ok(Some(build_leg_orders_from_requests(
@@ -2016,8 +2545,8 @@ fn build_advanced_order_legs(
     position_intent: Option<PositionIntent>,
     take_profit: Option<TakeProfit>,
     stop_loss: Option<StopLoss>,
-    previous_legs: Option<&[Order]>,
-) -> Result<Vec<Order>, MockStateError> {
+    previous_legs: Option<&[OrderLeg]>,
+) -> Result<Vec<OrderLeg>, MockStateError> {
     let instrument = market_quotes.get(symbol).ok_or_else(|| {
         MockStateError::MarketDataUnavailable(format!(
             "mock advanced order for {symbol} requires live market data"
@@ -2141,9 +2670,9 @@ fn build_advanced_child_order(
     now: &str,
     limit_price: Option<Decimal>,
     stop_price: Option<Decimal>,
-    previous_leg: Option<&Order>,
-) -> Order {
-    Order {
+    previous_leg: Option<&OrderLeg>,
+) -> OrderLeg {
+    OrderLeg {
         id: format!("mock-child-order-{}-{}", now_millis(), symbol),
         client_order_id: format!("mock-child-client-order-{}-{}", now_millis(), symbol),
         created_at: now.to_owned(),
@@ -2181,8 +2710,6 @@ fn build_advanced_child_order(
         trail_price: None,
         hwm: None,
         ratio_qty: None,
-        take_profit: None,
-        stop_loss: None,
         subtag: None,
         source: None,
     }
@@ -2229,14 +2756,14 @@ fn build_leg_orders_from_requests(
     order_type: OrderType,
     time_in_force: TimeInForce,
     now: &str,
-    previous_legs: Option<&[Order]>,
-) -> Vec<Order> {
+    previous_legs: Option<&[OrderLeg]>,
+) -> Vec<OrderLeg> {
     legs.iter()
         .enumerate()
         .map(|(index, leg)| {
             let previous_leg = previous_legs.and_then(|legs| legs.get(index));
             let leg_qty = parent_qty * Decimal::from(leg.ratio_qty);
-            Order {
+            OrderLeg {
                 id: format!("mock-leg-order-{}-{index}", now_millis()),
                 client_order_id: format!("mock-leg-client-order-{}-{index}", now_millis()),
                 created_at: now.to_owned(),
@@ -2274,8 +2801,6 @@ fn build_leg_orders_from_requests(
                 trail_price: None,
                 hwm: None,
                 ratio_qty: Some(leg.ratio_qty),
-                take_profit: None,
-                stop_loss: None,
                 subtag: None,
                 source: None,
             }
@@ -2287,20 +2812,51 @@ fn public_position_from_projection(projected: positions::ProjectedPosition) -> P
     Position {
         asset_id: projected.asset_id,
         symbol: projected.symbol,
-        exchange: projected.exchange,
-        asset_class: projected.asset_class,
+        exchange: match projected.exchange.as_str() {
+            "AMEX" => PositionExchange::Amex,
+            "ARCA" => PositionExchange::Arca,
+            "BATS" => PositionExchange::Bats,
+            "NYSE" => PositionExchange::Nyse,
+            "NASDAQ" => PositionExchange::Nasdaq,
+            "NYSEARCA" => PositionExchange::NyseArca,
+            "OTC" => PositionExchange::Otc,
+            "CRYPTO" => PositionExchange::Crypto,
+            _ => PositionExchange::Unspecified,
+        },
+        asset_class: match projected.asset_class.as_str() {
+            "us_option" => AssetClass::UsOption,
+            "crypto" => AssetClass::Crypto,
+            "crypto_perp" => AssetClass::CryptoPerp,
+            "treasury" => AssetClass::Treasury,
+            "corporate" => AssetClass::Corporate,
+            "global_equity" => AssetClass::GlobalEquity,
+            "us_index" => AssetClass::UsIndex,
+            "us_equity_chain" => AssetClass::UsEquityChain,
+            "ipo" => AssetClass::Ipo,
+            _ => AssetClass::UsEquity,
+        },
         asset_marginable: projected.asset_marginable,
-        side: projected.side,
+        side: if projected.side == "short" {
+            TradePositionSide::Short
+        } else {
+            TradePositionSide::Long
+        },
         qty: projected.qty,
         avg_entry_price: projected.avg_entry_price,
         market_value: projected.market_value,
         cost_basis: projected.cost_basis,
         unrealized_pl: projected.unrealized_pl,
         unrealized_plpc: projected.unrealized_plpc,
+        unrealized_intraday_pl: projected.unrealized_intraday_pl,
+        unrealized_intraday_plpc: projected.unrealized_intraday_plpc,
         current_price: projected.current_price,
         lastday_price: projected.lastday_price,
         change_today: projected.change_today,
-        qty_available: projected.qty_available,
+        qty_available: Some(projected.qty_available),
+        avg_entry_swap_rate: None,
+        prev_swap_rate: None,
+        swap_rate: None,
+        usd: None,
     }
 }
 
@@ -2338,733 +2894,29 @@ fn ensure_exercisable_long_option_position(
     Ok(())
 }
 
-fn now_string() -> String {
-    Utc::now().to_rfc3339_opts(SecondsFormat::Secs, true)
+fn ensure_do_not_exercise_eligible_position(
+    position: &positions::InstrumentPosition,
+) -> Result<(), MockStateError> {
+    ensure_exercisable_long_option_position(position)?;
+    let parsed = parse_option_symbol(&position.instrument_identity.symbol).ok_or_else(|| {
+        MockStateError::Conflict(format!(
+            "option symbol {} is not a parseable OCC contract",
+            position.instrument_identity.symbol
+        ))
+    })?;
+    let today = Utc::now().with_timezone(&New_York).date_naive();
+    if parsed.expiration_date != today {
+        return Err(MockStateError::Forbidden(
+            "dne requests are only accepted on the expiration day of the option contract"
+                .to_owned(),
+        ));
+    }
+
+    Ok(())
 }
 
-#[cfg(test)]
-mod tests {
-    use std::collections::HashMap;
-
-    use super::*;
-
-    fn equity_snapshot() -> InstrumentSnapshot {
-        InstrumentSnapshot::equity(Decimal::new(100, 0), Decimal::new(101, 0))
-    }
-
-    fn option_snapshot() -> InstrumentSnapshot {
-        InstrumentSnapshot::option(Decimal::new(120, 2), Decimal::new(140, 2))
-    }
-
-    #[tokio::test]
-    async fn simple_limit_order_rejects_negative_limit_price() {
-        let state = MockServerState::new().with_market_snapshot("OPT", option_snapshot());
-
-        let error = state
-            .create_order(
-                "mock-key",
-                CreateOrderInput {
-                    symbol: Some("OPT".to_owned()),
-                    qty: Some(Decimal::ONE),
-                    side: Some(OrderSide::Sell),
-                    order_type: Some(OrderType::Limit),
-                    limit_price: Some(Decimal::new(-2, 2)),
-                    ..CreateOrderInput::default()
-                },
-            )
-            .await
-            .expect_err("simple limit orders should reject negative limit_price");
-
-        assert_eq!(
-            error,
-            MockStateError::Conflict("simple limit_price must be greater than 0".to_owned())
-        );
-    }
-
-    #[tokio::test]
-    async fn mleg_limit_order_allows_negative_credit_limit_price() {
-        let state = MockServerState::new()
-            .with_market_snapshot("OPT-BUY", option_snapshot())
-            .with_market_snapshot("OPT-SELL", option_snapshot());
-
-        let order = state
-            .create_order(
-                "mock-key",
-                CreateOrderInput {
-                    qty: Some(Decimal::ONE),
-                    order_type: Some(OrderType::Limit),
-                    order_class: Some(OrderClass::Mleg),
-                    limit_price: Some(Decimal::new(-2, 2)),
-                    legs: Some(vec![
-                        OptionLegRequest {
-                            symbol: "OPT-BUY".to_owned(),
-                            ratio_qty: 1,
-                            side: Some(OrderSide::Buy),
-                            position_intent: None,
-                        },
-                        OptionLegRequest {
-                            symbol: "OPT-SELL".to_owned(),
-                            ratio_qty: 1,
-                            side: Some(OrderSide::Sell),
-                            position_intent: None,
-                        },
-                    ]),
-                    ..CreateOrderInput::default()
-                },
-            )
-            .await
-            .expect("mleg credit limit orders should allow negative limit_price");
-
-        assert_eq!(order.order_class, OrderClass::Mleg);
-        assert_eq!(order.limit_price, Some(Decimal::new(-2, 2)));
-    }
-
-    #[tokio::test]
-    async fn simple_replace_order_rejects_negative_limit_price() {
-        let state = MockServerState::new().with_market_snapshot("AAPL", equity_snapshot());
-        let order = state
-            .create_order(
-                "mock-key",
-                CreateOrderInput {
-                    symbol: Some("AAPL".to_owned()),
-                    qty: Some(Decimal::ONE),
-                    side: Some(OrderSide::Buy),
-                    order_type: Some(OrderType::Limit),
-                    limit_price: Some(Decimal::new(90, 0)),
-                    ..CreateOrderInput::default()
-                },
-            )
-            .await
-            .expect("non-marketable simple limit order should be accepted");
-        assert_eq!(order.status, OrderStatus::New);
-
-        let error = state
-            .replace_order(
-                "mock-key",
-                &order.id,
-                ReplaceOrderInput {
-                    limit_price: Some(Decimal::new(-2, 2)),
-                    ..ReplaceOrderInput::default()
-                },
-            )
-            .await
-            .expect_err("simple replace orders should reject negative limit_price");
-
-        assert_eq!(
-            error,
-            MockStateError::Conflict("simple limit_price must be greater than 0".to_owned())
-        );
-    }
-
-    fn build_test_mleg_order(order_type: OrderType, limit_price: Option<Decimal>) -> Order {
-        let now = "2026-04-09T12:00:00Z";
-        Order {
-            id: "mock-parent-order".to_owned(),
-            client_order_id: "mock-parent-client-order".to_owned(),
-            created_at: now.to_owned(),
-            updated_at: now.to_owned(),
-            submitted_at: now.to_owned(),
-            filled_at: None,
-            expired_at: None,
-            expires_at: expires_at_for(&TimeInForce::Day),
-            canceled_at: None,
-            failed_at: None,
-            replaced_at: None,
-            replaced_by: None,
-            replaces: None,
-            asset_id: String::new(),
-            symbol: String::new(),
-            asset_class: String::new(),
-            notional: None,
-            qty: Some(Decimal::ONE),
-            filled_qty: Decimal::ZERO,
-            filled_avg_price: None,
-            order_class: OrderClass::Mleg,
-            order_type: order_type.clone(),
-            r#type: order_type.clone(),
-            side: OrderSide::Unspecified,
-            position_intent: None,
-            time_in_force: TimeInForce::Day,
-            limit_price,
-            stop_price: None,
-            status: OrderStatus::New,
-            extended_hours: false,
-            legs: Some(build_leg_orders_from_requests(
-                &[
-                    OptionLegRequest {
-                        symbol: "OPT-BUY".to_owned(),
-                        ratio_qty: 1,
-                        side: Some(OrderSide::Buy),
-                        position_intent: None,
-                    },
-                    OptionLegRequest {
-                        symbol: "OPT-SELL".to_owned(),
-                        ratio_qty: 1,
-                        side: Some(OrderSide::Sell),
-                        position_intent: None,
-                    },
-                ],
-                Decimal::ONE,
-                order_type,
-                TimeInForce::Day,
-                now,
-                None,
-            )),
-            trail_percent: None,
-            trail_price: None,
-            hwm: None,
-            ratio_qty: None,
-            take_profit: None,
-            stop_loss: None,
-            subtag: None,
-            source: None,
-        }
-    }
-
-    fn build_test_credit_mleg_order(order_type: OrderType, limit_price: Option<Decimal>) -> Order {
-        let now = "2026-04-09T12:00:00Z";
-        Order {
-            id: "mock-credit-parent-order".to_owned(),
-            client_order_id: "mock-credit-parent-client-order".to_owned(),
-            created_at: now.to_owned(),
-            updated_at: now.to_owned(),
-            submitted_at: now.to_owned(),
-            filled_at: None,
-            expired_at: None,
-            expires_at: expires_at_for(&TimeInForce::Day),
-            canceled_at: None,
-            failed_at: None,
-            replaced_at: None,
-            replaced_by: None,
-            replaces: None,
-            asset_id: String::new(),
-            symbol: String::new(),
-            asset_class: String::new(),
-            notional: None,
-            qty: Some(Decimal::ONE),
-            filled_qty: Decimal::ZERO,
-            filled_avg_price: None,
-            order_class: OrderClass::Mleg,
-            order_type: order_type.clone(),
-            r#type: order_type.clone(),
-            side: OrderSide::Unspecified,
-            position_intent: None,
-            time_in_force: TimeInForce::Day,
-            limit_price,
-            stop_price: None,
-            status: OrderStatus::New,
-            extended_hours: false,
-            legs: Some(build_leg_orders_from_requests(
-                &[
-                    OptionLegRequest {
-                        symbol: "OPT-CREDIT-BUY".to_owned(),
-                        ratio_qty: 1,
-                        side: Some(OrderSide::Buy),
-                        position_intent: None,
-                    },
-                    OptionLegRequest {
-                        symbol: "OPT-CREDIT-SELL".to_owned(),
-                        ratio_qty: 1,
-                        side: Some(OrderSide::Sell),
-                        position_intent: None,
-                    },
-                ],
-                Decimal::ONE,
-                order_type,
-                TimeInForce::Day,
-                now,
-                None,
-            )),
-            trail_percent: None,
-            trail_price: None,
-            hwm: None,
-            ratio_qty: None,
-            take_profit: None,
-            stop_loss: None,
-            subtag: None,
-            source: None,
-        }
-    }
-
-    fn build_test_double_diag_order(order_type: OrderType, limit_price: Option<Decimal>) -> Order {
-        let now = "2026-04-09T12:00:00Z";
-        Order {
-            id: "mock-double-diag-parent-order".to_owned(),
-            client_order_id: "mock-double-diag-parent-client-order".to_owned(),
-            created_at: now.to_owned(),
-            updated_at: now.to_owned(),
-            submitted_at: now.to_owned(),
-            filled_at: None,
-            expired_at: None,
-            expires_at: expires_at_for(&TimeInForce::Day),
-            canceled_at: None,
-            failed_at: None,
-            replaced_at: None,
-            replaced_by: None,
-            replaces: None,
-            asset_id: String::new(),
-            symbol: String::new(),
-            asset_class: String::new(),
-            notional: None,
-            qty: Some(Decimal::ONE),
-            filled_qty: Decimal::ZERO,
-            filled_avg_price: None,
-            order_class: OrderClass::Mleg,
-            order_type: order_type.clone(),
-            r#type: order_type.clone(),
-            side: OrderSide::Unspecified,
-            position_intent: None,
-            time_in_force: TimeInForce::Day,
-            limit_price,
-            stop_price: None,
-            status: OrderStatus::New,
-            extended_hours: false,
-            legs: Some(build_leg_orders_from_requests(
-                &[
-                    OptionLegRequest {
-                        symbol: "IWM260515P00265000".to_owned(),
-                        ratio_qty: 1,
-                        side: Some(OrderSide::Sell),
-                        position_intent: None,
-                    },
-                    OptionLegRequest {
-                        symbol: "IWM260515P00270000".to_owned(),
-                        ratio_qty: 1,
-                        side: Some(OrderSide::Buy),
-                        position_intent: None,
-                    },
-                    OptionLegRequest {
-                        symbol: "IWM260515C00285000".to_owned(),
-                        ratio_qty: 1,
-                        side: Some(OrderSide::Sell),
-                        position_intent: None,
-                    },
-                    OptionLegRequest {
-                        symbol: "IWM260515C00290000".to_owned(),
-                        ratio_qty: 1,
-                        side: Some(OrderSide::Buy),
-                        position_intent: None,
-                    },
-                ],
-                Decimal::ONE,
-                order_type,
-                TimeInForce::Day,
-                now,
-                None,
-            )),
-            trail_percent: None,
-            trail_price: None,
-            hwm: None,
-            ratio_qty: None,
-            take_profit: None,
-            stop_loss: None,
-            subtag: None,
-            source: None,
-        }
-    }
-
-    #[test]
-    fn stock_single_leg_orders_use_mid_price_for_market_and_limit() {
-        let snapshot = equity_snapshot();
-        let mid = snapshot.mid_price();
-
-        assert_eq!(reference_price(&OrderSide::Buy, &snapshot), mid);
-        assert_eq!(reference_price(&OrderSide::Sell, &snapshot), mid);
-        assert_eq!(
-            marketable_fill_price(&OrderType::Market, &OrderSide::Buy, None, &snapshot),
-            Some(mid)
-        );
-        assert_eq!(
-            marketable_fill_price(&OrderType::Limit, &OrderSide::Buy, Some(mid), &snapshot,),
-            Some(mid)
-        );
-        assert_eq!(
-            marketable_fill_price(
-                &OrderType::Limit,
-                &OrderSide::Buy,
-                Some(mid - Decimal::new(1, 2)),
-                &snapshot,
-            ),
-            None
-        );
-        assert_eq!(
-            marketable_fill_price(&OrderType::Limit, &OrderSide::Sell, Some(mid), &snapshot,),
-            Some(mid)
-        );
-        assert_eq!(
-            marketable_fill_price(
-                &OrderType::Limit,
-                &OrderSide::Sell,
-                Some(mid + Decimal::new(1, 2)),
-                &snapshot,
-            ),
-            None
-        );
-    }
-
-    #[test]
-    fn option_single_leg_orders_use_mid_price_for_market_and_limit() {
-        let snapshot = option_snapshot();
-        let mid = snapshot.mid_price();
-
-        assert_eq!(reference_price(&OrderSide::Buy, &snapshot), mid);
-        assert_eq!(reference_price(&OrderSide::Sell, &snapshot), mid);
-        assert_eq!(
-            marketable_fill_price(&OrderType::Market, &OrderSide::Sell, None, &snapshot),
-            Some(mid)
-        );
-        assert_eq!(
-            marketable_fill_price(&OrderType::Limit, &OrderSide::Buy, Some(mid), &snapshot,),
-            Some(mid)
-        );
-        assert_eq!(
-            marketable_fill_price(&OrderType::Limit, &OrderSide::Sell, Some(mid), &snapshot,),
-            Some(mid)
-        );
-    }
-
-    #[test]
-    fn multi_leg_orders_use_composite_mid_price_for_market_and_limit() {
-        let market_quotes = HashMap::from([
-            (
-                "OPT-BUY".to_owned(),
-                InstrumentSnapshot::option(Decimal::new(300, 2), Decimal::new(340, 2)),
-            ),
-            (
-                "OPT-SELL".to_owned(),
-                InstrumentSnapshot::option(Decimal::new(100, 2), Decimal::new(140, 2)),
-            ),
-        ]);
-        let expected_mid = Decimal::new(200, 2);
-
-        let mut market_order = build_test_mleg_order(OrderType::Market, None);
-        apply_mleg_fill_rules(&mut market_order, &OrderSide::Buy, &market_quotes);
-        assert_eq!(market_order.status, OrderStatus::Filled);
-        assert_eq!(market_order.filled_avg_price, Some(expected_mid));
-
-        let filled_legs = market_order
-            .legs
-            .expect("filled mleg should keep nested legs");
-        assert_eq!(filled_legs.len(), 2);
-        assert_eq!(filled_legs[0].filled_avg_price, Some(Decimal::new(320, 2)));
-        assert_eq!(filled_legs[1].filled_avg_price, Some(Decimal::new(120, 2)));
-
-        let mut limit_order = build_test_mleg_order(OrderType::Limit, Some(expected_mid));
-        apply_mleg_fill_rules(&mut limit_order, &OrderSide::Buy, &market_quotes);
-        assert_eq!(limit_order.status, OrderStatus::Filled);
-        assert_eq!(limit_order.filled_avg_price, Some(expected_mid));
-
-        let mut resting_order =
-            build_test_mleg_order(OrderType::Limit, Some(expected_mid - Decimal::new(1, 2)));
-        apply_mleg_fill_rules(&mut resting_order, &OrderSide::Buy, &market_quotes);
-        assert_eq!(resting_order.status, OrderStatus::New);
-        assert_eq!(resting_order.filled_avg_price, None);
-    }
-
-    #[test]
-    fn multi_leg_mid_uses_whole_order_best_worst_before_rounding() {
-        let market_quotes = HashMap::from([
-            (
-                "IWM260515P00265000".to_owned(),
-                InstrumentSnapshot::option(Decimal::new(88, 2), Decimal::new(91, 2)),
-            ),
-            (
-                "IWM260515P00270000".to_owned(),
-                InstrumentSnapshot::option(Decimal::new(104, 2), Decimal::new(108, 2)),
-            ),
-            (
-                "IWM260515C00285000".to_owned(),
-                InstrumentSnapshot::option(Decimal::new(66, 2), Decimal::new(69, 2)),
-            ),
-            (
-                "IWM260515C00290000".to_owned(),
-                InstrumentSnapshot::option(Decimal::new(94, 2), Decimal::new(98, 2)),
-            ),
-        ]);
-        let expected_mid = Decimal::new(45, 2);
-
-        let order = build_test_double_diag_order(OrderType::Limit, Some(Decimal::new(44, 2)));
-        assert_eq!(
-            mleg_mid_price(&order, &OrderSide::Buy, &market_quotes),
-            Some(expected_mid)
-        );
-
-        let mut resting_order =
-            build_test_double_diag_order(OrderType::Limit, Some(Decimal::new(44, 2)));
-        apply_mleg_fill_rules(&mut resting_order, &OrderSide::Buy, &market_quotes);
-        assert_eq!(resting_order.status, OrderStatus::New);
-        assert_eq!(resting_order.filled_avg_price, None);
-
-        let mut fillable_order = build_test_double_diag_order(OrderType::Limit, Some(expected_mid));
-        apply_mleg_fill_rules(&mut fillable_order, &OrderSide::Buy, &market_quotes);
-        assert_eq!(fillable_order.status, OrderStatus::Filled);
-        assert_eq!(fillable_order.filled_avg_price, Some(expected_mid));
-    }
-
-    #[test]
-    fn credit_multi_leg_orders_keep_negative_mid_and_limit_direction() {
-        let market_quotes = HashMap::from([
-            (
-                "OPT-CREDIT-BUY".to_owned(),
-                InstrumentSnapshot::option(Decimal::new(100, 2), Decimal::new(140, 2)),
-            ),
-            (
-                "OPT-CREDIT-SELL".to_owned(),
-                InstrumentSnapshot::option(Decimal::new(300, 2), Decimal::new(340, 2)),
-            ),
-        ]);
-        let expected_mid = Decimal::new(-200, 2);
-
-        let mut market_order = build_test_credit_mleg_order(OrderType::Market, None);
-        apply_mleg_fill_rules(&mut market_order, &OrderSide::Sell, &market_quotes);
-        assert_eq!(market_order.status, OrderStatus::Filled);
-        assert_eq!(market_order.filled_avg_price, Some(expected_mid));
-
-        let mut marketable_limit =
-            build_test_credit_mleg_order(OrderType::Limit, Some(expected_mid + Decimal::new(1, 2)));
-        apply_mleg_fill_rules(&mut marketable_limit, &OrderSide::Sell, &market_quotes);
-        assert_eq!(marketable_limit.status, OrderStatus::Filled);
-        assert_eq!(marketable_limit.filled_avg_price, Some(expected_mid));
-
-        let mut aggressive_limit =
-            build_test_credit_mleg_order(OrderType::Limit, Some(expected_mid - Decimal::new(1, 2)));
-        apply_mleg_fill_rules(&mut aggressive_limit, &OrderSide::Sell, &market_quotes);
-        assert_eq!(aggressive_limit.status, OrderStatus::New);
-        assert_eq!(aggressive_limit.filled_avg_price, None);
-    }
-
-    #[test]
-    fn filled_credit_multi_leg_orders_increase_cash_balance() {
-        let market_quotes = HashMap::from([
-            (
-                "OPT-CREDIT-BUY".to_owned(),
-                InstrumentSnapshot::option(Decimal::new(100, 2), Decimal::new(140, 2)),
-            ),
-            (
-                "OPT-CREDIT-SELL".to_owned(),
-                InstrumentSnapshot::option(Decimal::new(300, 2), Decimal::new(340, 2)),
-            ),
-        ]);
-
-        let mut order = build_test_credit_mleg_order(OrderType::Market, None);
-        apply_mleg_fill_rules(&mut order, &OrderSide::Sell, &market_quotes);
-        assert_eq!(order.status, OrderStatus::Filled);
-
-        let mut account = VirtualAccountState::new("mock-key");
-        let starting_cash = account.cash_ledger.cash_balance();
-        apply_fill_effects(&mut account, &order, &OrderSide::Sell, Some(&market_quotes));
-
-        assert_eq!(
-            account.cash_ledger.cash_balance(),
-            starting_cash + Decimal::new(200, 2)
-        );
-    }
-
-    #[test]
-    fn infer_multi_leg_direction_from_market_and_legs() {
-        let market_quotes = HashMap::from([
-            (
-                "OPT-LONG".to_owned(),
-                InstrumentSnapshot::option(Decimal::new(150, 2), Decimal::new(170, 2)),
-            ),
-            (
-                "OPT-SHORT".to_owned(),
-                InstrumentSnapshot::option(Decimal::new(300, 2), Decimal::new(340, 2)),
-            ),
-        ]);
-
-        let long_short_legs = vec![
-            OptionLegRequest {
-                symbol: "OPT-LONG".to_owned(),
-                ratio_qty: 1,
-                side: Some(OrderSide::Buy),
-                position_intent: None,
-            },
-            OptionLegRequest {
-                symbol: "OPT-SHORT".to_owned(),
-                ratio_qty: 2,
-                side: Some(OrderSide::Sell),
-                position_intent: None,
-            },
-        ];
-
-        assert_eq!(
-            infer_request_side(
-                None,
-                Some(Decimal::new(-120, 2)),
-                Some(long_short_legs.as_slice()),
-                &market_quotes
-            ),
-            OrderSide::Sell
-        );
-        assert_eq!(
-            infer_request_side(
-                None,
-                Some(Decimal::new(180, 2)),
-                Some(long_short_legs.as_slice()),
-                &market_quotes
-            ),
-            OrderSide::Buy
-        );
-        assert_eq!(
-            infer_request_side(None, None, Some(long_short_legs.as_slice()), &market_quotes),
-            OrderSide::Sell
-        );
-    }
-
-    #[test]
-    fn filled_multi_leg_short_legs_project_negative_qty() {
-        let market_quotes = HashMap::from([
-            (
-                "OPT-LONG".to_owned(),
-                InstrumentSnapshot::option(Decimal::new(300, 2), Decimal::new(340, 2)),
-            ),
-            (
-                "OPT-SHORT".to_owned(),
-                InstrumentSnapshot::option(Decimal::new(100, 2), Decimal::new(140, 2)),
-            ),
-        ]);
-        let now = "2026-04-09T12:00:00Z";
-        let mut order = Order {
-            id: "mock-parent-order".to_owned(),
-            client_order_id: "mock-parent-client-order".to_owned(),
-            created_at: now.to_owned(),
-            updated_at: now.to_owned(),
-            submitted_at: now.to_owned(),
-            filled_at: None,
-            expired_at: None,
-            expires_at: expires_at_for(&TimeInForce::Day),
-            canceled_at: None,
-            failed_at: None,
-            replaced_at: None,
-            replaced_by: None,
-            replaces: None,
-            asset_id: String::new(),
-            symbol: String::new(),
-            asset_class: String::new(),
-            notional: None,
-            qty: Some(Decimal::new(2, 0)),
-            filled_qty: Decimal::ZERO,
-            filled_avg_price: None,
-            order_class: OrderClass::Mleg,
-            order_type: OrderType::Market,
-            r#type: OrderType::Market,
-            side: OrderSide::Unspecified,
-            position_intent: None,
-            time_in_force: TimeInForce::Day,
-            limit_price: None,
-            stop_price: None,
-            status: OrderStatus::New,
-            extended_hours: false,
-            legs: Some(build_leg_orders_from_requests(
-                &[
-                    OptionLegRequest {
-                        symbol: "OPT-LONG".to_owned(),
-                        ratio_qty: 1,
-                        side: Some(OrderSide::Buy),
-                        position_intent: Some(PositionIntent::BuyToOpen),
-                    },
-                    OptionLegRequest {
-                        symbol: "OPT-SHORT".to_owned(),
-                        ratio_qty: 2,
-                        side: Some(OrderSide::Sell),
-                        position_intent: Some(PositionIntent::SellToOpen),
-                    },
-                ],
-                Decimal::new(2, 0),
-                OrderType::Market,
-                TimeInForce::Day,
-                now,
-                None,
-            )),
-            trail_percent: None,
-            trail_price: None,
-            hwm: None,
-            ratio_qty: None,
-            take_profit: None,
-            stop_loss: None,
-            subtag: None,
-            source: None,
-        };
-
-        apply_mleg_fill_rules(&mut order, &OrderSide::Buy, &market_quotes);
-        assert_eq!(order.status, OrderStatus::Filled);
-
-        let mut account = VirtualAccountState::new("mock-key");
-        apply_fill_effects(&mut account, &order, &OrderSide::Buy, Some(&market_quotes));
-
-        let positions = account.positions.list_open_positions();
-        let short_position = positions
-            .iter()
-            .find(|position| position.instrument_identity.symbol == "OPT-SHORT")
-            .expect("short leg position should exist");
-        let projected = project_position(
-            short_position,
-            market_quotes
-                .get("OPT-SHORT")
-                .expect("short market quote should exist"),
-        );
-
-        assert_eq!(short_position.net_qty, Decimal::new(-4, 0));
-        assert_eq!(projected.qty, Decimal::new(-4, 0));
-        assert_eq!(projected.side, "short");
-    }
-
-    #[tokio::test]
-    async fn positions_reuse_frozen_snapshots_without_followup_market_fetches() {
-        let state = MockServerState::new().with_market_snapshot("AAPL", equity_snapshot());
-        let order = state
-            .create_order(
-                "mock-key",
-                CreateOrderInput {
-                    symbol: Some("AAPL".to_owned()),
-                    qty: Some(Decimal::ONE),
-                    side: Some(OrderSide::Buy),
-                    order_type: Some(OrderType::Market),
-                    ..CreateOrderInput::default()
-                },
-            )
-            .await
-            .expect("mock market order should fill");
-        assert_eq!(order.status, OrderStatus::Filled);
-
-        state
-            .inner
-            .market_data_overrides
-            .write()
-            .expect("market data overrides lock should not poison")
-            .clear();
-
-        let listed = state
-            .list_positions("mock-key")
-            .await
-            .expect("list_positions should use stored snapshots");
-        assert_eq!(listed.len(), 1);
-        assert_eq!(listed[0].current_price, equity_snapshot().mid_price());
-        assert_eq!(
-            listed[0].lastday_price,
-            equity_snapshot()
-                .previous_close
-                .expect("equity snapshot should include previous close")
-        );
-
-        let fetched = state
-            .get_position("mock-key", "AAPL")
-            .await
-            .expect("get_position should use stored snapshots");
-        assert_eq!(fetched.current_price, equity_snapshot().mid_price());
-
-        let closed = state
-            .close_position("mock-key", "AAPL", ClosePositionInput::default())
-            .await
-            .expect("close_position should use stored snapshots");
-        assert_eq!(
-            closed
-                .filled_avg_price
-                .expect("mock close should set filled_avg_price"),
-            equity_snapshot().mid_price()
-        );
-    }
+fn now_string() -> String {
+    Utc::now().to_rfc3339_opts(SecondsFormat::Nanos, true)
 }
 
 fn now_millis() -> u128 {
@@ -3082,6 +2934,7 @@ fn expires_at_for(time_in_force: &TimeInForce) -> Option<String> {
         | TimeInForce::Opg
         | TimeInForce::Cls
         | TimeInForce::Ioc
-        | TimeInForce::Fok => None,
+        | TimeInForce::Fok
+        | TimeInForce::Unspecified => None,
     }
 }

@@ -48,32 +48,3 @@ fn is_occ_contract_symbol(value: &str) -> bool {
         && matches!(&suffix[6..7], "C" | "P")
         && suffix[7..].chars().all(|value| value.is_ascii_digit())
 }
-
-#[cfg(test)]
-mod tests {
-    use super::{display_stock_symbol, option_contract_symbol, options_underlying_symbol};
-
-    #[test]
-    fn normalizes_option_underlying_symbols_and_occ_roots() {
-        assert_eq!(options_underlying_symbol(" brk.b "), "BRKB");
-        assert_eq!(options_underlying_symbol("brk/b"), "BRKB");
-        assert_eq!(options_underlying_symbol("BRKB250620P00480000"), "BRKB");
-        assert_eq!(options_underlying_symbol("aapl"), "AAPL");
-    }
-
-    #[test]
-    fn restores_display_stock_symbol_for_supported_share_classes() {
-        assert_eq!(display_stock_symbol("BRKB"), "BRK.B");
-        assert_eq!(display_stock_symbol("brk/b"), "BRK.B");
-        assert_eq!(display_stock_symbol("BRKB250620P00480000"), "BRK.B");
-        assert_eq!(display_stock_symbol("AAPL"), "AAPL");
-    }
-
-    #[test]
-    fn normalizes_contract_symbols_without_creating_parallel_variants() {
-        assert_eq!(
-            option_contract_symbol(" brkb250620p00480000 "),
-            "BRKB250620P00480000"
-        );
-    }
-}

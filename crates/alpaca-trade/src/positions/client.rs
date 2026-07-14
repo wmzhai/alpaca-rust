@@ -1,7 +1,7 @@
 use std::fmt;
 use std::sync::Arc;
 
-use alpaca_http::{NoContent, RequestParts};
+use alpaca_http::RequestParts;
 use reqwest::Method;
 use rust_decimal::Decimal;
 use rust_decimal::prelude::ToPrimitive;
@@ -9,10 +9,10 @@ use serde::Deserialize;
 use std::collections::HashMap;
 
 use crate::client::ClientInner;
+use crate::orders::Order;
 use crate::positions::{
-    CloseAllRequest, ClosePositionBody, ClosePositionRequest, ClosePositionResult,
-    DoNotExerciseAccepted, ExercisePositionBody, Position, reconcile_signed_positions,
-    structure_quantity,
+    CloseAllRequest, ClosePositionRequest, ClosePositionResult, DoNotExerciseAccepted,
+    ExerciseAccepted, ExerciseDetails, Position, reconcile_signed_positions, structure_quantity,
 };
 use crate::{Error, positions::request};
 
@@ -28,10 +28,10 @@ impl PositionsClient {
 
     pub async fn list(&self) -> Result<Vec<Position>, Error> {
         let request =
-            RequestParts::new(Method::GET, "/v2/positions").with_operation("positions.list");
+            RequestParts::new(Method::GET, "/v2/positions").with_operation("getAllOpenPositions");
 
         self.inner
-            .send_json::<Vec<Position>>(request)
+            .send_ok_json::<Vec<Position>>(request)
             .await
             .map(|response| response.into_body())
     }
@@ -46,12 +46,12 @@ impl PositionsClient {
             qty: Decimal,
         }
 
-        let request = RequestParts::new(Method::GET, "/v2/positions")
-            .with_operation("positions.option_qty_map");
+        let request =
+            RequestParts::new(Method::GET, "/v2/positions").with_operation("getAllOpenPositions");
 
         let rows = self
             .inner
-            .send_json::<Vec<PositionQtyRow>>(request)
+            .send_ok_json::<Vec<PositionQtyRow>>(request)
             .await
             .map(|response| response.into_body())?;
 
@@ -95,10 +95,10 @@ impl PositionsClient {
                 request::validate_symbol_or_asset_id(symbol_or_asset_id)?
             ),
         )
-        .with_operation("positions.get");
+        .with_operation("getOpenPosition");
 
         self.inner
-            .send_json::<Position>(request)
+            .send_ok_json::<Position>(request)
             .await
             .map(|response| response.into_body())
     }
@@ -108,11 +108,11 @@ impl PositionsClient {
         request: CloseAllRequest,
     ) -> Result<Vec<ClosePositionResult>, Error> {
         let request = RequestParts::new(Method::DELETE, "/v2/positions")
-            .with_operation("positions.close_all")
+            .with_operation("deleteAllOpenPositions")
             .with_query(request.into_query());
 
         self.inner
-            .send_json::<Vec<ClosePositionResult>>(request)
+            .send_multi_status_json::<Vec<ClosePositionResult>>(request)
             .await
             .map(|response| response.into_body())
     }
@@ -121,7 +121,7 @@ impl PositionsClient {
         &self,
         symbol_or_asset_id: &str,
         request: ClosePositionRequest,
-    ) -> Result<ClosePositionBody, Error> {
+    ) -> Result<Order, Error> {
         let request = RequestParts::new(
             Method::DELETE,
             format!(
@@ -129,19 +129,16 @@ impl PositionsClient {
                 request::validate_symbol_or_asset_id(symbol_or_asset_id)?
             ),
         )
-        .with_operation("positions.close")
-        .with_query(request.into_query());
+        .with_operation("deleteOpenPosition")
+        .with_query(request.into_query()?);
 
         self.inner
-            .send_json::<ClosePositionBody>(request)
+            .send_ok_json::<Order>(request)
             .await
             .map(|response| response.into_body())
     }
 
-    pub async fn exercise(
-        &self,
-        symbol_or_contract_id: &str,
-    ) -> Result<ExercisePositionBody, Error> {
+    pub async fn exercise(&self, symbol_or_contract_id: &str) -> Result<ExerciseAccepted, Error> {
         let request = RequestParts::new(
             Method::POST,
             format!(
@@ -149,12 +146,14 @@ impl PositionsClient {
                 request::validate_symbol_or_contract_id(symbol_or_contract_id)?
             ),
         )
-        .with_operation("positions.exercise");
+        .with_operation("optionExercise");
 
         self.inner
-            .send_json::<ExercisePositionBody>(request)
+            .send_ok_json_or_empty::<ExerciseDetails>(request)
             .await
-            .map(|response| response.into_body())
+            .map(|response| ExerciseAccepted {
+                details: response.into_body(),
+            })
     }
 
     pub async fn do_not_exercise(
@@ -168,12 +167,12 @@ impl PositionsClient {
                 request::validate_symbol_or_contract_id(symbol_or_contract_id)?
             ),
         )
-        .with_operation("positions.do_not_exercise");
+        .with_operation("optionDoNotExercise");
 
         self.inner
-            .send_no_content(request)
+            .send_ok_empty(request)
             .await
-            .map(|_response: alpaca_http::HttpResponse<NoContent>| DoNotExerciseAccepted)
+            .map(|_| DoNotExerciseAccepted)
     }
 
     #[allow(dead_code)]

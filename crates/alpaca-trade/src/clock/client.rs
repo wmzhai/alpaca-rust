@@ -21,21 +21,21 @@ impl ClockClient {
     }
 
     pub async fn get(&self) -> Result<Clock, Error> {
-        let request = RequestParts::new(Method::GET, "/v2/clock").with_operation("clock.get");
+        let request = RequestParts::new(Method::GET, "/v2/clock").with_operation("LegacyClock");
 
         self.inner
-            .send_json::<Clock>(request)
+            .send_ok_json::<Clock>(request)
             .await
             .map(|response| response.into_body())
     }
 
     pub async fn get_v3(&self, request: GetV3Request) -> Result<ClockV3Response, Error> {
         let request = RequestParts::new(Method::GET, "/v3/clock")
-            .with_operation("clock.get_v3")
+            .with_operation("Clock")
             .with_query(request.into_query()?);
 
         self.inner
-            .send_json::<ClockV3Response>(request)
+            .send_ok_json::<ClockV3Response>(request)
             .await
             .map(|response| response.into_body())
     }

@@ -1,5 +1,6 @@
 use std::fmt;
 
+use chrono::NaiveDate;
 use rust_decimal::Decimal;
 
 use alpaca_core::{QueryWriter, pagination::PaginatedRequest};
@@ -28,6 +29,16 @@ pub struct ListRequest {
 
 impl ListRequest {
     pub(crate) fn into_query(self) -> Result<Vec<(String, String)>, Error> {
+        if self
+            .strike_price_gte
+            .zip(self.strike_price_lte)
+            .is_some_and(|(gte, lte)| gte > lte)
+        {
+            return Err(Error::InvalidRequest(
+                "strike_price_gte must not exceed strike_price_lte".to_owned(),
+            ));
+        }
+
         let mut query = QueryWriter::default();
         if let Some(underlying_symbols) = validate_symbols(self.underlying_symbols)? {
             query.push_csv("underlying_symbols", underlying_symbols);
@@ -36,15 +47,15 @@ impl ListRequest {
         query.push_opt("status", self.status);
         query.push_opt(
             "expiration_date",
-            validate_optional_text("expiration_date", self.expiration_date)?,
+            validate_optional_date("expiration_date", self.expiration_date)?,
         );
         query.push_opt(
             "expiration_date_gte",
-            validate_optional_text("expiration_date_gte", self.expiration_date_gte)?,
+            validate_optional_date("expiration_date_gte", self.expiration_date_gte)?,
         );
         query.push_opt(
             "expiration_date_lte",
-            validate_optional_text("expiration_date_lte", self.expiration_date_lte)?,
+            validate_optional_date("expiration_date_lte", self.expiration_date_lte)?,
         );
         query.push_opt(
             "root_symbol",
@@ -62,6 +73,17 @@ impl ListRequest {
         query.push_opt("ppind", self.ppind);
         Ok(query.finish())
     }
+}
+
+fn validate_optional_date(name: &str, value: Option<String>) -> Result<Option<String>, Error> {
+    value
+        .map(|value| {
+            let value = validate_required_text(name, &value)?;
+            NaiveDate::parse_from_str(&value, "%Y-%m-%d")
+                .map_err(|_| Error::InvalidRequest(format!("{name} must use YYYY-MM-DD format")))?;
+            Ok(value)
+        })
+        .transpose()
 }
 
 impl PaginatedRequest for ListRequest {

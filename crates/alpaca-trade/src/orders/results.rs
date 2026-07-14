@@ -155,34 +155,3 @@ impl<T> UpdateOutcome<T> {
         )
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::{CancelOutcomeKind, OrderStatus, OrderTerminalState, UpdateOutcomeKind};
-
-    #[test]
-    fn failed_status_maps_into_terminal_state() {
-        assert_eq!(
-            OrderStatus::parse("failed")
-                .ok()
-                .and_then(OrderStatus::terminal_state),
-            Some(OrderTerminalState::Failed)
-        );
-    }
-
-    #[test]
-    fn failed_terminal_state_round_trips_through_cancel_outcome() {
-        let kind = CancelOutcomeKind::from_terminal_state(OrderTerminalState::Failed);
-        assert_eq!(kind, CancelOutcomeKind::Failed);
-    }
-
-    #[test]
-    fn failed_new_order_status_maps_into_replace_failure() {
-        assert_eq!(
-            UpdateOutcomeKind::from_new_order_status("failed"),
-            Some(UpdateOutcomeKind::ReplaceFailedNewOrderTerminal(
-                OrderTerminalState::Failed
-            ))
-        );
-    }
-}

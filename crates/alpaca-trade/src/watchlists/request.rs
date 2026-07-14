@@ -1,10 +1,10 @@
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 use alpaca_core::QueryWriter;
 
 use crate::Error;
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CreateRequest {
     pub name: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -17,16 +17,17 @@ impl CreateRequest {
         serde_json::to_value(self).map_err(|error| Error::InvalidRequest(error.to_string()))
     }
 
-    fn validate(&self) -> Result<(), Error> {
-        validate_required_text("name", &self.name)?;
+    pub fn validate(&self) -> Result<(), Error> {
+        validate_name(&self.name)?;
         validate_optional_symbols(self.symbols.as_ref())?;
         Ok(())
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct UpdateRequest {
-    pub name: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub name: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub symbols: Option<Vec<String>>,
 }
@@ -37,14 +38,21 @@ impl UpdateRequest {
         serde_json::to_value(self).map_err(|error| Error::InvalidRequest(error.to_string()))
     }
 
-    fn validate(&self) -> Result<(), Error> {
-        validate_required_text("name", &self.name)?;
+    pub fn validate(&self) -> Result<(), Error> {
+        if self.name.is_none() && self.symbols.is_none() {
+            return Err(Error::InvalidRequest(
+                "one of name or symbols is required".to_owned(),
+            ));
+        }
+        if let Some(name) = &self.name {
+            validate_name(name)?;
+        }
         validate_optional_symbols(self.symbols.as_ref())?;
         Ok(())
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct AddAssetRequest {
     pub symbol: String,
 }
@@ -55,7 +63,7 @@ impl AddAssetRequest {
         serde_json::to_value(self).map_err(|error| Error::InvalidRequest(error.to_string()))
     }
 
-    fn validate(&self) -> Result<(), Error> {
+    pub fn validate(&self) -> Result<(), Error> {
         validate_required_text("symbol", &self.symbol)?;
         Ok(())
     }
@@ -63,7 +71,7 @@ impl AddAssetRequest {
 
 pub(crate) fn name_query(name: &str) -> Result<Vec<(String, String)>, Error> {
     let mut query = QueryWriter::default();
-    query.push("name", validate_required_text("name", name)?);
+    query.push("name", validate_name(name)?);
     Ok(query.finish())
 }
 
@@ -79,17 +87,22 @@ fn validate_optional_symbols(symbols: Option<&Vec<String>>) -> Result<(), Error>
     let Some(symbols) = symbols else {
         return Ok(());
     };
-    if symbols.is_empty() {
-        return Err(Error::InvalidRequest(
-            "symbols must contain at least one symbol when provided".to_owned(),
-        ));
-    }
 
     for symbol in symbols {
         validate_required_text("symbols", symbol)?;
     }
 
     Ok(())
+}
+
+fn validate_name(name: &str) -> Result<String, Error> {
+    let name = validate_required_text("name", name)?;
+    if name.chars().count() > 64 {
+        return Err(Error::InvalidRequest(
+            "name must contain at most 64 characters".to_owned(),
+        ));
+    }
+    Ok(name)
 }
 
 fn validate_required_path_segment(name: &str, value: &str) -> Result<String, Error> {
@@ -108,6 +121,11 @@ fn validate_required_text(name: &str, value: &str) -> Result<String, Error> {
     if trimmed.is_empty() {
         return Err(Error::InvalidRequest(format!(
             "{name} must not be empty or whitespace-only"
+        )));
+    }
+    if trimmed != value {
+        return Err(Error::InvalidRequest(format!(
+            "{name} must not contain leading or trailing whitespace"
         )));
     }
 

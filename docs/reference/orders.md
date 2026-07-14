@@ -12,6 +12,10 @@
 - `cancel`
 - `get_by_client_order_id`
 
+All seven adopted order operations are closed against Paper and the standalone
+mock HTTP service at the Trading API `2.0.1` checkpoint, including cancel-all
+and cancel by order ID.
+
 ## Lifecycle Helpers
 
 The mirror methods above stay close to Alpaca's official request and response
@@ -53,6 +57,16 @@ checks the parent and nested child fill quantities; it creates the replacement
 only when all fill evidence is zero. `TransitionOrderPolicy::Auto` keeps its
 existing replace/recreate selection semantics.
 
+## Mirror Contract Notes
+
+- `ListRequest` supports typed CSV `asset_class`, `before_order_id`, and `after_order_id`; order-ID cursors are mutually exclusive and cannot be combined with the time window
+- `GetRequest { nested: Some(true) }` explicitly requests multi-leg children; lifecycle helpers use it whenever the leg shape matters
+- `Order::legs` contains non-recursive `OrderLeg` values, including the observed string-form `ratio_qty`
+- create supports ordinary quantity orders, notional orders, typed advanced instructions, and 2–4-leg MLEG orders proven against Paper
+- replace supports ordinary and TWAP advanced updates proven against Paper
+- IPO indication and its IPO-only replace `notional` field are outside the adopted scope
+- direct cancel by ID expects strict empty `204`; cancel-all expects strict `207` with the canonical per-order result array
+
 ## Typical Request
 
 ```rust
@@ -85,6 +99,8 @@ let order = client
 - direct mirror methods preserve the official request shape
 - lifecycle helpers are explicit opt-in conveniences and do not replace the raw order endpoints
 - strict recreate callers own the stable client order ID for each replacement generation
+- Paper currently includes the anchor order for both order-ID cursor directions although the canonical specification describes the cursor as exclusive; the mock keeps canonical exclusive behavior
+- Paper can return nested legs even for `nested=false`; callers that depend on legs must still request `nested=true`
 
 ## Not Implemented Here
 

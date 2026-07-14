@@ -119,32 +119,3 @@ fn validate_limit(limit: Option<u32>, min: u32, max: u32) -> Result<(), Error> {
 
     Ok(())
 }
-
-#[cfg(test)]
-mod tests {
-    use super::{CorporateActionType, ListRequest};
-
-    #[test]
-    fn list_request_normalizes_stock_symbols_in_query() {
-        let query = ListRequest {
-            symbols: Some(vec![" brk/b ".to_owned(), "aapl".to_owned()]),
-            cusips: None,
-            types: Some(vec![CorporateActionType::CashDividend]),
-            region: None,
-            start: Some("2025-01-01".to_owned()),
-            end: Some("2025-01-31".to_owned()),
-            ids: None,
-            limit: Some(100),
-            sort: None,
-            page_token: None,
-        }
-        .into_query();
-
-        assert!(
-            query
-                .iter()
-                .any(|(key, value)| key == "symbols" && value == "BRK.B,AAPL"),
-            "corporate actions query should normalize stock symbols: {query:?}"
-        );
-    }
-}

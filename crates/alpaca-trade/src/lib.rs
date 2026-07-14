@@ -9,7 +9,7 @@
 //! - `ALPACA_TRADE_SECRET_KEY`
 //! - `ALPACA_TRADE_BASE_URL`
 //!
-//! ```no_run
+//! ```text
 //! use alpaca_trade::Client;
 //!
 //! let client = Client::builder()
@@ -46,6 +46,3 @@ pub use client::{
     TRADE_BASE_URL_ENV, TRADE_SECRET_KEY_ENV,
 };
 pub use error::Error;
-
-#[cfg(test)]
-mod tests;

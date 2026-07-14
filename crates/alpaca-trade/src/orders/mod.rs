@@ -15,10 +15,13 @@ pub use convenience::{
 pub use execution::Execution;
 pub use lifecycle::{ReplaceResolution, ResolvedOrder, WaitFor};
 pub use model::{
-    CancelAllOrderResult, Order, OrderClass, OrderSide, OrderStatus, OrderType, PositionIntent,
-    QueryOrderStatus, SortDirection, StopLoss, TakeProfit, TimeInForce,
+    CancelAllOrderResult, Order, OrderAssetClass, OrderClass, OrderLeg, OrderSide, OrderStatus,
+    OrderType, PositionIntent, QueryOrderStatus, SortDirection, StopLoss, TakeProfit, TimeInForce,
 };
-pub use request::{CreateRequest, ListRequest, OptionLegRequest, ReplaceRequest};
+pub use request::{
+    AdvancedAlgorithm, AdvancedDestination, AdvancedInstructions, CreateRequest, GetRequest,
+    ListRequest, OptionLegRequest, ReplaceRequest,
+};
 pub use results::{
     CancelOutcome, CancelOutcomeKind, OrderTerminalState, UpdateOutcome, UpdateOutcomeKind,
 };

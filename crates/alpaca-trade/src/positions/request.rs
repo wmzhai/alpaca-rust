@@ -34,12 +34,47 @@ pub struct ClosePositionRequest {
 }
 
 impl ClosePositionRequest {
-    pub(crate) fn into_query(self) -> Vec<(String, String)> {
+    pub(crate) fn into_query(self) -> Result<Vec<(String, String)>, Error> {
+        if self.qty.is_some() && self.percentage.is_some() {
+            return Err(Error::InvalidRequest(
+                "qty and percentage are mutually exclusive".to_owned(),
+            ));
+        }
+
+        if let Some(qty) = self.qty {
+            validate_close_amount("qty", qty, None)?;
+        }
+        if let Some(percentage) = self.percentage {
+            validate_close_amount("percentage", percentage, Some(Decimal::new(100, 0)))?;
+        }
+
         let mut query = QueryWriter::default();
         query.push_opt("qty", self.qty);
         query.push_opt("percentage", self.percentage);
-        query.finish()
+        Ok(query.finish())
     }
+}
+
+fn validate_close_amount(
+    name: &str,
+    value: Decimal,
+    maximum: Option<Decimal>,
+) -> Result<(), Error> {
+    if value <= Decimal::ZERO {
+        return Err(Error::InvalidRequest(format!(
+            "{name} must be greater than 0"
+        )));
+    }
+    if maximum.is_some_and(|maximum| value > maximum) {
+        return Err(Error::InvalidRequest(format!("{name} must be at most 100")));
+    }
+    if value.scale() > 9 {
+        return Err(Error::InvalidRequest(format!(
+            "{name} must have at most 9 decimal places"
+        )));
+    }
+
+    Ok(())
 }
 
 pub(crate) fn validate_symbol_or_asset_id(symbol_or_asset_id: &str) -> Result<String, Error> {

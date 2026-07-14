@@ -1,8 +1,8 @@
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 use crate::Error;
 
-#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct UpdateRequest {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub trade_confirm_email: Option<String>,

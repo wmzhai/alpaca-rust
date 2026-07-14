@@ -6,6 +6,9 @@
 
 - `get`
 
+Canonical operation `getAccountPortfolioHistory` is closed against both Paper
+and the standalone mock HTTP service.
+
 ## Typical Request
 
 ```rust
@@ -27,4 +30,7 @@ let history = client
 ## Notes
 
 - timestamp arrays follow the official API contract
+- `timeframe`, `intraday_reporting`, and `pnl_reset` use typed request enums
+- at most two of `period`, `start`, and `end` may be provided
+- timestamp, equity, profit/loss, and profit/loss-percent arrays are expected to stay aligned
 - this crate does not convert the public timestamp fields into richer time types automatically

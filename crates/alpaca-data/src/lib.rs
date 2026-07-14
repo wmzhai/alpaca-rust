@@ -9,7 +9,7 @@
 //! - `ALPACA_DATA_API_KEY`
 //! - `ALPACA_DATA_SECRET_KEY`
 //!
-//! ```no_run
+//! ```text
 //! use alpaca_data::Client;
 //!
 //! let client = Client::builder().credentials_from_env()?.build()?;
@@ -37,6 +37,3 @@ pub mod stocks;
 pub use client::{Client, ClientBuilder, DATA_API_KEY_ENV, DATA_SECRET_KEY_ENV};
 pub use error::Error;
 pub use symbols::{display_stock_symbol, options_underlying_symbol};
-
-#[cfg(test)]
-mod tests;

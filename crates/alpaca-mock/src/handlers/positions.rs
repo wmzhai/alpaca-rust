@@ -6,8 +6,9 @@ use axum::{
 use rust_decimal::Decimal;
 use serde::Deserialize;
 
-use alpaca_trade::positions::{
-    ClosePositionBody, ClosePositionResult, ExercisePositionBody, Position,
+use alpaca_trade::{
+    orders::Order,
+    positions::{ClosePositionResult, ExerciseDetails, Position},
 };
 
 use crate::auth::{AuthenticatedAccount, MockHttpError};
@@ -56,7 +57,7 @@ pub(crate) async fn positions_close(
     Extension(account): Extension<AuthenticatedAccount>,
     Path(symbol_or_asset_id): Path<String>,
     Query(query): Query<ClosePositionQuery>,
-) -> Result<Json<ClosePositionBody>, MockHttpError> {
+) -> Result<Json<Order>, MockHttpError> {
     Ok(Json(
         state
             .close_position(
@@ -90,11 +91,11 @@ pub(crate) async fn positions_exercise(
     State(state): State<MockServerState>,
     Extension(account): Extension<AuthenticatedAccount>,
     Path(symbol_or_contract_id): Path<String>,
-) -> Result<Json<ExercisePositionBody>, MockHttpError> {
-    Ok(Json(state.exercise_position(
-        &account.api_key,
-        &symbol_or_contract_id,
-    )?))
+) -> Result<(StatusCode, Json<ExerciseDetails>), MockHttpError> {
+    Ok((
+        StatusCode::OK,
+        Json(state.exercise_position(&account.api_key, &symbol_or_contract_id)?),
+    ))
 }
 
 pub(crate) async fn positions_do_not_exercise(
@@ -103,5 +104,5 @@ pub(crate) async fn positions_do_not_exercise(
     Path(symbol_or_contract_id): Path<String>,
 ) -> Result<StatusCode, MockHttpError> {
     state.do_not_exercise_position(&account.api_key, &symbol_or_contract_id)?;
-    Ok(StatusCode::NO_CONTENT)
+    Ok(StatusCode::OK)
 }

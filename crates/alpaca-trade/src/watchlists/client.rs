@@ -24,21 +24,21 @@ impl WatchlistsClient {
 
     pub async fn list(&self) -> Result<Vec<WatchlistSummary>, Error> {
         let request =
-            RequestParts::new(Method::GET, "/v2/watchlists").with_operation("watchlists.list");
+            RequestParts::new(Method::GET, "/v2/watchlists").with_operation("getWatchlists");
 
         self.inner
-            .send_json::<Vec<WatchlistSummary>>(request)
+            .send_ok_json::<Vec<WatchlistSummary>>(request)
             .await
             .map(|response| response.into_body())
     }
 
     pub async fn create(&self, request: CreateRequest) -> Result<Watchlist, Error> {
         let request = RequestParts::new(Method::POST, "/v2/watchlists")
-            .with_operation("watchlists.create")
+            .with_operation("postWatchlist")
             .with_json_body(request.into_json()?);
 
         self.inner
-            .send_json::<Watchlist>(request)
+            .send_ok_json::<Watchlist>(request)
             .await
             .map(|response| response.into_body())
     }
@@ -51,10 +51,10 @@ impl WatchlistsClient {
                 request::validate_watchlist_id(watchlist_id)?
             ),
         )
-        .with_operation("watchlists.get_by_id");
+        .with_operation("getWatchlistById");
 
         self.inner
-            .send_json::<Watchlist>(request)
+            .send_ok_json::<Watchlist>(request)
             .await
             .map(|response| response.into_body())
     }
@@ -71,11 +71,11 @@ impl WatchlistsClient {
                 request::validate_watchlist_id(watchlist_id)?
             ),
         )
-        .with_operation("watchlists.update_by_id")
+        .with_operation("updateWatchlistById")
         .with_json_body(request.into_json()?);
 
         self.inner
-            .send_json::<Watchlist>(request)
+            .send_ok_json::<Watchlist>(request)
             .await
             .map(|response| response.into_body())
     }
@@ -88,7 +88,7 @@ impl WatchlistsClient {
                 request::validate_watchlist_id(watchlist_id)?
             ),
         )
-        .with_operation("watchlists.delete_by_id");
+        .with_operation("deleteWatchlistById");
 
         self.inner
             .send_no_content(request)
@@ -108,11 +108,11 @@ impl WatchlistsClient {
                 request::validate_watchlist_id(watchlist_id)?
             ),
         )
-        .with_operation("watchlists.add_asset_by_id")
+        .with_operation("addAssetToWatchlist")
         .with_json_body(request.into_json()?);
 
         self.inner
-            .send_json::<Watchlist>(request)
+            .send_ok_json::<Watchlist>(request)
             .await
             .map(|response| response.into_body())
     }
@@ -130,21 +130,21 @@ impl WatchlistsClient {
                 request::validate_symbol(symbol)?
             ),
         )
-        .with_operation("watchlists.delete_symbol_by_id");
+        .with_operation("removeAssetFromWatchlist");
 
         self.inner
-            .send_json::<Watchlist>(request)
+            .send_ok_json::<Watchlist>(request)
             .await
             .map(|response| response.into_body())
     }
 
     pub async fn get_by_name(&self, name: &str) -> Result<Watchlist, Error> {
         let request = RequestParts::new(Method::GET, "/v2/watchlists:by_name")
-            .with_operation("watchlists.get_by_name")
+            .with_operation("getWatchlistByName")
             .with_query(request::name_query(name)?);
 
         self.inner
-            .send_json::<Watchlist>(request)
+            .send_ok_json::<Watchlist>(request)
             .await
             .map(|response| response.into_body())
     }
@@ -155,12 +155,12 @@ impl WatchlistsClient {
         request: UpdateRequest,
     ) -> Result<Watchlist, Error> {
         let request = RequestParts::new(Method::PUT, "/v2/watchlists:by_name")
-            .with_operation("watchlists.update_by_name")
+            .with_operation("updateWatchlistByName")
             .with_query(request::name_query(name)?)
             .with_json_body(request.into_json()?);
 
         self.inner
-            .send_json::<Watchlist>(request)
+            .send_ok_json::<Watchlist>(request)
             .await
             .map(|response| response.into_body())
     }
@@ -171,19 +171,19 @@ impl WatchlistsClient {
         request: AddAssetRequest,
     ) -> Result<Watchlist, Error> {
         let request = RequestParts::new(Method::POST, "/v2/watchlists:by_name")
-            .with_operation("watchlists.add_asset_by_name")
+            .with_operation("addAssetToWatchlistByName")
             .with_query(request::name_query(name)?)
             .with_json_body(request.into_json()?);
 
         self.inner
-            .send_json::<Watchlist>(request)
+            .send_ok_json::<Watchlist>(request)
             .await
             .map(|response| response.into_body())
     }
 
     pub async fn delete_by_name(&self, name: &str) -> Result<NoContent, Error> {
         let request = RequestParts::new(Method::DELETE, "/v2/watchlists:by_name")
-            .with_operation("watchlists.delete_by_name")
+            .with_operation("deleteWatchlistByName")
             .with_query(request::name_query(name)?);
 
         self.inner

@@ -14,12 +14,13 @@ keywords = ["alpaca", "mock-server", "trading", "testing"]
 categories = ["api-bindings", "development-tools"]
 
 [dependencies]
-alpaca-core = { path = "../alpaca-core", version = "0.29.0" }
-alpaca-data = { path = "../alpaca-data", version = "0.29.0" }
-alpaca-option = { path = "../alpaca-option", version = "0.29.0" }
-alpaca-trade = { path = "../alpaca-trade", version = "0.29.0" }
+alpaca-core = { path = "../alpaca-core", version = "0.30.0" }
+alpaca-data = { path = "../alpaca-data", version = "0.30.0" }
+alpaca-option = { path = "../alpaca-option", version = "0.30.0" }
+alpaca-trade = { path = "../alpaca-trade", version = "0.30.0" }
 axum.workspace = true
 chrono.workspace = true
+chrono-tz.workspace = true
 dotenvy.workspace = true
 rust_decimal.workspace = true
 serde.workspace = true

@@ -3,8 +3,6 @@
 pub mod env;
 pub mod error;
 pub mod http;
-pub mod options;
-pub mod paper;
 pub mod recording;
 
 pub use env::{
@@ -15,15 +13,7 @@ pub use env::{
 };
 pub use error::SupportError;
 pub use http::{
-    JsonProbeResponse, LiveHttpProbe, LiveRequestObserver, observed_query, observed_query_value,
-    observed_request_lines, unique_observed_requests,
-};
-pub use options::{
-    DayWindow, ObservedOptionContract, OptionContractType, discover_active_option_contract,
-    discover_option_contracts, full_day_window_from_timestamp, parse_occ_option_symbol,
-};
-pub use paper::{
-    PaperClock, PaperSessionState, can_submit_live_paper_orders, fetch_paper_clock,
-    paper_market_session_state, trading_day_from_timestamp,
+    LiveRequestObserver, observed_query, observed_query_value, observed_request_lines,
+    unique_observed_requests,
 };
 pub use recording::SampleRecorder;

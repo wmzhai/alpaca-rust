@@ -4,7 +4,7 @@ use tokio::time::sleep;
 
 use crate::Error;
 
-use super::{CreateRequest, Order, OrderStatus, OrdersClient, ReplaceRequest};
+use super::{CreateRequest, GetRequest, Order, OrderStatus, OrdersClient, ReplaceRequest};
 
 const DEFAULT_WAIT_ATTEMPTS: usize = 30;
 const DEFAULT_BASE_WAIT_MS: u64 = 100;
@@ -103,7 +103,9 @@ impl OrdersClient {
     }
 
     pub async fn get_effective(&self, order_id: &str) -> Result<Order, Error> {
-        let mut current = self.get(order_id).await?;
+        let mut current = self
+            .get(order_id, GetRequest { nested: Some(true) })
+            .await?;
 
         loop {
             if current.status != OrderStatus::Replaced {
@@ -116,7 +118,9 @@ impl OrdersClient {
                 )
             })?;
 
-            current = self.get(replacement_id).await?;
+            current = self
+                .get(replacement_id, GetRequest { nested: Some(true) })
+                .await?;
         }
     }
 
@@ -125,7 +129,8 @@ impl OrdersClient {
             let order = if target.follows_replacements() {
                 self.get_effective(order_id).await?
             } else {
-                self.get(order_id).await?
+                self.get(order_id, GetRequest { nested: Some(true) })
+                    .await?
             };
 
             if target.matches(order.status) {
@@ -140,7 +145,7 @@ impl OrdersClient {
         if target.follows_replacements() {
             self.get_effective(order_id).await
         } else {
-            self.get(order_id).await
+            self.get(order_id, GetRequest { nested: Some(true) }).await
         }
     }
 
@@ -186,7 +191,9 @@ impl OrdersClient {
 
     async fn recover_replace(&self, order_id: &str) -> Result<Option<ReplaceResolution>, Error> {
         for attempt in 1..=DEFAULT_WAIT_ATTEMPTS {
-            let order = self.get(order_id).await?;
+            let order = self
+                .get(order_id, GetRequest { nested: Some(true) })
+                .await?;
 
             if order.status.is_replace_recovery_terminal() {
                 return Ok(Some(ReplaceResolution::OriginalOrderTerminal(
@@ -249,6 +256,9 @@ impl OrdersClient {
         };
         match self.get_by_client_order_id(client_order_id).await {
             Ok(order) => {
+                let order = self
+                    .get(&order.id, GetRequest { nested: Some(true) })
+                    .await?;
                 validate_recovered_create_shape(request, &order)?;
                 Ok(Some(order))
             }

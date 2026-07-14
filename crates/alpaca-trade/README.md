@@ -4,6 +4,18 @@
 
 ## Current Coverage
 
+The adopted Alpaca Trading API `2.0.1` surface contains 38 operations from the
+68-operation canonical specification. All 38 have public client methods. The
+current contract-validation checkpoint is 37 closed operations and 1 pending
+operation:
+
+- `optionDoNotExercise`
+
+"Closed" means that the same public client scenario passed against both the
+canonical Paper endpoint and an independently running `alpaca-mock` HTTP
+server. A method being present does not by itself mean that its current
+`2.0.1` contract has reached that checkpoint.
+
 - account
 - account configurations
 - activities
@@ -56,6 +68,7 @@ The default builder targets Alpaca paper trading. Use `Client::builder().live()`
 ### Activities / Assets
 
 - `activities().list(...)`
+- `activities().list_by_type(...)`
 - `activities().list_all(...)`
 - `activities().list_option_activity_records(...)`
 - `assets().list(...)`
@@ -94,6 +107,9 @@ The default builder targets Alpaca paper trading. Use `Client::builder().live()`
 - `orders().recover_market_close(...)`
 - `orders().transition_resolved(...)`
 
+All adopted order operations, including cancel-all and cancel by order ID, are
+closed at the current checkpoint.
+
 ### Portfolio / Positions / Watchlists
 
 - `portfolio_history().get(...)`
@@ -117,6 +133,18 @@ The default builder targets Alpaca paper trading. Use `Client::builder().live()`
 - `watchlists().update_by_name(...)`
 - `watchlists().add_asset_by_name(...)`
 - `watchlists().delete_by_name(...)`
+
+Position list/get/close and exercise operations, plus all watchlist operations,
+are closed at the current checkpoint. Exercise requires status `200` and
+returns `ExerciseAccepted`: `details` is `None` for the canonical empty body or
+contains typed `qty_exercised` and `qty_remaining` values for the JSON body
+observed from Paper.
+
+Do-not-exercise strictly requires an empty `200`. Paper only accepts the
+instruction for a long option position on its expiration day. Raw Paper and
+mock requests have succeeded, but the corrected Paper exact scenario still
+needs a clean account and verified cleanup before `optionDoNotExercise` can be
+closed.
 
 ## Not Implemented
 

@@ -22,21 +22,21 @@ impl AccountConfigurationsClient {
 
     pub async fn get(&self) -> Result<AccountConfigurations, Error> {
         let request = RequestParts::new(Method::GET, "/v2/account/configurations")
-            .with_operation("account_configurations.get");
+            .with_operation("getAccountConfig");
 
         self.inner
-            .send_json::<AccountConfigurations>(request)
+            .send_ok_json::<AccountConfigurations>(request)
             .await
             .map(|response| response.into_body())
     }
 
     pub async fn update(&self, request: UpdateRequest) -> Result<AccountConfigurations, Error> {
         let request = RequestParts::new(Method::PATCH, "/v2/account/configurations")
-            .with_operation("account_configurations.update")
+            .with_operation("patchAccountConfig")
             .with_json_body(request.into_json()?);
 
         self.inner
-            .send_json::<AccountConfigurations>(request)
+            .send_ok_json::<AccountConfigurations>(request)
             .await
             .map(|response| response.into_body())
     }

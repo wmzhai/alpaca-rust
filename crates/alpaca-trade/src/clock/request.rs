@@ -1,54 +1,46 @@
+use chrono::DateTime;
+
 use alpaca_core::QueryWriter;
 
-use crate::Error;
+use crate::{Error, calendar::Market};
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct GetV3Request {
-    pub markets: Option<Vec<String>>,
+    pub markets: Option<Vec<Market>>,
     pub time: Option<String>,
 }
 
 impl GetV3Request {
     pub(crate) fn into_query(self) -> Result<Vec<(String, String)>, Error> {
         let mut query = QueryWriter::default();
-        if let Some(markets) = validate_optional_csv_text("markets", self.markets)? {
+        if let Some(markets) = validate_markets(self.markets)? {
             query.push_csv("markets", markets);
         }
-        query.push_opt("time", validate_optional_text("time", self.time)?);
+        query.push_opt("time", validate_time(self.time)?);
         Ok(query.finish())
     }
 }
 
-fn validate_optional_csv_text(
-    name: &str,
-    values: Option<Vec<String>>,
-) -> Result<Option<Vec<String>>, Error> {
+fn validate_markets(values: Option<Vec<Market>>) -> Result<Option<Vec<Market>>, Error> {
     match values {
         None => Ok(None),
-        Some(values) if values.is_empty() => Err(Error::InvalidRequest(format!(
-            "{name} must contain at least one value"
-        ))),
-        Some(values) => values
-            .into_iter()
-            .map(|value| validate_required_text(name, &value))
-            .collect::<Result<Vec<_>, Error>>()
-            .map(Some),
+        Some(values) if values.is_empty() => Err(Error::InvalidRequest(
+            "markets must contain at least one value".to_owned(),
+        )),
+        Some(values) => Ok(Some(values)),
     }
 }
 
-fn validate_optional_text(name: &str, value: Option<String>) -> Result<Option<String>, Error> {
+fn validate_time(value: Option<String>) -> Result<Option<String>, Error> {
     value
-        .map(|value| validate_required_text(name, &value))
+        .map(|value| {
+            let value = value.trim().to_owned();
+            if value.is_empty() {
+                return Err(Error::InvalidRequest("time must not be empty".to_owned()));
+            }
+            DateTime::parse_from_rfc3339(&value)
+                .map_err(|_| Error::InvalidRequest("time must use RFC3339 format".to_owned()))?;
+            Ok(value)
+        })
         .transpose()
-}
-
-fn validate_required_text(name: &str, value: &str) -> Result<String, Error> {
-    let trimmed = value.trim();
-    if trimmed.is_empty() {
-        return Err(Error::InvalidRequest(format!(
-            "{name} must not be empty or whitespace-only"
-        )));
-    }
-
-    Ok(trimmed.to_owned())
 }

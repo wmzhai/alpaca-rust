@@ -4,6 +4,15 @@
 
 ## Current Coverage
 
+The current canonical baseline is Trading API `2.0.1`: 68 official operations,
+38 adopted mirror operations, 37 closed Paper/mock network contracts, and 1
+pending contract: option do-not-exercise.
+
+All 38 public methods exist. Closure is stricter than method presence: the same
+public client scenario must pass against Alpaca Paper and a separately running
+`alpaca-mock` HTTP process, with the expected status, a non-empty request ID,
+response-shape assertions, and cleanup.
+
 ### Implemented Resource Families
 
 - account
@@ -35,7 +44,8 @@ an additional published Rust crate or API surface.
 `@alpaca/trade` currently only re-exports the generated `Execution` type used by
 frontend consumers. The Rust `Execution` enum in
 `crates/alpaca-trade/src/orders/execution.rs` is the source of truth and
-generates `packages/alpaca-trade/src/generated/Execution.ts` via `ts-rs`.
+retains the `ts-rs` export path for explicit binding generation. Cargo tests do
+not generate TypeScript bindings.
 
 ## Client Entry
 
@@ -90,6 +100,7 @@ generates `packages/alpaca-trade/src/generated/Execution.ts` via `ts-rs`.
 ## Activities
 
 - `activities().list(...)`
+- `activities().list_by_type(...)`
 - `activities().list_all(...)`
 - `activities().list_option_activity_records(...)`
 
@@ -124,6 +135,9 @@ generates `packages/alpaca-trade/src/generated/Execution.ts` via `ts-rs`.
 - `orders().replace(...)`
 - `orders().cancel(...)`
 - `orders().get_by_client_order_id(...)`
+
+All adopted order operations are closed for the `2.0.1` checkpoint, including
+`cancel_all` and `cancel`.
 
 ### Convenience Helpers
 
@@ -167,6 +181,18 @@ generates `packages/alpaca-trade/src/generated/Execution.ts` via `ts-rs`.
 - `positions().close(...)`
 - `positions().exercise(...)`
 - `positions().do_not_exercise(...)`
+
+The list, get, close-all, close-by-symbol, and exercise operations are closed
+for the `2.0.1` checkpoint. Exercise strictly requires status `200` and returns
+`ExerciseAccepted`. Its optional `details` distinguishes the canonical empty
+body from the Paper-observed JSON object containing `qty_exercised` and
+`qty_remaining`.
+
+Do-not-exercise strictly requires an empty `200`. Paper accepts it only for a
+long option position on its expiration day. Raw Paper and mock requests have
+succeeded, but the corrected Paper exact scenario still needs a clean account
+and verified cleanup, so `optionDoNotExercise` remains the sole pending
+operation.
 
 ## Watchlists
 

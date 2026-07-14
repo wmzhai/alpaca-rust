@@ -7,6 +7,9 @@
 - `get`
 - `update`
 
+Canonical operations `getAccountConfig` and `patchAccountConfig` are closed
+against both Paper and the standalone mock HTTP service.
+
 ## Typical Request
 
 ```rust
@@ -28,3 +31,9 @@ let updated = client
 
 - policy abstractions beyond the official mutable fields
 - staged configuration orchestration
+
+## Contract Notes
+
+- updates are partial; only fields set to `Some(...)` are sent
+- the Paper validation scenario reads the current `trade_confirm_email`, writes that same value, and reads it again, so validation does not change account policy
+- `closing_transactions_only` is retained as an optional Paper-observed response extension even though it is absent from the canonical response schema

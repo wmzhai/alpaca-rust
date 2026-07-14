@@ -2,7 +2,10 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use alpaca_core::BaseUrl;
-use reqwest::header::{CONTENT_TYPE, HeaderMap, HeaderName, HeaderValue};
+use reqwest::{
+    StatusCode,
+    header::{CONTENT_TYPE, HeaderMap, HeaderName, HeaderValue},
+};
 use serde::de::DeserializeOwned;
 
 use crate::Error;
@@ -73,6 +76,67 @@ impl HttpClient {
         Ok(HttpResponse::new(parsed, response.meta))
     }
 
+    pub async fn send_json_expected<T>(
+        &self,
+        base_url: &BaseUrl,
+        request: RequestParts,
+        expected_status: StatusCode,
+        authenticator: Option<&dyn Authenticator>,
+    ) -> Result<HttpResponse<T>, Error>
+    where
+        T: DeserializeOwned,
+    {
+        let response = self.send(base_url, &request, authenticator).await?;
+        let response = self.require_status(response, expected_status)?;
+        let parsed = serde_json::from_str(&response.body).map_err(|error| {
+            let meta = ErrorMeta::from_response_meta(response.meta.clone(), response.body.clone());
+            let error = Error::Deserialize {
+                message: error.to_string(),
+                meta: Some(meta.clone()),
+            };
+            self.observer.on_error(&ErrorEvent { meta: Some(meta) });
+            error
+        })?;
+
+        self.observer.on_response(&ResponseEvent {
+            meta: response.meta.clone(),
+        });
+        Ok(HttpResponse::new(parsed, response.meta))
+    }
+
+    pub async fn send_json_or_empty_expected<T>(
+        &self,
+        base_url: &BaseUrl,
+        request: RequestParts,
+        expected_status: StatusCode,
+        authenticator: Option<&dyn Authenticator>,
+    ) -> Result<HttpResponse<Option<T>>, Error>
+    where
+        T: DeserializeOwned,
+    {
+        let response = self.send(base_url, &request, authenticator).await?;
+        let response = self.require_status(response, expected_status)?;
+        let parsed = if response.body.is_empty() {
+            None
+        } else {
+            Some(serde_json::from_str(&response.body).map_err(|error| {
+                let meta =
+                    ErrorMeta::from_response_meta(response.meta.clone(), response.body.clone());
+                let error = Error::Deserialize {
+                    message: error.to_string(),
+                    meta: Some(meta.clone()),
+                };
+                self.observer.on_error(&ErrorEvent { meta: Some(meta) });
+                error
+            })?)
+        };
+
+        self.observer.on_response(&ResponseEvent {
+            meta: response.meta.clone(),
+        });
+        Ok(HttpResponse::new(parsed, response.meta))
+    }
+
     pub async fn send_text(
         &self,
         base_url: &BaseUrl,
@@ -92,11 +156,31 @@ impl HttpClient {
         request: RequestParts,
         authenticator: Option<&dyn Authenticator>,
     ) -> Result<HttpResponse<NoContent>, Error> {
+        self.send_empty_expected(base_url, request, StatusCode::NO_CONTENT, authenticator)
+            .await
+    }
+
+    pub async fn send_empty_expected(
+        &self,
+        base_url: &BaseUrl,
+        request: RequestParts,
+        expected_status: StatusCode,
+        authenticator: Option<&dyn Authenticator>,
+    ) -> Result<HttpResponse<NoContent>, Error> {
         let response = self.send(base_url, &request, authenticator).await?;
-        if response.meta.status() != 204 {
+        let response = self.require_status(response, expected_status)?;
+        if !response.body.is_empty() {
             let meta = ErrorMeta::from_response_meta(response.meta, response.body);
-            let error = Error::HttpStatus(meta.clone());
-            self.observer.on_error(&ErrorEvent { meta: Some(meta) });
+            let error = Error::Deserialize {
+                message: format!(
+                    "expected an empty response body for HTTP {}",
+                    expected_status.as_u16()
+                ),
+                meta: Some(meta.clone()),
+            };
+            self.observer.on_error(&ErrorEvent {
+                meta: Some(meta.clone()),
+            });
             return Err(error);
         }
 
@@ -104,6 +188,21 @@ impl HttpClient {
             meta: response.meta.clone(),
         });
         Ok(HttpResponse::new(NoContent, response.meta))
+    }
+
+    fn require_status(
+        &self,
+        response: ResponseParts,
+        expected_status: StatusCode,
+    ) -> Result<ResponseParts, Error> {
+        if response.meta.status() == expected_status.as_u16() {
+            return Ok(response);
+        }
+
+        let meta = ErrorMeta::from_response_meta(response.meta, response.body);
+        let error = Error::HttpStatus(meta.clone());
+        self.observer.on_error(&ErrorEvent { meta: Some(meta) });
+        Err(error)
     }
 
     async fn send(

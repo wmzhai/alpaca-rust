@@ -7,7 +7,7 @@ use reqwest::Method;
 use crate::client::ClientInner;
 use crate::{
     Error,
-    orders::{CancelAllOrderResult, CreateRequest, ListRequest, Order, ReplaceRequest},
+    orders::{CancelAllOrderResult, CreateRequest, GetRequest, ListRequest, Order, ReplaceRequest},
 };
 
 #[derive(Clone)]
@@ -22,37 +22,37 @@ impl OrdersClient {
 
     pub async fn list(&self, request: ListRequest) -> Result<Vec<Order>, Error> {
         let request = RequestParts::new(Method::GET, "/v2/orders")
-            .with_operation("orders.list")
+            .with_operation("getAllOrders")
             .with_query(request.into_query()?);
 
         self.inner
-            .send_json::<Vec<Order>>(request)
+            .send_ok_json::<Vec<Order>>(request)
             .await
             .map(|response| response.into_body())
     }
 
     pub async fn create(&self, request: CreateRequest) -> Result<Order, Error> {
         let request = RequestParts::new(Method::POST, "/v2/orders")
-            .with_operation("orders.create")
+            .with_operation("postOrder")
             .with_json_body(request.into_json()?);
 
         self.inner
-            .send_json::<Order>(request)
+            .send_ok_json::<Order>(request)
             .await
             .map(|response| response.into_body())
     }
 
     pub async fn cancel_all(&self) -> Result<Vec<CancelAllOrderResult>, Error> {
         let request =
-            RequestParts::new(Method::DELETE, "/v2/orders").with_operation("orders.cancel_all");
+            RequestParts::new(Method::DELETE, "/v2/orders").with_operation("deleteAllOrders");
 
         self.inner
-            .send_json::<Vec<CancelAllOrderResult>>(request)
+            .send_multi_status_json::<Vec<CancelAllOrderResult>>(request)
             .await
             .map(|response| response.into_body())
     }
 
-    pub async fn get(&self, order_id: &str) -> Result<Order, Error> {
+    pub async fn get(&self, order_id: &str, request: GetRequest) -> Result<Order, Error> {
         let request = RequestParts::new(
             Method::GET,
             format!(
@@ -60,10 +60,11 @@ impl OrdersClient {
                 super::request::validate_order_id(order_id)?
             ),
         )
-        .with_operation("orders.get");
+        .with_operation("getOrderByOrderID")
+        .with_query(request.into_query());
 
         self.inner
-            .send_json::<Order>(request)
+            .send_ok_json::<Order>(request)
             .await
             .map(|response| response.into_body())
     }
@@ -76,11 +77,11 @@ impl OrdersClient {
                 super::request::validate_order_id(order_id)?
             ),
         )
-        .with_operation("orders.replace")
+        .with_operation("patchOrderByOrderId")
         .with_json_body(request.into_json()?);
 
         self.inner
-            .send_json::<Order>(request)
+            .send_ok_json::<Order>(request)
             .await
             .map(|response| response.into_body())
     }
@@ -93,7 +94,7 @@ impl OrdersClient {
                 super::request::validate_order_id(order_id)?
             ),
         )
-        .with_operation("orders.cancel");
+        .with_operation("deleteOrderByOrderID");
 
         self.inner
             .send_no_content(request)
@@ -103,14 +104,14 @@ impl OrdersClient {
 
     pub async fn get_by_client_order_id(&self, client_order_id: &str) -> Result<Order, Error> {
         let request = RequestParts::new(Method::GET, "/v2/orders:by_client_order_id")
-            .with_operation("orders.get_by_client_order_id")
+            .with_operation("getOrderByClientOrderId")
             .with_query(vec![(
                 "client_order_id".to_owned(),
                 super::request::validate_client_order_id(client_order_id)?,
             )]);
 
         self.inner
-            .send_json::<Order>(request)
+            .send_ok_json::<Order>(request)
             .await
             .map(|response| response.into_body())
     }

@@ -24,6 +24,27 @@ pub struct Activity {
     pub qty: Option<Decimal>,
     pub side: Option<String>,
     pub symbol: Option<String>,
+    pub activity_sub_type: Option<String>,
+    pub created_at: Option<String>,
+    pub currency: Option<String>,
+    pub cusip: Option<String>,
+    pub date: Option<String>,
+    pub description: Option<String>,
+    pub execution_id: Option<String>,
+    pub group_id: Option<String>,
+    #[serde(
+        default,
+        deserialize_with = "alpaca_core::decimal::deserialize_option_decimal_from_string_or_number",
+        serialize_with = "alpaca_core::decimal::string_contract::serialize_option_decimal"
+    )]
+    pub net_amount: Option<Decimal>,
+    #[serde(
+        default,
+        deserialize_with = "alpaca_core::decimal::deserialize_option_decimal_from_string_or_number",
+        serialize_with = "alpaca_core::decimal::string_contract::serialize_option_decimal"
+    )]
+    pub per_share_amount: Option<Decimal>,
+    pub status: Option<String>,
     #[serde(
         default,
         deserialize_with = "alpaca_core::decimal::deserialize_option_decimal_from_string_or_number",

@@ -4,4 +4,4 @@ mod request;
 
 pub use client::PortfolioHistoryClient;
 pub use model::PortfolioHistory;
-pub use request::GetRequest;
+pub use request::{GetRequest, IntradayReporting, PnlReset, Timeframe};

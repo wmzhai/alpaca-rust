@@ -23,11 +23,11 @@ impl OptionsContractsClient {
 
     pub async fn list(&self, request: ListRequest) -> Result<ListResponse, Error> {
         let request = RequestParts::new(Method::GET, "/v2/options/contracts")
-            .with_operation("options_contracts.list")
+            .with_operation("get-options-contracts")
             .with_query(request.into_query()?);
 
         self.inner
-            .send_json::<ListResponse>(request)
+            .send_ok_json::<ListResponse>(request)
             .await
             .map(|response| response.into_body())
     }
@@ -44,10 +44,10 @@ impl OptionsContractsClient {
                 super::request::validate_symbol_or_id(symbol_or_id)?
             ),
         )
-        .with_operation("options_contracts.get");
+        .with_operation("get-option-contract-symbol_or_id");
 
         self.inner
-            .send_json::<OptionContract>(request)
+            .send_ok_json::<OptionContract>(request)
             .await
             .map(|response| response.into_body())
     }

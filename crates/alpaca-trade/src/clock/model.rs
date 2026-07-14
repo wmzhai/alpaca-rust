@@ -20,8 +20,19 @@ pub struct ClockV3 {
     pub is_market_day: bool,
     pub next_market_open: String,
     pub next_market_close: String,
-    pub phase: String,
+    pub phase: MarketPhase,
     pub phase_until: String,
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum MarketPhase {
+    #[default]
+    Closed,
+    Pre,
+    Core,
+    Lunch,
+    Post,
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]

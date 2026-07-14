@@ -9,7 +9,10 @@ use reqwest::Method;
 use crate::client::ClientInner;
 use crate::{
     Error,
-    activities::{Activity, ListRequest, OptionActivityRecords},
+    activities::{
+        Activity, ListByTypeRequest, ListRequest, OptionActivityRecords,
+        request::validate_activity_type,
+    },
 };
 
 #[derive(Clone)]
@@ -24,11 +27,30 @@ impl ActivitiesClient {
 
     pub async fn list(&self, request: ListRequest) -> Result<Vec<Activity>, Error> {
         let request = RequestParts::new(Method::GET, "/v2/account/activities")
-            .with_operation("activities.list")
+            .with_operation("getAccountActivities")
             .with_query(request.into_query()?);
 
         self.inner
-            .send_json::<Vec<Activity>>(request)
+            .send_ok_json::<Vec<Activity>>(request)
+            .await
+            .map(|response| response.into_body())
+    }
+
+    pub async fn list_by_type(
+        &self,
+        activity_type: impl AsRef<str>,
+        request: ListByTypeRequest,
+    ) -> Result<Vec<Activity>, Error> {
+        let activity_type = validate_activity_type(activity_type.as_ref())?;
+        let request = RequestParts::new(
+            Method::GET,
+            format!("/v2/account/activities/{activity_type}"),
+        )
+        .with_operation("getAccountActivitiesByActivityType")
+        .with_query(request.into_query()?);
+
+        self.inner
+            .send_ok_json::<Vec<Activity>>(request)
             .await
             .map(|response| response.into_body())
     }

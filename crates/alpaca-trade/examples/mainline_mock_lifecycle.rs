@@ -32,7 +32,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let account = client.account().get().await?;
     println!(
         "mock account {} is {}",
-        account.account_number, account.status
+        account.account_number.as_deref().unwrap_or("unknown"),
+        account.status
     );
 
     let opened = client

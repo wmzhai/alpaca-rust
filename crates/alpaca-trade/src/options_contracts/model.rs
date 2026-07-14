@@ -126,6 +126,7 @@ pub struct OptionContract {
     pub close_price: Option<Decimal>,
     pub close_price_date: Option<String>,
     pub deliverables: Option<Vec<OptionDeliverable>>,
+    /// Paper response extension that is also accepted as a list filter.
     pub ppind: Option<bool>,
 }
 

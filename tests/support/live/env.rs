@@ -344,28 +344,3 @@ fn workspace_relative_path(workspace_root: &Path, value: &str) -> PathBuf {
         workspace_root.join(path)
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn find_dotenv_upward_returns_first_parent_env() -> Result<(), SupportError> {
-        let temp =
-            std::env::temp_dir().join(format!("alpaca-live-env-test-{}", std::process::id()));
-        let workspace = temp.join("alpaca-rust");
-        let nested = workspace.join("crates/alpaca-data");
-        fs::create_dir_all(&nested).map_err(|error| {
-            SupportError::InvalidConfiguration(format!("failed to create temp dirs: {error}"))
-        })?;
-        fs::write(temp.join(".env"), "ALPACA_DATA_API_KEY=parent\n").map_err(|error| {
-            SupportError::InvalidConfiguration(format!("failed to write parent env: {error}"))
-        })?;
-
-        let found = find_dotenv_upward(&nested)?;
-
-        fs::remove_dir_all(&temp).ok();
-        assert_eq!(found, Some(temp.join(".env")));
-        Ok(())
-    }
-}

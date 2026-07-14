@@ -6,6 +6,7 @@ mod request;
 pub use client::PositionsClient;
 pub use convenience::{option_qty_map, reconcile_signed_positions, structure_quantity};
 pub use model::{
-    ClosePositionBody, ClosePositionResult, DoNotExerciseAccepted, ExercisePositionBody, Position,
+    ClosePositionResult, DoNotExerciseAccepted, ExerciseAccepted, ExerciseDetails, Position,
+    PositionExchange, PositionSide, UsdPositionValues,
 };
 pub use request::{CloseAllRequest, ClosePositionRequest};

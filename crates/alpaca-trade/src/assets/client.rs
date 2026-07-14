@@ -22,11 +22,11 @@ impl AssetsClient {
 
     pub async fn list(&self, request: ListRequest) -> Result<Vec<Asset>, Error> {
         let request = RequestParts::new(Method::GET, "/v2/assets")
-            .with_operation("assets.list")
+            .with_operation("get-v2-assets")
             .with_query(request.into_query()?);
 
         self.inner
-            .send_json::<Vec<Asset>>(request)
+            .send_ok_json::<Vec<Asset>>(request)
             .await
             .map(|response| response.into_body())
     }
@@ -39,10 +39,10 @@ impl AssetsClient {
                 super::request::validate_symbol_or_asset_id(symbol_or_asset_id)?
             ),
         )
-        .with_operation("assets.get");
+        .with_operation("get-v2-assets-symbol_or_asset_id");
 
         self.inner
-            .send_json::<Asset>(request)
+            .send_ok_json::<Asset>(request)
             .await
             .map(|response| response.into_body())
     }

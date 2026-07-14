@@ -3,6 +3,7 @@
 use std::collections::HashMap;
 use std::str::FromStr;
 
+use chrono::NaiveDate;
 use rust_decimal::Decimal;
 use serde::Serialize;
 
@@ -370,6 +371,10 @@ pub(crate) struct ProjectedPosition {
     #[serde(serialize_with = "alpaca_core::decimal::string_contract::serialize_decimal")]
     pub(crate) unrealized_plpc: Decimal,
     #[serde(serialize_with = "alpaca_core::decimal::string_contract::serialize_decimal")]
+    pub(crate) unrealized_intraday_pl: Decimal,
+    #[serde(serialize_with = "alpaca_core::decimal::string_contract::serialize_decimal")]
+    pub(crate) unrealized_intraday_plpc: Decimal,
+    #[serde(serialize_with = "alpaca_core::decimal::string_contract::serialize_decimal")]
     pub(crate) current_price: Decimal,
     #[serde(serialize_with = "alpaca_core::decimal::string_contract::serialize_decimal")]
     pub(crate) lastday_price: Decimal,
@@ -391,6 +396,10 @@ pub(crate) fn project_position(
     let cost_basis = (position.net_qty * avg_entry_price).round_dp(8);
     let unrealized_pl = (market_value - cost_basis).round_dp(8);
     let unrealized_plpc = ratio_or_zero(unrealized_pl, cost_basis.abs());
+    let previous_market_value = (position.net_qty * lastday_price).round_dp(8);
+    let unrealized_intraday_pl = (market_value - previous_market_value).round_dp(8);
+    let unrealized_intraday_plpc =
+        ratio_or_zero(unrealized_intraday_pl, previous_market_value.abs());
     let change_today = ratio_or_zero(current_price - lastday_price, lastday_price.abs());
     let side = if position.net_qty >= Decimal::ZERO {
         PositionSide::Long
@@ -411,6 +420,8 @@ pub(crate) fn project_position(
         cost_basis,
         unrealized_pl,
         unrealized_plpc,
+        unrealized_intraday_pl,
+        unrealized_intraday_plpc,
         current_price,
         lastday_price,
         change_today,
@@ -431,6 +442,8 @@ pub(crate) fn project_position_without_market(position: &InstrumentPosition) -> 
     let cost_basis = (position.net_qty * avg_entry_price).round_dp(8);
     let unrealized_pl = Decimal::ZERO;
     let unrealized_plpc = Decimal::ZERO;
+    let unrealized_intraday_pl = Decimal::ZERO;
+    let unrealized_intraday_plpc = Decimal::ZERO;
     let change_today = Decimal::ZERO;
     let side = if position.net_qty >= Decimal::ZERO {
         PositionSide::Long
@@ -451,6 +464,8 @@ pub(crate) fn project_position_without_market(position: &InstrumentPosition) -> 
         cost_basis,
         unrealized_pl,
         unrealized_plpc,
+        unrealized_intraday_pl,
+        unrealized_intraday_plpc,
         current_price,
         lastday_price,
         change_today,
@@ -475,6 +490,7 @@ pub(crate) enum OptionContractType {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct ParsedOptionSymbol {
     pub(crate) underlying_symbol: String,
+    pub(crate) expiration_date: NaiveDate,
     pub(crate) contract_type: OptionContractType,
     pub(crate) strike_price: Decimal,
 }
@@ -486,6 +502,11 @@ pub(crate) fn parse_option_symbol(symbol: &str) -> Option<ParsedOptionSymbol> {
         return None;
     }
 
+    let expiration = symbol.get(root_len..root_len + 6)?;
+    let year = 2000 + expiration.get(..2)?.parse::<i32>().ok()?;
+    let month = expiration.get(2..4)?.parse::<u32>().ok()?;
+    let day = expiration.get(4..6)?.parse::<u32>().ok()?;
+    let expiration_date = NaiveDate::from_ymd_opt(year, month, day)?;
     let contract_type = match symbol.get(root_len + 6..root_len + 7)? {
         "C" => OptionContractType::Call,
         "P" => OptionContractType::Put,
@@ -496,6 +517,7 @@ pub(crate) fn parse_option_symbol(symbol: &str) -> Option<ParsedOptionSymbol> {
 
     Some(ParsedOptionSymbol {
         underlying_symbol,
+        expiration_date,
         contract_type,
         strike_price,
     })

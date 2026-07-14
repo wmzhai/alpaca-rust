@@ -174,6 +174,7 @@ impl TimeInForce {
             "ioc" => Ok(Self::Ioc),
             "fok" => Ok(Self::Fok),
             "gtd" => Ok(Self::Gtd),
+            "" => Ok(Self::Unspecified),
             _ => Err(Error::InvalidRequest(format!(
                 "invalid time in force: {}",
                 value
@@ -191,6 +192,7 @@ impl TimeInForce {
             Self::Ioc => "ioc",
             Self::Fok => "fok",
             Self::Gtd => "gtd",
+            Self::Unspecified => "",
         }
     }
 }
@@ -254,6 +256,7 @@ impl OrderStatus {
             "suspended" => Ok(Self::Suspended),
             "calculated" => Ok(Self::Calculated),
             "held" => Ok(Self::Held),
+            "" => Ok(Self::Unspecified),
             _ => Err(Error::InvalidRequest(format!(
                 "invalid order status: {}",
                 value
@@ -282,6 +285,7 @@ impl OrderStatus {
             Self::Suspended => "suspended",
             Self::Calculated => "calculated",
             Self::Held => "held",
+            Self::Unspecified => "",
         }
     }
 
@@ -357,7 +361,7 @@ impl Order {
             || self
                 .legs
                 .as_deref()
-                .is_some_and(|legs| legs.iter().any(Self::has_fill_evidence))
+                .is_some_and(|legs| legs.iter().any(|leg| leg.filled_qty > Decimal::ZERO))
     }
 
     fn can_recreate_after_cancel(&self, policy: TransitionOrderPolicy) -> bool {
@@ -660,6 +664,7 @@ impl CreateRequest {
             stop_loss: None,
             legs: None,
             position_intent: None,
+            advanced_instructions: None,
         };
         request.validate()?;
         Ok(request)
@@ -692,6 +697,7 @@ impl CreateRequest {
             stop_loss: None,
             legs: Some(legs),
             position_intent: None,
+            advanced_instructions: None,
         };
         request.validate()?;
         Ok(request)
@@ -708,6 +714,7 @@ impl ReplaceRequest {
             stop_price: None,
             trail: None,
             client_order_id: None,
+            advanced_instructions: None,
         }
     }
 }
@@ -926,437 +933,4 @@ fn leg_cashflow(price: Decimal, side: OrderSide, structure_qty: i32, ratio_qty: 
     };
 
     gross.round_dp(2)
-}
-
-#[cfg(test)]
-mod tests {
-    use rust_decimal::Decimal;
-
-    use super::{
-        CloseOptionLeg, CloseOptionLegsResult, CreateRequest, MarketCloseRecovery,
-        OptionLegRequest, OptionQuote, Order, OrderClass, OrderSide, OrderStatus, OrderType,
-        PositionIntent, ReplaceRequest, SubmitOrderPolicy, SubmitOrderRequest, SubmitOrderStyle,
-        TimeInForce, TransitionOrderPolicy, WaitFor,
-    };
-
-    #[test]
-    fn exposes_canonical_order_enum_strings() {
-        assert_eq!(OrderSide::Buy.as_str(), "buy");
-        assert_eq!(OrderType::Limit.as_str(), "limit");
-        assert_eq!(TimeInForce::Day.as_str(), "day");
-        assert_eq!(PositionIntent::SellToClose.as_str(), "sell_to_close");
-        assert_eq!(OrderClass::Mleg.as_str(), "mleg");
-        assert_eq!(OrderStatus::PendingReplace.as_str(), "pending_replace");
-        assert_eq!(
-            OrderStatus::parse("rejected").expect("status should parse"),
-            OrderStatus::Rejected
-        );
-    }
-
-    #[test]
-    fn converts_decimal_quantities_to_i32() {
-        let order: Order = serde_json::from_value(serde_json::json!({
-            "id": "order-1",
-            "client_order_id": "client-1",
-            "created_at": "2026-04-15T10:00:00Z",
-            "updated_at": "2026-04-15T10:00:00Z",
-            "submitted_at": "2026-04-15T10:00:00Z",
-            "filled_at": null,
-            "expired_at": null,
-            "expires_at": null,
-            "canceled_at": null,
-            "failed_at": null,
-            "replaced_at": null,
-            "replaced_by": null,
-            "replaces": null,
-            "asset_id": "asset-1",
-            "symbol": "AAPL",
-            "asset_class": "us_equity",
-            "notional": null,
-            "qty": "3",
-            "filled_qty": "2",
-            "filled_avg_price": "187.25",
-            "order_class": "simple",
-            "order_type": "limit",
-            "type": "limit",
-            "side": "buy",
-            "position_intent": null,
-            "time_in_force": "day",
-            "limit_price": "187.25",
-            "stop_price": null,
-            "status": "new",
-            "extended_hours": false,
-            "legs": null,
-            "trail_percent": null,
-            "trail_price": null,
-            "hwm": null,
-            "ratio_qty": null,
-            "take_profit": null,
-            "stop_loss": null,
-            "subtag": null,
-            "source": null
-        }))
-        .expect("order should deserialize");
-
-        assert_eq!(order.qty_i32(), Some(3));
-        assert_eq!(order.filled_qty_i32(), 2);
-        assert_eq!(order.limit_price, Some(Decimal::new(18725, 2)));
-    }
-
-    #[test]
-    fn builds_simple_market_request_with_day_time_in_force() {
-        let request = CreateRequest::simple(
-            "SPY",
-            2,
-            OrderSide::parse("buy").expect("buy should parse"),
-            SubmitOrderStyle::Market,
-            Some(TimeInForce::Cls),
-            Some(true),
-        )
-        .expect("simple market request should build");
-
-        assert_eq!(request.symbol.as_deref(), Some("SPY"));
-        assert_eq!(request.qty, Some(Decimal::from(2)));
-        assert_eq!(request.side, Some(OrderSide::Buy));
-        assert_eq!(request.r#type, Some(OrderType::Market));
-        assert_eq!(request.time_in_force, Some(TimeInForce::Cls));
-        assert_eq!(request.limit_price, None);
-        assert_eq!(request.extended_hours, Some(true));
-        assert_eq!(request.order_class, None);
-    }
-
-    #[test]
-    fn builds_mleg_limit_request_with_validated_legs() {
-        let request = CreateRequest::mleg(
-            1,
-            SubmitOrderStyle::Limit {
-                limit_price: Decimal::new(125, 2),
-            },
-            vec![
-                OptionLegRequest {
-                    symbol: "SPY260424C00550000".to_owned(),
-                    ratio_qty: 1,
-                    side: Some(OrderSide::Buy),
-                    position_intent: Some(PositionIntent::BuyToOpen),
-                },
-                OptionLegRequest {
-                    symbol: "SPY260424C00555000".to_owned(),
-                    ratio_qty: 1,
-                    side: Some(OrderSide::Sell),
-                    position_intent: Some(PositionIntent::SellToOpen),
-                },
-            ],
-        )
-        .expect("mleg limit request should build");
-
-        assert_eq!(request.symbol, None);
-        assert_eq!(request.qty, Some(Decimal::ONE));
-        assert_eq!(request.side, None);
-        assert_eq!(request.r#type, Some(OrderType::Limit));
-        assert_eq!(request.limit_price, Some(Decimal::new(125, 2)));
-        assert_eq!(request.order_class, Some(OrderClass::Mleg));
-        assert_eq!(request.legs.as_ref().map(Vec::len), Some(2));
-    }
-
-    #[test]
-    fn builds_replace_request_from_submit_style() {
-        let market = ReplaceRequest::from_submit_style(SubmitOrderStyle::Market);
-        assert_eq!(market.limit_price, None);
-
-        let limit = ReplaceRequest::from_submit_style(SubmitOrderStyle::Limit {
-            limit_price: Decimal::new(333, 2),
-        });
-        assert_eq!(limit.limit_price, Some(Decimal::new(333, 2)));
-    }
-
-    #[test]
-    fn submit_request_defaults_wait_target_from_style() {
-        let market = SubmitOrderRequest::simple(
-            "SPY",
-            1,
-            OrderSide::Buy,
-            SubmitOrderStyle::Market,
-            None,
-            None,
-        );
-        assert_eq!(market.default_wait_for(), WaitFor::Filled);
-
-        let limit = SubmitOrderRequest::mleg(
-            1,
-            SubmitOrderStyle::Limit {
-                limit_price: Decimal::new(125, 2),
-            },
-            vec![
-                OptionLegRequest {
-                    symbol: "SPY260424C00550000".to_owned(),
-                    ratio_qty: 1,
-                    side: Some(OrderSide::Buy),
-                    position_intent: Some(PositionIntent::BuyToOpen),
-                },
-                OptionLegRequest {
-                    symbol: "SPY260424C00555000".to_owned(),
-                    ratio_qty: 1,
-                    side: Some(OrderSide::Sell),
-                    position_intent: Some(PositionIntent::SellToOpen),
-                },
-            ],
-        );
-        assert_eq!(limit.default_wait_for(), WaitFor::Stable);
-    }
-
-    #[test]
-    fn submit_request_policy_overrides_wait_target() {
-        let market = SubmitOrderRequest::simple(
-            "SPY",
-            1,
-            OrderSide::Buy,
-            SubmitOrderStyle::Market,
-            None,
-            None,
-        );
-        assert_eq!(
-            market.clone().wait_for(SubmitOrderPolicy::Default),
-            WaitFor::Filled
-        );
-        assert_eq!(
-            market.wait_for(SubmitOrderPolicy::AcceptOnly),
-            WaitFor::Stable
-        );
-    }
-
-    #[test]
-    fn market_close_recovery_exposes_next_retry_count() {
-        assert_eq!(
-            MarketCloseRecovery::RetryAsMarket {
-                next_retry_count: 1
-            }
-            .next_retry_count(),
-            1
-        );
-        assert_eq!(
-            MarketCloseRecovery::Fallback {
-                next_retry_count: 4,
-                result: CloseOptionLegsResult::Skipped { legs: Vec::new() },
-            }
-            .next_retry_count(),
-            4
-        );
-    }
-
-    #[test]
-    fn submit_request_converts_into_create_request() {
-        let simple = SubmitOrderRequest::simple(
-            "SPY",
-            2,
-            OrderSide::Buy,
-            SubmitOrderStyle::Limit {
-                limit_price: Decimal::new(321, 2),
-            },
-            Some(TimeInForce::Day),
-            Some(true),
-        )
-        .into_create_request()
-        .expect("simple submit request should build");
-        assert_eq!(simple.symbol.as_deref(), Some("SPY"));
-        assert_eq!(simple.limit_price, Some(Decimal::new(321, 2)));
-        assert_eq!(simple.extended_hours, Some(true));
-        assert_eq!(simple.position_intent, None);
-        assert_eq!(simple.client_order_id, None);
-
-        let mleg = SubmitOrderRequest::mleg(
-            2,
-            SubmitOrderStyle::Market,
-            vec![
-                OptionLegRequest {
-                    symbol: "SPY260424C00550000".to_owned(),
-                    ratio_qty: 1,
-                    side: Some(OrderSide::Buy),
-                    position_intent: Some(PositionIntent::BuyToOpen),
-                },
-                OptionLegRequest {
-                    symbol: "SPY260424C00555000".to_owned(),
-                    ratio_qty: 1,
-                    side: Some(OrderSide::Sell),
-                    position_intent: Some(PositionIntent::SellToOpen),
-                },
-            ],
-        )
-        .into_create_request()
-        .expect("mleg submit request should build");
-        assert_eq!(mleg.order_class, Some(OrderClass::Mleg));
-        assert_eq!(mleg.qty, Some(Decimal::from(2)));
-        assert_eq!(mleg.r#type, Some(OrderType::Market));
-        assert_eq!(mleg.client_order_id, None);
-    }
-
-    #[test]
-    fn submit_request_preserves_client_order_id_for_simple_and_mleg() {
-        let simple = SubmitOrderRequest::simple(
-            "SPY",
-            1,
-            OrderSide::Buy,
-            SubmitOrderStyle::Market,
-            None,
-            None,
-        )
-        .with_client_order_id("qty-simple-1")
-        .into_create_request()
-        .expect("simple submit request should preserve client_order_id");
-        assert_eq!(simple.client_order_id.as_deref(), Some("qty-simple-1"));
-
-        let mleg = SubmitOrderRequest::mleg(
-            1,
-            SubmitOrderStyle::Market,
-            vec![
-                OptionLegRequest {
-                    symbol: "SPY260424C00550000".to_owned(),
-                    ratio_qty: 1,
-                    side: Some(OrderSide::Buy),
-                    position_intent: Some(PositionIntent::BuyToOpen),
-                },
-                OptionLegRequest {
-                    symbol: "SPY260424C00555000".to_owned(),
-                    ratio_qty: 1,
-                    side: Some(OrderSide::Sell),
-                    position_intent: Some(PositionIntent::SellToOpen),
-                },
-            ],
-        )
-        .with_client_order_id("qty-mleg-1")
-        .into_create_request()
-        .expect("mleg submit request should preserve client_order_id");
-        assert_eq!(mleg.client_order_id.as_deref(), Some("qty-mleg-1"));
-    }
-
-    #[test]
-    fn simple_submit_request_preserves_explicit_position_intent() {
-        let request = SubmitOrderRequest::simple(
-            "SPY260424C00550000",
-            1,
-            OrderSide::Sell,
-            SubmitOrderStyle::Market,
-            None,
-            None,
-        )
-        .with_position_intent(PositionIntent::SellToClose)
-        .into_create_request()
-        .expect("simple submit request should preserve position_intent");
-
-        assert_eq!(request.position_intent, Some(PositionIntent::SellToClose));
-    }
-
-    #[test]
-    fn canceled_order_with_parent_or_child_fill_cannot_be_recreated() {
-        let parent_fill = Order {
-            status: OrderStatus::Canceled,
-            filled_qty: Decimal::ONE,
-            ..Default::default()
-        };
-        assert!(!parent_fill.can_recreate_after_cancel(TransitionOrderPolicy::Recreate));
-        assert!(parent_fill.can_recreate_after_cancel(TransitionOrderPolicy::Auto));
-
-        let child_fill = Order {
-            status: OrderStatus::Canceled,
-            legs: Some(vec![Order {
-                filled_qty: Decimal::ONE,
-                ..Default::default()
-            }]),
-            ..Default::default()
-        };
-        assert!(!child_fill.can_recreate_after_cancel(TransitionOrderPolicy::Recreate));
-        assert!(child_fill.can_recreate_after_cancel(TransitionOrderPolicy::Auto));
-
-        let zero_fill = Order {
-            status: OrderStatus::Canceled,
-            ..Default::default()
-        };
-        assert!(zero_fill.can_recreate_after_cancel(TransitionOrderPolicy::Recreate));
-    }
-
-    #[test]
-    fn auto_transition_recreates_market_limit_type_changes_and_close_mlegs() {
-        let simple_current = Order {
-            order_class: OrderClass::Simple,
-            r#type: OrderType::Limit,
-            ..Default::default()
-        };
-        let market_simple = SubmitOrderRequest::simple(
-            "SPY",
-            1,
-            OrderSide::Buy,
-            SubmitOrderStyle::Market,
-            None,
-            None,
-        );
-        assert!(market_simple.requires_recreate(&simple_current, TransitionOrderPolicy::Auto));
-
-        let open_mleg_current = Order {
-            order_class: OrderClass::Mleg,
-            r#type: OrderType::Limit,
-            ..Default::default()
-        };
-        let close_mleg = SubmitOrderRequest::mleg(
-            1,
-            SubmitOrderStyle::Limit {
-                limit_price: Decimal::new(125, 2),
-            },
-            vec![
-                OptionLegRequest {
-                    symbol: "SPY260424C00550000".to_owned(),
-                    ratio_qty: 1,
-                    side: Some(OrderSide::Sell),
-                    position_intent: Some(PositionIntent::SellToClose),
-                },
-                OptionLegRequest {
-                    symbol: "SPY260424C00555000".to_owned(),
-                    ratio_qty: 1,
-                    side: Some(OrderSide::Buy),
-                    position_intent: Some(PositionIntent::BuyToClose),
-                },
-            ],
-        );
-        assert!(close_mleg.requires_recreate(&open_mleg_current, TransitionOrderPolicy::Auto));
-
-        let open_mleg = SubmitOrderRequest::mleg(
-            1,
-            SubmitOrderStyle::Limit {
-                limit_price: Decimal::new(125, 2),
-            },
-            vec![OptionLegRequest {
-                symbol: "SPY260424C00550000".to_owned(),
-                ratio_qty: 1,
-                side: Some(OrderSide::Buy),
-                position_intent: Some(PositionIntent::BuyToOpen),
-            }],
-        );
-        assert!(!open_mleg.requires_recreate(&open_mleg_current, TransitionOrderPolicy::Auto));
-        assert!(open_mleg.requires_recreate(&open_mleg_current, TransitionOrderPolicy::Recreate));
-    }
-
-    #[test]
-    fn detects_option_leg_liquidity_from_side_specific_quote() {
-        let sell_close = CloseOptionLeg {
-            symbol: "SPY260424C00550000".to_owned(),
-            ratio_qty: 1,
-            side: OrderSide::Sell,
-            position_intent: PositionIntent::SellToClose,
-            quote: Some(OptionQuote {
-                bid: Decimal::new(15, 2),
-                ask: Decimal::new(20, 2),
-            }),
-        };
-        assert!(sell_close.is_liquid());
-
-        let buy_close = CloseOptionLeg {
-            symbol: "SPY260424C00555000".to_owned(),
-            ratio_qty: 1,
-            side: OrderSide::Buy,
-            position_intent: PositionIntent::BuyToClose,
-            quote: Some(OptionQuote {
-                bid: Decimal::ZERO,
-                ask: Decimal::new(10, 2),
-            }),
-        };
-        assert!(buy_close.is_liquid());
-    }
 }

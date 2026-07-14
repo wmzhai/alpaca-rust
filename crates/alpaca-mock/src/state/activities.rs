@@ -110,7 +110,7 @@ pub(crate) fn project_activity(event: &ActivityEvent) -> Option<Activity> {
         order_id: Some(event.order_id.clone()),
         cum_qty: event.cum_qty,
         order_status: event.status.as_ref().map(order_status_name),
-        extra: Default::default(),
+        ..Activity::default()
     })
 }
 

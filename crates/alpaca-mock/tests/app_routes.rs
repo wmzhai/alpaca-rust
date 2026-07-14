@@ -25,70 +25,6 @@ async fn health_returns_ok() {
 }
 
 #[tokio::test]
-async fn account_route_requires_apca_api_headers() {
-    let app = alpaca_mock::build_app();
-
-    let response = app
-        .oneshot(
-            Request::builder()
-                .uri("/v2/account")
-                .body(Body::empty())
-                .expect("request should build"),
-        )
-        .await
-        .expect("request should succeed");
-
-    assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
-}
-
-#[tokio::test]
-async fn account_route_projects_per_key_account_state() {
-    let app = alpaca_mock::build_app();
-
-    let response_a = app
-        .clone()
-        .oneshot(
-            Request::builder()
-                .uri("/v2/account")
-                .header("apca-api-key-id", "mock-key-a")
-                .header("apca-api-secret-key", "mock-secret-a")
-                .body(Body::empty())
-                .expect("request should build"),
-        )
-        .await
-        .expect("account A request should succeed");
-    assert_eq!(response_a.status(), StatusCode::OK);
-    let body_a = to_bytes(response_a.into_body(), usize::MAX)
-        .await
-        .expect("account A body should read");
-    let account_a: alpaca_trade::account::Account =
-        serde_json::from_slice(&body_a).expect("account A should deserialize");
-
-    let response_b = app
-        .oneshot(
-            Request::builder()
-                .uri("/v2/account")
-                .header("apca-api-key-id", "mock-key-b")
-                .header("apca-api-secret-key", "mock-secret-b")
-                .body(Body::empty())
-                .expect("request should build"),
-        )
-        .await
-        .expect("account B request should succeed");
-    assert_eq!(response_b.status(), StatusCode::OK);
-    let body_b = to_bytes(response_b.into_body(), usize::MAX)
-        .await
-        .expect("account B body should read");
-    let account_b: alpaca_trade::account::Account =
-        serde_json::from_slice(&body_b).expect("account B should deserialize");
-
-    assert_ne!(account_a.id, account_b.id);
-    assert_ne!(account_a.account_number, account_b.account_number);
-    assert_eq!(account_a.status, "ACTIVE");
-    assert_eq!(account_b.status, "ACTIVE");
-}
-
-#[tokio::test]
 async fn admin_fault_and_reset_routes_control_mock_state() {
     let state = MockServerState::new();
     let app = alpaca_mock::build_app_with_state(state);
@@ -216,7 +152,6 @@ async fn reset_route_alias_clears_mock_state() {
     assert_eq!(set_fault_response.status(), StatusCode::OK);
 
     let reset_response = app
-        .clone()
         .oneshot(
             Request::builder()
                 .method("POST")

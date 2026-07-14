@@ -22,11 +22,11 @@ impl PortfolioHistoryClient {
 
     pub async fn get(&self, request: GetRequest) -> Result<PortfolioHistory, Error> {
         let request = RequestParts::new(Method::GET, "/v2/account/portfolio/history")
-            .with_operation("portfolio_history.get")
+            .with_operation("getAccountPortfolioHistory")
             .with_query(request.into_query()?);
 
         self.inner
-            .send_json::<PortfolioHistory>(request)
+            .send_ok_json::<PortfolioHistory>(request)
             .await
             .map(|response| response.into_body())
     }

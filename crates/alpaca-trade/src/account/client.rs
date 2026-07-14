@@ -18,10 +18,10 @@ impl AccountClient {
     }
 
     pub async fn get(&self) -> Result<Account, Error> {
-        let request = RequestParts::new(Method::GET, "/v2/account").with_operation("account.get");
+        let request = RequestParts::new(Method::GET, "/v2/account").with_operation("getAccount");
 
         self.inner
-            .send_json::<Account>(request)
+            .send_ok_json::<Account>(request)
             .await
             .map(|response| response.into_body())
     }

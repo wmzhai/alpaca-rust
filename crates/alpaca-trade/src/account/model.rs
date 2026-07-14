@@ -4,10 +4,12 @@ use serde::{Deserialize, Serialize};
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct Account {
     pub id: String,
-    pub account_number: String,
     pub status: String,
+    pub account_number: Option<String>,
     pub currency: Option<String>,
     pub crypto_status: Option<String>,
+    /// Paper response extension observed outside the canonical OpenAPI schema.
+    pub crypto_tier: Option<i64>,
     #[serde(
         default,
         deserialize_with = "alpaca_core::decimal::deserialize_option_decimal_from_string_or_number"
@@ -74,6 +76,12 @@ pub struct Account {
         deserialize_with = "alpaca_core::decimal::deserialize_option_decimal_from_string_or_number"
     )]
     pub buying_power: Option<Decimal>,
+    /// Paper response extension observed outside the canonical OpenAPI schema.
+    #[serde(
+        default,
+        deserialize_with = "alpaca_core::decimal::deserialize_option_decimal_from_string_or_number"
+    )]
+    pub effective_buying_power: Option<Decimal>,
     #[serde(
         default,
         deserialize_with = "alpaca_core::decimal::deserialize_option_decimal_from_string_or_number"
@@ -117,4 +125,14 @@ pub struct Account {
         deserialize_with = "alpaca_core::decimal::deserialize_option_decimal_from_string_or_number"
     )]
     pub pending_reg_taf_fees: Option<Decimal>,
+    /// Paper response extension observed outside the canonical OpenAPI schema.
+    #[serde(
+        default,
+        deserialize_with = "alpaca_core::decimal::deserialize_option_decimal_from_string_or_number"
+    )]
+    pub position_market_value: Option<Decimal>,
+    /// Paper response extension observed outside the canonical OpenAPI schema.
+    pub admin_configurations: Option<serde_json::Value>,
+    /// Paper response extension observed outside the canonical OpenAPI schema.
+    pub user_configurations: Option<serde_json::Value>,
 }
