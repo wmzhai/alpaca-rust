@@ -16,7 +16,7 @@ use chrono::{SecondsFormat, Utc};
 use chrono_tz::America::New_York;
 use rust_decimal::Decimal;
 use rust_decimal::prelude::{FromPrimitive, ToPrimitive};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 use alpaca_option::{
@@ -60,6 +60,7 @@ pub struct MockServerState {
 struct SharedState {
     accounts: RwLock<HashMap<String, VirtualAccountState>>,
     http_fault: RwLock<Option<InjectedHttpFault>>,
+    rejected_replacement_races: RwLock<HashSet<(String, String)>>,
     market_data_bridge: Option<LiveMarketDataBridge>,
     market_data_overrides: RwLock<HashMap<String, InstrumentSnapshot>>,
 }
@@ -189,6 +190,11 @@ pub struct AdminStateResponse {
     pub http_fault: Option<InjectedHttpFault>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RejectedReplacementRaceFixture {
+    pub predecessor_order_id: String,
+}
+
 #[derive(Debug, Error)]
 pub enum MarketDataBridgeError {
     #[error(transparent)]
@@ -216,6 +222,7 @@ impl MockServerState {
             inner: Arc::new(SharedState {
                 accounts: RwLock::new(HashMap::new()),
                 http_fault: RwLock::new(None),
+                rejected_replacement_races: RwLock::new(HashSet::new()),
                 market_data_bridge: None,
                 market_data_overrides: RwLock::new(HashMap::new()),
             }),
@@ -1033,6 +1040,10 @@ impl MockServerState {
         order_id: &str,
         input: ReplaceOrderInput,
     ) -> Result<Order, MockStateError> {
+        if self.take_rejected_replacement_race(api_key, order_id) {
+            return self.complete_rejected_replacement_race(api_key, order_id, input);
+        }
+
         let current = {
             let accounts = self
                 .inner
@@ -1706,7 +1717,132 @@ impl MockServerState {
             .write()
             .expect("market data overrides lock should not poison")
             .clear();
+        self.inner
+            .rejected_replacement_races
+            .write()
+            .expect("replacement race lock should not poison")
+            .clear();
         self.clear_http_fault();
+    }
+
+    pub fn seed_rejected_replacement_race(&self, api_key: &str) -> RejectedReplacementRaceFixture {
+        let mut accounts = self
+            .inner
+            .accounts
+            .write()
+            .expect("accounts lock should not poison");
+        let account = accounts
+            .entry(api_key.to_owned())
+            .or_insert_with(|| VirtualAccountState::new(api_key));
+        let order_id = account.next_order_id();
+        let client_order_id = format!("{order_id}-client");
+        let now = now_string();
+        let order = Order {
+            id: order_id.clone(),
+            client_order_id: client_order_id.clone(),
+            created_at: now.clone(),
+            updated_at: now.clone(),
+            submitted_at: now,
+            asset_id: mock_asset_id(DEFAULT_STOCK_SYMBOL),
+            symbol: DEFAULT_STOCK_SYMBOL.to_owned(),
+            asset_class: "us_equity".to_owned(),
+            qty: Some(Decimal::ONE),
+            order_class: OrderClass::Simple,
+            order_type: OrderType::Limit,
+            r#type: OrderType::Limit,
+            side: OrderSide::Buy,
+            time_in_force: TimeInForce::Day,
+            limit_price: Some(Decimal::ONE),
+            status: OrderStatus::New,
+            ..Order::default()
+        };
+        account
+            .client_order_ids
+            .insert(client_order_id, order_id.clone());
+        account.orders.insert(
+            order_id.clone(),
+            StoredOrder {
+                order,
+                request_side: OrderSide::Buy,
+            },
+        );
+        drop(accounts);
+
+        self.inner
+            .rejected_replacement_races
+            .write()
+            .expect("replacement race lock should not poison")
+            .insert((api_key.to_owned(), order_id.clone()));
+
+        RejectedReplacementRaceFixture {
+            predecessor_order_id: order_id,
+        }
+    }
+
+    fn take_rejected_replacement_race(&self, api_key: &str, order_id: &str) -> bool {
+        self.inner
+            .rejected_replacement_races
+            .write()
+            .expect("replacement race lock should not poison")
+            .remove(&(api_key.to_owned(), order_id.to_owned()))
+    }
+
+    fn complete_rejected_replacement_race(
+        &self,
+        api_key: &str,
+        order_id: &str,
+        input: ReplaceOrderInput,
+    ) -> Result<Order, MockStateError> {
+        let mut accounts = self
+            .inner
+            .accounts
+            .write()
+            .expect("accounts lock should not poison");
+        let account = accounts
+            .get_mut(api_key)
+            .ok_or_else(|| MockStateError::NotFound(format!("order {order_id} was not found")))?;
+        let replacement_id = account.next_order_id();
+        let now = now_string();
+        let predecessor = account
+            .orders
+            .get_mut(order_id)
+            .ok_or_else(|| MockStateError::NotFound(format!("order {order_id} was not found")))?;
+        predecessor.order.status = OrderStatus::Filled;
+        predecessor.order.updated_at = now.clone();
+        predecessor.order.filled_at = Some(now.clone());
+        predecessor.order.filled_qty = predecessor.order.qty.unwrap_or(Decimal::ONE);
+        predecessor.order.filled_avg_price = predecessor.order.limit_price;
+
+        let mut replacement = predecessor.order.clone();
+        replacement.id = replacement_id.clone();
+        replacement.client_order_id = input
+            .client_order_id
+            .unwrap_or_else(|| format!("{replacement_id}-client"));
+        replacement.created_at = now.clone();
+        replacement.updated_at = now.clone();
+        replacement.submitted_at = now.clone();
+        replacement.filled_at = None;
+        replacement.failed_at = Some(now);
+        replacement.replaced_at = None;
+        replacement.replaced_by = None;
+        replacement.replaces = Some(order_id.to_owned());
+        replacement.filled_qty = Decimal::ZERO;
+        replacement.filled_avg_price = None;
+        replacement.limit_price = input.limit_price.or(replacement.limit_price);
+        replacement.status = OrderStatus::Rejected;
+
+        account
+            .client_order_ids
+            .insert(replacement.client_order_id.clone(), replacement_id.clone());
+        account.orders.insert(
+            replacement_id,
+            StoredOrder {
+                order: replacement.clone(),
+                request_side: OrderSide::Buy,
+            },
+        );
+
+        Ok(replacement)
     }
 
     pub fn set_http_fault(&self, fault: InjectedHttpFault) {

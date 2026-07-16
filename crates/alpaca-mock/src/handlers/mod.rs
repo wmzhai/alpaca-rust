@@ -13,7 +13,9 @@ mod watchlists;
 
 pub(crate) use account::{account_configurations_get, account_configurations_update, account_get};
 pub(crate) use activities::{activities_by_type, activities_list};
-pub(crate) use admin::{admin_reset, admin_set_http_fault, admin_state};
+pub(crate) use admin::{
+    admin_reset, admin_seed_rejected_replacement_race, admin_set_http_fault, admin_state,
+};
 pub(crate) use assets::{assets_get, assets_list};
 pub(crate) use calendar::{calendar_legacy, calendar_v3};
 pub(crate) use clock::{clock_legacy, clock_v3};

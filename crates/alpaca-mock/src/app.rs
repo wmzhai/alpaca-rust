@@ -119,6 +119,10 @@ pub fn build_app_with_state(state: MockServerState) -> Router {
         .route("/admin/state", get(handlers::admin_state))
         .route("/admin/reset", post(handlers::admin_reset))
         .route("/admin/faults/http", post(handlers::admin_set_http_fault))
+        .route(
+            "/admin/fixtures/rejected-replacement-race",
+            post(handlers::admin_seed_rejected_replacement_race),
+        )
         .merge(trading_router)
         .with_state(state)
 }

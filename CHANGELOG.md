@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Resolved failed-terminal replacements to their filled predecessors during both immediate replace completion and later effective-order synchronization, preventing rejected replacements from hiding real fills.
+- Added a standalone `alpaca-mock` replacement-race fixture and network regression coverage for the broker ordering race.
+
 ## v0.30.0
 
 - Aligned the adopted non-crypto Trading REST surface with Alpaca Trading API `2.0.1`, binding all 38 adopted operations to their exact source, mock route, request, response, status, and network-scenario contracts.

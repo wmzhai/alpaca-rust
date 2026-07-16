@@ -108,6 +108,18 @@ impl OrdersClient {
             .await?;
 
         loop {
+            if current.status.is_failed_terminal() {
+                if let Some(predecessor_id) = current.replaces.as_deref() {
+                    let predecessor = self
+                        .get(predecessor_id, GetRequest { nested: Some(true) })
+                        .await?;
+                    if predecessor.status == OrderStatus::Filled {
+                        return Ok(predecessor);
+                    }
+                }
+                return Ok(current);
+            }
+
             if current.status != OrderStatus::Replaced {
                 return Ok(current);
             }
@@ -171,10 +183,32 @@ impl OrdersClient {
         request: ReplaceRequest,
     ) -> Result<ReplaceResolution, Error> {
         match self.replace(order_id, request).await {
-            Ok(order) => Ok(ReplaceResolution::NewOrder(ResolvedOrder {
-                order: self.wait_for(&order.id, WaitFor::Stable).await?,
-                recovered_after_request_error: false,
-            })),
+            Ok(replacement) => {
+                let effective = self.wait_for(&replacement.id, WaitFor::Stable).await?;
+                let effective_is_filled_predecessor = if effective.id != replacement.id
+                    && effective.status == OrderStatus::Filled
+                {
+                    let terminal_replacement = if replacement.status.is_failed_terminal() {
+                        replacement.clone()
+                    } else {
+                        self.get(&replacement.id, GetRequest { nested: Some(true) })
+                            .await?
+                    };
+                    terminal_replacement.status.is_failed_terminal()
+                        && terminal_replacement.replaces.as_deref() == Some(effective.id.as_str())
+                } else {
+                    false
+                };
+                let resolved = ResolvedOrder {
+                    order: effective,
+                    recovered_after_request_error: false,
+                };
+                if effective_is_filled_predecessor {
+                    Ok(ReplaceResolution::OriginalOrderTerminal(resolved))
+                } else {
+                    Ok(ReplaceResolution::NewOrder(resolved))
+                }
+            }
             Err(error) => match self.recover_replace(order_id).await? {
                 Some(resolution) => Ok(resolution),
                 None => Err(error),
