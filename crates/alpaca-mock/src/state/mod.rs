@@ -18,6 +18,7 @@ use rust_decimal::Decimal;
 use rust_decimal::prelude::{FromPrimitive, ToPrimitive};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
+use uuid::Uuid;
 
 use alpaca_option::{
     OptionContract, OptionQuote, OrderSide as QuoteOrderSide, QuotedLeg, execution_quote,
@@ -569,7 +570,7 @@ impl MockServerState {
             )));
         }
 
-        let order_id = account.next_order_id();
+        let order_id = new_order_id();
         let now = now_string();
         let order_time_in_force = time_in_force.clone();
         let order_type_for_legs = order_type.clone();
@@ -1133,7 +1134,7 @@ impl MockServerState {
         }
 
         let now = now_string();
-        let replacement_order_id = account.next_order_id();
+        let replacement_order_id = new_order_id();
         let replacement_time_in_force_for_legs = replacement_time_in_force.clone();
         let mut replacement = Order {
             id: replacement_order_id.clone(),
@@ -1472,7 +1473,7 @@ impl MockServerState {
             .entry(api_key.to_owned())
             .or_insert_with(|| VirtualAccountState::new(api_key));
         let order = Order {
-            id: account.next_order_id(),
+            id: new_order_id(),
             client_order_id: format!("mock-position-close-{}", now_millis()),
             created_at: now.clone(),
             updated_at: now.clone(),
@@ -1734,7 +1735,7 @@ impl MockServerState {
         let account = accounts
             .entry(api_key.to_owned())
             .or_insert_with(|| VirtualAccountState::new(api_key));
-        let order_id = account.next_order_id();
+        let order_id = new_order_id();
         let client_order_id = format!("{order_id}-client");
         let now = now_string();
         let order = Order {
@@ -1801,7 +1802,7 @@ impl MockServerState {
         let account = accounts
             .get_mut(api_key)
             .ok_or_else(|| MockStateError::NotFound(format!("order {order_id} was not found")))?;
-        let replacement_id = account.next_order_id();
+        let replacement_id = new_order_id();
         let now = now_string();
         let predecessor = account
             .orders
@@ -1964,10 +1965,6 @@ impl VirtualAccountState {
     fn next_sequence(&mut self) -> u64 {
         self.sequence_clock += 1;
         self.sequence_clock
-    }
-
-    fn next_order_id(&mut self) -> String {
-        format!("mock-order-{}-{}", now_millis(), self.next_sequence())
     }
 }
 
@@ -2372,9 +2369,7 @@ fn matches_order_symbols(
 }
 
 fn compare_order_submission(left: &Order, right: &Order) -> std::cmp::Ordering {
-    compare_timestamp(&left.submitted_at, &right.submitted_at)
-        .then_with(|| mock_order_sequence(&left.id).cmp(&mock_order_sequence(&right.id)))
-        .then_with(|| left.id.cmp(&right.id))
+    compare_timestamp(&left.submitted_at, &right.submitted_at).then_with(|| left.id.cmp(&right.id))
 }
 
 fn compare_timestamp(left: &str, right: &str) -> std::cmp::Ordering {
@@ -2385,10 +2380,6 @@ fn compare_timestamp(left: &str, right: &str) -> std::cmp::Ordering {
         (Ok(left), Ok(right)) => left.cmp(&right),
         _ => left.cmp(right),
     }
-}
-
-fn mock_order_sequence(order_id: &str) -> Option<u64> {
-    order_id.rsplit('-').next()?.parse().ok()
 }
 
 fn event_matches_date(event: &ActivityEvent, date: &str) -> bool {
@@ -2809,7 +2800,7 @@ fn build_advanced_child_order(
     previous_leg: Option<&OrderLeg>,
 ) -> OrderLeg {
     OrderLeg {
-        id: format!("mock-child-order-{}-{}", now_millis(), symbol),
+        id: new_order_id(),
         client_order_id: format!("mock-child-client-order-{}-{}", now_millis(), symbol),
         created_at: now.to_owned(),
         updated_at: now.to_owned(),
@@ -2900,7 +2891,7 @@ fn build_leg_orders_from_requests(
             let previous_leg = previous_legs.and_then(|legs| legs.get(index));
             let leg_qty = parent_qty * Decimal::from(leg.ratio_qty);
             OrderLeg {
-                id: format!("mock-leg-order-{}-{index}", now_millis()),
+                id: new_order_id(),
                 client_order_id: format!("mock-leg-client-order-{}-{index}", now_millis()),
                 created_at: now.to_owned(),
                 updated_at: now.to_owned(),
@@ -3053,6 +3044,10 @@ fn ensure_do_not_exercise_eligible_position(
 
 fn now_string() -> String {
     Utc::now().to_rfc3339_opts(SecondsFormat::Nanos, true)
+}
+
+fn new_order_id() -> String {
+    Uuid::new_v4().to_string()
 }
 
 fn now_millis() -> u128 {

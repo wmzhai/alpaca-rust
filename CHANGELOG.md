@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Switched all `alpaca-mock` parent and nested order IDs to raw UUID v4 values and added cross-account create/replace regression coverage, preventing concurrent virtual accounts from generating colliding broker order IDs.
 - Resolved failed-terminal replacements to their filled predecessors during both immediate replace completion and later effective-order synchronization, preventing rejected replacements from hiding real fills.
 - Added a standalone `alpaca-mock` replacement-race fixture and network regression coverage for the broker ordering race.
 

@@ -37,3 +37,4 @@ tracing = "0.1"
 ts-rs = { version = "11.1", features = ["serde-compat"] }
 tower = { version = "0.5", features = ["util"] }
 url = "2"
+uuid = { version = "1", features = ["v4"] }
