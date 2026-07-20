@@ -31,6 +31,22 @@ workspace.
 - Analyze market structure, gamma exposure, liquidity models, and option-strategy state
 - Build and parse OptionStrat-compatible URLs and leg fragments
 
+## Focused Black-Scholes Gamma (Rust)
+
+Rust callers that only need Black-Scholes-Merton gamma can use:
+
+```rust
+alpaca_option::pricing::gamma_black_scholes(&input)
+```
+
+The function accepts `BlackScholesInput`, uses its explicit `rate`, and applies
+the same positive and finite input validation as the price and full-Greeks
+functions. It returns the same call/put gamma as `greeks_black_scholes` without
+calculating price, normal CDF values, or the other Greeks.
+
+This focused API is intentionally Rust-only. The optional TypeScript companion
+continues to expose the full mirrored pricing and Greeks APIs listed below.
+
 ## Optional Companion
 
 An optional workspace TypeScript companion exists under `packages/alpaca-option`.

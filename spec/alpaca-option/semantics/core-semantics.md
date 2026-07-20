@@ -54,6 +54,14 @@ Pricing, Greeks, IV, probability, and analysis modules do not directly accept "n
 - does not perform time conversion
 - `target_price` uses the same per-contract price unit as the theoretical price
 
+### `gamma_black_scholes`
+
+- is a focused Rust-only public API; the TypeScript companion does not mirror it
+- uses the `rate` already supplied in `BlackScholesInput`; default Treasury term-rate selection remains the responsibility of `BlackScholesInput::new`
+- applies the same positive and finite input validation and `invalid_pricing_input` error contract as the price and full-Greeks APIs
+- uses one Gamma formula for call and put inputs because Black-Scholes-Merton Gamma does not depend on option right
+- computes only `sqrt(T)`, volatility scale, `d1`, `exp(-qT)`, the normal PDF, and Gamma; it does not calculate `d2`, price, normal CDF values, or the other Greeks
+
 ## Quote and Execution-Quote Semantics
 
 ### `mark`

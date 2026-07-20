@@ -6,6 +6,7 @@ Notes:
 
 - the document is grouped by semantic API area
 - Rust and TypeScript may differ slightly in host-level input shapes; those differences are absorbed in the semantic description of each entry
+- `pricing.gamma_black_scholes` is an explicit Rust-only host difference; the TypeScript companion does not expose a focused Gamma-only function
 - if a host-specific signature differs from this document but preserves the same semantics, this document remains the canonical shared contract
 
 ## Global Constraints
@@ -143,6 +144,7 @@ Field-level definitions live in `../models/core-models.md`.
 ### Responsibilities
 
 - Black-Scholes-Merton price, Greeks, and IV
+- focused Rust-only Black-Scholes-Merton Gamma
 - intrinsic and extrinsic value
 - contract-driven extrinsic value
 
@@ -151,6 +153,7 @@ Field-level definitions live in `../models/core-models.md`.
 | API | Returns | Semantics |
 | --- | --- | --- |
 | `pricing.price_black_scholes(input)` / `pricing.priceBlackScholes(input)` | `number` | returns the theoretical price from `BlackScholesInput` |
+| Rust: `pricing.gamma_black_scholes(input)` | `number` | returns Gamma from `BlackScholesInput` without calculating price, normal CDF values, or the other Greeks; it uses the caller-supplied `rate` and the same validation contract as the full pricing APIs |
 | `pricing.greeks_black_scholes(input)` / `pricing.greeksBlackScholes(input)` | `Greeks` | returns `delta/gamma/vega/theta/rho` from `BlackScholesInput` |
 | `pricing.implied_volatility_from_price(input)` / `pricing.impliedVolatilityFromPrice(input)` | `number` | solves IV from a target option price |
 | `pricing.intrinsic_value(spot, strike, option_right)` / `pricing.intrinsicValue(spot, strike, optionRight)` | `number` | returns intrinsic value |

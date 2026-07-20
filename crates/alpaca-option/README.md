@@ -31,6 +31,11 @@ Use this crate when you need:
 - market-structure analysis, liquidity models, and reusable option-strategy state
 - OptionStrat-compatible URL and leg helpers
 
+The Rust `pricing` module exposes `gamma_black_scholes` for callers that only
+need Black-Scholes-Merton gamma. It uses the rate supplied in
+`BlackScholesInput`, applies the same validation as the price and full-Greeks
+paths, and does not calculate price or the other Greeks.
+
 This crate intentionally does not include:
 
 - Alpaca HTTP requests or credentials

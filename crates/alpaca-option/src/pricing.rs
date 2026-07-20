@@ -46,19 +46,23 @@ fn validate_black_scholes_inputs(input: &BlackScholesInput) -> OptionResult<()> 
     Ok(())
 }
 
-fn d1_d2(input: &BlackScholesInput) -> (f64, f64) {
+fn d1_terms(input: &BlackScholesInput) -> (f64, f64, f64) {
     let sqrt_years = input.years.sqrt();
     let sigma_sqrt_t = input.volatility * sqrt_years;
     let d1 = ((input.spot / input.strike).ln()
         + (input.rate - input.dividend_yield + 0.5 * input.volatility * input.volatility)
             * input.years)
         / sigma_sqrt_t;
-    let d2 = d1 - sigma_sqrt_t;
-    (d1, d2)
+    (sqrt_years, sigma_sqrt_t, d1)
+}
+
+fn gamma_black_scholes_core(spot: f64, sigma_sqrt_t: f64, exp_minus_qt: f64, phi_d1: f64) -> f64 {
+    exp_minus_qt * phi_d1 / (spot * sigma_sqrt_t)
 }
 
 fn price_black_scholes_core(input: &BlackScholesInput) -> f64 {
-    let (d1, d2) = d1_d2(input);
+    let (_, sigma_sqrt_t, d1) = d1_terms(input);
+    let d2 = d1 - sigma_sqrt_t;
     let discount_spot = (-input.dividend_yield * input.years).exp();
     let discount_strike = (-input.rate * input.years).exp();
 
@@ -92,11 +96,27 @@ pub fn price_black_scholes(input: &BlackScholesInput) -> OptionResult<f64> {
     Ok(price_black_scholes_core(input))
 }
 
+/// Computes Black-Scholes-Merton gamma without calculating price or the other Greeks.
+///
+/// The calculation uses the rate supplied by [`BlackScholesInput`] and applies the same input
+/// validation as [`price_black_scholes`] and [`greeks_black_scholes`].
+pub fn gamma_black_scholes(input: &BlackScholesInput) -> OptionResult<f64> {
+    validate_black_scholes_inputs(input)?;
+    let (_, sigma_sqrt_t, d1) = d1_terms(input);
+    let exp_minus_qt = (-input.dividend_yield * input.years).exp();
+    let phi_d1 = normal_pdf(d1);
+    Ok(gamma_black_scholes_core(
+        input.spot,
+        sigma_sqrt_t,
+        exp_minus_qt,
+        phi_d1,
+    ))
+}
+
 pub fn greeks_black_scholes(input: &BlackScholesInput) -> OptionResult<Greeks> {
     validate_black_scholes_inputs(input)?;
-    let (d1, d2) = d1_d2(input);
-    let sqrt_years = input.years.sqrt();
-    let sigma_sqrt_t = input.volatility * sqrt_years;
+    let (sqrt_years, sigma_sqrt_t, d1) = d1_terms(input);
+    let d2 = d1 - sigma_sqrt_t;
     let exp_minus_qt = (-input.dividend_yield * input.years).exp();
     let exp_minus_rt = (-input.rate * input.years).exp();
     let nd1 = normal_cdf(d1);
@@ -109,7 +129,7 @@ pub fn greeks_black_scholes(input: &BlackScholesInput) -> OptionResult<Greeks> {
         OptionRight::Call => exp_minus_qt * nd1,
         OptionRight::Put => -exp_minus_qt * n_minus_d1,
     };
-    let gamma = exp_minus_qt * phi_d1 / (input.spot * sigma_sqrt_t);
+    let gamma = gamma_black_scholes_core(input.spot, sigma_sqrt_t, exp_minus_qt, phi_d1);
     let vega = input.spot * exp_minus_qt * phi_d1 * sqrt_years / 100.0;
     let theta_annual = match input.option_right {
         OptionRight::Call => {

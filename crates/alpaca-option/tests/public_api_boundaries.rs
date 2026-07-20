@@ -15,14 +15,14 @@ use alpaca_option::probability;
 use alpaca_option::rate;
 use alpaca_option::snapshot;
 use alpaca_option::types::{
-    ContractDisplay, ExecutionSnapshot, Greeks, MarketStructureAnalysisOptions,
+    BlackScholesInput, ContractDisplay, ExecutionSnapshot, Greeks, MarketStructureAnalysisOptions,
     MarketStructureExposureMode, MarketStructureOptionRecord, OptionChainRecord, OptionContract,
     OptionPosition, OptionQuote, OptionRight, OptionRightCode, OptionSnapshot,
 };
 use alpaca_option::url;
 use alpaca_option::{
-    LiquidityData, LiquidityOptionData, LiquidityStats, OptionError, PayoffLegInput,
-    DEFAULT_RISK_FREE_RATE,
+    DEFAULT_RISK_FREE_RATE, LiquidityData, LiquidityOptionData, LiquidityStats, OptionError,
+    PayoffLegInput,
 };
 use serde_json::json;
 use ts_rs::TS;
@@ -1606,6 +1606,120 @@ fn payoff_and_probability_boundary_cases_are_explicit() {
         .unwrap_err(),
         "invalid_probability_input",
     );
+}
+
+#[test]
+fn gamma_black_scholes_matches_full_greeks_across_representative_inputs() {
+    let shared_call = BlackScholesInput {
+        spot: 100.0,
+        strike: 100.0,
+        years: 0.5,
+        rate: 0.04,
+        dividend_yield: 0.01,
+        volatility: 0.2,
+        option_right: OptionRight::Call,
+    };
+    let shared_put = BlackScholesInput {
+        option_right: OptionRight::Put,
+        ..shared_call.clone()
+    };
+    let cases = [
+        BlackScholesInput {
+            spot: 120.0,
+            strike: 100.0,
+            years: 0.1,
+            rate: -0.01,
+            dividend_yield: 0.03,
+            volatility: 0.45,
+            option_right: OptionRight::Call,
+        },
+        shared_call.clone(),
+        BlackScholesInput {
+            spot: 80.0,
+            strike: 100.0,
+            years: 2.0,
+            rate: 0.08,
+            dividend_yield: 0.0,
+            volatility: 0.15,
+            option_right: OptionRight::Call,
+        },
+        BlackScholesInput {
+            spot: 80.0,
+            strike: 100.0,
+            years: 0.02,
+            rate: 0.0,
+            dividend_yield: 0.06,
+            volatility: 0.75,
+            option_right: OptionRight::Put,
+        },
+        shared_put.clone(),
+        BlackScholesInput {
+            spot: 120.0,
+            strike: 100.0,
+            years: 1.25,
+            rate: 0.03,
+            dividend_yield: 0.02,
+            volatility: 0.3,
+            option_right: OptionRight::Put,
+        },
+    ];
+
+    for input in &cases {
+        let gamma = pricing::gamma_black_scholes(input).expect("focused gamma");
+        let full_gamma = pricing::greeks_black_scholes(input)
+            .expect("full Greeks")
+            .gamma;
+        assert!(
+            (gamma - full_gamma).abs() <= 1e-12,
+            "focused and full gamma differ for {input:?}: {gamma} != {full_gamma}"
+        );
+    }
+
+    let call_gamma = pricing::gamma_black_scholes(&shared_call).expect("call gamma");
+    let put_gamma = pricing::gamma_black_scholes(&shared_put).expect("put gamma");
+    assert!((call_gamma - put_gamma).abs() <= 1e-12);
+}
+
+#[test]
+fn gamma_black_scholes_preserves_black_scholes_validation_contract() {
+    let valid = BlackScholesInput::new(100.0, 100.0, 0.5, 0.01, 0.2, OptionRight::Call)
+        .with_rate(TEST_RISK_FREE_RATE);
+    let invalid_inputs = [
+        BlackScholesInput {
+            spot: 0.0,
+            ..valid.clone()
+        },
+        BlackScholesInput {
+            strike: -1.0,
+            ..valid.clone()
+        },
+        BlackScholesInput {
+            years: f64::NAN,
+            ..valid.clone()
+        },
+        BlackScholesInput {
+            rate: f64::INFINITY,
+            ..valid.clone()
+        },
+        BlackScholesInput {
+            dividend_yield: f64::NEG_INFINITY,
+            ..valid.clone()
+        },
+        BlackScholesInput {
+            volatility: 0.0,
+            ..valid
+        },
+    ];
+
+    for input in &invalid_inputs {
+        let gamma_error = pricing::gamma_black_scholes(input).unwrap_err();
+        let greeks_error = pricing::greeks_black_scholes(input).unwrap_err();
+        assert_eq!(
+            gamma_error, greeks_error,
+            "focused and full validation differ for {input:?}"
+        );
+        assert_error_code(gamma_error, "invalid_pricing_input");
+    }
 }
 
 #[test]
