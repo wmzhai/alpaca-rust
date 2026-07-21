@@ -1,7 +1,23 @@
 {
-  "extends": "@docusaurus/tsconfig",
+  "$schema": "https://json.schemastore.org/tsconfig",
   "compilerOptions": {
-    "baseUrl": "."
+    "allowJs": true,
+    "esModuleInterop": true,
+    "jsx": "preserve",
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM"],
+    "moduleResolution": "bundler",
+    "module": "ESNext",
+    "noEmit": true,
+    "strict": true,
+    "noUncheckedSideEffectImports": true,
+    "stableTypeOrdering": true,
+    "types": ["@docusaurus/module-type-aliases", "react"],
+    "paths": {
+      "@site/*": ["./*"]
+    },
+    "skipLibCheck": true
   },
-  "include": ["src/**/*", "docusaurus.config.ts", "sidebars.ts"]
+  "include": ["src/**/*", "docusaurus.config.ts", "sidebars.ts"],
+  "exclude": [".docusaurus", "build"]
 }

@@ -5,18 +5,22 @@
   "scripts": {
     "start": "docusaurus start --host 0.0.0.0 --port 3000",
     "build": "docusaurus build",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
     "serve": "docusaurus serve",
     "clear": "docusaurus clear"
   },
   "dependencies": {
-    "@docusaurus/core": "3.9.2",
-    "@docusaurus/preset-classic": "3.9.2",
+    "@docusaurus/core": "3.10.2",
+    "@docusaurus/preset-classic": "3.10.2",
     "clsx": "2.1.1",
     "react": "19.1.1",
     "react-dom": "19.1.1"
   },
   "devDependencies": {
-    "typescript": "5.9.2"
+    "@docusaurus/module-type-aliases": "3.10.2",
+    "@docusaurus/types": "3.10.2",
+    "@types/react": "^19.0.0",
+    "typescript": "^6.0.3"
   },
   "engines": {
     "node": ">=20.0.0"

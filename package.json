@@ -5,13 +5,15 @@
     "test:packages": "pnpm --filter @alpaca/time test && pnpm --filter @alpaca/option test",
     "test:option-fixtures": "cargo test -p alpaca-option --test fixtures -- --include-ignored && pnpm --filter @alpaca/option test:fixtures",
     "test:packages:full": "pnpm run test:packages && pnpm run test:option-fixtures",
-    "typecheck:packages": "pnpm --filter @alpaca/time typecheck && pnpm --filter @alpaca/option typecheck",
+    "typecheck": "pnpm run typecheck:packages",
+    "typecheck:packages": "pnpm --filter @alpaca/time typecheck && pnpm --filter @alpaca/option typecheck && pnpm --filter @alpaca/trade typecheck && pnpm --dir website typecheck",
     "build:website": "pnpm --dir website build"
   },
   "devDependencies": {
-    "tsx": "4.20.6"
+    "tsx": "4.20.6",
+    "typescript": "^6.0.3"
   },
-  "packageManager": "pnpm@11.1.0",
+  "packageManager": "pnpm@11.15.1",
   "workspaces": [
     "packages/*",
     "website"
