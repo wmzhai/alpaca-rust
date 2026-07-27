@@ -41,6 +41,7 @@ pub(crate) struct ClientInner {
 pub struct ClientBuilder {
     api_key: Option<String>,
     secret_key: Option<String>,
+    base_url: Option<BaseUrl>,
     timeout: Option<Duration>,
     observer: Option<Arc<dyn TransportObserver>>,
     retry_config: RetryConfig,
@@ -59,6 +60,11 @@ impl Client {
 
     pub fn from_env() -> Result<Self, Error> {
         Self::builder().credentials_from_env()?.build()
+    }
+
+    #[must_use]
+    pub fn base_url(&self) -> &BaseUrl {
+        &self.inner.base_url
     }
 
     #[must_use]
@@ -85,6 +91,7 @@ impl Client {
 impl fmt::Debug for Client {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("Client")
+            .field("base_url", self.base_url())
             .field("http", &"HttpClient")
             .field("auth", &"[REDACTED]")
             .finish()
@@ -94,6 +101,7 @@ impl fmt::Debug for Client {
 impl fmt::Debug for ClientInner {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("ClientInner")
+            .field("base_url", &self.base_url)
             .field("http", &"HttpClient")
             .field("auth", &"[REDACTED]")
             .finish()
@@ -105,6 +113,7 @@ impl fmt::Debug for ClientBuilder {
         f.debug_struct("ClientBuilder")
             .field("api_key", &redacted_option(&self.api_key))
             .field("secret_key", &redacted_option(&self.secret_key))
+            .field("base_url", &self.base_url)
             .field("timeout", &self.timeout)
             .field(
                 "observer",
@@ -134,6 +143,17 @@ impl ClientBuilder {
     pub fn secret_key(mut self, secret_key: impl Into<String>) -> Self {
         self.secret_key = Some(secret_key.into());
         self
+    }
+
+    #[must_use]
+    pub fn base_url(mut self, base_url: BaseUrl) -> Self {
+        self.base_url = Some(base_url);
+        self
+    }
+
+    pub fn base_url_str(mut self, base_url: impl AsRef<str>) -> Result<Self, Error> {
+        self.base_url = Some(BaseUrl::new(base_url.as_ref())?);
+        Ok(self)
     }
 
     pub fn credentials_from_env(self) -> Result<Self, Error> {
@@ -191,7 +211,10 @@ impl ClientBuilder {
             }
         };
 
-        let base_url = BaseUrl::new(DEFAULT_DATA_BASE_URL)?;
+        let base_url = match self.base_url {
+            Some(base_url) => base_url,
+            None => BaseUrl::new(DEFAULT_DATA_BASE_URL)?,
+        };
         let auth = StaticHeaderAuthenticator::from_pairs([
             (APCA_API_KEY_HEADER, credentials.api_key()),
             (APCA_API_SECRET_HEADER, credentials.secret_key()),

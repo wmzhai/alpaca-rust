@@ -35,11 +35,15 @@
 - `secret_key(...)`
 - `credentials_from_env(...)`
 - `credentials_from_env_names(...)`
+- `base_url(...)`
+- `base_url_str(...)`
 - `timeout(...)`
 - `observer(...)`
 - `retry_config(...)`
 - `max_in_flight(...)`
 - `build()`
+
+The built client exposes its resolved endpoint through `Client::base_url()`.
 
 ### Resource Accessors
 

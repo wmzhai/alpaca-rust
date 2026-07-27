@@ -39,6 +39,7 @@ Current public mock focus:
 - positions
 - activities
 - watchlists
+- deterministic runtime stock snapshots
 
 Behavior notes:
 
@@ -51,9 +52,11 @@ Behavior notes:
 - option exercise returns status `200` with typed `qty_exercised` and `qty_remaining` values, matching the body observed from Paper; the client also accepts the canonical empty `200`
 - option do-not-exercise returns an empty `200`; raw Paper and mock requests have succeeded, but Paper restricts successful instructions to expiration-day long positions and the corrected exact Paper scenario still needs verified cleanup on a clean account
 - `/admin/faults/http` injects a one-shot authenticated-route fault
-- `/admin/reset` clears both state and injected faults
+- `POST /admin/market-data/stocks/{symbol}` sets a normalized runtime stock price and fills existing open simple equity limit orders that become marketable exactly once
+- authenticated `GET /v2/stocks/{symbol}/snapshot` exposes the controlled price as bid, ask, and latest trade
+- `/admin/reset` clears state, runtime stock-price overrides, and injected faults
 
 Not implemented:
 
-- generic fake market-data generation
+- general-purpose fake market-data generation; runtime stock controls exist only for deterministic integration scenarios
 - a full broker or exchange simulator

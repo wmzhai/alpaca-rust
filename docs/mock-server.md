@@ -57,6 +57,7 @@ Unauthenticated:
 - `GET /admin/state`
 - `POST /admin/reset`
 - `POST /admin/faults/http`
+- `POST /admin/market-data/stocks/{symbol}`
 
 Authenticated trading routes:
 
@@ -70,6 +71,7 @@ Authenticated trading routes:
 - `GET|DELETE /v2/positions/{symbol_or_asset_id}`
 - `POST /v2/positions/{symbol_or_contract_id}/exercise`
 - `POST /v2/positions/{symbol_or_contract_id}/do-not-exercise`
+- `GET /v2/stocks/{symbol}/snapshot`
 
 ## Admin Endpoints
 
@@ -79,7 +81,7 @@ Returns the current mock-state summary.
 
 ### `POST /admin/reset`
 
-Clears the current mock state and fault injections.
+Clears the current mock state, runtime stock-price overrides, and fault injections.
 
 ### `POST /admin/faults/http`
 
@@ -94,6 +96,12 @@ Example:
   "message": "temporary outage"
 }
 ```
+
+### `POST /admin/market-data/stocks/{symbol}`
+
+Sets a deterministic runtime price for a stock symbol. The price is rounded to two decimal places and exposed as the bid, ask, and latest trade through the authenticated `GET /v2/stocks/{symbol}/snapshot` route.
+
+Existing open simple equity limit orders made marketable by the new price are filled exactly once. The response contains `symbol`, the normalized Decimal-string `price`, and sorted `filled_order_ids`. This control is intended only for deterministic local integration scenarios; it is not a general-purpose market-data generator.
 
 ## Fill Behavior
 
@@ -112,9 +120,10 @@ The current mock server is intentionally focused on the trade mainline:
 - orders
 - positions
 - activities
+- deterministic single-stock snapshots for integration scenarios
 
 It is not a generic Alpaca emulator or a replacement for live API verification.
 
 ## Market Data Dependency
 
-When order or position behavior needs live market prices, the mock server uses the `alpaca-data` client and real market-data credentials instead of invented price fixtures.
+When no deterministic runtime override exists, order or position behavior that needs live market prices uses the `alpaca-data` client and real market-data credentials. Runtime overrides are limited to explicitly controlled local integration scenarios.

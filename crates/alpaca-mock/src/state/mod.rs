@@ -20,6 +20,7 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use uuid::Uuid;
 
+use alpaca_data::stocks::display_stock_symbol;
 use alpaca_option::{
     OptionContract, OptionQuote, OrderSide as QuoteOrderSide, QuotedLeg, execution_quote,
 };
@@ -192,6 +193,17 @@ pub struct AdminStateResponse {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RuntimeStockPriceResponse {
+    pub symbol: String,
+    #[serde(
+        deserialize_with = "alpaca_core::decimal::deserialize_decimal_from_string_or_number",
+        serialize_with = "alpaca_core::decimal::price_string_contract::serialize_decimal"
+    )]
+    pub price: Decimal,
+    pub filled_order_ids: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RejectedReplacementRaceFixture {
     pub predecessor_order_id: String,
 }
@@ -259,6 +271,24 @@ impl MockServerState {
     #[must_use]
     pub fn market_data_bridge(&self) -> Option<&LiveMarketDataBridge> {
         self.inner.market_data_bridge.as_ref()
+    }
+
+    pub fn runtime_stock_snapshot(
+        &self,
+        symbol: &str,
+    ) -> Result<(String, InstrumentSnapshot), MockStateError> {
+        let symbol = display_stock_symbol(symbol);
+        let snapshot = self
+            .inner
+            .market_data_overrides
+            .read()
+            .expect("market data overrides lock should not poison")
+            .get(&symbol)
+            .cloned()
+            .ok_or_else(|| {
+                MockStateError::NotFound(format!("stock snapshot for {symbol} was not found"))
+            })?;
+        Ok((symbol, snapshot))
     }
 
     pub fn ensure_account(&self, api_key: &str) {
@@ -1726,6 +1756,96 @@ impl MockServerState {
         self.clear_http_fault();
     }
 
+    pub fn set_runtime_stock_price(
+        &self,
+        symbol: &str,
+        price: Decimal,
+    ) -> Result<RuntimeStockPriceResponse, MockStateError> {
+        let symbol = display_stock_symbol(symbol);
+        if symbol.is_empty() {
+            return Err(MockStateError::Conflict(
+                "stock symbol must not be empty".to_owned(),
+            ));
+        }
+
+        let price = price.round_dp(2);
+        if price <= Decimal::ZERO {
+            return Err(MockStateError::Conflict(
+                "stock price must be greater than 0".to_owned(),
+            ));
+        }
+
+        let snapshot = InstrumentSnapshot::equity(price, price);
+        self.inner
+            .market_data_overrides
+            .write()
+            .expect("market data overrides lock should not poison")
+            .insert(symbol.clone(), snapshot.clone());
+
+        let now = now_string();
+        let mut accounts = self
+            .inner
+            .accounts
+            .write()
+            .expect("accounts lock should not poison");
+        let mut account_keys = accounts.keys().cloned().collect::<Vec<_>>();
+        account_keys.sort();
+        let mut filled_order_ids = Vec::new();
+
+        for account_key in account_keys {
+            let account = accounts
+                .get_mut(&account_key)
+                .expect("account key should remain present while accounts are locked");
+            let mut order_ids = account
+                .orders
+                .iter()
+                .filter(|(_, stored)| runtime_price_can_fill(&stored.order, &symbol))
+                .map(|(order_id, _)| order_id.clone())
+                .collect::<Vec<_>>();
+            order_ids.sort();
+
+            for order_id in order_ids {
+                let filled = {
+                    let stored = account
+                        .orders
+                        .get_mut(&order_id)
+                        .expect("selected order should remain present while account is locked");
+                    let fill_price = marketable_fill_price(
+                        &stored.order.r#type,
+                        &stored.request_side,
+                        stored.order.limit_price,
+                        &snapshot,
+                    );
+                    fill_price.map(|fill_price| {
+                        let qty =
+                            normalize_qty(stored.order.qty, stored.order.notional, fill_price)
+                                .expect("an existing open order should retain a valid quantity");
+                        stored.order.status = OrderStatus::Filled;
+                        stored.order.updated_at = now.clone();
+                        stored.order.filled_at = Some(now.clone());
+                        stored.order.filled_qty = qty;
+                        stored.order.filled_avg_price = Some(fill_price);
+                        stored.order.canceled_at = None;
+                        (stored.order.clone(), stored.request_side.clone())
+                    })
+                };
+
+                if let Some((order, request_side)) = filled {
+                    let market_quotes = HashMap::from([(order.symbol.clone(), snapshot.clone())]);
+                    apply_fill_effects(account, &order, &request_side, Some(&market_quotes));
+                    filled_order_ids.push(order.id);
+                }
+            }
+        }
+
+        filled_order_ids.sort();
+        Ok(RuntimeStockPriceResponse {
+            symbol,
+            price,
+            filled_order_ids,
+        })
+    }
+
     pub fn seed_rejected_replacement_race(&self, api_key: &str) -> RejectedReplacementRaceFixture {
         let mut accounts = self
             .inner
@@ -2323,6 +2443,16 @@ fn is_terminal_status(status: &OrderStatus) -> bool {
             | OrderStatus::Stopped
             | OrderStatus::Calculated
     )
+}
+
+fn runtime_price_can_fill(order: &Order, symbol: &str) -> bool {
+    order.symbol.eq_ignore_ascii_case(symbol)
+        && order.asset_class == "us_equity"
+        && order.order_class == OrderClass::Simple
+        && order.r#type == OrderType::Limit
+        && order.filled_qty == Decimal::ZERO
+        && order.status != OrderStatus::Failed
+        && !is_terminal_status(&order.status)
 }
 
 fn matches_status_filter(order: &Order, status: Option<QueryOrderStatus>) -> bool {

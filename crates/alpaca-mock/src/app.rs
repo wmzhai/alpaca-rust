@@ -108,6 +108,10 @@ pub fn build_app_with_state(state: MockServerState) -> Router {
             "/v2/positions/{symbol_or_contract_id}/do-not-exercise",
             post(handlers::positions_do_not_exercise),
         )
+        .route(
+            "/v2/stocks/{symbol}/snapshot",
+            get(handlers::stocks_snapshot),
+        )
         .route_layer(middleware::from_fn_with_state(
             state.clone(),
             require_trading_auth,
@@ -119,6 +123,10 @@ pub fn build_app_with_state(state: MockServerState) -> Router {
         .route("/admin/state", get(handlers::admin_state))
         .route("/admin/reset", post(handlers::admin_reset))
         .route("/admin/faults/http", post(handlers::admin_set_http_fault))
+        .route(
+            "/admin/market-data/stocks/{symbol}",
+            post(handlers::admin_set_runtime_stock_price),
+        )
         .route(
             "/admin/fixtures/rejected-replacement-race",
             post(handlers::admin_seed_rejected_replacement_race),

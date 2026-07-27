@@ -31,6 +31,7 @@ pub use app::{build_app, build_app_from_env, build_app_with_state};
 pub use state::{
     AdminStateResponse, DEFAULT_STOCK_SYMBOL, InjectedHttpFault, InstrumentSnapshot,
     LiveMarketDataBridge, MarketDataBridgeError, MockServerState, RejectedReplacementRaceFixture,
+    RuntimeStockPriceResponse,
 };
 
 pub const BINARY_NAME: &str = "alpaca-mock";

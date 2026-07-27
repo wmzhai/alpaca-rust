@@ -9,12 +9,14 @@ mod options_contracts;
 mod orders;
 mod portfolio_history;
 mod positions;
+mod stocks;
 mod watchlists;
 
 pub(crate) use account::{account_configurations_get, account_configurations_update, account_get};
 pub(crate) use activities::{activities_by_type, activities_list};
 pub(crate) use admin::{
-    admin_reset, admin_seed_rejected_replacement_race, admin_set_http_fault, admin_state,
+    admin_reset, admin_seed_rejected_replacement_race, admin_set_http_fault,
+    admin_set_runtime_stock_price, admin_state,
 };
 pub(crate) use assets::{assets_get, assets_list};
 pub(crate) use calendar::{calendar_legacy, calendar_v3};
@@ -30,6 +32,7 @@ pub(crate) use positions::{
     positions_close, positions_close_all, positions_do_not_exercise, positions_exercise,
     positions_get, positions_list,
 };
+pub(crate) use stocks::stocks_snapshot;
 pub(crate) use watchlists::{
     watchlists_add_asset_by_id, watchlists_add_asset_by_name, watchlists_create,
     watchlists_delete_by_id, watchlists_delete_by_name, watchlists_get_by_id,

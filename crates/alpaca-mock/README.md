@@ -38,4 +38,4 @@ What `alpaca-mock` is not:
 
 - a generic Alpaca simulator
 - a replacement for live API verification
-- a fake market-data generator with invented prices
+- a general-purpose fake market-data generator; runtime stock controls exist only for deterministic integration scenarios
