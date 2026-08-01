@@ -19,7 +19,7 @@ use rust_decimal::Decimal;
 use rust_decimal::prelude::ToPrimitive;
 use serde::Serialize;
 use std::collections::{HashMap, HashSet};
-use tokio::sync::RwLock;
+use tokio::sync::{Mutex, RwLock};
 
 use alpaca_time::{calendar, chrono, clock, range, session};
 
@@ -33,6 +33,9 @@ pub struct CacheStats {
     pub subscribed_bar_requests: usize,
     pub cached_stocks: usize,
     pub cached_options: usize,
+    pub unavailable_stocks: usize,
+    pub unavailable_raw_options: usize,
+    pub unavailable_options: usize,
     pub cached_bar_symbols: usize,
     pub stocks_updated_at: Option<String>,
     pub options_updated_at: Option<String>,
@@ -107,6 +110,7 @@ impl BarsWindow {
 pub struct AlpacaData {
     pub raw: CachedClient,
     config: AlpacaDataConfig,
+    option_operations: Mutex<()>,
     options: RwLock<OptionCache>,
 }
 
@@ -116,6 +120,7 @@ impl AlpacaData {
         Self {
             raw,
             config,
+            option_operations: Mutex::new(()),
             options: RwLock::new(OptionCache::default()),
         }
     }
@@ -265,6 +270,7 @@ impl AlpacaData {
         &self,
         value: &str,
     ) -> Result<(String, Vec<OptionPosition>), OptionError> {
+        let _operation = self.option_operations.lock().await;
         let parsed = url::parse_optionstrat_url(value)?;
         let legs = url::parse_optionstrat_leg_fragments(
             &parsed.underlying_display_symbol,
@@ -436,6 +442,7 @@ impl AlpacaData {
             return;
         }
 
+        let _operation = self.option_operations.lock().await;
         self.raw.watch_options(&contracts).await;
 
         let mut cache = self.options.write().await;
@@ -443,6 +450,7 @@ impl AlpacaData {
     }
 
     pub async fn refresh_contracts(&self) -> Result<usize> {
+        let _operation = self.option_operations.lock().await;
         let contracts = {
             let cache = self.options.read().await;
             cache.subscribed.iter().cloned().collect::<Vec<_>>()
@@ -454,24 +462,13 @@ impl AlpacaData {
 
         self.raw.watch_options(&contracts).await;
 
-        if let Err(error) = self.raw.refresh_options().await {
-            tracing::warn!(
-                "failed to refresh raw option snapshots, keeping stale cache: {}",
-                error
-            );
-            return Ok(0);
-        }
-
-        match self.rebuild_options().await {
-            Ok(count) => Ok(count),
-            Err(error) => {
-                tracing::warn!(
-                    "failed to rebuild enriched option cache, keeping stale cache: {}",
-                    error
-                );
-                Ok(0)
-            }
-        }
+        self.raw
+            .refresh_options()
+            .await
+            .context("failed to refresh raw option snapshots")?;
+        self.rebuild_options()
+            .await
+            .context("failed to rebuild enriched option cache")
     }
 
     pub async fn refresh_day_bars(&self) -> Result<usize> {
@@ -487,6 +484,7 @@ impl AlpacaData {
     }
 
     pub async fn clear_cache(&self) {
+        let _operation = self.option_operations.lock().await;
         self.raw.clear_options().await;
 
         {
@@ -517,23 +515,31 @@ impl AlpacaData {
         };
 
         if !missing.is_empty() {
+            let _operation = self.option_operations.lock().await;
+            let current = {
+                let cache = self.options.read().await;
+                Self::collect_cached_hits(&requested, &cache.values, &cache.empty)
+            };
+            hits = current.0;
+            let missing = current.1;
+            if missing.is_empty() {
+                return Ok(hits);
+            }
+
             let fetched = self.enrich_options(&missing).await?;
             let mut cache = self.options.write().await;
             cache.subscribed.extend(requested.iter().cloned());
             for contract in &missing {
-                if fetched.contains_key(contract) {
+                if let Some(snapshot) = fetched.get(contract) {
+                    cache.values.insert(contract.clone(), snapshot.clone());
                     cache.empty.remove(contract);
+                    hits.insert(contract.clone(), snapshot.clone());
                 } else {
+                    cache.values.remove(contract);
                     cache.empty.insert(contract.clone());
                 }
             }
-            for (contract, snapshot) in &fetched {
-                cache.values.insert(contract.clone(), snapshot.clone());
-            }
-            if !fetched.is_empty() {
-                cache.updated_at = Some(Self::now_timestamp());
-            }
-            hits.extend(fetched);
+            cache.updated_at = Some(Self::now_timestamp());
         }
 
         Ok(requested
@@ -700,6 +706,9 @@ impl AlpacaData {
             subscribed_bar_requests: raw.subscribed_bar_requests,
             cached_stocks: raw.cached_stocks,
             cached_options: options.values.len(),
+            unavailable_stocks: raw.unavailable_stocks,
+            unavailable_raw_options: raw.unavailable_options,
+            unavailable_options: options.empty.len(),
             cached_bar_symbols: raw.cached_bar_symbols,
             stocks_updated_at: raw.stocks_updated_at,
             options_updated_at: raw.options_updated_at,
@@ -739,17 +748,14 @@ impl AlpacaData {
     }
 
     async fn refresh_bars(&self, window: BarsWindow) -> Result<usize> {
-        match self.raw.refresh_bars(window.key()).await {
-            Ok(count) => Ok(count),
-            Err(error) => {
-                tracing::warn!(
-                    "failed to refresh {}, keeping stale cache: {}",
-                    window.refresh_label(),
-                    error
-                );
-                Ok(0)
-            }
+        let result = self.raw.refresh_bars(window.key()).await;
+        if result.is_err() {
+            tracing::warn!(
+                window = window.refresh_label(),
+                "market cache bar refresh failed"
+            );
         }
+        result.with_context(|| format!("failed to refresh {}", window.refresh_label()))
     }
 }
 

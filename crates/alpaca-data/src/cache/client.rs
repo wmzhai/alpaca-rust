@@ -74,18 +74,13 @@ impl CachedClient {
             let fetched = self.fetch_stocks(&missing).await?;
             let mut state = self.state.write().await;
             for symbol in &missing {
-                state.stocks.subscribed.insert(symbol.clone());
-                if fetched.contains_key(symbol) {
-                    state.stocks.empty.remove(symbol);
-                } else {
-                    state.stocks.empty.insert(symbol.clone());
+                if let Some(snapshot) = fetched.get(symbol) {
+                    hits.insert(symbol.clone(), snapshot.clone());
                 }
             }
-            for (symbol, snapshot) in &fetched {
-                state.stocks.values.insert(symbol.clone(), snapshot.clone());
-            }
-            state.stocks.updated_at = Some(SystemTime::now());
-            hits.extend(fetched);
+            state
+                .stocks
+                .reconcile(&missing, &fetched, SystemTime::now());
         }
 
         Ok(requested
@@ -125,21 +120,13 @@ impl CachedClient {
             let fetched = self.fetch_options(&missing).await?;
             let mut state = self.state.write().await;
             for contract in &missing {
-                state.options.subscribed.insert(contract.clone());
-                if fetched.contains_key(contract) {
-                    state.options.empty.remove(contract);
-                } else {
-                    state.options.empty.insert(contract.clone());
+                if let Some(snapshot) = fetched.get(contract) {
+                    hits.insert(contract.clone(), snapshot.clone());
                 }
             }
-            for (contract, snapshot) in &fetched {
-                state
-                    .options
-                    .values
-                    .insert(contract.clone(), snapshot.clone());
-            }
-            state.options.updated_at = Some(SystemTime::now());
-            hits.extend(fetched);
+            state
+                .options
+                .reconcile(&missing, &fetched, SystemTime::now());
         }
 
         Ok(requested
@@ -178,13 +165,10 @@ impl CachedClient {
         }
 
         let fetched = self.fetch_stocks(&symbols).await?;
-        let count = fetched.len();
-
         let mut state = self.state.write().await;
-        for (symbol, snapshot) in fetched {
-            state.stocks.values.insert(symbol, snapshot);
-        }
-        state.stocks.updated_at = Some(SystemTime::now());
+        let count = state
+            .stocks
+            .reconcile(&symbols, &fetched, SystemTime::now());
         Ok(count)
     }
 
@@ -198,13 +182,10 @@ impl CachedClient {
         }
 
         let fetched = self.fetch_options(&contracts).await?;
-        let count = fetched.len();
-
         let mut state = self.state.write().await;
-        for (contract, snapshot) in fetched {
-            state.options.values.insert(contract, snapshot);
-        }
-        state.options.updated_at = Some(SystemTime::now());
+        let count = state
+            .options
+            .reconcile(&contracts, &fetched, SystemTime::now());
         Ok(count)
     }
 
@@ -305,6 +286,8 @@ impl CachedClient {
             subscribed_bar_requests: state.bars.requests.len(),
             cached_stocks: state.stocks.values.len(),
             cached_options: state.options.values.len(),
+            unavailable_stocks: state.stocks.empty.len(),
+            unavailable_options: state.options.empty.len(),
             cached_bar_symbols: state.bars.values.values().map(HashMap::len).sum(),
             stocks_updated_at: format_timestamp(state.stocks.updated_at),
             options_updated_at: format_timestamp(state.options.updated_at),

@@ -9,6 +9,8 @@ pub struct CacheStats {
     pub subscribed_bar_requests: usize,
     pub cached_stocks: usize,
     pub cached_options: usize,
+    pub unavailable_stocks: usize,
+    pub unavailable_options: usize,
     pub cached_bar_symbols: usize,
     pub stocks_updated_at: Option<String>,
     pub options_updated_at: Option<String>,

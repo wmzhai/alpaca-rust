@@ -48,6 +48,39 @@ pub(crate) struct SnapshotCache<T> {
     pub updated_at: Option<SystemTime>,
 }
 
+impl<T: Clone> SnapshotCache<T> {
+    pub(crate) fn reconcile(
+        &mut self,
+        requested: &[String],
+        fetched: &HashMap<String, T>,
+        updated_at: SystemTime,
+    ) -> usize {
+        let mut count = 0;
+        let mut seen = HashSet::new();
+
+        for key in requested {
+            if !seen.insert(key) {
+                continue;
+            }
+
+            self.subscribed.insert(key.clone());
+            if let Some(value) = fetched.get(key) {
+                self.values.insert(key.clone(), value.clone());
+                self.empty.remove(key);
+                count += 1;
+            } else {
+                self.values.remove(key);
+                self.empty.insert(key.clone());
+            }
+        }
+
+        if !seen.is_empty() {
+            self.updated_at = Some(updated_at);
+        }
+        count
+    }
+}
+
 #[derive(Debug, Default)]
 pub(crate) struct StockBarsCache {
     pub requests: HashMap<String, StockBarsRequest>,

@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Reconciled cached stock and raw option snapshots against each captured requested set, removing requested-but-omitted stale values, exposing unavailable counts, ignoring unexpected response keys, and preserving all cache state when the provider returns an error.
+- Propagated enriched option and bar refresh failures to hosts, aligned successful-empty timestamps, and serialized facade option watch, miss, rebuild, OptionStrat resolution, and clear operations behind one lifecycle gate so an in-flight refresh cannot undo a completed clear.
 - Added deterministic runtime stock-market controls to `alpaca-mock`: `POST /admin/market-data/stocks/{symbol}` updates a controlled stock snapshot and fills newly marketable open equity limit orders once, while `GET /v2/stocks/{symbol}/snapshot` exposes that snapshot through `alpaca-data` clients with configurable base URLs.
 - Added a Rust-only `alpaca-option` Black-Scholes Gamma API that preserves the existing pricing validation and rate contract while avoiding price, normal CDF, and full-Greeks calculations.
 - Switched all `alpaca-mock` parent and nested order IDs to raw UUID v4 values and added cross-account create/replace regression coverage, preventing concurrent virtual accounts from generating colliding broker order IDs.

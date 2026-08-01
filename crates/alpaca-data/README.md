@@ -51,6 +51,16 @@ let cache = CachedClient::new(raw);
 
 It does not own scheduling, business clocks, option-chain enrichment, or IV / Greeks calculations.
 
+Stock and raw option snapshot caches share one requested-set reconciliation contract:
+
+- provider errors are returned without changing cached values, unavailable keys, or the last successful refresh time
+- successful full, partial, and empty responses reconcile only the keys captured for that request
+- returned requested keys replace cached values and leave the unavailable set, while requested-but-omitted keys lose any old value and enter the unavailable set
+- unexpected response keys are ignored, so an in-flight request cannot overwrite unrelated subscriptions
+- a non-empty successful provider request advances the receive timestamp even when every requested key is omitted; an empty subscription set does not call the provider or advance time
+
+`CacheStats` exposes subscribed, cached, unavailable, and last-success counts/timestamps so callers can distinguish complete, partial, empty, and failed refreshes.
+
 ## Main API Surface
 
 ### Stocks
