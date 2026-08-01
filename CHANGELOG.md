@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Documented that Paper order-ID pagination can return arbitrary overlapping windows, requiring stable duplicates to be merged by broker order ID and changing duplicates to be resolved with exact lookups.
 - Reconciled cached stock and raw option snapshots against each captured requested set, removing requested-but-omitted stale values, exposing unavailable counts, ignoring unexpected response keys, and preserving all cache state when the provider returns an error.
 - Propagated enriched option and bar refresh failures to hosts, aligned successful-empty timestamps, and serialized facade option watch, miss, rebuild, OptionStrat resolution, and clear operations behind one lifecycle gate so an in-flight refresh cannot undo a completed clear.
 - Added deterministic runtime stock-market controls to `alpaca-mock`: `POST /admin/market-data/stocks/{symbol}` updates a controlled stock snapshot and fills newly marketable open equity limit orders once, while `GET /v2/stocks/{symbol}/snapshot` exposes that snapshot through `alpaca-data` clients with configurable base URLs.

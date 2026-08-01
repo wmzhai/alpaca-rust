@@ -99,7 +99,7 @@ let order = client
 - direct mirror methods preserve the official request shape
 - lifecycle helpers are explicit opt-in conveniences and do not replace the raw order endpoints
 - strict recreate callers own the stable client order ID for each replacement generation
-- Paper currently includes the anchor order for both order-ID cursor directions although the canonical specification describes the cursor as exclusive; the mock keeps canonical exclusive behavior
+- Paper order-ID pagination can return overlapping windows, including but not limited to the cursor anchor, although the canonical specification describes the cursor as exclusive; multi-page collectors must merge stable duplicates by broker order ID and resolve changing duplicates with an exact lookup, while the mock keeps canonical exclusive behavior
 - Paper can return nested legs even for `nested=false`; callers that depend on legs must still request `nested=true`
 
 ## Not Implemented Here
