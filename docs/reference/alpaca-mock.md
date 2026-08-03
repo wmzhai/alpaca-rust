@@ -45,6 +45,10 @@ Behavior notes:
 
 - stock and single-option marketable orders fill at mid price
 - multi-leg marketable orders fill at composite mid price
+- with a live market-data bridge, the executable polls resting `New` and unfilled `Day`/`GTC` limit orders every 10 seconds
+- the poller supports simple stocks, simple options, and option `MLEG` orders; stock and option snapshots use independent logical batches and failures retry on the next cycle
+- runtime overrides take precedence over live snapshots, and the poller rechecks each order before applying exactly-once fill effects
+- without a live market-data bridge, the HTTP server runs without starting the poller
 - account and watchlist identifiers use stable UUIDs and do not expose the API key
 - watchlists keep ordered, per-account state and support the complete ID/name route family
 - the Trading API `2.0.1` checkpoint has 37 operations closed with the same public network scenarios against Paper and this standalone HTTP service
@@ -59,4 +63,5 @@ Behavior notes:
 Not implemented:
 
 - general-purpose fake market-data generation; runtime stock controls exist only for deterministic integration scenarios
+- bracket, OCO, OTO, stop, trailing-stop, partial-fill, and other advanced order lifecycles in the resting limit poller
 - a full broker or exchange simulator

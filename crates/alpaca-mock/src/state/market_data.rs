@@ -1,3 +1,5 @@
+use std::collections::{HashMap, HashSet};
+
 use rust_decimal::Decimal;
 
 use alpaca_data::{
@@ -84,89 +86,136 @@ impl LiveMarketDataBridge {
         &self,
         symbol: &str,
     ) -> Result<InstrumentSnapshot, MarketDataBridgeError> {
-        let snapshot = self
-            .client
-            .stocks()
-            .snapshots(StockSnapshotsRequest {
-                symbols: vec![symbol.to_owned()],
-                feed: Some(preferred_stock_feed(false)),
-                currency: None,
-            })
-            .await?;
-        let snapshot = snapshot
-            .get(&alpaca_data::stocks::display_stock_symbol(symbol))
-            .cloned()
+        self.equity_snapshots(&[symbol.to_owned()])
+            .await?
+            .remove(&alpaca_data::stocks::display_stock_symbol(symbol))
             .ok_or_else(|| {
                 MarketDataBridgeError::Unavailable(format!(
                     "stock snapshots response did not include {symbol}"
                 ))
-            })?;
-        let quote = snapshot.latest_quote.ok_or_else(|| {
-            MarketDataBridgeError::Unavailable(format!(
-                "stock snapshot for {symbol} did not include latest_quote"
-            ))
-        })?;
-        let bid = quote.bp.ok_or_else(|| {
-            MarketDataBridgeError::Unavailable(format!(
-                "stock snapshot for {symbol} did not include bid price"
-            ))
-        })?;
-        let ask = quote.ap.ok_or_else(|| {
-            MarketDataBridgeError::Unavailable(format!(
-                "stock snapshot for {symbol} did not include ask price"
-            ))
-        })?;
+            })
+    }
 
-        Ok(InstrumentSnapshot {
-            asset_class: "us_equity".to_owned(),
-            bid,
-            ask,
-            previous_close: snapshot.prev_daily_bar.and_then(|bar| bar.c),
-        })
+    pub(super) async fn equity_snapshots(
+        &self,
+        symbols: &[String],
+    ) -> Result<HashMap<String, InstrumentSnapshot>, MarketDataBridgeError> {
+        let symbols = canonical_symbols(symbols, alpaca_data::stocks::display_stock_symbol);
+        if symbols.is_empty() {
+            return Ok(HashMap::new());
+        }
+
+        let requested = symbols.iter().cloned().collect::<HashSet<_>>();
+        let snapshots = self
+            .client
+            .stocks()
+            .snapshots(StockSnapshotsRequest {
+                symbols,
+                feed: Some(preferred_stock_feed(false)),
+                currency: None,
+            })
+            .await?;
+
+        Ok(snapshots
+            .into_iter()
+            .filter_map(|(symbol, snapshot)| {
+                let symbol = symbol.trim().to_ascii_uppercase();
+                if looks_like_occ_option_symbol(&symbol) {
+                    return None;
+                }
+                let symbol = alpaca_data::stocks::display_stock_symbol(&symbol);
+                if !requested.contains(&symbol) {
+                    return None;
+                }
+                let quote = snapshot.latest_quote?;
+                let bid = quote.bp?;
+                let ask = quote.ap?;
+
+                Some((
+                    symbol,
+                    InstrumentSnapshot {
+                        asset_class: "us_equity".to_owned(),
+                        bid,
+                        ask,
+                        previous_close: snapshot.prev_daily_bar.and_then(|bar| bar.c),
+                    },
+                ))
+            })
+            .collect())
     }
 
     pub async fn option_snapshot(
         &self,
         symbol: &str,
     ) -> Result<InstrumentSnapshot, MarketDataBridgeError> {
+        self.option_snapshots(&[symbol.to_owned()])
+            .await?
+            .remove(&canonical_option_symbol(symbol))
+            .ok_or_else(|| {
+                MarketDataBridgeError::Unavailable(format!(
+                    "option snapshot response did not include {symbol}"
+                ))
+            })
+    }
+
+    pub(super) async fn option_snapshots(
+        &self,
+        symbols: &[String],
+    ) -> Result<HashMap<String, InstrumentSnapshot>, MarketDataBridgeError> {
+        let symbols = canonical_symbols(symbols, canonical_option_symbol);
+        if symbols.is_empty() {
+            return Ok(HashMap::new());
+        }
+
+        let requested = symbols.iter().cloned().collect::<HashSet<_>>();
         let response = self
             .client
             .options()
-            .snapshots(OptionSnapshotsRequest {
-                symbols: vec![symbol.to_owned()],
+            .snapshots_all(OptionSnapshotsRequest {
+                symbols,
                 feed: Some(preferred_option_feed()),
-                limit: Some(1),
+                limit: None,
                 page_token: None,
             })
             .await?;
-        let snapshot = response.snapshots.get(symbol).cloned().ok_or_else(|| {
-            MarketDataBridgeError::Unavailable(format!(
-                "option snapshot response did not include {symbol}"
-            ))
-        })?;
-        let quote = snapshot.latest_quote.ok_or_else(|| {
-            MarketDataBridgeError::Unavailable(format!(
-                "option snapshot for {symbol} did not include latest_quote"
-            ))
-        })?;
-        let bid = quote.bp.ok_or_else(|| {
-            MarketDataBridgeError::Unavailable(format!(
-                "option snapshot for {symbol} did not include bid price"
-            ))
-        })?;
-        let ask = quote.ap.ok_or_else(|| {
-            MarketDataBridgeError::Unavailable(format!(
-                "option snapshot for {symbol} did not include ask price"
-            ))
-        })?;
 
-        Ok(InstrumentSnapshot {
-            asset_class: "us_option".to_owned(),
-            bid,
-            ask,
-            previous_close: snapshot.prev_daily_bar.and_then(|bar| bar.c),
-        })
+        Ok(response
+            .snapshots
+            .into_iter()
+            .filter_map(|(symbol, snapshot)| {
+                let symbol = canonical_option_symbol(&symbol);
+                if !requested.contains(&symbol) {
+                    return None;
+                }
+                let quote = snapshot.latest_quote?;
+                let bid = quote.bp?;
+                let ask = quote.ap?;
+
+                Some((
+                    symbol,
+                    InstrumentSnapshot {
+                        asset_class: "us_option".to_owned(),
+                        bid,
+                        ask,
+                        previous_close: snapshot.prev_daily_bar.and_then(|bar| bar.c),
+                    },
+                ))
+            })
+            .collect())
     }
+}
+
+fn canonical_symbols(symbols: &[String], canonicalize: impl Fn(&str) -> String) -> Vec<String> {
+    let mut seen = HashSet::new();
+    symbols
+        .iter()
+        .map(|symbol| canonicalize(symbol))
+        .filter(|symbol| !symbol.is_empty() && seen.insert(symbol.clone()))
+        .collect()
+}
+
+fn canonical_option_symbol(symbol: &str) -> String {
+    symbol.trim().to_ascii_uppercase()
 }
 
 pub fn mid_price(bid: Decimal, ask: Decimal) -> Decimal {

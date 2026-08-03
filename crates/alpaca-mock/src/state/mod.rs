@@ -22,7 +22,8 @@ use uuid::Uuid;
 
 use alpaca_data::stocks::display_stock_symbol;
 use alpaca_option::{
-    OptionContract, OptionQuote, OrderSide as QuoteOrderSide, QuotedLeg, execution_quote,
+    OptionContract, OptionQuote, OrderSide as QuoteOrderSide, QuotedLeg,
+    contract::parse_occ_symbol, execution_quote,
 };
 use alpaca_trade::account_configurations::{AccountConfigurations, UpdateRequest};
 use alpaca_trade::activities::{Activity, ActivityCategory};
@@ -85,6 +86,19 @@ pub(crate) struct VirtualAccountState {
 struct StoredOrder {
     order: Order,
     request_side: OrderSide,
+}
+
+#[derive(Debug, Clone)]
+struct LimitOrderPollCandidate {
+    api_key: String,
+    order_id: String,
+}
+
+#[derive(Debug, Clone, Default)]
+struct LimitOrderPollBatch {
+    candidates: Vec<LimitOrderPollCandidate>,
+    stock_symbols: Vec<String>,
+    option_symbols: Vec<String>,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -201,6 +215,13 @@ pub struct RuntimeStockPriceResponse {
     )]
     pub price: Decimal,
     pub filled_order_ids: Vec<String>,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct LimitOrderPollReport {
+    pub filled_order_ids: Vec<String>,
+    pub stock_market_data_error: Option<String>,
+    pub option_market_data_error: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -683,26 +704,8 @@ impl MockServerState {
             subtag: None,
             source: None,
         };
-        if order_class == OrderClass::Mleg {
-            apply_mleg_fill_rules(&mut order, &request_side, &market_quotes);
-        } else {
-            let snapshot = market_quotes
-                .get(&requested_symbol)
-                .expect("simple order market quote should exist");
-            let fill_price = marketable_fill_price(
-                &order.order_type,
-                &request_side,
-                order.limit_price,
-                snapshot,
-            );
-            order.filled_at = fill_price.map(|_| now.clone());
-            order.filled_qty = fill_price.map_or(Decimal::ZERO, |_| qty);
-            order.filled_avg_price = fill_price;
-            order.status = if fill_price.is_some() {
-                OrderStatus::Filled
-            } else {
-                OrderStatus::New
-            };
+        if let Some(fill_price) = order_fill_price(&order, &request_side, &market_quotes) {
+            mark_order_filled(&mut order, fill_price, &market_quotes, &now)?;
         }
 
         account
@@ -1225,26 +1228,8 @@ impl MockServerState {
             subtag: current.order.subtag.clone(),
             source: current.order.source.clone(),
         };
-        if current.order.order_class == OrderClass::Mleg {
-            apply_mleg_fill_rules(&mut replacement, &request_side, &market_quotes);
-        } else {
-            let snapshot = market_quotes
-                .get(&current.order.symbol)
-                .expect("simple order market quote should exist");
-            let fill_price = marketable_fill_price(
-                &current.order.r#type,
-                &request_side,
-                replacement.limit_price,
-                snapshot,
-            );
-            replacement.filled_at = fill_price.map(|_| now.clone());
-            replacement.filled_qty = fill_price.map_or(Decimal::ZERO, |_| qty);
-            replacement.filled_avg_price = fill_price;
-            replacement.status = if fill_price.is_some() {
-                OrderStatus::Filled
-            } else {
-                OrderStatus::New
-            };
+        if let Some(fill_price) = order_fill_price(&replacement, &request_side, &market_quotes) {
+            mark_order_filled(&mut replacement, fill_price, &market_quotes, &now)?;
         }
 
         let (current_order_id, current_client_order_id, current_symbol, current_asset_class) = {
@@ -1782,7 +1767,6 @@ impl MockServerState {
             .expect("market data overrides lock should not poison")
             .insert(symbol.clone(), snapshot.clone());
 
-        let now = now_string();
         let mut accounts = self
             .inner
             .accounts
@@ -1791,6 +1775,7 @@ impl MockServerState {
         let mut account_keys = accounts.keys().cloned().collect::<Vec<_>>();
         account_keys.sort();
         let mut filled_order_ids = Vec::new();
+        let market_quotes = HashMap::from([(symbol.clone(), snapshot)]);
 
         for account_key in account_keys {
             let account = accounts
@@ -1805,35 +1790,12 @@ impl MockServerState {
             order_ids.sort();
 
             for order_id in order_ids {
-                let filled = {
-                    let stored = account
-                        .orders
-                        .get_mut(&order_id)
-                        .expect("selected order should remain present while account is locked");
-                    let fill_price = marketable_fill_price(
-                        &stored.order.r#type,
-                        &stored.request_side,
-                        stored.order.limit_price,
-                        &snapshot,
-                    );
-                    fill_price.map(|fill_price| {
-                        let qty =
-                            normalize_qty(stored.order.qty, stored.order.notional, fill_price)
-                                .expect("an existing open order should retain a valid quantity");
-                        stored.order.status = OrderStatus::Filled;
-                        stored.order.updated_at = now.clone();
-                        stored.order.filled_at = Some(now.clone());
-                        stored.order.filled_qty = qty;
-                        stored.order.filled_avg_price = Some(fill_price);
-                        stored.order.canceled_at = None;
-                        (stored.order.clone(), stored.request_side.clone())
+                if let Some(order_id) =
+                    try_fill_stored_order(account, &order_id, &market_quotes, |order| {
+                        runtime_price_can_fill(order, &symbol)
                     })
-                };
-
-                if let Some((order, request_side)) = filled {
-                    let market_quotes = HashMap::from([(order.symbol.clone(), snapshot.clone())]);
-                    apply_fill_effects(account, &order, &request_side, Some(&market_quotes));
-                    filled_order_ids.push(order.id);
+                {
+                    filled_order_ids.push(order_id);
                 }
             }
         }
@@ -2016,6 +1978,168 @@ impl MockServerState {
             market_data_bridge_configured: self.market_data_bridge().is_some(),
             http_fault: self.http_fault(),
         }
+    }
+
+    pub async fn poll_limit_orders_once(&self) -> LimitOrderPollReport {
+        let batch = self.collect_limit_order_poll_batch();
+        if batch.candidates.is_empty() {
+            return LimitOrderPollReport::default();
+        }
+
+        let mut market_quotes = self.limit_order_poll_overrides(&batch);
+        let stock_symbols = batch
+            .stock_symbols
+            .iter()
+            .filter(|symbol| !market_quotes.contains_key(*symbol))
+            .cloned()
+            .collect::<Vec<_>>();
+        let option_symbols = batch
+            .option_symbols
+            .iter()
+            .filter(|symbol| !market_quotes.contains_key(*symbol))
+            .cloned()
+            .collect::<Vec<_>>();
+        let bridge = self.market_data_bridge();
+
+        let (stock_result, option_result) = tokio::join!(
+            async {
+                if stock_symbols.is_empty() {
+                    Ok(HashMap::new())
+                } else if let Some(bridge) = bridge {
+                    bridge.equity_snapshots(&stock_symbols).await
+                } else {
+                    Err(MarketDataBridgeError::Unavailable(
+                        "stock limit polling requires a configured market data bridge".to_owned(),
+                    ))
+                }
+            },
+            async {
+                if option_symbols.is_empty() {
+                    Ok(HashMap::new())
+                } else if let Some(bridge) = bridge {
+                    bridge.option_snapshots(&option_symbols).await
+                } else {
+                    Err(MarketDataBridgeError::Unavailable(
+                        "option limit polling requires a configured market data bridge".to_owned(),
+                    ))
+                }
+            }
+        );
+
+        let mut report = LimitOrderPollReport::default();
+        match stock_result {
+            Ok(snapshots) => {
+                for (symbol, snapshot) in snapshots {
+                    market_quotes.entry(symbol).or_insert(snapshot);
+                }
+            }
+            Err(error) => report.stock_market_data_error = Some(error.to_string()),
+        }
+        match option_result {
+            Ok(snapshots) => {
+                for (symbol, snapshot) in snapshots {
+                    market_quotes.entry(symbol).or_insert(snapshot);
+                }
+            }
+            Err(error) => report.option_market_data_error = Some(error.to_string()),
+        }
+
+        // An override set while live requests were in flight must still win this round.
+        market_quotes.extend(self.limit_order_poll_overrides(&batch));
+
+        let mut accounts = self
+            .inner
+            .accounts
+            .write()
+            .expect("accounts lock should not poison");
+        for candidate in batch.candidates {
+            let Some(account) = accounts.get_mut(&candidate.api_key) else {
+                continue;
+            };
+            if let Some(order_id) = try_fill_stored_order(
+                account,
+                &candidate.order_id,
+                &market_quotes,
+                is_limit_order_poll_candidate,
+            ) {
+                report.filled_order_ids.push(order_id);
+            }
+        }
+        report.filled_order_ids.sort();
+        report
+    }
+
+    fn collect_limit_order_poll_batch(&self) -> LimitOrderPollBatch {
+        let accounts = self
+            .inner
+            .accounts
+            .read()
+            .expect("accounts lock should not poison");
+        let mut batch = LimitOrderPollBatch::default();
+
+        for (api_key, account) in accounts.iter() {
+            for (order_id, stored) in &account.orders {
+                if !is_limit_order_poll_candidate(&stored.order) {
+                    continue;
+                }
+
+                batch.candidates.push(LimitOrderPollCandidate {
+                    api_key: api_key.clone(),
+                    order_id: order_id.clone(),
+                });
+                match stored.order.order_class {
+                    OrderClass::Simple if stored.order.asset_class == "us_equity" => {
+                        batch
+                            .stock_symbols
+                            .push(display_stock_symbol(&stored.order.symbol));
+                    }
+                    OrderClass::Simple if stored.order.asset_class == "us_option" => {
+                        if let Some(symbol) = canonical_option_symbol(&stored.order.symbol) {
+                            batch.option_symbols.push(symbol);
+                        }
+                    }
+                    OrderClass::Mleg => {
+                        if let Some(legs) = stored.order.legs.as_ref() {
+                            batch.option_symbols.extend(
+                                legs.iter()
+                                    .filter_map(|leg| canonical_option_symbol(&leg.symbol)),
+                            );
+                        }
+                    }
+                    _ => {}
+                }
+            }
+        }
+
+        batch.candidates.sort_by(|left, right| {
+            (&left.api_key, &left.order_id).cmp(&(&right.api_key, &right.order_id))
+        });
+        batch.stock_symbols.sort();
+        batch.stock_symbols.dedup();
+        batch.option_symbols.sort();
+        batch.option_symbols.dedup();
+        batch
+    }
+
+    fn limit_order_poll_overrides(
+        &self,
+        batch: &LimitOrderPollBatch,
+    ) -> HashMap<String, InstrumentSnapshot> {
+        self.inner
+            .market_data_overrides
+            .read()
+            .expect("market data overrides lock should not poison")
+            .iter()
+            .filter_map(|(symbol, snapshot)| {
+                let symbol = canonical_instrument_symbol(symbol, &snapshot.asset_class)?;
+                let requested = match snapshot.asset_class.as_str() {
+                    "us_equity" => batch.stock_symbols.binary_search(&symbol).is_ok(),
+                    "us_option" => batch.option_symbols.binary_search(&symbol).is_ok(),
+                    _ => false,
+                };
+                requested.then(|| (symbol, snapshot.clone()))
+            })
+            .collect()
     }
 
     async fn instrument_snapshot(
@@ -2237,13 +2361,26 @@ fn marketable_fill_price(
     }
 }
 
-fn apply_mleg_fill_rules(
-    order: &mut Order,
+fn order_fill_price(
+    order: &Order,
     request_side: &OrderSide,
     market_quotes: &HashMap<String, InstrumentSnapshot>,
-) {
-    let mid = mleg_mid_price(order, request_side, market_quotes);
-    let fill_price = mid.and_then(|mid| match order.r#type {
+) -> Option<Decimal> {
+    if order.order_class == OrderClass::Mleg {
+        return mleg_marketable_fill_price(order, request_side, market_quotes);
+    }
+
+    let snapshot = market_quote(market_quotes, &order.symbol, order.asset_class.as_str())?;
+    marketable_fill_price(&order.r#type, request_side, order.limit_price, snapshot)
+}
+
+fn mleg_marketable_fill_price(
+    order: &Order,
+    request_side: &OrderSide,
+    market_quotes: &HashMap<String, InstrumentSnapshot>,
+) -> Option<Decimal> {
+    let mid = mleg_mid_price(order, request_side, market_quotes)?;
+    match order.r#type {
         OrderType::Market => Some(mid),
         OrderType::Limit => order
             .limit_price
@@ -2253,25 +2390,31 @@ fn apply_mleg_fill_rules(
         | OrderType::StopLimit
         | OrderType::TrailingStop
         | OrderType::Unspecified => None,
-    });
+    }
+}
 
-    if let Some(fill_price) = fill_price {
-        let now = now_string();
-        order.status = OrderStatus::Filled;
-        order.filled_qty = order.qty.unwrap_or(Decimal::ZERO);
-        order.filled_avg_price = Some(fill_price);
-        order.filled_at = Some(now.clone());
-        order.updated_at = now;
-        order.canceled_at = None;
-        sync_nested_legs(order, market_quotes, Some(fill_price), OrderStatus::Filled);
-        return;
+fn mark_order_filled(
+    order: &mut Order,
+    fill_price: Decimal,
+    market_quotes: &HashMap<String, InstrumentSnapshot>,
+    filled_at: &str,
+) -> Result<(), MockStateError> {
+    let qty = if order.order_class == OrderClass::Mleg {
+        normalize_qty(order.qty, None, Decimal::ONE)?
+    } else {
+        normalize_qty(order.qty, order.notional, fill_price)?
+    };
+    order.status = OrderStatus::Filled;
+    order.updated_at = filled_at.to_owned();
+    order.filled_at = Some(filled_at.to_owned());
+    order.filled_qty = qty;
+    order.filled_avg_price = Some(fill_price);
+    order.canceled_at = None;
+    if order.order_class == OrderClass::Mleg {
+        sync_nested_legs(order, market_quotes, filled_at);
     }
 
-    order.status = OrderStatus::New;
-    order.filled_qty = Decimal::ZERO;
-    order.filled_avg_price = None;
-    order.filled_at = None;
-    sync_nested_legs(order, market_quotes, None, OrderStatus::New);
+    Ok(())
 }
 
 fn record_create_effects(
@@ -2404,7 +2547,9 @@ fn execution_facts_from_order(
                             leg.position_intent.clone(),
                             leg.filled_qty,
                             leg.filled_avg_price.unwrap_or(Decimal::ZERO),
-                            market_quotes.and_then(|quotes| quotes.get(&leg.symbol).cloned()),
+                            market_quotes.and_then(|quotes| {
+                                market_quote(quotes, &leg.symbol, "us_option").cloned()
+                            }),
                             leg.filled_at
                                 .clone()
                                 .unwrap_or_else(|| occurred_at.to_owned()),
@@ -2425,7 +2570,8 @@ fn execution_facts_from_order(
         order.position_intent.clone(),
         order.filled_qty,
         order.filled_avg_price.unwrap_or(Decimal::ZERO),
-        market_quotes.and_then(|quotes| quotes.get(&order.symbol).cloned()),
+        market_quotes
+            .and_then(|quotes| market_quote(quotes, &order.symbol, &order.asset_class).cloned()),
         occurred_at.to_owned(),
     )]
 }
@@ -2443,6 +2589,55 @@ fn is_terminal_status(status: &OrderStatus) -> bool {
             | OrderStatus::Stopped
             | OrderStatus::Calculated
     )
+}
+
+fn is_limit_order_poll_candidate(order: &Order) -> bool {
+    if order.status != OrderStatus::New
+        || order.filled_qty != Decimal::ZERO
+        || order.order_type != OrderType::Limit
+        || order.r#type != OrderType::Limit
+        || order.limit_price.is_none()
+        || !matches!(order.time_in_force, TimeInForce::Day | TimeInForce::Gtc)
+    {
+        return false;
+    }
+
+    match order.order_class {
+        OrderClass::Simple if order.asset_class == "us_equity" => {
+            !display_stock_symbol(&order.symbol).is_empty()
+        }
+        OrderClass::Simple if order.asset_class == "us_option" => {
+            canonical_option_symbol(&order.symbol).is_some()
+        }
+        OrderClass::Mleg => order.legs.as_ref().is_some_and(|legs| {
+            !legs.is_empty()
+                && legs.iter().all(|leg| {
+                    leg.asset_class == "us_option" && canonical_option_symbol(&leg.symbol).is_some()
+                })
+        }),
+        _ => false,
+    }
+}
+
+fn try_fill_stored_order(
+    account: &mut VirtualAccountState,
+    order_id: &str,
+    market_quotes: &HashMap<String, InstrumentSnapshot>,
+    is_eligible: impl FnOnce(&Order) -> bool,
+) -> Option<String> {
+    let (order, request_side) = {
+        let stored = account.orders.get_mut(order_id)?;
+        if !is_eligible(&stored.order) {
+            return None;
+        }
+        let fill_price = order_fill_price(&stored.order, &stored.request_side, market_quotes)?;
+        let filled_at = now_string();
+        mark_order_filled(&mut stored.order, fill_price, market_quotes, &filled_at).ok()?;
+        (stored.order.clone(), stored.request_side.clone())
+    };
+
+    apply_fill_effects(account, &order, &request_side, Some(market_quotes));
+    Some(order.id)
 }
 
 fn runtime_price_can_fill(order: &Order, symbol: &str) -> bool {
@@ -2530,6 +2725,32 @@ fn mock_asset_id(symbol: &str) -> String {
         }
     }
     format!("mock-asset-{}", sanitized.trim_matches('-'))
+}
+
+fn canonical_option_symbol(symbol: &str) -> Option<String> {
+    parse_occ_symbol(symbol).map(|contract| contract.occ_symbol)
+}
+
+fn canonical_instrument_symbol(symbol: &str, asset_class: &str) -> Option<String> {
+    match asset_class {
+        "us_equity" => {
+            let symbol = display_stock_symbol(symbol);
+            (!symbol.is_empty()).then_some(symbol)
+        }
+        "us_option" => canonical_option_symbol(symbol),
+        _ => None,
+    }
+}
+
+fn market_quote<'a>(
+    market_quotes: &'a HashMap<String, InstrumentSnapshot>,
+    symbol: &str,
+    asset_class: &str,
+) -> Option<&'a InstrumentSnapshot> {
+    market_quotes.get(symbol).or_else(|| {
+        canonical_instrument_symbol(symbol, asset_class)
+            .and_then(|symbol| market_quotes.get(&symbol))
+    })
 }
 
 fn mleg_mid_price(
@@ -2632,7 +2853,7 @@ fn quoted_leg_from_market(
     ratio_qty: u32,
     market_quotes: &HashMap<String, InstrumentSnapshot>,
 ) -> Option<QuotedLeg> {
-    let instrument = market_quotes.get(symbol)?;
+    let instrument = market_quote(market_quotes, symbol, "us_option")?;
     Some(QuotedLeg {
         contract: OptionContract {
             occ_symbol: symbol.trim().to_ascii_uppercase(),
@@ -2657,32 +2878,20 @@ fn quoted_leg_from_market(
 fn sync_nested_legs(
     order: &mut Order,
     market_quotes: &HashMap<String, InstrumentSnapshot>,
-    fill_price: Option<Decimal>,
-    status: OrderStatus,
+    filled_at: &str,
 ) {
     let Some(legs) = order.legs.as_mut() else {
         return;
     };
 
-    let now = now_string();
     for leg in legs {
-        leg.updated_at = now.clone();
-        leg.status = status.clone();
-        match fill_price {
-            Some(_) => {
-                leg.filled_qty = leg.qty.unwrap_or(Decimal::ZERO);
-                leg.filled_avg_price = market_quotes
-                    .get(&leg.symbol)
-                    .map(InstrumentSnapshot::mid_price);
-                leg.filled_at = Some(now.clone());
-                leg.canceled_at = None;
-            }
-            None => {
-                leg.filled_qty = Decimal::ZERO;
-                leg.filled_avg_price = None;
-                leg.filled_at = None;
-            }
-        }
+        leg.updated_at = filled_at.to_owned();
+        leg.status = OrderStatus::Filled;
+        leg.filled_qty = leg.qty.unwrap_or(Decimal::ZERO);
+        leg.filled_avg_price = market_quote(market_quotes, &leg.symbol, "us_option")
+            .map(InstrumentSnapshot::mid_price);
+        leg.filled_at = Some(filled_at.to_owned());
+        leg.canceled_at = None;
     }
 }
 

@@ -112,6 +112,40 @@ The mock server keeps fill rules intentionally narrow and deterministic:
 - multi-leg market and limit orders use the composite mid price across all legs
 - when a multi-leg limit reaches the composite mid price, the fill price is still that composite mid
 
+## Resting Limit Poller
+
+When live market-data credentials are available, the executable starts one
+background poller. Its first cycle runs 10 seconds after startup and subsequent
+cycles run every 10 seconds. A slow cycle is completed serially; missed ticks
+are skipped instead of overlapping requests.
+
+The poller handles only top-level orders that are still `New`, have no filled
+quantity, use type `limit`, and use time in force `day` or `gtc`:
+
+- simple US equity orders
+- simple US option orders
+- option `mleg` orders
+
+Stock symbols and option contracts are normalized and de-duplicated, then read
+through independent logical snapshot batches. Options use the client batch and
+pagination path. Runtime market-data overrides take precedence and live
+snapshots are never stored as overrides. If either batch fails, a symbol is
+missing, or a complete two-sided quote is unavailable, affected orders remain
+unchanged and are retried on the next cycle; the other asset class can still be
+processed.
+
+Simple orders continue to use quote mid prices. An `mleg` order requires quotes
+for every leg and uses the existing signed composite mid. A successful fill
+updates the parent and nested legs, cash, positions, execution facts, and one
+FILL activity exactly once. Orders are rechecked after market-data I/O so a
+concurrent cancel, replace, reset, admin fill, or other state transition wins
+without duplicate accounting.
+
+The poller does not process bracket, OCO, OTO, stop, stop-limit,
+trailing-stop, IOC, FOK, GTD, OPG, CLS, partial-fill, or advanced child-order
+lifecycles. Without a live market-data bridge, the HTTP server starts normally
+and no poller is created.
+
 ## Scope
 
 The current mock server is intentionally focused on the trade mainline:

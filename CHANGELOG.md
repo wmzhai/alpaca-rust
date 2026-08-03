@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+## v0.31.0
+
+- Added a 10-second live-market-data poller to `alpaca-mock` for resting `Day`/`GTC` simple stock, simple option, and option `MLEG` limit orders, with independent batched stock/option snapshots, override precedence, retry-on-failure behavior, post-I/O state rechecks, and exactly-once fill accounting.
 - Documented that Paper order-ID pagination can return arbitrary overlapping windows, requiring stable duplicates to be merged by broker order ID and changing duplicates to be resolved with exact lookups.
 - Reconciled cached stock and raw option snapshots against each captured requested set, removing requested-but-omitted stale values, exposing unavailable counts, ignoring unexpected response keys, and preserving all cache state when the provider returns an error.
 - Propagated enriched option and bar refresh failures to hosts, aligned successful-empty timestamps, and serialized facade option watch, miss, rebuild, OptionStrat resolution, and clear operations behind one lifecycle gate so an in-flight refresh cannot undo a completed clear.
