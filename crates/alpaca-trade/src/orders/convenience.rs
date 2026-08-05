@@ -3,8 +3,8 @@ use rust_decimal::{Decimal, prelude::ToPrimitive};
 use crate::Error;
 
 use super::{
-    CreateRequest, OptionLegRequest, Order, OrderClass, OrderSide, OrderStatus, OrderType,
-    OrdersClient, PositionIntent, ReplaceRequest, ResolvedOrder, TimeInForce, WaitFor,
+    CreateRequest, GetRequest, OptionLegRequest, Order, OrderClass, OrderSide, OrderStatus,
+    OrderType, OrdersClient, PositionIntent, ReplaceRequest, ResolvedOrder, TimeInForce, WaitFor,
 };
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -570,6 +570,21 @@ impl SubmitOrderRequest {
         }
     }
 
+    fn into_replace_request(self) -> Result<ReplaceRequest, Error> {
+        let create = self.into_create_request()?;
+        let request = ReplaceRequest {
+            qty: create.qty,
+            time_in_force: create.time_in_force,
+            limit_price: create.limit_price,
+            stop_price: None,
+            trail: None,
+            client_order_id: create.client_order_id,
+            advanced_instructions: None,
+        };
+        request.validate()?;
+        Ok(request)
+    }
+
     fn requires_recreate(&self, current_order: &Order, policy: TransitionOrderPolicy) -> bool {
         if matches!(policy, TransitionOrderPolicy::Recreate) {
             return true;
@@ -859,26 +874,45 @@ impl OrdersClient {
         request: SubmitOrderRequest,
         policy: TransitionOrderPolicy,
     ) -> Result<TransitionResolution, Error> {
-        let current_order = self.get_effective(order_id).await?;
-        if request.requires_recreate(&current_order, policy) {
-            let wait_for = request.default_wait_for();
-            let create_request = request.clone().into_create_request()?;
-            if matches!(policy, TransitionOrderPolicy::Recreate) {
-                if create_request.client_order_id.is_none() {
-                    return Err(Error::InvalidRequest(
-                        "recreate transition requires client_order_id".to_owned(),
-                    ));
-                }
-                if let Some(recovered) =
-                    self.recover_created_once(&create_request, wait_for).await?
-                {
-                    return Ok(TransitionResolution::NewOrder {
-                        resolved: recovered,
-                        recreated: true,
-                    });
-                }
-            }
+        let source_order = self
+            .get(order_id, GetRequest { nested: Some(true) })
+            .await?;
+        let recreated = request.requires_recreate(&source_order, policy);
+        let wait_for = request.default_wait_for();
+        let create_request = request.clone().into_create_request()?;
+        let client_order_id = create_request.client_order_id.as_deref().ok_or_else(|| {
+            Error::InvalidRequest("order transition requires client_order_id".to_owned())
+        })?;
+        if client_order_id == source_order.client_order_id {
+            return Err(Error::InvalidRequest(
+                "order transition requires a new client_order_id".to_owned(),
+            ));
+        }
 
+        if let Some(recovered) = self.recover_created_once(&create_request, wait_for).await? {
+            return self
+                .classify_recovered_transition(order_id, recovered, recreated)
+                .await;
+        }
+
+        let current_order = self.get_effective(order_id).await?;
+        if current_order.id != order_id {
+            if current_order.status == OrderStatus::Filled
+                && source_order.status.is_failed_terminal()
+                && source_order.replaces.as_deref() == Some(current_order.id.as_str())
+            {
+                return Ok(TransitionResolution::OriginalOrderTerminal(ResolvedOrder {
+                    order: current_order,
+                    recovered_after_request_error: true,
+                }));
+            }
+            return Err(Error::InvalidRequest(format!(
+                "order transition source already has a different successor: source_order_id={order_id}, successor_order_id={}, successor_client_order_id={}",
+                current_order.id, current_order.client_order_id
+            )));
+        }
+
+        if recreated {
             let canceled = self.cancel_resolved(&current_order.id).await?;
             if !canceled.order.can_recreate_after_cancel(policy) {
                 return Ok(TransitionResolution::OriginalOrderTerminal(canceled));
@@ -896,10 +930,7 @@ impl OrdersClient {
         }
 
         match self
-            .replace_resolved(
-                &current_order.id,
-                ReplaceRequest::from_submit_style(request.style()),
-            )
+            .replace_resolved(&current_order.id, request.into_replace_request()?)
             .await?
         {
             super::ReplaceResolution::NewOrder(resolved) => Ok(TransitionResolution::NewOrder {
@@ -910,6 +941,58 @@ impl OrdersClient {
                 Ok(TransitionResolution::OriginalOrderTerminal(resolved))
             }
         }
+    }
+
+    async fn classify_recovered_transition(
+        &self,
+        source_order_id: &str,
+        recovered: ResolvedOrder,
+        recreated: bool,
+    ) -> Result<TransitionResolution, Error> {
+        let effective = self.get_effective(&recovered.order.id).await?;
+        let recovered = ResolvedOrder {
+            order: effective,
+            recovered_after_request_error: true,
+        };
+        if recovered.order.id == source_order_id {
+            return Ok(TransitionResolution::OriginalOrderTerminal(recovered));
+        }
+        if !recreated
+            && !self
+                .order_descends_from(&recovered.order, source_order_id)
+                .await?
+        {
+            return Err(Error::InvalidRequest(format!(
+                "recovered replacement is not in the source order chain: source_order_id={source_order_id}, successor_order_id={}",
+                recovered.order.id
+            )));
+        }
+        Ok(TransitionResolution::NewOrder {
+            resolved: recovered,
+            recreated,
+        })
+    }
+
+    async fn order_descends_from(
+        &self,
+        order: &Order,
+        source_order_id: &str,
+    ) -> Result<bool, Error> {
+        let mut current = order.clone();
+        for _ in 0..64 {
+            let Some(predecessor_id) = current.replaces.as_deref() else {
+                return Ok(false);
+            };
+            if predecessor_id == source_order_id {
+                return Ok(true);
+            }
+            current = self
+                .get(predecessor_id, GetRequest { nested: Some(true) })
+                .await?;
+        }
+        Err(Error::InvalidRequest(
+            "replacement chain exceeds 64 orders".to_owned(),
+        ))
     }
 }
 

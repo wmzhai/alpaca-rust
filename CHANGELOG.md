@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+## v0.31.1
+
+- Made direct replace and recreate transitions require a stable successor client order ID, recover an existing successor before broker mutation, validate replacement ancestry, and preserve a filled predecessor as the canonical result when a late rejected successor is observed.
+
 ## v0.31.0
 
 - Added a 10-second live-market-data poller to `alpaca-mock` for resting `Day`/`GTC` simple stock, simple option, and option `MLEG` limit orders, with independent batched stock/option snapshots, override precedence, retry-on-failure behavior, post-I/O state rechecks, and exactly-once fill accounting.

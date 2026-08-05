@@ -4,7 +4,9 @@ use tokio::time::sleep;
 
 use crate::Error;
 
-use super::{CreateRequest, GetRequest, Order, OrderStatus, OrdersClient, ReplaceRequest};
+use super::{
+    CreateRequest, GetRequest, Order, OrderClass, OrderStatus, OrdersClient, ReplaceRequest,
+};
 
 const DEFAULT_WAIT_ATTEMPTS: usize = 30;
 const DEFAULT_BASE_WAIT_MS: u64 = 100;
@@ -334,7 +336,7 @@ fn validate_recovered_create_shape(request: &CreateRequest, order: &Order) -> Re
     if request.limit_price != order.limit_price {
         return Err(mismatch("limit_price"));
     }
-    if request.order_class != Some(order.order_class) {
+    if request.order_class.unwrap_or(OrderClass::Simple) != order.order_class {
         return Err(mismatch("order_class"));
     }
     if request
@@ -343,10 +345,11 @@ fn validate_recovered_create_shape(request: &CreateRequest, order: &Order) -> Re
     {
         return Err(mismatch("extended_hours"));
     }
-    if request
-        .position_intent
-        .is_some_and(|position_intent| Some(position_intent) != order.position_intent)
-    {
+    if request.position_intent.is_some_and(|position_intent| {
+        order
+            .position_intent
+            .is_some_and(|actual| actual != position_intent)
+    }) {
         return Err(mismatch("position_intent"));
     }
 
@@ -362,7 +365,9 @@ fn validate_recovered_create_shape(request: &CreateRequest, order: &Order) -> Re
                         && actual_leg.ratio_qty == Some(expected_leg.ratio_qty)
                         && expected_leg.side.is_none_or(|side| side == actual_leg.side)
                         && expected_leg.position_intent.is_none_or(|position_intent| {
-                            Some(position_intent) == actual_leg.position_intent
+                            actual_leg
+                                .position_intent
+                                .is_none_or(|actual| actual == position_intent)
                         })
                 }) else {
                     return Err(mismatch("legs"));
