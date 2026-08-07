@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+## v0.31.2
+
+- Removed the account-level `structure_quantity` positions helper so consumers cannot infer a trade's order quantity by aggregating shared OCC positions across independent trades.
+
 ## v0.31.1
 
 - Made direct replace and recreate transitions require a stable successor client order ID, recover an existing successor before broker mutation, validate replacement ancestry, and preserve a filled predecessor as the canonical result when a late rejected successor is observed.

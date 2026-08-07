@@ -23,53 +23,6 @@ pub fn option_qty_map(positions: &[Position]) -> HashMap<String, i32> {
     mapped
 }
 
-#[must_use]
-pub fn structure_quantity<'a>(
-    template_positions: impl IntoIterator<Item = (&'a str, i32)>,
-    live_positions: &HashMap<String, i32>,
-) -> Option<i32> {
-    let mut structure_qty: Option<i32> = None;
-
-    for (symbol, template_qty) in template_positions
-        .into_iter()
-        .filter(|(_, signed_qty)| *signed_qty != 0)
-    {
-        let live_qty = live_positions.get(symbol).copied().unwrap_or(0);
-        if live_qty == 0 {
-            continue;
-        }
-
-        if live_qty.signum() != template_qty.signum() {
-            return None;
-        }
-
-        let template_abs = template_qty.abs();
-        if template_abs == 0 {
-            continue;
-        }
-
-        let live_abs = live_qty.abs();
-        if live_abs % template_abs != 0 {
-            return None;
-        }
-
-        let resolved_qty = live_abs / template_abs;
-        if resolved_qty <= 0 {
-            return None;
-        }
-
-        if let Some(current_qty) = structure_qty {
-            if current_qty != resolved_qty {
-                return None;
-            }
-        } else {
-            structure_qty = Some(resolved_qty);
-        }
-    }
-
-    structure_qty
-}
-
 pub fn reconcile_signed_positions<T>(
     positions: &mut Vec<T>,
     live_positions: &HashMap<String, i32>,

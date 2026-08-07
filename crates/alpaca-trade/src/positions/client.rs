@@ -12,7 +12,7 @@ use crate::client::ClientInner;
 use crate::orders::Order;
 use crate::positions::{
     CloseAllRequest, ClosePositionRequest, ClosePositionResult, DoNotExerciseAccepted,
-    ExerciseAccepted, ExerciseDetails, Position, reconcile_signed_positions, structure_quantity,
+    ExerciseAccepted, ExerciseDetails, Position, reconcile_signed_positions,
 };
 use crate::{Error, positions::request};
 
@@ -66,14 +66,6 @@ impl PositionsClient {
         }
 
         Ok(mapped)
-    }
-
-    pub async fn structure_quantity<'a>(
-        &self,
-        template_positions: impl IntoIterator<Item = (&'a str, i32)>,
-    ) -> Result<Option<i32>, Error> {
-        let live_positions = self.option_qty_map().await?;
-        Ok(structure_quantity(template_positions, &live_positions))
     }
 
     pub async fn reconcile_signed_positions<T>(
