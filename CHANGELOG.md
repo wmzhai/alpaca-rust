@@ -1,6 +1,9 @@
 # Changelog
 
-## Unreleased
+## v0.31.3
+
+- Distinguished cancellation after a partial fill from cancellation after a full fill, exposing broker fill evidence to callers so they do not promote unfilled canceled orders to fills.
+- Restricted native price replacements to broker-replaceable active orders and prevented recreate transitions for canceled orders with fill evidence.
 
 ## v0.31.2
 

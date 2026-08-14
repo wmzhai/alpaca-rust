@@ -1,6 +1,6 @@
 use crate::Error;
 
-use super::OrderStatus;
+use super::{Order, OrderStatus};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum OrderTerminalState {
@@ -45,6 +45,7 @@ impl OrderStatus {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum CancelOutcomeKind {
     Canceled,
+    PartiallyFilledBeforeCancelCompleted,
     FilledBeforeCancelCompleted,
     Failed,
     Expired,
@@ -61,6 +62,17 @@ impl CancelOutcomeKind {
             OrderTerminalState::Rejected => Self::Rejected,
         }
     }
+
+    pub fn from_order(order: &Order) -> Option<Self> {
+        let terminal_state = order.status.terminal_state()?;
+        if terminal_state == OrderTerminalState::Filled {
+            return Some(Self::FilledBeforeCancelCompleted);
+        }
+        if order.has_fill_evidence() {
+            return Some(Self::PartiallyFilledBeforeCancelCompleted);
+        }
+        Some(Self::from_terminal_state(terminal_state))
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -71,13 +83,18 @@ pub struct CancelOutcome<T> {
 }
 
 impl<T> CancelOutcome<T> {
-    pub fn is_filled(&self) -> bool {
-        self.kind == CancelOutcomeKind::FilledBeforeCancelCompleted
+    pub fn has_fill(&self) -> bool {
+        matches!(
+            self.kind,
+            CancelOutcomeKind::PartiallyFilledBeforeCancelCompleted
+                | CancelOutcomeKind::FilledBeforeCancelCompleted
+        )
     }
 
     pub fn terminal_state(&self) -> OrderTerminalState {
         match self.kind {
             CancelOutcomeKind::Canceled => OrderTerminalState::Canceled,
+            CancelOutcomeKind::PartiallyFilledBeforeCancelCompleted => OrderTerminalState::Canceled,
             CancelOutcomeKind::FilledBeforeCancelCompleted => OrderTerminalState::Filled,
             CancelOutcomeKind::Failed => OrderTerminalState::Failed,
             CancelOutcomeKind::Expired => OrderTerminalState::Expired,
@@ -108,10 +125,9 @@ impl UpdateOutcomeKind {
         {
             Some(OrderTerminalState::Filled) => Some(Self::ReplacedNewOrderFilled),
             Some(state) => Some(Self::ReplaceFailedNewOrderTerminal(state)),
-            None => match OrderStatus::parse(status).ok()? {
-                OrderStatus::Accepted | OrderStatus::New => Some(Self::ReplacedNewOrderPending),
-                _ => None,
-            },
+            None => OrderStatus::parse(status)
+                .ok()
+                .map(|_| Self::ReplacedNewOrderPending),
         }
     }
 }

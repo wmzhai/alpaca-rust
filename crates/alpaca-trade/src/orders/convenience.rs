@@ -356,7 +356,7 @@ impl Order {
         self.filled_qty.trunc().to_i32().unwrap_or(0)
     }
 
-    fn has_fill_evidence(&self) -> bool {
+    pub fn has_fill_evidence(&self) -> bool {
         self.filled_qty > Decimal::ZERO
             || self
                 .legs
@@ -364,9 +364,8 @@ impl Order {
                 .is_some_and(|legs| legs.iter().any(|leg| leg.filled_qty > Decimal::ZERO))
     }
 
-    fn can_recreate_after_cancel(&self, policy: TransitionOrderPolicy) -> bool {
-        self.status == OrderStatus::Canceled
-            && (!matches!(policy, TransitionOrderPolicy::Recreate) || !self.has_fill_evidence())
+    fn can_recreate_after_cancel(&self) -> bool {
+        self.status == OrderStatus::Canceled && !self.has_fill_evidence()
     }
 }
 
@@ -587,6 +586,13 @@ impl SubmitOrderRequest {
 
     fn requires_recreate(&self, current_order: &Order, policy: TransitionOrderPolicy) -> bool {
         if matches!(policy, TransitionOrderPolicy::Recreate) {
+            return true;
+        }
+
+        if !matches!(
+            current_order.status,
+            OrderStatus::New | OrderStatus::PartiallyFilled
+        ) {
             return true;
         }
 
@@ -914,7 +920,7 @@ impl OrdersClient {
 
         if recreated {
             let canceled = self.cancel_resolved(&current_order.id).await?;
-            if !canceled.order.can_recreate_after_cancel(policy) {
+            if !canceled.order.can_recreate_after_cancel() {
                 return Ok(TransitionResolution::OriginalOrderTerminal(canceled));
             }
 
@@ -1016,4 +1022,71 @@ fn leg_cashflow(price: Decimal, side: OrderSide, structure_qty: i32, ratio_qty: 
     };
 
     gross.round_dp(2)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::orders::{CancelOutcomeKind, UpdateOutcomeKind};
+
+    fn limit_request() -> SubmitOrderRequest {
+        SubmitOrderRequest::simple(
+            "QQQ",
+            1,
+            OrderSide::Buy,
+            SubmitOrderStyle::Limit {
+                limit_price: Decimal::new(111, 2),
+            },
+            Some(TimeInForce::Day),
+            None,
+        )
+    }
+
+    fn limit_order(status: OrderStatus) -> Order {
+        Order {
+            status,
+            r#type: OrderType::Limit,
+            order_class: OrderClass::Simple,
+            ..Order::default()
+        }
+    }
+
+    #[test]
+    fn only_replaceable_orders_use_native_price_changes() {
+        let request = limit_request();
+
+        assert!(request.requires_recreate(
+            &limit_order(OrderStatus::Accepted),
+            TransitionOrderPolicy::Auto,
+        ));
+        assert!(request.requires_recreate(
+            &limit_order(OrderStatus::PendingNew),
+            TransitionOrderPolicy::Auto,
+        ));
+        assert!(
+            !request
+                .requires_recreate(&limit_order(OrderStatus::New), TransitionOrderPolicy::Auto,)
+        );
+        assert!(!request.requires_recreate(
+            &limit_order(OrderStatus::PartiallyFilled),
+            TransitionOrderPolicy::Auto,
+        ));
+    }
+
+    #[test]
+    fn canceled_orders_with_fill_evidence_cannot_be_recreated() {
+        let mut order = limit_order(OrderStatus::Canceled);
+        assert!(order.can_recreate_after_cancel());
+
+        order.filled_qty = Decimal::ONE;
+        assert!(!order.can_recreate_after_cancel());
+        assert_eq!(
+            CancelOutcomeKind::from_order(&order),
+            Some(CancelOutcomeKind::PartiallyFilledBeforeCancelCompleted)
+        );
+        assert_eq!(
+            UpdateOutcomeKind::from_new_order_status("partially_filled"),
+            Some(UpdateOutcomeKind::ReplacedNewOrderPending)
+        );
+    }
 }
