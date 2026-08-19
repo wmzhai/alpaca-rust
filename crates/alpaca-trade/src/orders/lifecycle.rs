@@ -211,6 +211,13 @@ impl OrdersClient {
                     Ok(ReplaceResolution::NewOrder(resolved))
                 }
             }
+            Err(error) if error.is_unchanged_order_parameters() => {
+                let current = self.get_effective(order_id).await?;
+                Ok(ReplaceResolution::NewOrder(ResolvedOrder {
+                    order: current,
+                    recovered_after_request_error: false,
+                }))
+            }
             Err(error) => match self.recover_replace(order_id).await? {
                 Some(resolution) => Ok(resolution),
                 None => Err(error),

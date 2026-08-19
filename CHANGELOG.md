@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.31.4
+
+- Treat Alpaca replace `422 order parameters are not changed` as a no-op success in `replace_resolved`, returning the current effective order instead of polling `recover_replace`.
+
 ## v0.31.3
 
 - Distinguished cancellation after a partial fill from cancellation after a full fill, exposing broker fill evidence to callers so they do not promote unfilled canceled orders to fills.
