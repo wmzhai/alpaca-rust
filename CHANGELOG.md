@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.31.5
+
+- Removed the unused `alpaca-trade` dependency from `alpaca-facade`.
+
 ## v0.31.4
 
 - Treat Alpaca replace `422 order parameters are not changed` as a no-op success in `replace_resolved`, returning the current effective order instead of polling `recover_replace`.
