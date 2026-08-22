@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Raised the workspace Rust version and pinned toolchain and GitHub Pages builds to Rust `1.98.0`.
+
 ## v0.31.5
 
 - Removed the unused `alpaca-trade` dependency from `alpaca-facade`.
