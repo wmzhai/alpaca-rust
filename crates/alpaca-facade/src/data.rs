@@ -7,13 +7,14 @@ use ::chrono::NaiveDateTime;
 use alpaca_data::Client;
 use alpaca_data::cache::{CacheStats as RawCacheStats, CachedClient, StockBarsRequest};
 use alpaca_data::corporate_actions::{CorporateActionType, ListRequest, Region};
-use alpaca_data::options::Snapshot as ProviderOptionSnapshot;
+use alpaca_data::options::{ChainRequest, Snapshot as ProviderOptionSnapshot};
 use alpaca_data::stocks::{
-    self, BarPoint, BarsRequest, DataFeed, Sort, TimeFrame, preferred_feed as preferred_stock_feed,
+    self, BarPoint, BarsRequest, DataFeed, SnapshotsRequest as StockSnapshotsRequest, Sort,
+    TimeFrame, preferred_feed as preferred_stock_feed,
 };
 use alpaca_option::contract;
 use alpaca_option::url;
-use alpaca_option::{OptionError, OptionPosition, OptionSnapshot, OrderSide};
+use alpaca_option::{OptionChain, OptionError, OptionPosition, OptionSnapshot, OrderSide};
 use anyhow::{Context, Result};
 use rust_decimal::Decimal;
 use rust_decimal::prelude::ToPrimitive;
@@ -54,6 +55,150 @@ impl Default for AlpacaDataConfig {
             dividend_yield: 0.0,
         }
     }
+}
+
+pub async fn live_option_chain(
+    client: &Client,
+    request: ChainRequest,
+    underlying_price: Option<Decimal>,
+    dividend_yield: Option<f64>,
+) -> Result<OptionChain> {
+    let underlying_symbol = request.underlying_symbol.clone();
+    let response = client
+        .options()
+        .chain_all(request)
+        .await
+        .context("failed to load live option chain via alpaca-data")?;
+
+    let mut prices = HashMap::new();
+    if let Some(price) = underlying_price.filter(|price| *price > Decimal::ZERO) {
+        prices.insert(underlying_symbol.clone(), price);
+    }
+
+    let missing = underlying_display_symbols(&response.snapshots)
+        .into_iter()
+        .filter(|symbol| !prices.contains_key(symbol))
+        .collect::<Vec<_>>();
+    if !missing.is_empty() {
+        for (symbol, price) in prices_for_iv_calculation(client, &missing).await? {
+            if price > Decimal::ZERO {
+                prices.entry(symbol).or_insert(price);
+            }
+        }
+    }
+
+    let snapshots = map_option_snapshots_with_prices(
+        &response.snapshots,
+        (!prices.is_empty()).then_some(&prices),
+        dividend_yield,
+    )
+    .context("failed to map option snapshots into alpaca-option models")?;
+    let as_of = snapshots
+        .iter()
+        .map(|snapshot| snapshot.as_of.as_str())
+        .filter(|timestamp| !timestamp.is_empty())
+        .max()
+        .unwrap_or_default()
+        .to_string();
+
+    Ok(OptionChain {
+        underlying_symbol: underlying_symbol.to_uppercase(),
+        as_of,
+        snapshots,
+    })
+}
+
+async fn prices_for_iv_calculation(
+    client: &Client,
+    symbols: &[String],
+) -> Result<HashMap<String, Decimal>> {
+    let requested = AlpacaData::normalize_stock_symbols(symbols);
+    if requested.is_empty() {
+        return Ok(HashMap::new());
+    }
+    if session::is_regular_session_at(&clock::now()) {
+        let resolved = AlpacaData::unique_resolved_symbols(&requested);
+        let snapshots = client
+            .stocks()
+            .snapshots(StockSnapshotsRequest {
+                symbols: resolved,
+                feed: Some(preferred_stock_feed(session::is_overnight_window(
+                    &clock::now(),
+                ))),
+                currency: None,
+            })
+            .await
+            .context("failed to load stock snapshots via alpaca-data")?;
+        return Ok(requested
+            .into_iter()
+            .filter_map(|(original, resolved)| {
+                snapshots
+                    .get(&resolved)
+                    .or_else(|| snapshots.get(&original))
+                    .and_then(alpaca_data::stocks::Snapshot::price)
+                    .filter(|price| *price > Decimal::ZERO)
+                    .map(|price| (original, price))
+            })
+            .collect());
+    }
+
+    close_prices_from_client(client, &requested).await
+}
+
+async fn close_prices_from_client(
+    client: &Client,
+    requested: &[(String, String)],
+) -> Result<HashMap<String, Decimal>> {
+    let symbols = AlpacaData::unique_resolved_symbols(requested);
+    if symbols.is_empty() {
+        return Ok(HashMap::new());
+    }
+
+    let completed_date = calendar::last_completed_trading_date(Some(&clock::now()))
+        .context("failed to resolve last completed trading date")?;
+    let end = range::add_days(&completed_date, 1)
+        .context("failed to build completed daily bar end date")?;
+    let bars = client
+        .stocks()
+        .bars_all(BarsRequest {
+            symbols,
+            timeframe: TimeFrame::day_1(),
+            start: Some(completed_date.clone()),
+            end: Some(end),
+            limit: Some(1000),
+            adjustment: None,
+            // Regular-session closes only; overnight BOATS daily bars can land on the next UTC date.
+            feed: Some(DataFeed::Sip),
+            sort: Some(Sort::Asc),
+            asof: None,
+            currency: None,
+            page_token: None,
+        })
+        .await
+        .context("failed to load completed daily stock bars via alpaca-data")?
+        .bars;
+
+    Ok(requested
+        .iter()
+        .filter_map(|(original, resolved)| {
+            let close = bars.get(resolved).and_then(|values| {
+                values
+                    .iter()
+                    .filter_map(|bar| {
+                        let close = bar.c.filter(|price| *price > Decimal::ZERO)?;
+                        let timestamp = bar.t.as_deref().unwrap_or_default();
+                        timestamp
+                            .starts_with(&completed_date)
+                            .then_some((timestamp, close))
+                    })
+                    .max_by(|(left_timestamp, _), (right_timestamp, _)| {
+                        left_timestamp.cmp(right_timestamp)
+                    })
+                    .map(|(_, close)| close)
+            })?;
+            Some((original.clone(), close))
+        })
+        .collect())
 }
 
 #[derive(Default)]
@@ -648,55 +793,7 @@ impl AlpacaData {
         &self,
         requested: &[(String, String)],
     ) -> Result<HashMap<String, Decimal>> {
-        let symbols = Self::unique_resolved_symbols(requested);
-        if symbols.is_empty() {
-            return Ok(HashMap::new());
-        }
-
-        let completed_date = calendar::last_completed_trading_date(Some(&clock::now()))
-            .context("failed to resolve last completed trading date")?;
-        let end = range::add_days(&completed_date, 1)
-            .context("failed to build completed daily bar end date")?;
-        let bars = self
-            .sdk()
-            .stocks()
-            .bars_all(BarsRequest {
-                symbols,
-                timeframe: TimeFrame::day_1(),
-                start: Some(completed_date.clone()),
-                end: Some(end),
-                limit: Some(1000),
-                adjustment: None,
-                // Regular-session closes only; overnight BOATS daily bars can land on the next UTC date.
-                feed: Some(DataFeed::Sip),
-                sort: Some(Sort::Asc),
-                asof: None,
-                currency: None,
-                page_token: None,
-            })
-            .await
-            .context("failed to load completed daily stock bars via alpaca-data")?
-            .bars;
-
-        Ok(requested
-            .iter()
-            .filter_map(|(original, resolved)| {
-                let close = bars.get(resolved).and_then(|values| {
-                    values
-                        .iter()
-                        .filter_map(|bar| {
-                            let close = bar.c.filter(|price| *price > Decimal::ZERO)?;
-                            let timestamp = bar.t.as_deref().unwrap_or_default();
-                            timestamp.starts_with(&completed_date).then_some((timestamp, close))
-                        })
-                        .max_by(|(left_timestamp, _), (right_timestamp, _)| {
-                            left_timestamp.cmp(right_timestamp)
-                        })
-                        .map(|(_, close)| close)
-                })?;
-                Some((original.clone(), close))
-            })
-            .collect())
+        close_prices_from_client(self.sdk(), requested).await
     }
 
     fn compose_stats(raw: RawCacheStats, options: &OptionCache) -> CacheStats {

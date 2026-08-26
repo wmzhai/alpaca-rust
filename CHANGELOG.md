@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+## v0.31.6
+
+- Added `alpaca-data::stocks::Snapshot::reference_price()` for the newer of last trade and an uncrossed quote midpoint, without changing `Snapshot::price()`.
+- Added `alpaca_facade::live_option_chain` as a raw `chain_all` plus stateless mapping helper that fills missing IV-calculation prices without `CachedClient`.
 - Raised the workspace Rust version and pinned toolchain and GitHub Pages builds to Rust `1.98.0`.
 
 ## v0.31.5

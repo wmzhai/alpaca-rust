@@ -1,8 +1,10 @@
 use std::collections::HashMap;
 
+use chrono::{DateTime, FixedOffset};
 use rust_decimal::Decimal;
 
 use super::{Bar, DataFeed, Snapshot};
+use crate::Error;
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct BarPoint {
@@ -116,6 +118,22 @@ impl Snapshot {
         )
     }
 
+    pub fn reference_price(&self) -> Result<Decimal, Error> {
+        let trade = stock_trade_reference(self)?;
+        let quote = stock_quote_reference(self)?;
+        let reference = match (trade, quote) {
+            (Some(trade), Some(quote)) if quote.timestamp > trade.timestamp => quote,
+            (Some(trade), _) => trade,
+            (None, Some(quote)) => quote,
+            (None, None) => {
+                return Err(Error::InvalidRequest(
+                    "live stock snapshot has no trade or quote".to_string(),
+                ));
+            }
+        };
+        Ok(reference.price)
+    }
+
     #[must_use]
     pub fn bid_price(&self) -> Option<Decimal> {
         quote_bid(self)
@@ -155,6 +173,76 @@ impl Snapshot {
     pub fn session_volume(&self) -> Option<u64> {
         session_volume(self)
     }
+}
+
+#[derive(Clone, Copy)]
+struct StockReference {
+    price: Decimal,
+    timestamp: DateTime<FixedOffset>,
+}
+
+fn stock_event_timestamp(value: Option<&str>, source: &str) -> Result<DateTime<FixedOffset>, Error> {
+    let value = value.ok_or_else(|| {
+        Error::InvalidRequest(format!("live stock {source} has no timestamp"))
+    })?;
+    DateTime::parse_from_rfc3339(value).map_err(|_| {
+        Error::InvalidRequest(format!("live stock {source} has an invalid timestamp"))
+    })
+}
+
+fn stock_trade_reference(snapshot: &Snapshot) -> Result<Option<StockReference>, Error> {
+    let Some(trade) = snapshot.latest_trade.as_ref() else {
+        return Ok(None);
+    };
+    let price = trade.p.ok_or_else(|| {
+        Error::InvalidRequest("live stock trade has no price".to_string())
+    })?;
+    if price <= Decimal::ZERO {
+        return Err(Error::InvalidRequest(
+            "live stock trade price is not positive".to_string(),
+        ));
+    }
+    Ok(Some(StockReference {
+        price,
+        timestamp: stock_event_timestamp(trade.t.as_deref(), "trade")?,
+    }))
+}
+
+fn stock_quote_reference(snapshot: &Snapshot) -> Result<Option<StockReference>, Error> {
+    let Some(quote) = snapshot.latest_quote.as_ref() else {
+        return Ok(None);
+    };
+    let bid = quote.bp.ok_or_else(|| {
+        Error::InvalidRequest("live stock quote has no bid".to_string())
+    })?;
+    let ask = quote.ap.ok_or_else(|| {
+        Error::InvalidRequest("live stock quote has no ask".to_string())
+    })?;
+    if bid <= Decimal::ZERO {
+        return Err(Error::InvalidRequest(
+            "live stock quote bid is not positive".to_string(),
+        ));
+    }
+    if ask <= Decimal::ZERO {
+        return Err(Error::InvalidRequest(
+            "live stock quote ask is not positive".to_string(),
+        ));
+    }
+    if bid > ask {
+        return Err(Error::InvalidRequest(
+            "live stock quote is crossed".to_string(),
+        ));
+    }
+    let price = bid
+        .checked_add(ask)
+        .and_then(|sum| sum.checked_div(Decimal::from(2u8)))
+        .ok_or_else(|| {
+            Error::InvalidRequest("live stock quote midpoint overflow".to_string())
+        })?;
+    Ok(Some(StockReference {
+        price,
+        timestamp: stock_event_timestamp(quote.t.as_deref(), "quote")?,
+    }))
 }
 
 impl Bar {
