@@ -15,9 +15,11 @@ website/build/
 website/static/api/
 task.md
 design.md
-AGENTS.md
-CLAUDE.md
 .local/
 tools/api-coverage/.tmp/
+# 本机 agent 生成文件；工作区只使用根 AGENTS.md
+AGENTS.md
+CLAUDE.md
+CLAUDE.local.md
 .claude/
 .gitnexus
