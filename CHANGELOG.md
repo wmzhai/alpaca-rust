@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Outside regular session, option snapshot mapping ignores provider IV/Greeks even when they look valid. IV is inverted from bid/ask mid and `get_prices_for_iv_calculation`; snapshot Greeks and `underlying_price` use that same close-state stock. Bid/ask stay provider quotes. Regular-session valid provider IV/Greeks are unchanged.
+
 ## v0.31.6
 
 - Added `alpaca-data::stocks::Snapshot::reference_price()` for the newer of last trade and an uncrossed quote midpoint, without changing `Snapshot::price()`.

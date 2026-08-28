@@ -26,6 +26,7 @@ This document defines the current adapter boundary exposed by `alpaca-facade`.
 - `map_snapshot_with_pricing_reference`
 - `map_snapshots_with_pricing_references`
 - `map_live_snapshots`
+- `map_live_snapshots_from_client`
 - `AlpacaData::get_prices_for_iv_calculation`
 - `AlpacaData::map_live_snapshots`
 - `pricing_references_for_snapshots`
@@ -43,13 +44,20 @@ This document defines the current adapter boundary exposed by `alpaca-facade`.
 ```text
 {
   evaluation_time: String,
-  underlying_price: Option<Decimal>
+  iv_underlying_price: Option<Decimal>,
+  underlying_price: Option<Decimal>,
+  invert_iv: bool
 }
 ```
 
-This structure is the adapter-level pricing context used when provider Greeks
-or IV must be repaired. `evaluation_time` is always a New York timestamp in
-`YYYY-MM-DD HH:MM:SS` form.
+This structure is the adapter-level pricing context for IV inversion and
+close-state Greeks. `evaluation_time` is always a New York timestamp in
+`YYYY-MM-DD HH:MM:SS` form. `iv_underlying_price` is the
+`get_prices_for_iv_calculation` spot used to invert IV and to compute
+snapshot Greeks. `underlying_price` on the mapped snapshot is that same
+IV-calculation spot. `invert_iv` is true outside regular session: ignore
+provider IV/Greeks and invert from bid/ask mid. Quote bid/ask/last stay
+provider values.
 
 ### `ResolvedOptionStratPositions`
 
@@ -73,11 +81,12 @@ Current behavior:
 - if `snapshot.timestamp()` is missing, `as_of` falls back to the current New York timestamp
 - provider timestamps are normalized into `YYYY-MM-DD HH:MM:SS`
 - bid, ask, mark, and last converge into `OptionQuote`
-- if provider Greeks or IV are missing or obviously invalid, the adapter repairs them when a valid pricing reference is available
+- during regular session, valid provider IV/Greeks are preserved
+- outside regular session, provider IV/Greeks are ignored even when they look valid; IV is inverted from bid/ask mid and the IV-calculation spot, then Greeks are computed at that same close-state spot
 - regular-session repair evaluates at the option snapshot timestamp
-- non-regular-session repair evaluates at the last completed trading date at `16:00:00`
-- `map_snapshot(...)` and `map_snapshots(...)` do not fetch close prices; they wrap caller-provided `underlying_price` values in the appropriate pricing-reference time
-- valid provider IV is preserved and is not re-inferred from price
+- non-regular-session inversion evaluates at the last completed trading date at `16:00:00`
+- `map_snapshot(...)` and `map_snapshots(...)` treat a caller price as the IV-calculation / snapshot spot
+- the returned `OptionSnapshot.underlying_price` is the IV-calculation close-state spot, not a later print
 - ultra-low-price options apply conservative Greeks clipping to avoid propagating unstable values
 
 ## `map_snapshot_with_pricing_reference`
@@ -89,8 +98,8 @@ Current behavior:
 Current behavior:
 
 - it is the explicit-context form of `map_snapshot(...)`
-- callers can use it when they already resolved the exact evaluation time and spot
-- the returned `OptionSnapshot.underlying_price` is the pricing reference spot
+- callers can use it when they already resolved evaluation time and the IV-calculation spot
+- the returned `OptionSnapshot.underlying_price` is the IV-calculation spot
 
 ## `map_snapshots`
 
@@ -121,7 +130,7 @@ Current behavior:
 
 | API | Returns | Semantics |
 | --- | --- | --- |
-| `AlpacaData::get_prices_for_iv_calculation(symbols)` | `HashMap<String, Decimal>` | resolves each stock symbol to the stock price used by IV and Greeks calculation |
+| `AlpacaData::get_prices_for_iv_calculation(symbols)` | `HashMap<String, Decimal>` | resolves each stock symbol to the stock price used only for IV inversion |
 
 Current behavior:
 
@@ -137,35 +146,36 @@ Current behavior:
 
 | API | Returns | Semantics |
 | --- | --- | --- |
-| `map_live_snapshots(snapshots, underlying_prices?, dividend_yield?)` | `OptionSnapshot[]` | pure batch mapping from provider snapshots and already loaded pricing references |
-| `AlpacaData::map_live_snapshots(snapshots, known_prices?, dividend_yield?)` | `OptionSnapshot[]` | batch-maps provider snapshots and resolves missing stock-price references through `get_prices_for_iv_calculation(...)` |
+| `map_live_snapshots(snapshots, latest_prices?, iv_prices?, dividend_yield?)` | `OptionSnapshot[]` | pure batch mapping from provider snapshots and already loaded two-price references |
+| `map_live_snapshots_from_client(client, snapshots, known_latest_prices?, dividend_yield?)` | `OptionSnapshot[]` | fetches latest stock snapshots and IV-calculation prices, then maps |
+| `AlpacaData::map_live_snapshots(snapshots, known_prices?, dividend_yield?)` | `OptionSnapshot[]` | cache-backed two-price fetch and mapping; `known_prices` are latest only |
 
 Current behavior:
 
-- the adapter decides the pricing-reference mode from the current New York regular session state
-- `AlpacaData::map_live_snapshots(...)` first fetches required symbols through `AlpacaData::get_prices_for_iv_calculation(...)`
-- caller-provided `Decimal` prices are only used as a supplement for symbols that the unified price entry did not return
-- outside regular session, fallback IV and repaired Greeks use the last completed trading day's daily-bar close as the reference spot
-- provider price-fetch failures from `get_prices_for_iv_calculation(...)` propagate instead of falling back to a different stock-price source
+- the adapter decides invert-vs-trust from the current New York regular session state
+- caller-provided prices fill the IV-calculation spot only during regular session; off-hours they are ignored so a live print cannot replace the close
+- outside regular session, IV inversion, snapshot Greeks, and `underlying_price` all use the last completed trading day's daily-bar close
+- during regular session, one realtime snapshot map fills the pricing reference
+- provider price-fetch failures propagate instead of falling back to a different stock-price source
 - mapping reuses `map_snapshots_with_pricing_references(...)`, preserving ordering, symbol lookup, and repair rules
 
 ## `pricing_references_for_snapshots`
 
 | API | Returns | Semantics |
 | --- | --- | --- |
-| `pricing_references_for_snapshots(snapshots, realtime_prices?, close_prices?, now)` | `HashMap<String, OptionPricingReference>` | resolves per-contract pricing references from preloaded price maps |
+| `pricing_references_for_snapshots(snapshots, latest_prices?, iv_prices?, now)` | `HashMap<String, OptionPricingReference>` | resolves per-contract two-price references from preloaded maps |
 
 Current behavior:
 
-- regular session uses option snapshot timestamps and realtime prices
-- non-regular session uses the last completed trading date at `16:00:00` and close prices
+- regular session uses option snapshot timestamps; missing IV prices fall back to latest
+- non-regular session uses the last completed trading date at `16:00:00`, close prices for IV, and latest prices for Greeks/display; latest is never used as an IV-spot fallback
 - prices may be keyed by display symbol such as `BRK.B` or provider-canonical underlying such as `BRKB`
 
 ## `required_underlying_display_symbols`
 
 | API | Returns | Semantics |
 | --- | --- | --- |
-| `required_underlying_display_symbols(snapshots)` | `String[]` | returns the display symbols that still need underlying prices for Greeks or IV repair |
+| `required_underlying_display_symbols(snapshots)` | `String[]` | returns every unique underlying display symbol on the snapshot set |
 
 Current behavior:
 
@@ -184,8 +194,8 @@ Current behavior:
 
 - the core layer only owns URL parsing and leg-fragment parsing
 - the adapter layer uses `alpaca_data::Client` to fetch provider snapshots directly
-- `AlpacaData::resolve_optionstrat_url(...)` fetches raw provider snapshots, resolves stock prices through `get_prices_for_iv_calculation(...)`, and applies URL premiums as the IV-calculation source when present
-- returned position snapshots include `underlying_price` when the facade can resolve a valid stock-price reference
+- `AlpacaData::resolve_optionstrat_url(...)` fetches raw provider snapshots, resolves IV-calculation and latest stock prices separately, and applies URL premiums as the IV-calculation source when present
+- returned position snapshots include latest `underlying_price` when the facade can resolve a valid latest stock-price reference
 - enrichment stays on the unified snapshot-repair path instead of duplicating provider fallback in higher layers
 - provider request failures are normalized to `provider_snapshot_fetch_failed`
 - stock-price request failures propagate from `get_prices_for_iv_calculation(...)`

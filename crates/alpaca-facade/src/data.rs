@@ -1,7 +1,6 @@
 use crate::{
-    apply_optionstrat_premium_model, map_live_snapshots as map_option_snapshots_with_prices,
-    map_snapshots_with_pricing_references, pricing_references_for_snapshots,
-    underlying_display_symbols,
+    apply_optionstrat_premium_model, map_snapshots_with_pricing_references,
+    pricing_references_for_snapshots, underlying_display_symbols,
 };
 use ::chrono::NaiveDateTime;
 use alpaca_data::Client;
@@ -70,29 +69,18 @@ pub async fn live_option_chain(
         .await
         .context("failed to load live option chain via alpaca-data")?;
 
-    let mut prices = HashMap::new();
+    let mut known_latest = HashMap::new();
     if let Some(price) = underlying_price.filter(|price| *price > Decimal::ZERO) {
-        prices.insert(underlying_symbol.clone(), price);
+        known_latest.insert(underlying_symbol.clone(), price);
     }
 
-    let missing = underlying_display_symbols(&response.snapshots)
-        .into_iter()
-        .filter(|symbol| !prices.contains_key(symbol))
-        .collect::<Vec<_>>();
-    if !missing.is_empty() {
-        for (symbol, price) in prices_for_iv_calculation(client, &missing).await? {
-            if price > Decimal::ZERO {
-                prices.entry(symbol).or_insert(price);
-            }
-        }
-    }
-
-    let snapshots = map_option_snapshots_with_prices(
+    let snapshots = map_live_snapshots_from_client(
+        client,
         &response.snapshots,
-        (!prices.is_empty()).then_some(&prices),
+        (!known_latest.is_empty()).then_some(&known_latest),
         dividend_yield,
     )
-    .context("failed to map option snapshots into alpaca-option models")?;
+    .await?;
     let as_of = snapshots
         .iter()
         .map(|snapshot| snapshot.as_of.as_str())
@@ -108,7 +96,37 @@ pub async fn live_option_chain(
     })
 }
 
-async fn prices_for_iv_calculation(
+fn copy_positive_prices(
+    prices: Option<&HashMap<String, Decimal>>,
+) -> HashMap<String, Decimal> {
+    prices
+        .into_iter()
+        .flat_map(|prices| prices.iter())
+        .filter(|(_, price)| **price > Decimal::ZERO)
+        .map(|(symbol, price)| (symbol.clone(), *price))
+        .collect()
+}
+
+fn merge_positive_prices(
+    target: &mut HashMap<String, Decimal>,
+    fetched: HashMap<String, Decimal>,
+) {
+    for (symbol, price) in fetched {
+        if price > Decimal::ZERO {
+            target.entry(symbol).or_insert(price);
+        }
+    }
+}
+
+fn missing_symbols(symbols: &[String], prices: &HashMap<String, Decimal>) -> Vec<String> {
+    symbols
+        .iter()
+        .filter(|symbol| !prices.contains_key(*symbol))
+        .cloned()
+        .collect()
+}
+
+async fn snapshot_stock_prices(
     client: &Client,
     symbols: &[String],
 ) -> Result<HashMap<String, Decimal>> {
@@ -116,33 +134,82 @@ async fn prices_for_iv_calculation(
     if requested.is_empty() {
         return Ok(HashMap::new());
     }
-    if session::is_regular_session_at(&clock::now()) {
-        let resolved = AlpacaData::unique_resolved_symbols(&requested);
-        let snapshots = client
-            .stocks()
-            .snapshots(StockSnapshotsRequest {
-                symbols: resolved,
-                feed: Some(preferred_stock_feed(session::is_overnight_window(
-                    &clock::now(),
-                ))),
-                currency: None,
-            })
-            .await
-            .context("failed to load stock snapshots via alpaca-data")?;
-        return Ok(requested
-            .into_iter()
-            .filter_map(|(original, resolved)| {
-                snapshots
-                    .get(&resolved)
-                    .or_else(|| snapshots.get(&original))
-                    .and_then(alpaca_data::stocks::Snapshot::price)
-                    .filter(|price| *price > Decimal::ZERO)
-                    .map(|price| (original, price))
-            })
-            .collect());
-    }
+    let resolved = AlpacaData::unique_resolved_symbols(&requested);
+    let snapshots = client
+        .stocks()
+        .snapshots(StockSnapshotsRequest {
+            symbols: resolved,
+            feed: Some(preferred_stock_feed(session::is_overnight_window(
+                &clock::now(),
+            ))),
+            currency: None,
+        })
+        .await
+        .context("failed to load stock snapshots via alpaca-data")?;
+    Ok(requested
+        .into_iter()
+        .filter_map(|(original, resolved)| {
+            snapshots
+                .get(&resolved)
+                .or_else(|| snapshots.get(&original))
+                .and_then(alpaca_data::stocks::Snapshot::price)
+                .filter(|price| *price > Decimal::ZERO)
+                .map(|price| (original, price))
+        })
+        .collect())
+}
 
+async fn prices_for_iv_calculation(
+    client: &Client,
+    symbols: &[String],
+) -> Result<HashMap<String, Decimal>> {
+    if session::is_regular_session_at(&clock::now()) {
+        return snapshot_stock_prices(client, symbols).await;
+    }
+    let requested = AlpacaData::normalize_stock_symbols(symbols);
+    if requested.is_empty() {
+        return Ok(HashMap::new());
+    }
     close_prices_from_client(client, &requested).await
+}
+
+pub async fn map_live_snapshots_from_client(
+    client: &Client,
+    snapshots: &HashMap<String, ProviderOptionSnapshot>,
+    known_prices: Option<&HashMap<String, Decimal>>,
+    dividend_yield: Option<f64>,
+) -> Result<Vec<OptionSnapshot>> {
+    let now = clock::now();
+    let symbols = underlying_display_symbols(snapshots);
+    let iv_prices = if session::is_regular_session_at(&now) {
+        let mut prices = copy_positive_prices(known_prices);
+        let missing = missing_symbols(&symbols, &prices);
+        if !missing.is_empty() {
+            merge_positive_prices(
+                &mut prices,
+                snapshot_stock_prices(client, &missing).await?,
+            );
+        }
+        prices
+    } else if symbols.is_empty() {
+        HashMap::new()
+    } else {
+        prices_for_iv_calculation(client, &symbols).await?
+    };
+    let price_map = (!iv_prices.is_empty()).then_some(&iv_prices);
+
+    let pricing_references = pricing_references_for_snapshots(
+        snapshots,
+        price_map,
+        price_map,
+        &now,
+    )?;
+    map_snapshots_with_pricing_references(
+        snapshots,
+        (!pricing_references.is_empty()).then_some(&pricing_references),
+        dividend_yield,
+    )
+    .context("failed to map option snapshots into alpaca-option models")
 }
 
 async fn close_prices_from_client(
@@ -485,23 +552,19 @@ impl AlpacaData {
         &self,
         snapshots: &HashMap<String, ProviderOptionSnapshot>,
     ) -> Result<HashMap<String, crate::OptionPricingReference>, OptionError> {
-        let symbols = underlying_display_symbols(snapshots);
-        let prices = if symbols.is_empty() {
-            HashMap::new()
-        } else {
-            self.get_prices_for_iv_calculation(&symbols)
-                .await
-                .map_err(|error| {
-                    OptionError::new("provider_stock_price_fetch_failed", error.to_string())
-                })?
-        };
         let now = clock::now();
-        pricing_references_for_snapshots(
-            snapshots,
-            (!prices.is_empty()).then_some(&prices),
-            (!prices.is_empty()).then_some(&prices),
-            &now,
-        )
+        let symbols = underlying_display_symbols(snapshots);
+        if symbols.is_empty() {
+            return pricing_references_for_snapshots(snapshots, None, None, &now);
+        }
+        let iv_prices = self
+            .get_prices_for_iv_calculation(&symbols)
+            .await
+            .map_err(|error| {
+                OptionError::new("provider_stock_price_fetch_failed", error.to_string())
+            })?;
+        let price_map = (!iv_prices.is_empty()).then_some(&iv_prices);
+        pricing_references_for_snapshots(snapshots, price_map, price_map, &now)
     }
 
     pub async fn cash_dividends_total(
@@ -757,33 +820,38 @@ impl AlpacaData {
         known_prices: Option<&HashMap<String, Decimal>>,
         dividend_yield: Option<f64>,
     ) -> Result<Vec<OptionSnapshot>> {
+        let now = clock::now();
         let symbols = underlying_display_symbols(snapshots);
-        let mut prices = known_prices
-            .into_iter()
-            .flat_map(|prices| prices.iter())
-            .filter(|(_, price)| **price > Decimal::ZERO)
-            .map(|(symbol, price)| (symbol.clone(), *price))
-            .collect::<HashMap<_, _>>();
-        let missing_symbols = symbols
-            .iter()
-            .filter(|symbol| !prices.contains_key(*symbol))
-            .cloned()
-            .collect::<Vec<_>>();
-        if !missing_symbols.is_empty() {
-            let fetched_prices = self
-                .get_prices_for_iv_calculation(&missing_symbols)
-                .await
-                .context("failed to load underlying stock prices for options")?;
-            for (symbol, price) in fetched_prices {
-                if price > Decimal::ZERO {
-                    prices.entry(symbol).or_insert(price);
-                }
+        let iv_prices = if session::is_regular_session_at(&now) {
+            let mut prices = copy_positive_prices(known_prices);
+            let missing = missing_symbols(&symbols, &prices);
+            if !missing.is_empty() {
+                merge_positive_prices(
+                    &mut prices,
+                    self.get_prices_for_iv_calculation(&missing)
+                        .await
+                        .context("failed to load underlying stock prices for options")?,
+                );
             }
-        }
+            prices
+        } else if symbols.is_empty() {
+            HashMap::new()
+        } else {
+            self.get_prices_for_iv_calculation(&symbols)
+                .await
+                .context("failed to load IV calculation stock prices for options")?
+        };
+        let price_map = (!iv_prices.is_empty()).then_some(&iv_prices);
 
-        map_option_snapshots_with_prices(
+        let pricing_references = pricing_references_for_snapshots(
             snapshots,
-            (!prices.is_empty()).then_some(&prices),
+            price_map,
+            price_map,
+            &now,
+        )?;
+        map_snapshots_with_pricing_references(
+            snapshots,
+            (!pricing_references.is_empty()).then_some(&pricing_references),
             dividend_yield,
         )
         .context("failed to map option snapshots into alpaca-option models")

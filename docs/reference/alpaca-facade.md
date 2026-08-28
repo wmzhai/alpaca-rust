@@ -16,6 +16,7 @@
 - `map_snapshots(...)`
 - `map_snapshots_with_pricing_references(...)`
 - `map_live_snapshots(...)`
+- `map_live_snapshots_from_client(...)`
 - `pricing_references_for_snapshots(...)`
 - `resolve_positions_from_optionstrat_url(...)`
 
@@ -23,12 +24,13 @@
 
 - Reuse `alpaca-data::cache::CachedClient` behind a richer option-aware facade
 - Enrich Alpaca option snapshots into `alpaca-option` core models
-- Repair missing or invalid provider IV and Greeks with a session-aware pricing
-  reference
-- Resolve IV/Greeks model stock references through
+- Outside regular session, ignore provider IV/Greeks and invert IV from the
+  last completed close plus bid/ask mid; compute snapshot Greeks at that
+  same close-state stock. Bid/ask stay provider quotes.
+- Resolve IV-inversion stock references through
   `AlpacaData::get_prices_for_iv_calculation(...)`, using realtime stock
   snapshots during regular session and the last completed trading day's
-  daily-bar close outside regular session
+  daily-bar close outside regular session.
 - Keep application-specific singleton or scheduling logic outside the shared crate
 
 For option chains, call `alpaca-data` directly through
