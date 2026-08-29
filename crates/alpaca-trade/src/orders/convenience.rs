@@ -45,6 +45,10 @@ pub enum TransitionOrderPolicy {
     Recreate,
 }
 
+/// Outcome of `transition_resolved`.
+///
+/// `OriginalOrderTerminal` means the source order remains effective. The
+/// carried order may still be active; callers must inspect `status`.
 #[derive(Clone, Debug, PartialEq)]
 pub enum TransitionResolution {
     NewOrder {
@@ -317,6 +321,16 @@ impl OrderStatus {
         )
     }
 
+    /// Direct predecessor statuses that remain the effective order when a
+    /// replacement has already failed.
+    #[must_use]
+    pub fn is_effective_after_failed_replacement(self) -> bool {
+        matches!(
+            self,
+            Self::New | Self::Accepted | Self::PartiallyFilled | Self::Filled
+        )
+    }
+
     #[must_use]
     pub fn is_stable(self) -> bool {
         matches!(
@@ -362,6 +376,13 @@ impl Order {
                 .legs
                 .as_deref()
                 .is_some_and(|legs| legs.iter().any(|leg| leg.filled_qty > Decimal::ZERO))
+    }
+
+    #[must_use]
+    pub(crate) fn failed_replacement_keeps_predecessor(&self, predecessor: &Order) -> bool {
+        self.status.is_failed_terminal()
+            && self.replaces.as_deref() == Some(predecessor.id.as_str())
+            && predecessor.status.is_effective_after_failed_replacement()
     }
 
     fn can_recreate_after_cancel(&self) -> bool {
@@ -903,10 +924,7 @@ impl OrdersClient {
 
         let current_order = self.get_effective(order_id).await?;
         if current_order.id != order_id {
-            if current_order.status == OrderStatus::Filled
-                && source_order.status.is_failed_terminal()
-                && source_order.replaces.as_deref() == Some(current_order.id.as_str())
-            {
+            if source_order.failed_replacement_keeps_predecessor(&current_order) {
                 return Ok(TransitionResolution::OriginalOrderTerminal(ResolvedOrder {
                     order: current_order,
                     recovered_after_request_error: true,

@@ -63,7 +63,7 @@ pub struct MockServerState {
 struct SharedState {
     accounts: RwLock<HashMap<String, VirtualAccountState>>,
     http_fault: RwLock<Option<InjectedHttpFault>>,
-    rejected_replacement_races: RwLock<HashSet<(String, String)>>,
+    rejected_replacement_races: RwLock<HashMap<(String, String), OrderStatus>>,
     market_data_bridge: Option<LiveMarketDataBridge>,
     market_data_overrides: RwLock<HashMap<String, InstrumentSnapshot>>,
 }
@@ -256,7 +256,7 @@ impl MockServerState {
             inner: Arc::new(SharedState {
                 accounts: RwLock::new(HashMap::new()),
                 http_fault: RwLock::new(None),
-                rejected_replacement_races: RwLock::new(HashSet::new()),
+                rejected_replacement_races: RwLock::new(HashMap::new()),
                 market_data_bridge: None,
                 market_data_overrides: RwLock::new(HashMap::new()),
             }),
@@ -1074,8 +1074,13 @@ impl MockServerState {
         order_id: &str,
         input: ReplaceOrderInput,
     ) -> Result<Order, MockStateError> {
-        if self.take_rejected_replacement_race(api_key, order_id) {
-            return self.complete_rejected_replacement_race(api_key, order_id, input);
+        if let Some(predecessor_status) = self.take_rejected_replacement_race(api_key, order_id) {
+            return self.complete_rejected_replacement_race(
+                api_key,
+                order_id,
+                input,
+                predecessor_status,
+            );
         }
 
         let current = {
@@ -1808,7 +1813,11 @@ impl MockServerState {
         })
     }
 
-    pub fn seed_rejected_replacement_race(&self, api_key: &str) -> RejectedReplacementRaceFixture {
+    pub fn seed_rejected_replacement_race(
+        &self,
+        api_key: &str,
+        predecessor_status: OrderStatus,
+    ) -> RejectedReplacementRaceFixture {
         let mut accounts = self
             .inner
             .accounts
@@ -1820,6 +1829,11 @@ impl MockServerState {
         let order_id = new_order_id();
         let client_order_id = format!("{order_id}-client");
         let now = now_string();
+        let qty = if predecessor_status == OrderStatus::PartiallyFilled {
+            Decimal::TWO
+        } else {
+            Decimal::ONE
+        };
         let order = Order {
             id: order_id.clone(),
             client_order_id: client_order_id.clone(),
@@ -1829,7 +1843,7 @@ impl MockServerState {
             asset_id: mock_asset_id(DEFAULT_STOCK_SYMBOL),
             symbol: DEFAULT_STOCK_SYMBOL.to_owned(),
             asset_class: "us_equity".to_owned(),
-            qty: Some(Decimal::ONE),
+            qty: Some(qty),
             order_class: OrderClass::Simple,
             order_type: OrderType::Limit,
             r#type: OrderType::Limit,
@@ -1855,14 +1869,14 @@ impl MockServerState {
             .rejected_replacement_races
             .write()
             .expect("replacement race lock should not poison")
-            .insert((api_key.to_owned(), order_id.clone()));
+            .insert((api_key.to_owned(), order_id.clone()), predecessor_status);
 
         RejectedReplacementRaceFixture {
             predecessor_order_id: order_id,
         }
     }
 
-    fn take_rejected_replacement_race(&self, api_key: &str, order_id: &str) -> bool {
+    fn take_rejected_replacement_race(&self, api_key: &str, order_id: &str) -> Option<OrderStatus> {
         self.inner
             .rejected_replacement_races
             .write()
@@ -1875,6 +1889,7 @@ impl MockServerState {
         api_key: &str,
         order_id: &str,
         input: ReplaceOrderInput,
+        predecessor_status: OrderStatus,
     ) -> Result<Order, MockStateError> {
         let mut accounts = self
             .inner
@@ -1890,11 +1905,25 @@ impl MockServerState {
             .orders
             .get_mut(order_id)
             .ok_or_else(|| MockStateError::NotFound(format!("order {order_id} was not found")))?;
-        predecessor.order.status = OrderStatus::Filled;
         predecessor.order.updated_at = now.clone();
-        predecessor.order.filled_at = Some(now.clone());
-        predecessor.order.filled_qty = predecessor.order.qty.unwrap_or(Decimal::ONE);
-        predecessor.order.filled_avg_price = predecessor.order.limit_price;
+        predecessor.order.status = predecessor_status;
+        match predecessor_status {
+            OrderStatus::Filled => {
+                predecessor.order.filled_at = Some(now.clone());
+                predecessor.order.filled_qty = predecessor.order.qty.unwrap_or(Decimal::ONE);
+                predecessor.order.filled_avg_price = predecessor.order.limit_price;
+            }
+            OrderStatus::PartiallyFilled => {
+                predecessor.order.filled_at = None;
+                predecessor.order.filled_qty = Decimal::ONE;
+                predecessor.order.filled_avg_price = predecessor.order.limit_price;
+            }
+            _ => {
+                predecessor.order.filled_at = None;
+                predecessor.order.filled_qty = Decimal::ZERO;
+                predecessor.order.filled_avg_price = None;
+            }
+        }
 
         let mut replacement = predecessor.order.clone();
         replacement.id = replacement_id.clone();

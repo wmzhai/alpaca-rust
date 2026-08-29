@@ -41,6 +41,12 @@ pub struct ResolvedOrder {
     pub recovered_after_request_error: bool,
 }
 
+/// Outcome of `replace_resolved`.
+///
+/// `OriginalOrderTerminal` means the original order remains effective. The
+/// carried order may still be active (`new` / `accepted` / `partially_filled`)
+/// or already `filled`; callers must inspect `status` instead of assuming a
+/// terminal original.
 #[derive(Clone, Debug, PartialEq)]
 pub enum ReplaceResolution {
     NewOrder(ResolvedOrder),
@@ -115,7 +121,7 @@ impl OrdersClient {
                     let predecessor = self
                         .get(predecessor_id, GetRequest { nested: Some(true) })
                         .await?;
-                    if predecessor.status == OrderStatus::Filled {
+                    if current.failed_replacement_keeps_predecessor(&predecessor) {
                         return Ok(predecessor);
                     }
                 }
@@ -186,30 +192,14 @@ impl OrdersClient {
     ) -> Result<ReplaceResolution, Error> {
         match self.replace(order_id, request).await {
             Ok(replacement) => {
-                let effective = self.wait_for(&replacement.id, WaitFor::Stable).await?;
-                let effective_is_filled_predecessor = if effective.id != replacement.id
-                    && effective.status == OrderStatus::Filled
-                {
-                    let terminal_replacement = if replacement.status.is_failed_terminal() {
-                        replacement.clone()
-                    } else {
-                        self.get(&replacement.id, GetRequest { nested: Some(true) })
-                            .await?
-                    };
-                    terminal_replacement.status.is_failed_terminal()
-                        && terminal_replacement.replaces.as_deref() == Some(effective.id.as_str())
+                let effective = self.get_effective(&replacement.id).await?;
+                let effective = if replacement.failed_replacement_keeps_predecessor(&effective) {
+                    effective
                 } else {
-                    false
+                    self.wait_for(&replacement.id, WaitFor::Stable).await?
                 };
-                let resolved = ResolvedOrder {
-                    order: effective,
-                    recovered_after_request_error: false,
-                };
-                if effective_is_filled_predecessor {
-                    Ok(ReplaceResolution::OriginalOrderTerminal(resolved))
-                } else {
-                    Ok(ReplaceResolution::NewOrder(resolved))
-                }
+                self.classify_replace_resolution(replacement, effective, false)
+                    .await
             }
             Err(error) if error.is_unchanged_order_parameters() => {
                 let current = self.get_effective(order_id).await?;
@@ -222,6 +212,29 @@ impl OrdersClient {
                 Some(resolution) => Ok(resolution),
                 None => Err(error),
             },
+        }
+    }
+
+    async fn classify_replace_resolution(
+        &self,
+        replacement: Order,
+        effective: Order,
+        recovered_after_request_error: bool,
+    ) -> Result<ReplaceResolution, Error> {
+        let replacement = if replacement.status.is_failed_terminal() {
+            replacement
+        } else {
+            self.get(&replacement.id, GetRequest { nested: Some(true) })
+                .await?
+        };
+        let resolved = ResolvedOrder {
+            order: effective,
+            recovered_after_request_error,
+        };
+        if replacement.failed_replacement_keeps_predecessor(&resolved.order) {
+            Ok(ReplaceResolution::OriginalOrderTerminal(resolved))
+        } else {
+            Ok(ReplaceResolution::NewOrder(resolved))
         }
     }
 

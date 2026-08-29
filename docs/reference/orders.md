@@ -57,6 +57,13 @@ checks the parent and nested child fill quantities; it creates the replacement
 only when all fill evidence is zero. `TransitionOrderPolicy::Auto` keeps its
 existing replace/recreate selection semantics.
 
+`get_effective` and `replace_resolved` treat a failed-terminal replacement as a
+non-event when its direct predecessor is `new`, `accepted`, `partially_filled`,
+or `filled`. `ReplaceResolution::OriginalOrderTerminal` then carries that
+predecessor; inspect `status` because the original may still be working. If both
+orders are unfilled failed-terminal states, the failed replacement remains the
+effective order.
+
 ## Mirror Contract Notes
 
 - `ListRequest` supports typed CSV `asset_class`, `before_order_id`, and `after_order_id`; order-ID cursors are mutually exclusive and cannot be combined with the time window

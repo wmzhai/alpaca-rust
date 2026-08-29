@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Failed-terminal replacements now resolve to a still-active or filled direct predecessor (`new`, `accepted`, `partially_filled`, or `filled`) during both immediate replace completion and later `get_effective` synchronization. Callers must inspect `OriginalOrderTerminal` status instead of assuming the original is terminal.
 - Outside regular session, option snapshot mapping ignores provider IV/Greeks even when they look valid. IV is inverted from bid/ask mid and `get_prices_for_iv_calculation`; snapshot Greeks and `underlying_price` use that same close-state stock. Bid/ask stay provider quotes. Regular-session valid provider IV/Greeks are unchanged.
 
 ## v0.31.6

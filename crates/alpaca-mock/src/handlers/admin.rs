@@ -5,6 +5,8 @@ use axum::{
 use rust_decimal::Decimal;
 use serde::Deserialize;
 
+use alpaca_trade::orders::OrderStatus;
+
 use crate::auth::MockHttpError;
 use crate::state::{
     AdminStateResponse, InjectedHttpFault, MockServerState, RejectedReplacementRaceFixture,
@@ -20,6 +22,12 @@ pub struct InjectHttpFaultRequest {
 #[derive(Debug, Deserialize)]
 pub struct SeedRejectedReplacementRaceRequest {
     pub api_key: String,
+    #[serde(default = "filled_predecessor_status")]
+    pub predecessor_status: OrderStatus,
+}
+
+fn filled_predecessor_status() -> OrderStatus {
+    OrderStatus::Filled
 }
 
 #[derive(Debug, Deserialize)]
@@ -62,5 +70,5 @@ pub(crate) async fn admin_seed_rejected_replacement_race(
     State(state): State<MockServerState>,
     Json(request): Json<SeedRejectedReplacementRaceRequest>,
 ) -> Json<RejectedReplacementRaceFixture> {
-    Json(state.seed_rejected_replacement_race(&request.api_key))
+    Json(state.seed_rejected_replacement_race(&request.api_key, request.predecessor_status))
 }
