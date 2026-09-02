@@ -4,13 +4,14 @@ This document is the public companion for `tools/api-coverage/market-data-api.js
 
 ## Scope
 
-- Included: Alpaca Market Data HTTP API families used by the first US-equities-and-options-focused release
-- Excluded or deferred: crypto, forex, fixed income, index, logos, screener, stream, websocket
+- Included: Alpaca Market Data HTTP API families used by the US-equities, options, and crypto-spot release
+- Excluded or deferred: crypto perpetual futures, forex, fixed income, index, logos, screener, stream, websocket
 
 ## Adopted Families
 
 - Stock
 - Option
+- Crypto
 - News
 - Corporate actions
 
@@ -19,8 +20,8 @@ This document is the public companion for `tools/api-coverage/market-data-api.js
 Summary from `tools/api-coverage/market-data-api.json`:
 
 - official total operations: `50`
-- adopted-family total operations: `28`
-- implemented mirror operations: `28`
+- adopted-family total operations: `36`
+- implemented mirror operations: `36`
 - open adopted-scope mirror gaps: `0`
 
 Implemented stock operations:
@@ -43,6 +44,13 @@ Implemented option operations:
 - condition codes
 - exchange codes
 
+Implemented crypto operations:
+
+- historical bars, quotes, trades
+- latest bars, quotes, trades
+- latest orderbooks
+- snapshots
+
 Implemented adopted single-endpoint families:
 
 - news list
@@ -50,7 +58,7 @@ Implemented adopted single-endpoint families:
 
 ## Explicitly Not Implemented
 
-- crypto market data
+- crypto perpetual futures market data
 - forex market data
 - fixed income market data
 - index data, deferred to `optworks#173` until the Paper entitlement can verify the real API

@@ -25,6 +25,7 @@ cargo test -p alpaca-data --tests -- --nocapture
 Current market-data test files:
 
 - `crates/alpaca-data/tests/stocks_real_api.rs`
+- `crates/alpaca-data/tests/crypto_real_api.rs`
 - `crates/alpaca-data/tests/corporate_actions_real_api.rs`
 
 Every retained test sends at least one request to the canonical Alpaca Data

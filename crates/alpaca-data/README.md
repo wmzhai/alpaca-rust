@@ -6,6 +6,7 @@
 
 - stocks
 - options
+- crypto
 - news
 - corporate actions
 
@@ -25,6 +26,7 @@ let client = Client::builder()
 
 - `client.stocks()`
 - `client.options()`
+- `client.crypto()`
 - `client.news()`
 - `client.corporate_actions()`
 
@@ -87,6 +89,17 @@ Stock and raw option snapshot caches share one requested-set reconciliation cont
 - `condition_codes`
 - `exchange_codes`
 
+### Crypto
+
+- `bars` / `bars_all`
+- `quotes` / `quotes_all`
+- `trades` / `trades_all`
+- `latest_bars`
+- `latest_quotes`
+- `latest_trades`
+- `latest_orderbooks`
+- `snapshots`
+
 ### News
 
 - `list`
@@ -101,6 +114,9 @@ Stock and raw option snapshot caches share one requested-set reconciliation cont
 
 - `stocks::ordered_snapshots(...)`
 - `options::ordered_snapshots(...)`
+- `crypto::ordered_snapshots(...)`
+- `crypto::preferred_location()`
+- `crypto::Snapshot::{timestamp, price, last_price, bid_price, ask_price, mark_price}`
 - `stocks::Snapshot::{timestamp, price, bid_price, ask_price, session_open, session_high, session_low, session_close, previous_close, session_volume}`
 - `options::Snapshot::{timestamp, bid_price, ask_price, last_price, mark_price}`
 - `options::underlying_symbol(...)`
@@ -108,7 +124,7 @@ Stock and raw option snapshot caches share one requested-set reconciliation cont
 
 ## Not Implemented
 
-- crypto
+- crypto perpetual futures
 - forex
 - fixed income
 - index

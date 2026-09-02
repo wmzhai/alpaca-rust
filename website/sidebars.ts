@@ -45,6 +45,7 @@ const sidebars: SidebarsConfig = {
         'reference/alpaca-facade',
         'reference/stocks',
         'reference/options-data',
+        'reference/crypto',
         'reference/news',
         'reference/corporate-actions',
         'reference/account',

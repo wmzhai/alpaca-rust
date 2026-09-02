@@ -17,10 +17,10 @@ categories = ["api-bindings", "asynchronous"]
 path = "src/lib.rs"
 
 [dependencies]
-alpaca-core = { path = "../alpaca-core", version = "0.31.6" }
-alpaca-data = { path = "../alpaca-data", version = "0.31.6" }
-alpaca-time = { path = "../alpaca-time", version = "0.31.6" }
-alpaca-option = { path = "../alpaca-option", version = "0.31.6" }
+alpaca-core = { path = "../alpaca-core", version = "0.32.0" }
+alpaca-data = { path = "../alpaca-data", version = "0.32.0" }
+alpaca-time = { path = "../alpaca-time", version = "0.32.0" }
+alpaca-option = { path = "../alpaca-option", version = "0.32.0" }
 anyhow.workspace = true
 chrono.workspace = true
 futures.workspace = true

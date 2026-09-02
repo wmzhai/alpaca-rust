@@ -39,7 +39,7 @@ Maintainer: Weiming Zhai <wmzhai@gmail.com>
 
 ## What Is Included
 
-- Alpaca Market Data HTTP support for stocks, options, news, and corporate actions
+- Alpaca Market Data HTTP support for stocks, options, crypto, news, and corporate actions
 - Alpaca Trading HTTP support for account, activities, assets, calendar, clock, options contracts, orders, portfolio history, positions, and watchlists
 - Shared low-level transport, credentials, query, pagination, and serde primitives
 - New York time and US trading-calendar semantics
@@ -52,7 +52,7 @@ Maintainer: Weiming Zhai <wmzhai@gmail.com>
 The current published Rust release line does not implement:
 
 - WebSocket or stream APIs
-- index, crypto, forex, fixed income, logos, or screener APIs
+- index, crypto perpetual futures, forex, fixed income, logos, or screener APIs
 - Broker API or FIX
 - third-party provider clients
 - application singletons, strategy orchestration, or provider fallback systems
@@ -77,7 +77,7 @@ Use `alpaca-data` for market data:
 
 ```toml
 [dependencies]
-alpaca-data = "0.31.6"
+alpaca-data = "0.32.0"
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
 ```
 
@@ -94,7 +94,7 @@ Use `alpaca-trade` for trading resources:
 
 ```toml
 [dependencies]
-alpaca-trade = "0.31.6"
+alpaca-trade = "0.32.0"
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
 ```
 
@@ -112,8 +112,8 @@ Use `alpaca-facade` for the high-level composition layer:
 
 ```toml
 [dependencies]
-alpaca-facade = "0.31.6"
-alpaca-data = "0.31.6"
+alpaca-facade = "0.32.0"
+alpaca-data = "0.32.0"
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
 ```
 
@@ -156,7 +156,7 @@ ALPACA_TRADE_BASE_URL=http://127.0.0.1:3847
 
 - `alpaca-core`: shared primitives such as credentials, base URLs, query helpers, and serde helpers
 - `alpaca-rest-http`: shared transport, retry, observer, and response metadata layer
-- `alpaca-data`: market data client for stocks, options, news, and corporate actions
+- `alpaca-data`: market data client for stocks, options, crypto, news, and corporate actions
 - `alpaca-trade`: trading client for paper/live trading resources
 - `alpaca-mock`: executable mock server for market-data-backed trade validation
 

@@ -1,11 +1,10 @@
 {
   "manifest_version": 1,
-  "generated_at": "2026-07-11",
+  "generated_at": "2026-09-01",
   "scope": {
     "api": "market-data-http",
-    "included_asset_scope": "us-equities-and-options-focused",
+    "included_asset_scope": "us-equities-options-and-crypto-spot",
     "excluded_scopes": [
-      "crypto",
       "fixed_income",
       "forex",
       "index",
@@ -25,6 +24,7 @@
     "crate": "alpaca-data",
     "adopted_tags": [
       "Corporate actions",
+      "Crypto",
       "News",
       "Option",
       "Stock"
@@ -32,8 +32,8 @@
   },
   "summary": {
     "official_total_operations": 50,
-    "adopted_family_total_operations": 28,
-    "implemented_mirror_operations": 28,
+    "adopted_family_total_operations": 36,
+    "implemented_mirror_operations": 36,
     "open_gaps": 0
   },
   "mirror_layer": [
@@ -1579,15 +1579,301 @@
         ]
       },
       "method": "GET"
+    },
+    {
+      "tag": "Crypto",
+      "operation_id": "CryptoBars",
+      "path": "/v1beta3/crypto/{loc}/bars",
+      "local_resource": "crypto",
+      "mirror_method": "bars",
+      "request_type": "crypto::BarsRequest",
+      "response_type": "crypto::BarsResponse",
+      "parameter_contract": {
+        "signatures": [
+          "loc|path|required|string|enum=bs-1,eu-1,us,us-1,us-2",
+          "end|query|optional|string",
+          "limit|query|optional|integer|default=1000",
+          "page_token|query|optional|string",
+          "sort|query|optional|string|enum=asc,desc|default=asc",
+          "start|query|optional|string",
+          "symbols|query|required|string",
+          "timeframe|query|required|string"
+        ]
+      },
+      "response_contract": {
+        "status": "200",
+        "field_signatures": [
+          "bars.*[].c|number",
+          "bars.*[].h|number",
+          "bars.*[].l|number",
+          "bars.*[].n|integer",
+          "bars.*[].o|number",
+          "bars.*[].t|string",
+          "bars.*[].vw|number",
+          "bars.*[].v|number",
+          "bars.*[]|object",
+          "bars.*|array",
+          "bars|object",
+          "next_page_token|null|string"
+        ]
+      },
+      "method": "GET"
+    },
+    {
+      "tag": "Crypto",
+      "operation_id": "CryptoQuotes",
+      "path": "/v1beta3/crypto/{loc}/quotes",
+      "local_resource": "crypto",
+      "mirror_method": "quotes",
+      "request_type": "crypto::QuotesRequest",
+      "response_type": "crypto::QuotesResponse",
+      "parameter_contract": {
+        "signatures": [
+          "loc|path|required|string|enum=bs-1,eu-1,us,us-1,us-2",
+          "end|query|optional|string",
+          "limit|query|optional|integer|default=1000",
+          "page_token|query|optional|string",
+          "sort|query|optional|string|enum=asc,desc|default=asc",
+          "start|query|optional|string",
+          "symbols|query|required|string"
+        ]
+      },
+      "response_contract": {
+        "status": "200",
+        "field_signatures": [
+          "next_page_token|null|string",
+          "quotes.*[].ap|number",
+          "quotes.*[].as|number",
+          "quotes.*[].bp|number",
+          "quotes.*[].bs|number",
+          "quotes.*[].t|string",
+          "quotes.*[]|object",
+          "quotes.*|array",
+          "quotes|object"
+        ]
+      },
+      "method": "GET"
+    },
+    {
+      "tag": "Crypto",
+      "operation_id": "CryptoTrades",
+      "path": "/v1beta3/crypto/{loc}/trades",
+      "local_resource": "crypto",
+      "mirror_method": "trades",
+      "request_type": "crypto::TradesRequest",
+      "response_type": "crypto::TradesResponse",
+      "parameter_contract": {
+        "signatures": [
+          "loc|path|required|string|enum=bs-1,eu-1,us,us-1,us-2",
+          "end|query|optional|string",
+          "limit|query|optional|integer|default=1000",
+          "page_token|query|optional|string",
+          "sort|query|optional|string|enum=asc,desc|default=asc",
+          "start|query|optional|string",
+          "symbols|query|required|string"
+        ]
+      },
+      "response_contract": {
+        "status": "200",
+        "field_signatures": [
+          "next_page_token|null|string",
+          "trades.*[].i|integer",
+          "trades.*[].p|number",
+          "trades.*[].s|number",
+          "trades.*[].tks|string",
+          "trades.*[].t|string",
+          "trades.*[]|object",
+          "trades.*|array",
+          "trades|object"
+        ]
+      },
+      "method": "GET"
+    },
+    {
+      "tag": "Crypto",
+      "operation_id": "CryptoLatestBars",
+      "path": "/v1beta3/crypto/{loc}/latest/bars",
+      "local_resource": "crypto",
+      "mirror_method": "latest_bars",
+      "request_type": "crypto::LatestBarsRequest",
+      "response_type": "crypto::LatestBarsResponse",
+      "parameter_contract": {
+        "signatures": [
+          "loc|path|required|string|enum=bs-1,eu-1,us,us-1,us-2",
+          "symbols|query|required|string"
+        ]
+      },
+      "response_contract": {
+        "status": "200",
+        "field_signatures": [
+          "bars.*.c|number",
+          "bars.*.h|number",
+          "bars.*.l|number",
+          "bars.*.n|integer",
+          "bars.*.o|number",
+          "bars.*.t|string",
+          "bars.*.vw|number",
+          "bars.*.v|number",
+          "bars.*|object",
+          "bars|object"
+        ]
+      },
+      "method": "GET"
+    },
+    {
+      "tag": "Crypto",
+      "operation_id": "CryptoLatestQuotes",
+      "path": "/v1beta3/crypto/{loc}/latest/quotes",
+      "local_resource": "crypto",
+      "mirror_method": "latest_quotes",
+      "request_type": "crypto::LatestQuotesRequest",
+      "response_type": "crypto::LatestQuotesResponse",
+      "parameter_contract": {
+        "signatures": [
+          "loc|path|required|string|enum=bs-1,eu-1,us,us-1,us-2",
+          "symbols|query|required|string"
+        ]
+      },
+      "response_contract": {
+        "status": "200",
+        "field_signatures": [
+          "quotes.*.ap|number",
+          "quotes.*.as|number",
+          "quotes.*.bp|number",
+          "quotes.*.bs|number",
+          "quotes.*.t|string",
+          "quotes.*|object",
+          "quotes|object"
+        ]
+      },
+      "method": "GET"
+    },
+    {
+      "tag": "Crypto",
+      "operation_id": "CryptoLatestTrades",
+      "path": "/v1beta3/crypto/{loc}/latest/trades",
+      "local_resource": "crypto",
+      "mirror_method": "latest_trades",
+      "request_type": "crypto::LatestTradesRequest",
+      "response_type": "crypto::LatestTradesResponse",
+      "parameter_contract": {
+        "signatures": [
+          "loc|path|required|string|enum=bs-1,eu-1,us,us-1,us-2",
+          "symbols|query|required|string"
+        ]
+      },
+      "response_contract": {
+        "status": "200",
+        "field_signatures": [
+          "trades.*.i|integer",
+          "trades.*.p|number",
+          "trades.*.s|number",
+          "trades.*.tks|string",
+          "trades.*.t|string",
+          "trades.*|object",
+          "trades|object"
+        ]
+      },
+      "method": "GET"
+    },
+    {
+      "tag": "Crypto",
+      "operation_id": "CryptoLatestOrderbooks",
+      "path": "/v1beta3/crypto/{loc}/latest/orderbooks",
+      "local_resource": "crypto",
+      "mirror_method": "latest_orderbooks",
+      "request_type": "crypto::LatestOrderbooksRequest",
+      "response_type": "crypto::LatestOrderbooksResponse",
+      "parameter_contract": {
+        "signatures": [
+          "loc|path|required|string|enum=bs-1,eu-1,us,us-1,us-2",
+          "symbols|query|required|string"
+        ]
+      },
+      "response_contract": {
+        "status": "200",
+        "field_signatures": [
+          "orderbooks.*.a[].p|number",
+          "orderbooks.*.a[].s|number",
+          "orderbooks.*.a[]|object",
+          "orderbooks.*.a|array",
+          "orderbooks.*.b[].p|number",
+          "orderbooks.*.b[].s|number",
+          "orderbooks.*.b[]|object",
+          "orderbooks.*.b|array",
+          "orderbooks.*.t|string",
+          "orderbooks.*|object",
+          "orderbooks|object"
+        ]
+      },
+      "method": "GET"
+    },
+    {
+      "tag": "Crypto",
+      "operation_id": "CryptoSnapshots",
+      "path": "/v1beta3/crypto/{loc}/snapshots",
+      "local_resource": "crypto",
+      "mirror_method": "snapshots",
+      "request_type": "crypto::SnapshotsRequest",
+      "response_type": "crypto::SnapshotsResponse",
+      "parameter_contract": {
+        "signatures": [
+          "loc|path|required|string|enum=bs-1,eu-1,us,us-1,us-2",
+          "symbols|query|required|string"
+        ]
+      },
+      "response_contract": {
+        "status": "200",
+        "field_signatures": [
+          "snapshots.*.dailyBar.c|number",
+          "snapshots.*.dailyBar.h|number",
+          "snapshots.*.dailyBar.l|number",
+          "snapshots.*.dailyBar.n|integer",
+          "snapshots.*.dailyBar.o|number",
+          "snapshots.*.dailyBar.t|string",
+          "snapshots.*.dailyBar.vw|number",
+          "snapshots.*.dailyBar.v|number",
+          "snapshots.*.dailyBar|object",
+          "snapshots.*.latestQuote.ap|number",
+          "snapshots.*.latestQuote.as|number",
+          "snapshots.*.latestQuote.bp|number",
+          "snapshots.*.latestQuote.bs|number",
+          "snapshots.*.latestQuote.t|string",
+          "snapshots.*.latestQuote|object",
+          "snapshots.*.latestTrade.i|integer",
+          "snapshots.*.latestTrade.p|number",
+          "snapshots.*.latestTrade.s|number",
+          "snapshots.*.latestTrade.tks|string",
+          "snapshots.*.latestTrade.t|string",
+          "snapshots.*.latestTrade|object",
+          "snapshots.*.minuteBar.c|number",
+          "snapshots.*.minuteBar.h|number",
+          "snapshots.*.minuteBar.l|number",
+          "snapshots.*.minuteBar.n|integer",
+          "snapshots.*.minuteBar.o|number",
+          "snapshots.*.minuteBar.t|string",
+          "snapshots.*.minuteBar.vw|number",
+          "snapshots.*.minuteBar.v|number",
+          "snapshots.*.minuteBar|object",
+          "snapshots.*.prevDailyBar.c|number",
+          "snapshots.*.prevDailyBar.h|number",
+          "snapshots.*.prevDailyBar.l|number",
+          "snapshots.*.prevDailyBar.n|integer",
+          "snapshots.*.prevDailyBar.o|number",
+          "snapshots.*.prevDailyBar.t|string",
+          "snapshots.*.prevDailyBar.vw|number",
+          "snapshots.*.prevDailyBar.v|number",
+          "snapshots.*.prevDailyBar|object",
+          "snapshots.*|object",
+          "snapshots|object"
+        ]
+      },
+      "method": "GET"
     }
   ],
   "convenience_layer": [],
   "planned_gaps": [],
   "excluded_families": [
-    {
-      "tag": "Crypto",
-      "status": "explicitly_excluded"
-    },
     {
       "tag": "Crypto perpetual futures",
       "status": "explicitly_excluded"

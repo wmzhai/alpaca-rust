@@ -10,8 +10,8 @@ use alpaca_http::{
 use serde::de::DeserializeOwned;
 
 use crate::{
-    Error, corporate_actions::CorporateActionsClient, news::NewsClient, options::OptionsClient,
-    stocks::StocksClient,
+    Error, corporate_actions::CorporateActionsClient, crypto::CryptoClient, news::NewsClient,
+    options::OptionsClient, stocks::StocksClient,
 };
 
 pub const DATA_API_KEY_ENV: &str = "ALPACA_DATA_API_KEY";
@@ -70,6 +70,11 @@ impl Client {
     #[must_use]
     pub fn stocks(&self) -> StocksClient {
         StocksClient::new(self.inner.clone())
+    }
+
+    #[must_use]
+    pub fn crypto(&self) -> CryptoClient {
+        CryptoClient::new(self.inner.clone())
     }
 
     #[must_use]

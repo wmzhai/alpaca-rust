@@ -31,7 +31,7 @@ const guideCards = [
 const resourceCards = [
   {title: 'alpaca-core', to: '/docs/reference/alpaca-core', body: 'Shared primitives, credentials, URL helpers, and common typed foundations.'},
   {title: 'alpaca-rest-http', to: '/docs/reference/alpaca-rest-http', body: 'Shared HTTP transport, retry behavior, observers, and response metadata handling.'},
-  {title: 'alpaca-data', to: '/docs/reference/alpaca-data', body: 'Market data client coverage for stocks, options, news, and corporate actions.'},
+  {title: 'alpaca-data', to: '/docs/reference/alpaca-data', body: 'Market data client coverage for stocks, options, crypto, news, and corporate actions.'},
   {title: 'alpaca-trade', to: '/docs/reference/alpaca-trade', body: 'Trading client coverage for account, assets, orders, positions, activities, and watchlists.'},
   {title: 'alpaca-mock', to: '/docs/reference/alpaca-mock', body: 'Executable mock server flows for trade lifecycle verification and market-data-backed simulations.'},
   {title: 'alpaca-time', to: '/docs/reference/alpaca-time', body: 'New York time, trading-calendar, expiration, and display semantics shared across the Rust workspace.'},

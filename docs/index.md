@@ -50,7 +50,7 @@ Maintainer: Weiming Zhai (wmzhai@gmail.com)
 
 ## Coverage Snapshot
 
-- `alpaca-data` covers the adopted Alpaca Market Data HTTP scope for stocks, options, news, and corporate actions
+- `alpaca-data` covers the adopted Alpaca Market Data HTTP scope for stocks, options, crypto, news, and corporate actions
 - `alpaca-trade` covers the adopted Alpaca Trading HTTP scope for account, activities, assets, calendar/clock, options contracts, orders, portfolio history, positions, and watchlists
 - `alpaca-time`, `alpaca-option`, and `alpaca-facade` provide the shared semantic and convenience layers used above those HTTP crates
 
@@ -58,6 +58,6 @@ Maintainer: Weiming Zhai (wmzhai@gmail.com)
 
 The current published Rust release line does not implement:
 
-- market-data crypto, forex, fixed income, logos, or screener APIs
+- market-data crypto perpetual futures, forex, fixed income, logos, or screener APIs
 - trading crypto, fixed income, broker, FIX, websocket, or stream APIs
 - strategy orchestration, provider fallback systems, or application singletons

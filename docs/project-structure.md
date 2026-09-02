@@ -9,7 +9,7 @@ companions, and supporting documentation/test assets.
 | --- | --- | --- | --- |
 | `crates/alpaca-core` | `alpaca-core` | Shared primitives | Credentials, base URLs, query helpers, serde helpers |
 | `crates/alpaca-http` | `alpaca-rest-http` | Shared transport | Directory path differs from the published crate name |
-| `crates/alpaca-data` | `alpaca-data` | Market Data HTTP SDK | Stocks, options, news, corporate actions |
+| `crates/alpaca-data` | `alpaca-data` | Market Data HTTP SDK | Stocks, options, crypto, news, corporate actions |
 | `crates/alpaca-trade` | `alpaca-trade` | Trading HTTP SDK | Account, orders, positions, activities, contracts, watchlists |
 | `crates/alpaca-mock` | `alpaca-mock` | Executable mock server | Market-data-backed trade validation |
 | `crates/alpaca-time` | `alpaca-time` | Time semantics | New York time, trading calendar, expiration helpers |

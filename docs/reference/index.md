@@ -26,6 +26,7 @@ HTTP surfaces in `alpaca-rust`.
 
 - [stocks](./stocks.md)
 - [options market data](./options-data.md)
+- [crypto](./crypto.md)
 - [news](./news.md)
 - [corporate actions](./corporate-actions.md)
 

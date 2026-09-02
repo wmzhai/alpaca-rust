@@ -8,12 +8,13 @@
 
 - stocks
 - options
+- crypto
 - news
 - corporate actions
 
 ### Not Implemented
 
-- crypto
+- crypto perpetual futures
 - forex
 - fixed income
 - logos
@@ -49,6 +50,7 @@ The built client exposes its resolved endpoint through `Client::base_url()`.
 
 - `client.stocks()`
 - `client.options()`
+- `client.crypto()`
 - `client.news()`
 - `client.corporate_actions()`
 
@@ -105,6 +107,33 @@ Notes:
 - `snapshots_all(...)` absorbs Alpaca's current single-request limit of `100` contracts
 - `underlying_symbol(...)` normalizes inputs such as `BRK.B -> BRKB` into provider form
 
+## Crypto API
+
+### Resource Client
+
+- `crypto().bars(...)`
+- `crypto().bars_all(...)`
+- `crypto().quotes(...)`
+- `crypto().quotes_all(...)`
+- `crypto().trades(...)`
+- `crypto().trades_all(...)`
+- `crypto().latest_bars(...)`
+- `crypto().latest_quotes(...)`
+- `crypto().latest_trades(...)`
+- `crypto().latest_orderbooks(...)`
+- `crypto().snapshots(...)`
+
+### Convenience Helpers
+
+- `crypto::preferred_location()`
+- `crypto::ordered_snapshots(...)`
+- `crypto::Snapshot::{timestamp, price, last_price, bid_price, ask_price, mark_price}`
+
+Notes:
+
+- all crypto routes are `/v1beta3/crypto/{loc}/...`; there is no single-symbol dispatch
+- `preferred_location()` is `us`
+
 ## News API
 
 ### Resource Client
@@ -138,6 +167,7 @@ Notes:
 
 - [Stocks](./stocks.md)
 - [Options Market Data](./options-data.md)
+- [Crypto](./crypto.md)
 - [News](./news.md)
 - [Corporate Actions](./corporate-actions.md)
 - [Market Data API Coverage](../api-coverage/market-data.md)

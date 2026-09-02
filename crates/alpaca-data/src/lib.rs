@@ -14,6 +14,7 @@
 //!
 //! let client = Client::builder().credentials_from_env()?.build()?;
 //! let _stocks = client.stocks();
+//! let _crypto = client.crypto();
 //! # Ok::<(), alpaca_data::Error>(())
 //! ```
 //!
@@ -30,6 +31,7 @@ mod symbols;
 
 pub mod cache;
 pub mod corporate_actions;
+pub mod crypto;
 pub mod news;
 pub mod options;
 pub mod stocks;
