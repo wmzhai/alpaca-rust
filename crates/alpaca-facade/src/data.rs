@@ -96,9 +96,7 @@ pub async fn live_option_chain(
     })
 }
 
-fn copy_positive_prices(
-    prices: Option<&HashMap<String, Decimal>>,
-) -> HashMap<String, Decimal> {
+fn copy_positive_prices(prices: Option<&HashMap<String, Decimal>>) -> HashMap<String, Decimal> {
     prices
         .into_iter()
         .flat_map(|prices| prices.iter())
@@ -107,10 +105,7 @@ fn copy_positive_prices(
         .collect()
 }
 
-fn merge_positive_prices(
-    target: &mut HashMap<String, Decimal>,
-    fetched: HashMap<String, Decimal>,
-) {
+fn merge_positive_prices(target: &mut HashMap<String, Decimal>, fetched: HashMap<String, Decimal>) {
     for (symbol, price) in fetched {
         if price > Decimal::ZERO {
             target.entry(symbol).or_insert(price);
@@ -185,10 +180,7 @@ pub async fn map_live_snapshots_from_client(
         let mut prices = copy_positive_prices(known_prices);
         let missing = missing_symbols(&symbols, &prices);
         if !missing.is_empty() {
-            merge_positive_prices(
-                &mut prices,
-                snapshot_stock_prices(client, &missing).await?,
-            );
+            merge_positive_prices(&mut prices, snapshot_stock_prices(client, &missing).await?);
         }
         prices
     } else if symbols.is_empty() {
@@ -198,12 +190,8 @@ pub async fn map_live_snapshots_from_client(
     };
     let price_map = (!iv_prices.is_empty()).then_some(&iv_prices);
 
-    let pricing_references = pricing_references_for_snapshots(
-        snapshots,
-        price_map,
-        price_map,
-        &now,
-    )?;
+    let pricing_references =
+        pricing_references_for_snapshots(snapshots, price_map, price_map, &now)?;
     map_snapshots_with_pricing_references(
         snapshots,
         (!pricing_references.is_empty()).then_some(&pricing_references),
@@ -843,12 +831,8 @@ impl AlpacaData {
         };
         let price_map = (!iv_prices.is_empty()).then_some(&iv_prices);
 
-        let pricing_references = pricing_references_for_snapshots(
-            snapshots,
-            price_map,
-            price_map,
-            &now,
-        )?;
+        let pricing_references =
+            pricing_references_for_snapshots(snapshots, price_map, price_map, &now)?;
         map_snapshots_with_pricing_references(
             snapshots,
             (!pricing_references.is_empty()).then_some(&pricing_references),
@@ -945,5 +929,4 @@ mod tests {
             vec!["BRK.B".to_owned(), "SPY".to_owned()]
         );
     }
-
 }

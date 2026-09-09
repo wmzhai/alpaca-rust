@@ -194,16 +194,14 @@ fn infer_iv(
     years: f64,
     dividend_yield: f64,
 ) -> Option<f64> {
-    pricing::implied_volatility_from_price(
-        &alpaca_option::BlackScholesImpliedVolatilityInput::new(
-            option_price,
-            underlying_price,
-            contract.strike,
-            years,
-            dividend_yield,
-            contract.option_right.clone(),
-        ),
-    )
+    pricing::implied_volatility_from_price(&alpaca_option::BlackScholesImpliedVolatilityInput::new(
+        option_price,
+        underlying_price,
+        contract.strike,
+        years,
+        dividend_yield,
+        contract.option_right.clone(),
+    ))
     .ok()
     .map(|value| value.min(MAX_INFERRED_IV))
 }
@@ -242,8 +240,9 @@ fn repaired_greeks_and_iv(
     let implied_volatility = if let Some(implied_volatility) = fallback_iv {
         Some(implied_volatility)
     } else {
-        inversion_quote_price(quote, invert_iv)
-            .and_then(|option_price| infer_iv(contract, option_price, iv_spot, years, dividend_yield))
+        inversion_quote_price(quote, invert_iv).and_then(|option_price| {
+            infer_iv(contract, option_price, iv_spot, years, dividend_yield)
+        })
     };
 
     let Some(implied_volatility) = implied_volatility else {
@@ -297,13 +296,9 @@ pub fn apply_optionstrat_premium_model(
     )
     .max(MIN_TIME_YEARS);
     let dividend_yield = dividend_yield.unwrap_or(DEFAULT_DIVIDEND_YIELD);
-    let Some(implied_volatility) = infer_iv(
-        &contract,
-        option_price,
-        iv_spot,
-        years,
-        dividend_yield,
-    ) else {
+    let Some(implied_volatility) =
+        infer_iv(&contract, option_price, iv_spot, years, dividend_yield)
+    else {
         return Ok(());
     };
 
@@ -342,13 +337,8 @@ fn pricing_reference_for_snapshot(
         snapshot_as_of_with_fallback(snapshot, now)
     };
     let latest_price = valid_underlying_price_decimal(latest_price);
-    let iv_underlying_price = valid_underlying_price_decimal(iv_price).or_else(|| {
-        if invert_iv {
-            None
-        } else {
-            latest_price
-        }
-    });
+    let iv_underlying_price = valid_underlying_price_decimal(iv_price)
+        .or_else(|| if invert_iv { None } else { latest_price });
 
     Ok(OptionPricingReference {
         evaluation_time,
@@ -424,12 +414,11 @@ pub fn map_snapshot_with_pricing_reference(
         greeks,
         implied_volatility,
         underlying_price: pricing_reference.and_then(|reference| {
-            reference_spot(reference.iv_underlying_price)
-                .or_else(|| {
-                    (!reference.invert_iv)
-                        .then(|| reference_spot(reference.underlying_price))
-                        .flatten()
-                })
+            reference_spot(reference.iv_underlying_price).or_else(|| {
+                (!reference.invert_iv)
+                    .then(|| reference_spot(reference.underlying_price))
+                    .flatten()
+            })
         }),
     })
 }
@@ -652,12 +641,7 @@ mod tests {
         }
     }
 
-    fn expected_iv(
-        occ_symbol: &str,
-        option_price: f64,
-        spot: f64,
-        evaluation_time: &str,
-    ) -> f64 {
+    fn expected_iv(occ_symbol: &str, option_price: f64, spot: f64, evaluation_time: &str) -> f64 {
         let contract = contract::parse_occ_symbol(occ_symbol).expect("test OCC should parse");
         let years = expiration::years(&contract.expiration_date, Some(evaluation_time), None)
             .max(MIN_TIME_YEARS);
@@ -847,7 +831,12 @@ mod tests {
         let mapped = map_snapshot_with_pricing_reference(
             OCC_SYMBOL,
             &snapshot,
-            Some(&pricing_reference("2026-06-01 10:00:00", 100.0, 100.0, false)),
+            Some(&pricing_reference(
+                "2026-06-01 10:00:00",
+                100.0,
+                100.0,
+                false,
+            )),
             Some(0.0),
         )
         .expect("snapshot should map");

@@ -405,11 +405,7 @@ fn gamma_exposure_from_gamma(
 }
 
 fn finite(value: f64) -> Option<f64> {
-    if value.is_finite() {
-        Some(value)
-    } else {
-        None
-    }
+    if value.is_finite() { Some(value) } else { None }
 }
 
 fn finite_positive(value: f64) -> Option<f64> {

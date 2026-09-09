@@ -33,8 +33,8 @@ pub use market_structure::{
     analyze_market_structure, analyze_market_structure_with_options,
     filter_market_structure_records, gamma_exposure, gamma_exposure_with_mode,
 };
-pub use option_strategy::{unique_break_even_points, OptionStrategy};
-pub use rate::{risk_free_rate_for_years, RiskFreeRatePoint, DEFAULT_RISK_FREE_RATE_CURVE};
+pub use option_strategy::{OptionStrategy, unique_break_even_points};
+pub use rate::{DEFAULT_RISK_FREE_RATE_CURVE, RiskFreeRatePoint, risk_free_rate_for_years};
 pub use types::{
     AssignmentRiskLevel, BlackScholesImpliedVolatilityInput, BlackScholesInput, ContractDisplay,
     ExecutionAction, ExecutionLeg, ExecutionLegInput, ExecutionQuoteRange, ExecutionSnapshot,

@@ -1,6 +1,6 @@
 use alpaca_core::float;
-use rust_decimal::prelude::ToPrimitive;
 use rust_decimal::Decimal;
+use rust_decimal::prelude::ToPrimitive;
 use serde::{Deserialize, Deserializer, Serialize};
 use ts_rs::TS;
 

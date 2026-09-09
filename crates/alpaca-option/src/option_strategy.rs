@@ -11,8 +11,8 @@ use crate::types::{
 };
 use alpaca_time::clock;
 use alpaca_time::expiration;
-use rust_decimal::prelude::ToPrimitive;
 use rust_decimal::Decimal;
+use rust_decimal::prelude::ToPrimitive;
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 

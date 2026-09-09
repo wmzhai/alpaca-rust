@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+## v0.32.1
+
+- Reformatted internal option, facade, and stock snapshot helpers without changing public APIs.
+
 ## v0.32.0
 
 - Added `alpaca-data` crypto spot HTTP coverage for historical bars, quotes, and trades, plus latest bars, quotes, trades, orderbooks, and snapshots on `/v1beta3/crypto/{loc}/...`. `preferred_location()` defaults to Alpaca US. Crypto perpetual futures, websocket streams, and trading-side crypto APIs remain out of scope.
