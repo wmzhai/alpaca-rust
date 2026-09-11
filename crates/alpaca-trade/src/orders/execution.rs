@@ -333,12 +333,12 @@ impl Execution {
     ) -> Result<Self, Error> {
         match self {
             Self::DynamicMarket {
+                limit_price,
                 start_percentage,
                 current_percentage,
                 percentage_step,
                 interval_seconds,
                 last_adjustment_time,
-                ..
             } => {
                 if *current_percentage >= 1.0 {
                     return Ok(Self::Market);
@@ -351,23 +351,34 @@ impl Execution {
                     }
                 }
 
-                let next_percentage = (*current_percentage + *percentage_step).min(1.0);
-                if next_percentage >= 1.0 {
-                    return Ok(Self::Market);
+                let hanging = Self::normalize_order_price(*limit_price);
+                let mut next_percentage = *current_percentage;
+                loop {
+                    let previous_percentage = next_percentage;
+                    next_percentage = (next_percentage + *percentage_step).min(1.0);
+                    if next_percentage >= 1.0 {
+                        return Ok(Self::Market);
+                    }
+
+                    let next_limit_price = Self::normalize_order_price(
+                        best + (worst - best) * Self::progress_decimal(next_percentage)?,
+                    );
+                    // Same rounded limit means the step is denser than one cent: keep
+                    // advancing percentage in this interval until the price moves.
+                    if next_limit_price != hanging
+                        || *percentage_step <= 0.0
+                        || next_percentage <= previous_percentage
+                    {
+                        return Ok(Self::DynamicMarket {
+                            limit_price: next_limit_price,
+                            start_percentage: *start_percentage,
+                            current_percentage: next_percentage,
+                            percentage_step: *percentage_step,
+                            interval_seconds: *interval_seconds,
+                            last_adjustment_time: Some(now),
+                        });
+                    }
                 }
-
-                let next_limit_price = Self::normalize_order_price(
-                    best + (worst - best) * Self::progress_decimal(next_percentage)?,
-                );
-
-                Ok(Self::DynamicMarket {
-                    limit_price: next_limit_price,
-                    start_percentage: *start_percentage,
-                    current_percentage: next_percentage,
-                    percentage_step: *percentage_step,
-                    interval_seconds: *interval_seconds,
-                    last_adjustment_time: Some(now),
-                })
             }
             _ => Err(Error::InvalidRequest(
                 "advance_dynamic_market() only supports dynamic_market execution".to_string(),

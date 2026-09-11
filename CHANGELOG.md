@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+## v0.32.2
+
+- DynamicMarket now keeps advancing `percentage_step` in the same interval when the rounded limit price is unchanged, until the price moves or the order becomes Market.
+
 ## v0.32.1
 
 - Reformatted internal option, facade, and stock snapshot helpers without changing public APIs.
