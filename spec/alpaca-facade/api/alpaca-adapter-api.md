@@ -135,7 +135,7 @@ Current behavior:
 Current behavior:
 
 - symbols are normalized to display form
-- during regular session, it performs one cache-backed batch stock snapshot request via `CachedClient::stocks(...)`
+- during regular session, it performs one uncached batch stock snapshot request via the raw `alpaca-data` client
 - during regular session, it returns the positive realtime snapshot `Decimal` price per symbol
 - outside regular session, it performs one batch `bars_all(...)` request for the last completed trading day's daily bars
 - outside regular session, it returns the positive daily-bar `Decimal` close for that completed trading date

@@ -1,23 +1,26 @@
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
-use std::time::SystemTime;
+use std::time::{Duration, Instant, SystemTime};
 
 use chrono::{DateTime, Utc};
 use tokio::sync::RwLock;
 
 use crate::cache::state::{
-    BarsMap, CacheState, StockBarsRequest, collect_cached_hits, normalize_option_symbols,
-    normalize_stock_symbols,
+    BarsMap, CacheState, CachedEntry, StockBarsRequest, collect_cached_hits, is_timestamp_fresh,
+    missing_bar_symbols, normalize_option_symbols, normalize_stock_symbols, unwrap_bars_map,
 };
 use crate::cache::stats::CacheStats;
 use crate::options::{self, OptionsFeed, SnapshotsRequest as OptionSnapshotsRequest};
 use crate::stocks::{self, DataFeed, SnapshotsRequest as StockSnapshotsRequest};
 use crate::{Client, Error};
 
+pub const DEFAULT_PRICE_TTL: Duration = Duration::from_secs(15);
+
 #[derive(Clone)]
 pub struct CachedClientConfig {
     pub stocks_feed: Arc<dyn Fn() -> DataFeed + Send + Sync>,
     pub options_feed: OptionsFeed,
+    pub price_ttl: Duration,
 }
 
 impl Default for CachedClientConfig {
@@ -25,6 +28,7 @@ impl Default for CachedClientConfig {
         Self {
             stocks_feed: Arc::new(|| stocks::preferred_feed(false)),
             options_feed: options::preferred_feed(),
+            price_ttl: DEFAULT_PRICE_TTL,
         }
     }
 }
@@ -55,6 +59,11 @@ impl CachedClient {
         &self.raw
     }
 
+    #[must_use]
+    pub fn price_ttl(&self) -> Duration {
+        self.config.price_ttl
+    }
+
     pub async fn stocks<S: AsRef<str>>(
         &self,
         symbols: &[S],
@@ -65,9 +74,11 @@ impl CachedClient {
         }
 
         let resolved = unique_resolved_symbols(&requested);
+        let ttl = self.config.price_ttl;
+        let now = Instant::now();
         let (mut hits, missing) = {
             let state = self.state.read().await;
-            collect_cached_hits(&resolved, &state.stocks.values, &state.stocks.empty)
+            collect_cached_hits(&resolved, &state.stocks.values, &state.stocks.empty, ttl, now)
         };
 
         if !missing.is_empty() {
@@ -111,9 +122,17 @@ impl CachedClient {
             return Ok(HashMap::new());
         }
 
+        let ttl = self.config.price_ttl;
+        let now = Instant::now();
         let (mut hits, missing) = {
             let state = self.state.read().await;
-            collect_cached_hits(&requested, &state.options.values, &state.options.empty)
+            collect_cached_hits(
+                &requested,
+                &state.options.values,
+                &state.options.empty,
+                ttl,
+                now,
+            )
         };
 
         if !missing.is_empty() {
@@ -202,25 +221,27 @@ impl CachedClient {
 
     pub async fn bars(&self, key: &str) -> Result<HashMap<String, Vec<stocks::BarPoint>>, Error> {
         let request = self.bars_request(key).await?;
+        let ttl = self.config.price_ttl;
+        let now = Instant::now();
         let missing = {
             let state = self.state.read().await;
-            let cached = state.bars.values.get(key);
-            let empty = state.bars.empty.get(key);
-
-            request
-                .symbols
-                .iter()
-                .filter(|symbol| {
-                    !cached.is_some_and(|bars| bars.contains_key(*symbol))
-                        && !empty.is_some_and(|values| values.contains(*symbol))
-                })
-                .cloned()
-                .collect::<Vec<_>>()
+            missing_bar_symbols(
+                &request.symbols,
+                state.bars.values.get(key),
+                state.bars.empty.get(key),
+                ttl,
+                now,
+            )
         };
 
         if missing.is_empty() {
             let state = self.state.read().await;
-            return Ok(state.bars.values.get(key).cloned().unwrap_or_default());
+            return Ok(state
+                .bars
+                .values
+                .get(key)
+                .map(unwrap_bars_map)
+                .unwrap_or_default());
         }
 
         self.fetch_missing_bars(key, &request, &missing).await
@@ -228,18 +249,22 @@ impl CachedClient {
 
     pub async fn bar(&self, key: &str, symbol: &str) -> Option<Vec<stocks::BarPoint>> {
         let resolved = stocks::display_stock_symbol(symbol);
+        let ttl = self.config.price_ttl;
+        let now = Instant::now();
         {
             let state = self.state.read().await;
             if let Some(values) = state.bars.values.get(key)
-                && let Some(bars) = values.get(&resolved)
+                && let Some(entry) = values.get(&resolved)
+                && entry.is_fresh(ttl, now)
             {
-                return Some(bars.clone());
+                return Some(entry.value.clone());
             }
             if state
                 .bars
                 .empty
                 .get(key)
-                .is_some_and(|symbols| symbols.contains(&resolved))
+                .and_then(|symbols| symbols.get(&resolved))
+                .is_some_and(|stored_at| is_timestamp_fresh(*stored_at, ttl, now))
             {
                 return None;
             }
@@ -252,12 +277,17 @@ impl CachedClient {
         let request = self.bars_request(key).await?;
         let fetched = self.fetch_bars_request(&request, &request.symbols).await?;
         let count = fetched.len();
+        let stored_at = Instant::now();
 
-        let missing: HashSet<String> = request
+        let missing: HashMap<String, Instant> = request
             .symbols
             .iter()
             .filter(|symbol| !fetched.contains_key(*symbol))
-            .cloned()
+            .map(|symbol| (symbol.clone(), stored_at))
+            .collect();
+        let fetched = fetched
+            .into_iter()
+            .map(|(symbol, bars)| (symbol, CachedEntry { value: bars, stored_at }))
             .collect();
 
         let mut state = self.state.write().await;
@@ -359,6 +389,7 @@ impl CachedClient {
         missing: &[String],
     ) -> Result<HashMap<String, Vec<stocks::BarPoint>>, Error> {
         let fetched = self.fetch_bars_request(request, missing).await?;
+        let stored_at = Instant::now();
         let missing_empty: HashSet<String> = missing
             .iter()
             .filter(|symbol| !fetched.contains_key(*symbol))
@@ -370,14 +401,20 @@ impl CachedClient {
         {
             let cached = state.bars.values.entry(key.clone()).or_default();
             for (symbol, bars) in &fetched {
-                cached.insert(symbol.clone(), bars.clone());
+                cached.insert(
+                    symbol.clone(),
+                    CachedEntry {
+                        value: bars.clone(),
+                        stored_at,
+                    },
+                );
             }
         }
         {
             let empty = state.bars.empty.entry(key.clone()).or_default();
             for symbol in missing {
                 if missing_empty.contains(symbol) {
-                    empty.insert(symbol.clone());
+                    empty.insert(symbol.clone(), stored_at);
                 } else {
                     empty.remove(symbol);
                 }
@@ -385,7 +422,12 @@ impl CachedClient {
         }
         state.bars.updated_at.insert(key.clone(), SystemTime::now());
 
-        Ok(state.bars.values.get(&key).cloned().unwrap_or_default())
+        Ok(state
+            .bars
+            .values
+            .get(&key)
+            .map(unwrap_bars_map)
+            .unwrap_or_default())
     }
 
     async fn fetch_bars_request(

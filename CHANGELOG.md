@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## v0.32.3
+
+- `CachedClient` stock, option, and bar entries now expire after a configurable `price_ttl` (default 15 seconds). Expired values and unavailable keys are refetched on the next read; `refresh_*` still updates subscribed keys immediately.
+- `AlpacaData` enriched option cache uses the same price TTL as the underlying `CachedClient`.
+- `AlpacaData::get_prices_for_iv_calculation` now reads live stock snapshots from the raw client during regular session instead of `CachedClient`, so Build and IV mapping cannot reuse a process-lifetime snapshot.
+
 ## v0.32.2
 
 - DynamicMarket now keeps advancing `percentage_step` in the same interval when the rounded limit price is unchanged, until the price moves or the order becomes Market.

@@ -28,8 +28,8 @@
   last completed close plus bid/ask mid; compute snapshot Greeks at that
   same close-state stock. Bid/ask stay provider quotes.
 - Resolve IV-inversion stock references through
-  `AlpacaData::get_prices_for_iv_calculation(...)`, using realtime stock
-  snapshots during regular session and the last completed trading day's
+  `AlpacaData::get_prices_for_iv_calculation(...)`, using uncached realtime
+  stock snapshots during regular session and the last completed trading day's
   daily-bar close outside regular session.
 - Keep application-specific singleton or scheduling logic outside the shared crate
 

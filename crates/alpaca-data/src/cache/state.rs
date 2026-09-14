@@ -1,11 +1,34 @@
 use std::collections::{HashMap, HashSet};
-use std::time::SystemTime;
+use std::time::{Duration, Instant, SystemTime};
 
 use crate::options;
 use crate::stocks::{self, Adjustment, BarPoint, Currency, DataFeed, TimeFrame};
 use crate::symbols::option_contract_symbol;
 
 pub(crate) type BarsMap = HashMap<String, Vec<BarPoint>>;
+
+#[derive(Debug, Clone)]
+pub struct CachedEntry<T> {
+    pub value: T,
+    pub stored_at: Instant,
+}
+
+impl<T> CachedEntry<T> {
+    pub fn new(value: T) -> Self {
+        Self {
+            value,
+            stored_at: Instant::now(),
+        }
+    }
+
+    pub fn is_fresh(&self, ttl: Duration, now: Instant) -> bool {
+        is_timestamp_fresh(self.stored_at, ttl, now)
+    }
+}
+
+pub fn is_timestamp_fresh(stored_at: Instant, ttl: Duration, now: Instant) -> bool {
+    now.saturating_duration_since(stored_at) < ttl
+}
 
 #[derive(Debug, Clone)]
 pub struct StockBarsRequest {
@@ -43,8 +66,8 @@ impl StockBarsRequest {
 #[derive(Debug, Default)]
 pub(crate) struct SnapshotCache<T> {
     pub subscribed: HashSet<String>,
-    pub values: HashMap<String, T>,
-    pub empty: HashSet<String>,
+    pub values: HashMap<String, CachedEntry<T>>,
+    pub empty: HashMap<String, Instant>,
     pub updated_at: Option<SystemTime>,
 }
 
@@ -57,6 +80,7 @@ impl<T: Clone> SnapshotCache<T> {
     ) -> usize {
         let mut count = 0;
         let mut seen = HashSet::new();
+        let stored_at = Instant::now();
 
         for key in requested {
             if !seen.insert(key) {
@@ -65,12 +89,18 @@ impl<T: Clone> SnapshotCache<T> {
 
             self.subscribed.insert(key.clone());
             if let Some(value) = fetched.get(key) {
-                self.values.insert(key.clone(), value.clone());
+                self.values.insert(
+                    key.clone(),
+                    CachedEntry {
+                        value: value.clone(),
+                        stored_at,
+                    },
+                );
                 self.empty.remove(key);
                 count += 1;
             } else {
                 self.values.remove(key);
-                self.empty.insert(key.clone());
+                self.empty.insert(key.clone(), stored_at);
             }
         }
 
@@ -84,8 +114,8 @@ impl<T: Clone> SnapshotCache<T> {
 #[derive(Debug, Default)]
 pub(crate) struct StockBarsCache {
     pub requests: HashMap<String, StockBarsRequest>,
-    pub values: HashMap<String, BarsMap>,
-    pub empty: HashMap<String, HashSet<String>>,
+    pub values: HashMap<String, HashMap<String, CachedEntry<Vec<BarPoint>>>>,
+    pub empty: HashMap<String, HashMap<String, Instant>>,
     pub updated_at: HashMap<String, SystemTime>,
 }
 
@@ -131,21 +161,69 @@ pub(crate) fn normalize_option_symbols<S: AsRef<str>>(symbols: &[S]) -> Vec<Stri
     values
 }
 
-pub(crate) fn collect_cached_hits<T: Clone>(
+pub fn collect_cached_hits<T: Clone>(
     requested: &[String],
-    cached: &HashMap<String, T>,
-    empty: &HashSet<String>,
+    cached: &HashMap<String, CachedEntry<T>>,
+    empty: &HashMap<String, Instant>,
+    ttl: Duration,
+    now: Instant,
 ) -> (HashMap<String, T>, Vec<String>) {
     let mut hits = HashMap::new();
     let mut missing = Vec::new();
     for key in requested {
-        if let Some(value) = cached.get(key) {
-            hits.insert(key.clone(), value.clone());
-        } else if !empty.contains(key) {
+        if let Some(entry) = cached.get(key) {
+            if entry.is_fresh(ttl, now) {
+                hits.insert(key.clone(), entry.value.clone());
+            } else {
+                missing.push(key.clone());
+            }
+        } else if empty
+            .get(key)
+            .is_some_and(|stored_at| is_timestamp_fresh(*stored_at, ttl, now))
+        {
+            continue;
+        } else {
             missing.push(key.clone());
         }
     }
     (hits, missing)
+}
+
+pub(crate) fn unwrap_bars_map(
+    cached: &HashMap<String, CachedEntry<Vec<BarPoint>>>,
+) -> BarsMap {
+    cached
+        .iter()
+        .map(|(symbol, entry)| (symbol.clone(), entry.value.clone()))
+        .collect()
+}
+
+pub(crate) fn missing_bar_symbols(
+    requested: &[String],
+    cached: Option<&HashMap<String, CachedEntry<Vec<BarPoint>>>>,
+    empty: Option<&HashMap<String, Instant>>,
+    ttl: Duration,
+    now: Instant,
+) -> Vec<String> {
+    requested
+        .iter()
+        .filter(|symbol| {
+            if cached
+                .and_then(|values| values.get(*symbol))
+                .is_some_and(|entry| entry.is_fresh(ttl, now))
+            {
+                return false;
+            }
+            if empty
+                .and_then(|values| values.get(*symbol))
+                .is_some_and(|stored_at| is_timestamp_fresh(*stored_at, ttl, now))
+            {
+                return false;
+            }
+            true
+        })
+        .cloned()
+        .collect()
 }
 
 fn normalize_stock_list<S: AsRef<str>>(symbols: &[S]) -> Vec<String> {
@@ -164,4 +242,70 @@ fn merge_values(current: &[String], next: &[String]) -> Vec<String> {
         }
     }
     merged
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn expired_price_entries_are_treated_as_missing() {
+        let now = Instant::now();
+        let stale = now
+            .checked_sub(Duration::from_secs(20))
+            .expect("ttl test clock");
+        let mut cached = HashMap::new();
+        cached.insert(
+            "AAPL".to_string(),
+            CachedEntry {
+                value: 1,
+                stored_at: stale,
+            },
+        );
+        cached.insert(
+            "MSFT".to_string(),
+            CachedEntry {
+                value: 2,
+                stored_at: now,
+            },
+        );
+
+        let (hits, missing) = collect_cached_hits(
+            &[
+                "AAPL".to_string(),
+                "MSFT".to_string(),
+                "GOOG".to_string(),
+            ],
+            &cached,
+            &HashMap::new(),
+            Duration::from_secs(15),
+            now,
+        );
+
+        assert_eq!(hits.get("MSFT"), Some(&2));
+        assert!(!hits.contains_key("AAPL"));
+        assert_eq!(missing, vec!["AAPL".to_string(), "GOOG".to_string()]);
+    }
+
+    #[test]
+    fn expired_empty_entries_are_retried() {
+        let now = Instant::now();
+        let stale = now
+            .checked_sub(Duration::from_secs(20))
+            .expect("ttl test clock");
+        let mut empty = HashMap::new();
+        empty.insert("AAPL".to_string(), stale);
+        empty.insert("MSFT".to_string(), now);
+
+        let (hits, missing) = collect_cached_hits(
+            &["AAPL".to_string(), "MSFT".to_string()],
+            &HashMap::<String, CachedEntry<i32>>::new(),
+            &empty,
+            Duration::from_secs(15),
+            now,
+        );
+
+        assert!(hits.is_empty());
+        assert_eq!(missing, vec!["AAPL".to_string()]);
+    }
 }

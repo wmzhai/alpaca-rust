@@ -4,7 +4,9 @@ use crate::{
 };
 use ::chrono::NaiveDateTime;
 use alpaca_data::Client;
-use alpaca_data::cache::{CacheStats as RawCacheStats, CachedClient, StockBarsRequest};
+use alpaca_data::cache::{
+    CacheStats as RawCacheStats, CachedClient, CachedEntry, StockBarsRequest, collect_cached_hits,
+};
 use alpaca_data::corporate_actions::{CorporateActionType, ListRequest, Region};
 use alpaca_data::options::{ChainRequest, Snapshot as ProviderOptionSnapshot};
 use alpaca_data::stocks::{
@@ -19,6 +21,7 @@ use rust_decimal::Decimal;
 use rust_decimal::prelude::ToPrimitive;
 use serde::Serialize;
 use std::collections::{HashMap, HashSet};
+use std::time::Instant;
 use tokio::sync::{Mutex, RwLock};
 
 use alpaca_time::{calendar, chrono, clock, range, session};
@@ -259,8 +262,8 @@ async fn close_prices_from_client(
 #[derive(Default)]
 struct OptionCache {
     subscribed: HashSet<String>,
-    values: HashMap<String, OptionSnapshot>,
-    empty: HashSet<String>,
+    values: HashMap<String, CachedEntry<OptionSnapshot>>,
+    empty: HashMap<String, Instant>,
     updated_at: Option<NaiveDateTime>,
 }
 
@@ -391,23 +394,6 @@ impl AlpacaData {
             }
         }
         normalized
-    }
-
-    fn collect_cached_hits<T: Clone>(
-        requested: &[String],
-        cached: &HashMap<String, T>,
-        empty: &HashSet<String>,
-    ) -> (HashMap<String, T>, Vec<String>) {
-        let mut hits = HashMap::new();
-        let mut missing = Vec::new();
-        for key in requested {
-            if let Some(value) = cached.get(key) {
-                hits.insert(key.clone(), value.clone());
-            } else if !empty.contains(key) {
-                missing.push(key.clone());
-            }
-        }
-        (hits, missing)
     }
 
     fn option_pricing_inputs(&self) -> f64 {
@@ -605,25 +591,8 @@ impl AlpacaData {
         &self,
         symbols: &[S],
     ) -> Result<HashMap<String, Decimal>> {
-        if session::is_regular_session_at(&clock::now()) {
-            let snapshots = self
-                .raw
-                .stocks(symbols)
-                .await
-                .context("failed to load stock snapshots via alpaca-data")?;
-            Ok(snapshots
-                .into_iter()
-                .filter_map(|(symbol, snapshot)| {
-                    snapshot
-                        .price()
-                        .filter(|price| *price > Decimal::ZERO)
-                        .map(|price| (symbol, price))
-                })
-                .collect())
-        } else {
-            let requested = Self::normalize_stock_symbols(symbols);
-            self.close_prices(&requested).await
-        }
+        let symbols = Self::normalize_values(symbols);
+        prices_for_iv_calculation(self.sdk(), &symbols).await
     }
 
     pub async fn stats(&self) -> CacheStats {
@@ -705,16 +674,19 @@ impl AlpacaData {
             return Ok(HashMap::new());
         }
 
+        let ttl = self.raw.price_ttl();
+        let now = Instant::now();
         let (mut hits, missing) = {
             let cache = self.options.read().await;
-            Self::collect_cached_hits(&requested, &cache.values, &cache.empty)
+            collect_cached_hits(&requested, &cache.values, &cache.empty, ttl, now)
         };
 
         if !missing.is_empty() {
             let _operation = self.option_operations.lock().await;
+            let now = Instant::now();
             let current = {
                 let cache = self.options.read().await;
-                Self::collect_cached_hits(&requested, &cache.values, &cache.empty)
+                collect_cached_hits(&requested, &cache.values, &cache.empty, ttl, now)
             };
             hits = current.0;
             let missing = current.1;
@@ -723,16 +695,23 @@ impl AlpacaData {
             }
 
             let fetched = self.enrich_options(&missing).await?;
+            let stored_at = Instant::now();
             let mut cache = self.options.write().await;
             cache.subscribed.extend(requested.iter().cloned());
             for contract in &missing {
                 if let Some(snapshot) = fetched.get(contract) {
-                    cache.values.insert(contract.clone(), snapshot.clone());
+                    cache.values.insert(
+                        contract.clone(),
+                        CachedEntry {
+                            value: snapshot.clone(),
+                            stored_at,
+                        },
+                    );
                     cache.empty.remove(contract);
                     hits.insert(contract.clone(), snapshot.clone());
                 } else {
                     cache.values.remove(contract);
-                    cache.empty.insert(contract.clone());
+                    cache.empty.insert(contract.clone(), stored_at);
                 }
             }
             cache.updated_at = Some(Self::now_timestamp());
@@ -756,14 +735,28 @@ impl AlpacaData {
 
         let snapshots = self.enrich_options(&contracts).await?;
         let count = snapshots.len();
+        let stored_at = Instant::now();
         let empty = contracts
             .iter()
             .filter(|contract| !snapshots.contains_key(*contract))
             .cloned()
-            .collect::<HashSet<_>>();
+            .map(|contract| (contract, stored_at))
+            .collect::<HashMap<_, _>>();
+        let values = snapshots
+            .into_iter()
+            .map(|(contract, snapshot)| {
+                (
+                    contract,
+                    CachedEntry {
+                        value: snapshot,
+                        stored_at,
+                    },
+                )
+            })
+            .collect();
 
         let mut cache = self.options.write().await;
-        cache.values = snapshots;
+        cache.values = values;
         cache.empty = empty;
         cache.updated_at = Some(Self::now_timestamp());
         Ok(count)
@@ -839,13 +832,6 @@ impl AlpacaData {
             dividend_yield,
         )
         .context("failed to map option snapshots into alpaca-option models")
-    }
-
-    async fn close_prices(
-        &self,
-        requested: &[(String, String)],
-    ) -> Result<HashMap<String, Decimal>> {
-        close_prices_from_client(self.sdk(), requested).await
     }
 
     fn compose_stats(raw: RawCacheStats, options: &OptionCache) -> CacheStats {
