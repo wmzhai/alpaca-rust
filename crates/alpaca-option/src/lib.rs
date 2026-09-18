@@ -47,4 +47,5 @@ pub use types::{
     RollLegSelection, RollRequest, ScaledExecutionQuote, ScaledExecutionQuoteRange,
     ShortItmPosition, StrategyBreakEvenInput, StrategyBreakEvenSideInput, StrategyLegInput,
     StrategyPnlInput, StrategyPnlPeak, StrategyPnlPeakSearchInput, StrategyPositionTotals,
+    quote_mid_option_value,
 };

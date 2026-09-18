@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+## v0.32.4
+
+- Added `OptionSnapshot::two_sided_mid` and `quote_mid_option_value` so hosts can mark live option value from real bid/ask mids without reading the clock in `alpaca-option`.
+
 ## v0.32.3
 
 - `CachedClient` stock, option, and bar entries now expire after a configurable `price_ttl` (default 15 seconds). Expired values and unavailable keys are refetched on the next read; `refresh_*` still updates subscribed keys immediately.

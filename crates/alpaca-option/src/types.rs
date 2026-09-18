@@ -472,6 +472,13 @@ impl OptionSnapshot {
         normalized_quote_price(&self.quote)
     }
 
+    /// 只在双边报价可用来时返回中间价；不回退 mark / last。
+    pub fn two_sided_mid(&self) -> Option<f64> {
+        let bid = self.quote.bid.filter(|value| value.is_finite())?;
+        let ask = self.quote.ask.filter(|value| value.is_finite())?;
+        (ask > 0.0 && ask >= bid).then_some((bid + ask) / 2.0)
+    }
+
     pub fn iv(&self) -> f64 {
         self.implied_volatility
             .filter(|value| value.is_finite())
@@ -648,6 +655,14 @@ impl OptionPosition {
         self.value()
     }
 
+    fn quote_mid_value(&self) -> Option<Decimal> {
+        Some(
+            alpaca_core::decimal::from_f64(self.snapshot.two_sided_mid()?, 2)
+                * Decimal::from(self.qty)
+                * Decimal::from(100),
+        )
+    }
+
     pub fn with_model_inputs(
         &self,
         implied_volatility: f64,
@@ -679,6 +694,16 @@ impl OptionPosition {
             default_iv
         }
     }
+}
+
+/// 全部腿都有双边 mid 时返回期权市值；任一腿缺双边则 `None`。不读时钟。
+pub fn quote_mid_option_value(positions: &[OptionPosition], strategy_qty: i32) -> Option<Decimal> {
+    let strategy_qty = strategy_qty.max(1);
+    let mut total = Decimal::ZERO;
+    for position in positions {
+        total += position.quote_mid_value()?;
+    }
+    Some((total * Decimal::from(strategy_qty)).round_dp(2))
 }
 
 impl Default for OptionPosition {
@@ -1212,4 +1237,74 @@ pub struct StrategyPositionTotals {
     pub cost: Decimal,
     pub spread: Decimal,
     pub spread_rate: Option<f64>,
+}
+
+#[cfg(test)]
+mod quote_mid_tests {
+    use super::{
+        OptionContract, OptionPosition, OptionQuote, OptionRight, OptionSnapshot,
+        quote_mid_option_value,
+    };
+    use rust_decimal::Decimal;
+
+    fn position(bid: Option<f64>, ask: Option<f64>, qty: i32) -> OptionPosition {
+        OptionPosition {
+            contract: "SPY250321C00050000".to_string(),
+            snapshot: OptionSnapshot {
+                as_of: "2026-09-18 11:00:00".to_string(),
+                contract: OptionContract {
+                    underlying_symbol: "SPY".to_string(),
+                    expiration_date: "2025-03-21".to_string(),
+                    strike: 50.0,
+                    option_right: OptionRight::Call,
+                    occ_symbol: "SPY250321C00050000".to_string(),
+                },
+                quote: OptionQuote {
+                    bid,
+                    ask,
+                    mark: Some(9.0),
+                    last: Some(8.0),
+                },
+                greeks: None,
+                implied_volatility: Some(0.3),
+                underlying_price: Some(50.0),
+            },
+            qty,
+            avg_cost: Decimal::from(5),
+            leg_type: "longcall".to_string(),
+            option_right: None,
+            strike: None,
+            valuation_years: None,
+        }
+    }
+
+    #[test]
+    fn two_sided_mid_requires_live_bid_and_ask() {
+        let snapshot = position(Some(1.0), Some(3.0), 1).snapshot;
+        assert_eq!(snapshot.two_sided_mid(), Some(2.0));
+        assert_eq!(position(Some(1.0), None, 1).snapshot.two_sided_mid(), None);
+        assert_eq!(position(None, Some(3.0), 1).snapshot.two_sided_mid(), None);
+        assert_eq!(
+            position(Some(3.0), Some(1.0), 1).snapshot.two_sided_mid(),
+            None
+        );
+        assert_eq!(
+            position(Some(1.0), Some(0.0), 1).snapshot.two_sided_mid(),
+            None
+        );
+    }
+
+    #[test]
+    fn quote_mid_option_value_sums_two_sided_mids_or_rejects() {
+        let long = position(Some(10.0), Some(12.0), 1);
+        let short = position(Some(3.0), Some(5.0), -1);
+        assert_eq!(
+            quote_mid_option_value(&[long.clone(), short.clone()], 2),
+            Some(Decimal::from(1400))
+        );
+        assert_eq!(quote_mid_option_value(&[], 1), Some(Decimal::ZERO));
+
+        let missing_ask = position(Some(10.0), None, 1);
+        assert_eq!(quote_mid_option_value(&[long, missing_ask], 1), None);
+    }
 }
