@@ -267,7 +267,32 @@ impl Execution {
         }
     }
 
+    fn interval_elapsed(
+        last_adjustment_time: Option<NaiveDateTime>,
+        interval_seconds: i64,
+        now: NaiveDateTime,
+    ) -> bool {
+        match last_adjustment_time {
+            Some(last_time) => {
+                now.signed_duration_since(last_time).num_seconds() >= interval_seconds
+            }
+            None => true,
+        }
+    }
+
     pub fn advance_dynamic_limit(&self, now: NaiveDateTime) -> Result<Self, Error> {
+        self.advance_dynamic_limit_inner(now, true)
+    }
+
+    pub fn continue_dynamic_limit(&self, now: NaiveDateTime) -> Result<Self, Error> {
+        self.advance_dynamic_limit_inner(now, false)
+    }
+
+    fn advance_dynamic_limit_inner(
+        &self,
+        now: NaiveDateTime,
+        require_interval: bool,
+    ) -> Result<Self, Error> {
         match self {
             Self::DynamicLimit {
                 limit_price,
@@ -278,46 +303,63 @@ impl Execution {
                 interval_seconds,
                 last_adjustment_time,
             } => {
-                let limit_price = Self::normalize_order_price(*limit_price);
+                let hanging = Self::normalize_order_price(*limit_price);
                 let start_price = Self::normalize_order_price(*start_price);
                 let end_price = Self::normalize_order_price(*end_price);
 
                 if *current_percentage >= 1.0 {
-                    return Ok(self.normalized_prices());
-                }
-
-                if let Some(last_time) = last_adjustment_time {
-                    let elapsed = now.signed_duration_since(*last_time).num_seconds();
-                    if elapsed < *interval_seconds {
-                        return Ok(self.normalized_prices());
-                    }
-                }
-
-                let next_percentage = (*current_percentage + *percentage_step).min(1.0);
-                if next_percentage >= 1.0 {
                     return Ok(Self::Limit {
                         limit_price: end_price,
                     });
                 }
 
-                let next_limit_price = Self::normalize_order_price(
-                    start_price
-                        + (end_price - start_price) * Self::progress_decimal(next_percentage)?,
-                );
+                if require_interval
+                    && !Self::interval_elapsed(
+                        *last_adjustment_time,
+                        *interval_seconds,
+                        now,
+                    )
+                {
+                    return Ok(self.normalized_prices());
+                }
 
-                Ok(Self::DynamicLimit {
-                    limit_price: if next_limit_price.is_zero() {
-                        limit_price
+                let mut next_percentage = *current_percentage;
+                loop {
+                    let previous_percentage = next_percentage;
+                    next_percentage = (next_percentage + *percentage_step).min(1.0);
+                    if next_percentage >= 1.0 {
+                        return Ok(Self::Limit {
+                            limit_price: end_price,
+                        });
+                    }
+
+                    let next_limit_price = Self::normalize_order_price(
+                        start_price
+                            + (end_price - start_price) * Self::progress_decimal(next_percentage)?,
+                    );
+                    let next_limit_price = if next_limit_price.is_zero() {
+                        hanging
                     } else {
                         next_limit_price
-                    },
-                    start_price,
-                    end_price,
-                    current_percentage: next_percentage,
-                    percentage_step: *percentage_step,
-                    interval_seconds: *interval_seconds,
-                    last_adjustment_time: Some(now),
-                })
+                    };
+
+                    // Two-decimal limit is the only effective price. Unchanged
+                    // cents keep advancing in this interval; 100% becomes Limit.
+                    if next_limit_price != hanging
+                        || *percentage_step <= 0.0
+                        || next_percentage <= previous_percentage
+                    {
+                        return Ok(Self::DynamicLimit {
+                            limit_price: next_limit_price,
+                            start_price,
+                            end_price,
+                            current_percentage: next_percentage,
+                            percentage_step: *percentage_step,
+                            interval_seconds: *interval_seconds,
+                            last_adjustment_time: Some(now),
+                        });
+                    }
+                }
             }
             _ => Err(Error::InvalidRequest(
                 "advance_dynamic_limit() only supports dynamic_limit execution".to_string(),
@@ -330,6 +372,25 @@ impl Execution {
         best: Decimal,
         worst: Decimal,
         now: NaiveDateTime,
+    ) -> Result<Self, Error> {
+        self.advance_dynamic_market_inner(best, worst, now, true)
+    }
+
+    pub fn continue_dynamic_market(
+        &self,
+        best: Decimal,
+        worst: Decimal,
+        now: NaiveDateTime,
+    ) -> Result<Self, Error> {
+        self.advance_dynamic_market_inner(best, worst, now, false)
+    }
+
+    fn advance_dynamic_market_inner(
+        &self,
+        best: Decimal,
+        worst: Decimal,
+        now: NaiveDateTime,
+        require_interval: bool,
     ) -> Result<Self, Error> {
         match self {
             Self::DynamicMarket {
@@ -344,11 +405,14 @@ impl Execution {
                     return Ok(Self::Market);
                 }
 
-                if let Some(last_time) = last_adjustment_time {
-                    let elapsed = now.signed_duration_since(*last_time).num_seconds();
-                    if elapsed < *interval_seconds {
-                        return Ok(self.normalized_prices());
-                    }
+                if require_interval
+                    && !Self::interval_elapsed(
+                        *last_adjustment_time,
+                        *interval_seconds,
+                        now,
+                    )
+                {
+                    return Ok(self.normalized_prices());
                 }
 
                 let hanging = Self::normalize_order_price(*limit_price);
@@ -363,8 +427,6 @@ impl Execution {
                     let next_limit_price = Self::normalize_order_price(
                         best + (worst - best) * Self::progress_decimal(next_percentage)?,
                     );
-                    // Same rounded limit means the step is denser than one cent: keep
-                    // advancing percentage in this interval until the price moves.
                     if next_limit_price != hanging
                         || *percentage_step <= 0.0
                         || next_percentage <= previous_percentage

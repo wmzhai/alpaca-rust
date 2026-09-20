@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+## v0.32.5
+
+- DynamicLimit now keeps advancing `percentage_step` in the same interval when the rounded limit price is unchanged, until the price moves or the order becomes Limit. `continue_dynamic_*` ignores the interval so hosts can keep advancing after a clamp.
+
 ## v0.32.4
 
 - Added `OptionSnapshot::two_sided_mid` and `quote_mid_option_value` so hosts can mark live option value from real bid/ask mids without reading the clock in `alpaca-option`.
