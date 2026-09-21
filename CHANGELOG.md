@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+## v0.32.6
+
+- `live_option_chain` keeps mapped option quotes when stock snapshot or close-price fetch fails after `chain_all`. A known underlying price is applied to every display symbol in that chain, including adjusted OCC roots such as `SOUN2`.
+
 ## v0.32.5
 
 - DynamicLimit now keeps advancing `percentage_step` in the same interval when the rounded limit price is unchanged, until the price moves or the order becomes Limit. `continue_dynamic_*` ignores the interval so hosts can keep advancing after a clamp.
