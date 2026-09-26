@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## v0.32.8
+
+- Raised the workspace Rust version, toolchain pin, and GitHub Pages workflow to Rust 1.98.1.
+- Removed unused direct dependencies: `chrono` from `alpaca-option`, `futures` from `alpaca-facade`, and `url` from `alpaca-rest-http`.
+- Aligned in-workspace crate version pins and public install snippets to `0.32.8`.
+
 ## v0.32.7
 
 - Pin the workspace package manager to pnpm 12.6.0, allow the `core-js` and `esbuild` install scripts, and use pnpm 12.6.0 in the GitHub Pages workflow.
