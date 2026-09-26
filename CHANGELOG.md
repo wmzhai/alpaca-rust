@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+## v0.32.7
+
+- Pin the workspace package manager to pnpm 12.6.0, allow the `core-js` and `esbuild` install scripts, and use pnpm 12.6.0 in the GitHub Pages workflow.
+
 ## v0.32.6
 
 - `live_option_chain` keeps mapped option quotes when stock snapshot or close-price fetch fails after `chain_all`. A known underlying price is applied to every display symbol in that chain, including adjusted OCC roots such as `SOUN2`.
