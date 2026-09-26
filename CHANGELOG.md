@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+## v0.32.9
+
+- Moved the workspace HTTP client to `reqwest` 0.13 so every published crate uses the same major version as OptWorks.
+
 ## v0.32.8
 
 - Raised the workspace Rust version, toolchain pin, and GitHub Pages workflow to Rust 1.98.1.
