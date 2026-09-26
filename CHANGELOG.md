@@ -4,7 +4,7 @@
 
 ## v0.32.9
 
-- Moved the workspace HTTP client to `reqwest` 0.13 so every published crate uses the same major version as OptWorks.
+- Moved the workspace HTTP client to `reqwest` 0.13.
 
 ## v0.32.8
 
@@ -211,7 +211,7 @@
 - Added publish-ready crate metadata and public READMEs for `alpaca-time`, `alpaca-option`, and `alpaca-facade`.
 - Clarified that the TypeScript workspace packages are optional plus features for repo consumers, not the primary published system surface.
 - Extended the release checklist, docs metadata generation, and GitHub release automation to cover all eight published Rust crates.
-- Removed the remaining `optworks`-specific Rust export hooks from the published crates and aligned the workspace toward the `0.24.5` release line.
+- Removed the remaining product-specific Rust export hooks from the published crates and aligned the workspace toward the `0.24.5` release line.
 
 ## v0.24.4
 

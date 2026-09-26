@@ -1886,7 +1886,6 @@
     {
       "tag": "Index",
       "status": "deferred",
-      "issue": "optworks#173",
       "reason": "The current Paper entitlement returns 403 for index data; implementation is deferred until credentials can verify the real API"
     },
     {

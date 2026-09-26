@@ -61,7 +61,7 @@ Implemented adopted single-endpoint families:
 - crypto perpetual futures market data
 - forex market data
 - fixed income market data
-- index data, deferred to `optworks#173` until the Paper entitlement can verify the real API
+- index data, deferred until the Paper entitlement can verify the real API
 - logos
 - screener
 - stream and websocket APIs
