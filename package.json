@@ -10,8 +10,8 @@
     "build:website": "pnpm --dir website build"
   },
   "devDependencies": {
-    "tsx": "4.20.6",
-    "typescript": "^6.0.3"
+    "tsx": "4.23.15",
+    "typescript": "^7.0.2"
   },
   "packageManager": "pnpm@12.6.0",
   "workspaces": [
