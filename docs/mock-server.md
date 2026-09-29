@@ -48,6 +48,9 @@ Trading routes require Alpaca-style auth headers:
 - `APCA-API-SECRET-KEY`
 
 The mock server uses the API key to isolate per-account mock state.
+`GET /v2/assets` and `GET /v2/assets/{symbol_or_asset_id}` forward that same key
+to the official Trading API and return the upstream status and body unchanged.
+A key prefixed with `PK` uses Paper; every other key uses the live Trading host.
 
 ## Public Routes
 

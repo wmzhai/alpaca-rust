@@ -55,6 +55,7 @@ Behavior notes:
 - order cancel-all, order cancel by ID, and option exercise are closed; option do-not-exercise is the sole pending operation
 - option exercise returns status `200` with typed `qty_exercised` and `qty_remaining` values, matching the body observed from Paper; the client also accepts the canonical empty `200`
 - option do-not-exercise returns an empty `200`; raw Paper and mock requests have succeeded, but Paper restricts successful instructions to expiration-day long positions and the corrected exact Paper scenario still needs verified cleanup on a clean account
+- `GET /v2/assets` and `GET /v2/assets/{symbol_or_asset_id}` are forwarded to the official Trading API; the upstream status and body are returned unchanged
 - `/admin/faults/http` injects a one-shot authenticated-route fault
 - `POST /admin/market-data/stocks/{symbol}` sets a normalized runtime stock price and fills existing open simple equity limit orders that become marketable exactly once
 - authenticated `GET /v2/stocks/{symbol}/snapshot` exposes the controlled price as bid, ask, and latest trade

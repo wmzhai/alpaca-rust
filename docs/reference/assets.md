@@ -8,8 +8,10 @@
 - `get`
 
 Canonical operations `get-v2-assets` and
-`get-v2-assets-symbol_or_asset_id` are closed against both Paper and the
-standalone mock HTTP service.
+`get-v2-assets-symbol_or_asset_id` are implemented by `alpaca-trade`.
+The standalone mock forwards both requests to the official Trading API and
+returns the upstream status and body unchanged. Keys prefixed with `PK` use
+Paper; every other key uses the live Trading host.
 
 ## Typical Request
 
@@ -38,4 +40,5 @@ let active = client
 - status, asset class, exchange, attributes, and borrow status use typed values
 - list filters include status, class, exchange, and attributes
 - the response model includes the canonical order-size, trade-increment, and price-increment fields
-- get accepts either a symbol or asset ID; the mock lookup treats symbols case-insensitively
+- omitted optional fields, including `cusip`, `borrow_status`, and `attributes`, deserialize as absent
+- get accepts either a symbol or asset ID

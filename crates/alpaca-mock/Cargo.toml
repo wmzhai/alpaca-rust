@@ -14,14 +14,15 @@ keywords = ["alpaca", "mock-server", "trading", "testing"]
 categories = ["api-bindings", "development-tools"]
 
 [dependencies]
-alpaca-core = { path = "../alpaca-core", version = "0.32.9" }
-alpaca-data = { path = "../alpaca-data", version = "0.32.9" }
-alpaca-option = { path = "../alpaca-option", version = "0.32.9" }
-alpaca-trade = { path = "../alpaca-trade", version = "0.32.9" }
+alpaca-core = { path = "../alpaca-core", version = "0.33.0" }
+alpaca-data = { path = "../alpaca-data", version = "0.33.0" }
+alpaca-option = { path = "../alpaca-option", version = "0.33.0" }
+alpaca-trade = { path = "../alpaca-trade", version = "0.33.0" }
 axum.workspace = true
 chrono.workspace = true
 chrono-tz.workspace = true
 dotenvy.workspace = true
+reqwest.workspace = true
 rust_decimal.workspace = true
 serde.workspace = true
 serde_json.workspace = true
@@ -32,7 +33,6 @@ uuid.workspace = true
 [dev-dependencies]
 alpaca-http = { package = "alpaca-rest-http", path = "../alpaca-http" }
 dotenvy.workspace = true
-reqwest.workspace = true
 rust_decimal.workspace = true
 serde.workspace = true
 serde_json.workspace = true

@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+## v0.33.0
+
+- `Asset` deserializes official payloads that omit optional `cusip`, `borrow_status`, and `attributes`.
+- `alpaca-mock` forwards `GET /v2/assets` and `GET /v2/assets/{symbol_or_asset_id}` to the official Trading API and returns the upstream status and body unchanged. Keys prefixed with `PK` use Paper; other keys use the live Trading host.
+
 ## v0.32.9
 
 - Moved the workspace HTTP client to `reqwest` 0.13.

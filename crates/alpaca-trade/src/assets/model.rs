@@ -15,8 +15,10 @@ pub struct Asset {
     pub marginable: bool,
     pub shortable: bool,
     pub easy_to_borrow: bool,
+    #[serde(default)]
     pub borrow_status: Option<BorrowStatus>,
     pub fractionable: bool,
+    #[serde(default)]
     pub cusip: Option<String>,
     #[serde(
         default,
@@ -36,6 +38,7 @@ pub struct Asset {
         serialize_with = "alpaca_core::decimal::string_contract::serialize_option_decimal"
     )]
     pub margin_requirement_short: Option<Decimal>,
+    #[serde(default)]
     pub attributes: Option<Vec<AssetAttribute>>,
     #[serde(
         default,
@@ -171,3 +174,37 @@ impl_display!(AssetAttribute {
     OvernightTradable => "overnight_tradable",
     OvernightHalted => "overnight_halted",
 });
+
+#[cfg(test)]
+mod tests {
+    use super::Asset;
+
+    #[test]
+    fn asset_deserializes_when_official_omits_optional_fields() {
+        let raw = r#"{
+            "id":"b0b6dd9d-8b9b-48a9-ba46-b9d54906e415",
+            "class":"us_equity",
+            "exchange":"NASDAQ",
+            "symbol":"AAPL",
+            "name":"Apple Inc. Common Stock",
+            "status":"active",
+            "tradable":true,
+            "marginable":true,
+            "shortable":true,
+            "easy_to_borrow":true,
+            "borrow_status":"easy_to_borrow",
+            "fractionable":true,
+            "maintenance_margin_requirement":30,
+            "margin_requirement_long":"30",
+            "margin_requirement_short":"30",
+            "attributes":["has_options"]
+        }"#;
+
+        let asset: Asset = serde_json::from_str(raw).expect("official asset shape");
+        assert_eq!(asset.symbol, "AAPL");
+        assert_eq!(asset.cusip, None);
+        assert_eq!(asset.min_order_size, None);
+        assert_eq!(asset.min_trade_increment, None);
+        assert_eq!(asset.price_increment, None);
+    }
+}
