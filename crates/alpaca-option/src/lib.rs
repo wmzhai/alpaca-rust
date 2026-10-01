@@ -34,7 +34,10 @@ pub use market_structure::{
     filter_market_structure_records, gamma_exposure, gamma_exposure_with_mode,
 };
 pub use option_strategy::{OptionStrategy, unique_break_even_points};
-pub use rate::{DEFAULT_RISK_FREE_RATE_CURVE, RiskFreeRatePoint, risk_free_rate_for_years};
+pub use rate::{
+    DEFAULT_RISK_FREE_RATE_CURVE, RiskFreeRatePoint, active_curve, clear_risk_free_rate_curve,
+    install_risk_free_rate_curve, rate_on_curve, risk_free_rate_for_years,
+};
 pub use types::{
     AssignmentRiskLevel, BlackScholesImpliedVolatilityInput, BlackScholesInput, ContractDisplay,
     ExecutionAction, ExecutionLeg, ExecutionLegInput, ExecutionQuoteRange, ExecutionSnapshot,

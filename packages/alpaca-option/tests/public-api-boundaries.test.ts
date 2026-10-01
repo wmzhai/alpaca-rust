@@ -1467,15 +1467,27 @@ test('payoff and probability boundary cases are explicit', () => {
   }), 'invalid_probability_input');
 });
 
-test('default risk-free rate curve interpolates and clamps edges', () => {
-  assert.equal(rate.riskFreeRateForYears(1 / 12), 0.0370);
-  assert.equal(rate.riskFreeRateForYears(1), 0.0385);
-  assert.equal(rate.riskFreeRateForYears(2), 0.0415);
-  assert.equal(rate.riskFreeRateForYears(30), 0.0503);
-  assert.equal(rate.riskFreeRateForYears(0.001), 0.0370);
-  assert.equal(rate.riskFreeRateForYears(50), 0.0503);
+test('installed risk-free curve overrides the compiled fallback and clears', () => {
+  const points = rate.DEFAULT_RISK_FREE_RATE_CURVE.map((point) => ({ ...point }));
+  points[6] = { years: 1, rate: 0.0452 };
+  try {
+    rate.installRiskFreeRateCurve(points);
+    assert.equal(rate.riskFreeRateForYears(1), 0.0452);
+  } finally {
+    rate.clearRiskFreeRateCurve();
+  }
+  assert.equal(rate.riskFreeRateForYears(1), 0.0454);
+});
 
-  const expected18MonthRate = 0.0385 + (0.0415 - 0.0385) * 0.5;
+test('default risk-free rate curve interpolates and clamps edges', () => {
+  assert.equal(rate.riskFreeRateForYears(1 / 12), 0.0402);
+  assert.equal(rate.riskFreeRateForYears(1), 0.0454);
+  assert.equal(rate.riskFreeRateForYears(2), 0.0488);
+  assert.equal(rate.riskFreeRateForYears(30), 0.0564);
+  assert.equal(rate.riskFreeRateForYears(0.001), 0.0402);
+  assert.equal(rate.riskFreeRateForYears(50), 0.0564);
+
+  const expected18MonthRate = 0.0454 + (0.0488 - 0.0454) * 0.5;
   assert.ok(Math.abs(rate.riskFreeRateForYears(1.5) - expected18MonthRate) < 1e-12);
   assert.equal(rate.riskFreeRateForYears(Number.NaN), rate.DEFAULT_RISK_FREE_RATE);
   assert.equal(rate.riskFreeRateForYears(Number.POSITIVE_INFINITY), rate.DEFAULT_RISK_FREE_RATE);

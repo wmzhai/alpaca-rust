@@ -1749,18 +1749,37 @@ fn default_risk_free_rate_is_runtime_default_not_test_oracle_input() {
 
 #[test]
 fn default_risk_free_rate_curve_uses_treasury_par_curve_terms() {
-    assert_eq!(rate::risk_free_rate_for_years(1.0 / 12.0), 0.0370);
-    assert_eq!(rate::risk_free_rate_for_years(1.0), 0.0385);
-    assert_eq!(rate::risk_free_rate_for_years(2.0), 0.0415);
-    assert_eq!(rate::risk_free_rate_for_years(30.0), 0.0503);
+    assert_eq!(rate::risk_free_rate_for_years(1.0 / 12.0), 0.0402);
+    assert_eq!(rate::risk_free_rate_for_years(1.0), 0.0454);
+    assert_eq!(rate::risk_free_rate_for_years(2.0), 0.0488);
+    assert_eq!(rate::risk_free_rate_for_years(30.0), 0.0564);
+}
+
+#[test]
+fn installed_risk_free_rate_curve_overrides_then_clears() {
+    struct ClearInstalledCurve;
+    impl Drop for ClearInstalledCurve {
+        fn drop(&mut self) {
+            rate::clear_risk_free_rate_curve();
+        }
+    }
+    let _clear = ClearInstalledCurve;
+
+    let mut points = rate::DEFAULT_RISK_FREE_RATE_CURVE;
+    points[6].rate = 0.0452;
+    rate::install_risk_free_rate_curve(&points).unwrap();
+    assert_eq!(rate::risk_free_rate_for_years(1.0), 0.0452);
+
+    rate::clear_risk_free_rate_curve();
+    assert_eq!(rate::risk_free_rate_for_years(1.0), 0.0454);
 }
 
 #[test]
 fn risk_free_rate_curve_interpolates_and_clamps_edges() {
-    assert_eq!(rate::risk_free_rate_for_years(0.001), 0.0370);
-    assert_eq!(rate::risk_free_rate_for_years(50.0), 0.0503);
+    assert_eq!(rate::risk_free_rate_for_years(0.001), 0.0402);
+    assert_eq!(rate::risk_free_rate_for_years(50.0), 0.0564);
 
-    let expected_18_month_rate = 0.0385 + (0.0415 - 0.0385) * 0.5;
+    let expected_18_month_rate = 0.0454 + (0.0488 - 0.0454) * 0.5;
     assert!((rate::risk_free_rate_for_years(1.5) - expected_18_month_rate).abs() < 1e-12);
 
     assert_eq!(

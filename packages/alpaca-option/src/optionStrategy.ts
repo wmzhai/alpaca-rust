@@ -9,7 +9,7 @@ import {
   intrinsicValue,
   priceBlackScholes,
 } from './pricing';
-import { riskFreeRateForYears } from './rate';
+import { activeRiskFreeRateCurve, rateOnCurve, type RiskFreeRatePoint } from './rate';
 import type {
   Greeks,
   OptionContract,
@@ -192,6 +192,7 @@ function strategyMarkValuePrepared(input: {
   positions: OptionPosition[];
   underlying_price: number;
   dividend_yield: number;
+  rate_curve: readonly RiskFreeRatePoint[];
 }): number {
   ensureFinite('invalid_strategy_payoff_input', 'underlyingPrice', input.underlying_price);
   if (input.underlying_price < 0) {
@@ -209,7 +210,7 @@ function strategyMarkValuePrepared(input: {
           spot: input.underlying_price,
           strike,
           years,
-          rate: riskFreeRateForYears(years),
+          rate: rateOnCurve(input.rate_curve, years),
           dividendYield: input.dividend_yield,
           volatility: preparedImpliedVolatility(position),
           optionRight,
@@ -238,6 +239,7 @@ function strategyGreeksPrepared(input: {
   positions: OptionPosition[];
   underlying_price: number;
   dividend_yield: number;
+  rate_curve: readonly RiskFreeRatePoint[];
 }): Greeks {
   ensurePositive('invalid_strategy_payoff_input', 'underlyingPrice', input.underlying_price);
 
@@ -252,7 +254,7 @@ function strategyGreeksPrepared(input: {
           spot: input.underlying_price,
           strike,
           years,
-          rate: riskFreeRateForYears(years),
+          rate: rateOnCurve(input.rate_curve, years),
           dividendYield: input.dividend_yield,
           volatility: preparedImpliedVolatility(position),
           optionRight,
@@ -404,6 +406,7 @@ export class OptionStrategy {
     public qty: number,
     private entryCost: number,
     private readonly dividendYield: number,
+    private readonly rateCurve: readonly RiskFreeRatePoint[],
   ) {
     this.cost = entryCost;
     this.calculateValue();
@@ -445,7 +448,13 @@ export class OptionStrategy {
       entry_cost: input.entry_cost,
       dividend_yield: input.dividend_yield ?? null,
     });
-    return new OptionStrategy(context.positions, context.qty, context.entryCost, context.dividendYield);
+    return new OptionStrategy(
+      context.positions,
+      context.qty,
+      context.entryCost,
+      context.dividendYield,
+      activeRiskFreeRateCurve(),
+    );
   }
 
   markValueAt(underlyingPrice: number): number {
@@ -453,6 +462,7 @@ export class OptionStrategy {
       positions: this.positions,
       underlying_price: underlyingPrice,
       dividend_yield: this.dividendYield,
+      rate_curve: this.rateCurve,
     }) * this.qty + this.stockValueAt(underlyingPrice);
   }
 
@@ -465,6 +475,7 @@ export class OptionStrategy {
       positions: this.positions,
       underlying_price: underlyingPrice,
       dividend_yield: this.dividendYield,
+      rate_curve: this.rateCurve,
     });
 
     return {

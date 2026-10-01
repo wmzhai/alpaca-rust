@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+## v0.33.1
+
+- `alpaca-option` can install a process-wide Treasury curve. `risk_free_rate_for_years` uses that curve until `clear_risk_free_rate_curve`. `OptionStrategy::prepare` copies the active curve so one valuation does not observe a later replacement. The compiled fallback curve is the 2026-09-30 Treasury par yield curve. Each leg interpolates that curve by its own remaining maturity.
+
 ## v0.33.0
 
 - `Asset` deserializes official payloads that omit optional `cusip`, `borrow_status`, and `attributes`.

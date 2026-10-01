@@ -2,7 +2,7 @@ use crate::contract;
 use crate::error::{OptionError, OptionResult};
 use crate::numeric;
 use crate::pricing;
-use crate::rate::risk_free_rate_for_years;
+use crate::rate::{self, RiskFreeRatePoint};
 use crate::snapshot;
 use crate::types::{
     Greeks, OptionContract, OptionPosition, OptionRight, OptionStrategyCurvePoint,
@@ -14,9 +14,27 @@ use alpaca_time::expiration;
 use rust_decimal::Decimal;
 use rust_decimal::prelude::ToPrimitive;
 use serde::{Deserialize, Serialize};
+use std::sync::Arc;
 use ts_rs::TS;
 
 const CONTRACT_MULTIPLIER: f64 = 100.0;
+
+#[derive(Clone, Debug, PartialEq)]
+struct PreparedRateCurve(Arc<[RiskFreeRatePoint]>);
+
+impl Default for PreparedRateCurve {
+    fn default() -> Self {
+        Self(rate::active_curve())
+    }
+}
+
+impl std::ops::Deref for PreparedRateCurve {
+    type Target = [RiskFreeRatePoint];
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
 
 mod decimal_number_contract {
     pub use alpaca_core::decimal::number_contract::deserialize;
@@ -182,6 +200,9 @@ pub struct OptionStrategy {
     #[serde(skip)]
     #[ts(skip)]
     dividend_yield: f64,
+    #[serde(skip)]
+    #[ts(skip)]
+    rate_curve: PreparedRateCurve,
 }
 
 fn ensure_finite(code: &'static str, name: &str, value: f64) -> OptionResult<()> {
@@ -414,6 +435,7 @@ impl OptionStrategy {
         positions: &[OptionPosition],
         underlying_price: f64,
         dividend_yield: f64,
+        rate_curve: &[RiskFreeRatePoint],
     ) -> OptionResult<f64> {
         ensure_finite(
             "invalid_strategy_payoff_input",
@@ -438,7 +460,7 @@ impl OptionStrategy {
                     spot: underlying_price,
                     strike,
                     years,
-                    rate: risk_free_rate_for_years(years),
+                    rate: rate::rate_on_curve(rate_curve, years),
                     dividend_yield,
                     volatility: Self::prepared_implied_volatility(position)?,
                     option_right,
@@ -473,6 +495,7 @@ impl OptionStrategy {
         positions: &[OptionPosition],
         underlying_price: f64,
         dividend_yield: f64,
+        rate_curve: &[RiskFreeRatePoint],
     ) -> OptionResult<Greeks> {
         ensure_positive(
             "invalid_strategy_payoff_input",
@@ -491,7 +514,7 @@ impl OptionStrategy {
                     spot: underlying_price,
                     strike,
                     years,
-                    rate: risk_free_rate_for_years(years),
+                    rate: rate::rate_on_curve(rate_curve, years),
                     dividend_yield,
                     volatility: Self::prepared_implied_volatility(position)?,
                     option_right,
@@ -712,6 +735,7 @@ impl OptionStrategy {
             url: None,
             entry_cost,
             dividend_yield,
+            rate_curve: PreparedRateCurve(rate::active_curve()),
         };
         strategy.calculate_value();
         strategy.calculate_spread();
@@ -725,11 +749,13 @@ impl OptionStrategy {
     }
 
     pub fn mark_value_at(&self, underlying_price: f64) -> OptionResult<f64> {
-        Ok(
-            Self::mark_value_prepared(&self.positions, underlying_price, self.dividend_yield)?
-                * f64::from(self.qty)
-                + self.stock_value_at_f64(underlying_price),
-        )
+        Ok(Self::mark_value_prepared(
+            &self.positions,
+            underlying_price,
+            self.dividend_yield,
+            &self.rate_curve,
+        )? * f64::from(self.qty)
+            + self.stock_value_at_f64(underlying_price))
     }
 
     pub fn positions(&self) -> &[OptionPosition] {
@@ -914,7 +940,12 @@ impl OptionStrategy {
     }
 
     fn prepared_greeks_at(&self, underlying_price: f64) -> OptionResult<Greeks> {
-        Self::greeks_prepared(&self.positions, underlying_price, self.dividend_yield)
+        Self::greeks_prepared(
+            &self.positions,
+            underlying_price,
+            self.dividend_yield,
+            &self.rate_curve,
+        )
     }
 
     pub fn sample_curve(
