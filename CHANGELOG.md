@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+## v0.33.2
+
+- Raised the workspace Rust version, toolchain pin, in-workspace crate pins, and GitHub Pages workflow to Rust 1.99.0.
+
+
 ## v0.33.1
 
 - `alpaca-option` can install a process-wide Treasury curve. `risk_free_rate_for_years` uses that curve until `clear_risk_free_rate_curve`. `OptionStrategy::prepare` copies the active curve so one valuation does not observe a later replacement. The compiled fallback curve is the 2026-09-30 Treasury par yield curve. Each leg interpolates that curve by its own remaining maturity.
