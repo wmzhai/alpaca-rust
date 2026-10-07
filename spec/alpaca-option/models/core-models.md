@@ -31,7 +31,7 @@ This document defines the canonical v1 core models for `alpaca-option`.
 Constraints:
 
 - `underlying_symbol` uses OCC semantics and does not try to restore display symbols such as `BRKB -> BRK.B`
-- `underlying_symbol` may retain OCC-adjusted suffix digits such as `TSLL1`
+- `underlying_symbol` is the listed stock; an adjusted OCC root such as `TSLL1` is stored as `TSLL`, while `occ_symbol` keeps the digit
 - `occ_symbol` is the canonical contract primary key
 - `strike` is always a `number` in the core layer; the front end should not keep orbiting around `string -> parseFloat`
 

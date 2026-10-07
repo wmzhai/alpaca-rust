@@ -11,7 +11,7 @@
 ### `parse_occ_symbol`
 
 - must support OCC canonical underlying symbols
-- must support OCC-adjusted suffix digits such as `TSLL1`
+- must keep adjusted OCC roots such as `TSLL1` on `occ_symbol`, and store the listed stock `TSLL` in `underlying_symbol`
 - does not need to restore display symbols automatically, for example `BRKB -> BRK.B`
 - page-level simplified regex parsers are not the long-term owner
 

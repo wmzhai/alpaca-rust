@@ -69,9 +69,14 @@ pub fn from_optionstrat_underlying_path(path: &str) -> String {
 pub fn build_optionstrat_leg_fragment(input: &OptionStratLegInput) -> Option<String> {
     let leg = resolve_leg_input(input)?;
     let contract = parse_occ_symbol(&leg.occ_symbol)?;
+    let occ_root = contract
+        .occ_symbol
+        .get(..contract.occ_symbol.len().saturating_sub(15))
+        .filter(|root| !root.is_empty())
+        .unwrap_or(contract.underlying_symbol.as_str());
     let compact_contract = format!(
         "{}{}{}{}",
-        contract.underlying_symbol,
+        occ_root,
         contract.expiration_date[2..4].to_string()
             + &contract.expiration_date[5..7]
             + &contract.expiration_date[8..10],
@@ -298,9 +303,15 @@ fn parse_optionstrat_leg_fragment(
     };
     let ratio_quantity = quantity_abs as u32;
 
-    let (underlying_symbol, expiration_date, option_right_code, strike) =
+    let (occ_root, expiration_date, option_right_code, strike) =
         parse_compact_contract(compact_contract)?;
-    if normalize_underlying_symbol(expected_underlying) != underlying_symbol {
+    let stripped = occ_root.trim_end_matches(|ch: char| ch.is_ascii_digit());
+    let listed_symbol = if stripped.is_empty() {
+        occ_root.as_str()
+    } else {
+        stripped
+    };
+    if normalize_underlying_symbol(expected_underlying) != listed_symbol {
         return Err(OptionError::new(
             "invalid_optionstrat_leg_fragment",
             format!("fragment underlying does not match: {fragment}"),
@@ -308,7 +319,7 @@ fn parse_optionstrat_leg_fragment(
     }
 
     let occ_symbol = build_occ_symbol(
-        &underlying_symbol,
+        &occ_root,
         &expiration_date,
         strike,
         if option_right_code == 'C' {

@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## v0.33.3
+
+- `options_underlying_symbol` and `display_stock_symbol` strip a trailing OCC adjustment digit, so stock lookups for `ETHA1` use the listed symbol `ETHA`.
+- `parse_occ_symbol` and `parseOccSymbol` keep the original `occ_symbol` and set `underlying_symbol` to that listed stock. OptionStrat compact rebuild still uses the raw OCC prefix, and `build_occ_symbol` does not strip the digit.
+- Historical stock bar payloads may omit `currency`. `BarsResponse` and `BarSingleResponse` default that field.
+
 ## v0.33.2
 
 - Raised the workspace Rust version, toolchain pin, in-workspace crate pins, and GitHub Pages workflow to Rust 1.99.0.

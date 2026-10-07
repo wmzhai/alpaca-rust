@@ -109,15 +109,15 @@ pub fn parse_occ_symbol(occ_symbol: &str) -> Option<OptionContract> {
     }
 
     let split = normalized.len() - OCC_TAIL_LENGTH;
-    let underlying_symbol = &normalized[..split];
-    if underlying_symbol.is_empty()
-        || underlying_symbol.len() > MAX_UNDERLYING_LENGTH
-        || !underlying_symbol
-            .chars()
-            .all(|ch| ch.is_ascii_alphanumeric())
+    let occ_root = &normalized[..split];
+    if occ_root.is_empty()
+        || occ_root.len() > MAX_UNDERLYING_LENGTH
+        || !occ_root.chars().all(|ch| ch.is_ascii_alphanumeric())
     {
         return None;
     }
+    let stripped = occ_root.trim_end_matches(|ch: char| ch.is_ascii_digit());
+    let underlying_symbol = if stripped.is_empty() { occ_root } else { stripped };
 
     let yy = &normalized[split..split + 2];
     let mm = &normalized[split + 2..split + 4];

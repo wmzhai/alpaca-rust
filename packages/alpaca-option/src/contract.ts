@@ -113,10 +113,12 @@ export function parseOccSymbol(occSymbol: string): OptionContract | null {
     }
 
     const split = normalized.length - OCC_TAIL_LENGTH;
-    const underlyingSymbol = normalized.slice(0, split);
-    if (!underlyingSymbol || underlyingSymbol.length > MAX_UNDERLYING_LENGTH || !/^[A-Z0-9]+$/.test(underlyingSymbol)) {
+    const occRoot = normalized.slice(0, split);
+    if (!occRoot || occRoot.length > MAX_UNDERLYING_LENGTH || !/^[A-Z0-9]+$/.test(occRoot)) {
       fail('invalid_occ_symbol', `invalid occ symbol: ${occSymbol}`);
     }
+    const stripped = occRoot.replace(/\d+$/, '');
+    const underlyingSymbol = stripped || occRoot;
 
     const yy = normalized.slice(split, split + 2);
     const mm = normalized.slice(split + 2, split + 4);

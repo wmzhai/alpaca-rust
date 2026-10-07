@@ -102,7 +102,10 @@ export function buildOptionstratLegFragment(input: OptionStratLegInput): string 
       return null;
     }
 
-    const compactContract = `${contract.underlying_symbol}${contract.expiration_date.slice(2, 4)}${contract.expiration_date.slice(5, 7)}${contract.expiration_date.slice(8, 10)}${optionRightCode(contract.option_right)}${formatStrike(contract.strike)}`;
+    const occRoot = contract.occ_symbol.length > 15
+      ? contract.occ_symbol.slice(0, contract.occ_symbol.length - 15)
+      : contract.underlying_symbol;
+    const compactContract = `${occRoot}${contract.expiration_date.slice(2, 4)}${contract.expiration_date.slice(5, 7)}${contract.expiration_date.slice(8, 10)}${optionRightCode(contract.option_right)}${formatStrike(contract.strike)}`;
 
     const premiumSuffix = leg.premiumPerContract == null
       ? ''
@@ -281,7 +284,9 @@ function parseOptionstratLegFragment(fragment: string, underlyingDisplaySymbol: 
   const ratioQuantity = Math.abs(signedQuantity);
 
   const compact = parseCompactContract(compactContract);
-  if (normalizeUnderlyingSymbol(underlyingDisplaySymbol) !== compact.underlyingSymbol) {
+  const stripped = compact.underlyingSymbol.replace(/\d+$/, '');
+  const listedSymbol = stripped || compact.underlyingSymbol;
+  if (normalizeUnderlyingSymbol(underlyingDisplaySymbol) !== listedSymbol) {
     fail('invalid_optionstrat_leg_fragment', `fragment underlying does not match: ${fragment}`);
   }
 

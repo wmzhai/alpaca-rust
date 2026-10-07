@@ -10,6 +10,8 @@ pub struct BarsResponse {
     #[serde(default)]
     pub bars: HashMap<String, Vec<Bar>>,
     pub next_page_token: Option<String>,
+    /// Alpaca omits this field on historical bars. Missing must stay `None`.
+    #[serde(default)]
     pub currency: Option<Currency>,
 }
 
@@ -19,6 +21,7 @@ pub(super) struct BarSingleResponse {
     #[serde(default)]
     pub bars: Vec<Bar>,
     pub next_page_token: Option<String>,
+    #[serde(default)]
     pub currency: Option<Currency>,
 }
 
@@ -196,6 +199,41 @@ impl From<SnapshotSingleResponse> for SnapshotsResponse {
             symbol, snapshot, ..
         } = response;
         HashMap::from([(symbol, snapshot)])
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::BarsResponse;
+
+    #[test]
+    fn historical_bars_without_currency_keep_the_close() {
+        let response: BarsResponse = serde_json::from_str(
+            r#"{
+                "bars": {
+                    "SNDK": [{
+                        "t": "2026-10-06T04:00:00Z",
+                        "o": 1700,
+                        "h": 1716.5,
+                        "l": 1650,
+                        "c": 1660.46,
+                        "v": 6584884,
+                        "n": 399779,
+                        "vw": 1673.319313
+                    }]
+                },
+                "next_page_token": null
+            }"#,
+        )
+        .expect("bars payload without currency");
+
+        assert!(response.currency.is_none());
+        let close = response
+            .bars
+            .get("SNDK")
+            .and_then(|bars| bars.first())
+            .and_then(|bar| bar.c);
+        assert_eq!(close.map(|price| price.to_string()).as_deref(), Some("1660.46"));
     }
 }
 

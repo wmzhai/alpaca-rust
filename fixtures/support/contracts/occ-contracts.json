@@ -95,7 +95,7 @@
         "occ_symbol": "TSLL1250321C00090000"
       },
       "expected": {
-        "underlying_symbol": "TSLL1",
+        "underlying_symbol": "TSLL",
         "expiration_date": "2025-03-21",
         "strike": 90.0,
         "option_right": "call",

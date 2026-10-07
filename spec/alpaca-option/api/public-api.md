@@ -135,7 +135,7 @@ Field-level definitions live in `../models/core-models.md`.
 | --- | --- | --- |
 | `contract.normalize_underlying_symbol(symbol)` / `contract.normalizeUnderlyingSymbol(symbol)` | `string` | normalizes a display symbol into OCC form, for example `BRK.B -> BRKB` |
 | `contract.is_occ_symbol(occ_symbol)` / `contract.isOccSymbol(occSymbol)` | `boolean` | whether the string is a parseable OCC symbol |
-| `contract.parse_occ_symbol(occ_symbol)` / `contract.parseOccSymbol(occSymbol)` | `OptionContract \| null` | invalid OCC input returns an empty value; adjusted OCC suffixes such as `TSLL1` are supported |
+| `contract.parse_occ_symbol(occ_symbol)` / `contract.parseOccSymbol(occSymbol)` | `OptionContract \| null` | invalid OCC input returns an empty value; adjusted roots such as `TSLL1` stay on `occ_symbol`, and `underlying_symbol` is the listed stock `TSLL` |
 | `contract.build_occ_symbol(underlying_symbol, expiration_date, strike, option_right)` / `contract.buildOccSymbol(underlyingSymbol, expirationDate, strike, optionRight)` | `string \| null` | automatically handles underlying normalization and `call/put/c/p`; invalid strike or right returns an empty value |
 | `contract.canonical_contract(input)` / `contract.canonicalContract(input)` | `OptionContract \| null` | converges an OCC symbol, canonical contract, or legacy contract-like input into a standard contract |
 
