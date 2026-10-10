@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Pin the package manager and the GitHub Pages workflow to pnpm 12.10.1.
+
 ## v0.33.3
 
 - `options_underlying_symbol` and `display_stock_symbol` strip a trailing OCC adjustment digit, so stock lookups for `ETHA1` use the listed symbol `ETHA`.
