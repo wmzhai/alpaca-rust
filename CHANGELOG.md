@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+## v0.33.4
+
+- `mergeOptionstratUrls` keeps stock fragments and combines the same underlying by share quantity and weighted average cost. Option legs stay separate. The TypeScript and Rust helpers match.
 - Pin the package manager and the GitHub Pages workflow to pnpm 12.10.1.
 
 ## v0.33.3

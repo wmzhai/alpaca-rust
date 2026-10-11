@@ -138,12 +138,64 @@ pub fn build_optionstrat_url(input: &OptionStratUrlInput) -> Option<String> {
     ))
 }
 
+fn merge_stock_positions(stocks: Vec<OptionStratStockInput>) -> Vec<OptionStratStockInput> {
+    let mut merged: Vec<OptionStratStockInput> = Vec::new();
+    for stock in stocks {
+        if stock.quantity == 0 || !stock.cost_per_share.is_finite() || stock.underlying_symbol.is_empty()
+        {
+            continue;
+        }
+
+        let Some(index) = merged
+            .iter()
+            .position(|item| item.underlying_symbol == stock.underlying_symbol)
+        else {
+            merged.push(stock);
+            continue;
+        };
+
+        let total_quantity = merged[index].quantity + stock.quantity;
+        if total_quantity == 0 {
+            merged.remove(index);
+            continue;
+        }
+
+        let total_cost = merged[index].quantity as f64 * merged[index].cost_per_share
+            + stock.quantity as f64 * stock.cost_per_share;
+        merged[index].quantity = total_quantity;
+        merged[index].cost_per_share = total_cost / total_quantity as f64;
+    }
+    merged
+}
+
+fn parse_optionstrat_stock_fragment(fragment: &str) -> Option<OptionStratStockInput> {
+    let (head, cost_text) = fragment.rsplit_once('@')?;
+    let (symbol, quantity_text) = head.rsplit_once('x')?;
+    let quantity = quantity_text.parse::<i32>().ok()?;
+    let cost_per_share = cost_text.parse::<f64>().ok()?;
+    if symbol.is_empty() || quantity == 0 || !cost_per_share.is_finite() {
+        return None;
+    }
+
+    let underlying_symbol = normalize_underlying_symbol(symbol);
+    if underlying_symbol.is_empty() {
+        return None;
+    }
+
+    Some(OptionStratStockInput {
+        underlying_symbol,
+        quantity,
+        cost_per_share,
+    })
+}
+
 pub fn merge_optionstrat_urls(
     urls: &[Option<String>],
     underlying_display_symbol: Option<&str>,
 ) -> Option<String> {
     let mut resolved_underlying = underlying_display_symbol.map(|value| value.to_string());
     let mut legs: Vec<OptionStratLegInput> = Vec::new();
+    let mut stocks: Vec<OptionStratStockInput> = Vec::new();
 
     for raw_url in urls.iter().flatten() {
         let Ok(parsed) = parse_optionstrat_url(raw_url) else {
@@ -158,25 +210,39 @@ pub fn merge_optionstrat_urls(
             continue;
         }
 
+        let mut option_fragments = Vec::new();
+        let mut stock_fragments = Vec::new();
+        for fragment in &parsed.leg_fragments {
+            if fragment.starts_with("-.") || fragment.starts_with('.') {
+                option_fragments.push(fragment.clone());
+            } else {
+                stock_fragments.push(fragment.as_str());
+            }
+        }
+
         let Ok(parsed_legs) = parse_optionstrat_leg_fragments(
             parsed.underlying_display_symbol.as_str(),
-            &parsed.leg_fragments,
+            &option_fragments,
         ) else {
             continue;
         };
 
         legs.extend(parsed_legs.iter().map(strategy_leg_to_build_input));
+        stocks.extend(stock_fragments.iter().filter_map(|fragment| {
+            parse_optionstrat_stock_fragment(fragment)
+        }));
     }
 
     let underlying_display_symbol = resolved_underlying?;
-    if legs.is_empty() {
+    let stocks = merge_stock_positions(stocks);
+    if legs.is_empty() && stocks.is_empty() {
         return None;
     }
 
     build_optionstrat_url(&OptionStratUrlInput {
         underlying_display_symbol,
         legs,
-        stocks: Vec::new(),
+        stocks,
     })
 }
 

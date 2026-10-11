@@ -576,6 +576,17 @@ test('optionstrat helpers cover query/hash, optional premium, and underlying mis
     url.mergeOptionstratUrls(['bad-url', null], 'SPY'),
     null,
   );
+  assert.equal(
+    url.mergeOptionstratUrls(
+      [
+        'https://optionstrat.com/build/custom/GLD/.GLD270917C390x1@54.44,.GLD261120C395x-1@22.23',
+        'https://optionstrat.com/build/custom/GLD/.GLD270630C365x1@75.98,.GLD261120C399x-1@26.85,GLDx6@379.58',
+        'https://optionstrat.com/build/custom/GLD/.GLD270917C390x1@54.23,.GLD261120C395x-1@22.02,GLDx6@379.62',
+      ],
+      'GLD',
+    ),
+    'https://optionstrat.com/build/custom/GLD/.GLD270917C390x1@54.44,.GLD261120C395x-1@22.23,.GLD270630C365x1@75.98,.GLD261120C399x-1@26.85,.GLD270917C390x1@54.23,.GLD261120C395x-1@22.02,GLDx12@379.60',
+  );
 });
 
 test('chain helpers use canonical snapshots directly', () => {

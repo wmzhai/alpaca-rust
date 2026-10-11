@@ -911,6 +911,29 @@ fn optionstrat_helpers_cover_query_hash_optional_premium_and_underlying_mismatch
         url::merge_optionstrat_urls(&[Some("bad-url".to_string()), None], Some("SPY")),
         None
     );
+    assert_eq!(
+        url::merge_optionstrat_urls(
+            &[
+                Some(
+                    "https://optionstrat.com/build/custom/GLD/.GLD270917C390x1@54.44,.GLD261120C395x-1@22.23"
+                        .to_string()
+                ),
+                Some(
+                    "https://optionstrat.com/build/custom/GLD/.GLD270630C365x1@75.98,.GLD261120C399x-1@26.85,GLDx6@379.58"
+                        .to_string()
+                ),
+                Some(
+                    "https://optionstrat.com/build/custom/GLD/.GLD270917C390x1@54.23,.GLD261120C395x-1@22.02,GLDx6@379.62"
+                        .to_string()
+                ),
+            ],
+            Some("GLD"),
+        ),
+        Some(
+            "https://optionstrat.com/build/custom/GLD/.GLD270917C390x1@54.44,.GLD261120C395x-1@22.23,.GLD270630C365x1@75.98,.GLD261120C399x-1@26.85,.GLD270917C390x1@54.23,.GLD261120C395x-1@22.02,GLDx12@379.60"
+                .to_string()
+        )
+    );
 }
 
 #[test]

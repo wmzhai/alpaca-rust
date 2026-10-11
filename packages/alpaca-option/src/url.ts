@@ -163,44 +163,123 @@ export function buildOptionstratUrl(
   return `https://optionstrat.com/build/custom/${toOptionstratUnderlyingPath(input.underlyingDisplaySymbol)}/${fragments.join(',')}`;
 }
 
+function mergeStockPositions(stocks: OptionStratStockInput[]): OptionStratStockInput[] {
+  const merged: OptionStratStockInput[] = [];
+  for (const stock of stocks) {
+    const quantity = typeof stock.quantity === 'number' ? stock.quantity : Number(stock.quantity);
+    const costPerShare = typeof stock.costPerShare === 'number'
+      ? stock.costPerShare
+      : Number(stock.costPerShare);
+    const underlyingSymbol = normalizeUnderlyingSymbol(stock.underlyingSymbol);
+    if (!underlyingSymbol || !Number.isInteger(quantity) || quantity === 0 || !Number.isFinite(costPerShare)) {
+      continue;
+    }
+
+    const existing = merged.find((item) => item.underlyingSymbol === underlyingSymbol);
+    if (!existing) {
+      merged.push({ underlyingSymbol, quantity, costPerShare });
+      continue;
+    }
+
+    const existingQuantity = typeof existing.quantity === 'number' ? existing.quantity : Number(existing.quantity);
+    const existingCost = typeof existing.costPerShare === 'number'
+      ? existing.costPerShare
+      : Number(existing.costPerShare);
+    const totalQuantity = existingQuantity + quantity;
+    if (totalQuantity === 0) {
+      merged.splice(merged.indexOf(existing), 1);
+      continue;
+    }
+    existing.quantity = totalQuantity;
+    existing.costPerShare = (existingQuantity * existingCost + quantity * costPerShare) / totalQuantity;
+  }
+  return merged;
+}
+
+function parseOptionstratStockFragment(fragment: string): OptionStratStockInput | null {
+  const atIndex = fragment.lastIndexOf('@');
+  const quantityIndex = fragment.lastIndexOf('x');
+  if (atIndex <= 0 || quantityIndex <= 0 || quantityIndex >= atIndex) {
+    return null;
+  }
+
+  const underlyingSymbol = normalizeUnderlyingSymbol(fragment.slice(0, quantityIndex));
+  const quantity = Number(fragment.slice(quantityIndex + 1, atIndex));
+  const costPerShare = Number(fragment.slice(atIndex + 1));
+  if (!underlyingSymbol || !Number.isInteger(quantity) || quantity === 0 || !Number.isFinite(costPerShare)) {
+    return null;
+  }
+
+  return {
+    underlyingSymbol,
+    quantity,
+    costPerShare,
+  };
+}
+
 export function mergeOptionstratUrls(
   urls: Array<string | null | undefined>,
   underlyingDisplaySymbolInput?: string | null,
 ): string | null {
   let underlyingDisplaySymbol = underlyingDisplaySymbolInput ?? null;
   const legs: OptionStratLegInput[] = [];
+  const stocks: OptionStratStockInput[] = [];
 
   for (const rawUrl of urls) {
     if (!rawUrl) {
       continue;
     }
 
+    let parsed: ParsedOptionStratUrl;
     try {
-      const parsed = parseOptionstratUrl(rawUrl);
-      if (!underlyingDisplaySymbol) {
-        underlyingDisplaySymbol = parsed.underlyingDisplaySymbol;
-      }
-      if (parsed.underlyingDisplaySymbol !== underlyingDisplaySymbol) {
-        continue;
-      }
+      parsed = parseOptionstratUrl(rawUrl);
+    } catch {
+      continue;
+    }
 
+    if (!underlyingDisplaySymbol) {
+      underlyingDisplaySymbol = parsed.underlyingDisplaySymbol;
+    }
+    if (parsed.underlyingDisplaySymbol !== underlyingDisplaySymbol) {
+      continue;
+    }
+
+    const optionFragments: string[] = [];
+    const stockFragments: string[] = [];
+    for (const fragment of parsed.legFragments) {
+      if (fragment.startsWith('-.') || fragment.startsWith('.')) {
+        optionFragments.push(fragment);
+      } else {
+        stockFragments.push(fragment);
+      }
+    }
+
+    try {
       legs.push(
-        ...parseOptionstratLegFragments(underlyingDisplaySymbol, parsed.legFragments)
+        ...parseOptionstratLegFragments(underlyingDisplaySymbol, optionFragments)
           .map(strategyLegToBuildInput),
       );
     } catch {
       continue;
     }
+
+    for (const fragment of stockFragments) {
+      const stock = parseOptionstratStockFragment(fragment);
+      if (stock) {
+        stocks.push(stock);
+      }
+    }
   }
 
-  if (!underlyingDisplaySymbol || legs.length === 0) {
+  const mergedStocks = mergeStockPositions(stocks);
+  if (!underlyingDisplaySymbol || (legs.length === 0 && mergedStocks.length === 0)) {
     return null;
   }
 
   return buildOptionstratUrl({
     underlyingDisplaySymbol,
     legs,
-    stocks: [],
+    stocks: mergedStocks,
   });
 }
 
