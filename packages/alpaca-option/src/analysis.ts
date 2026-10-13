@@ -1,6 +1,6 @@
 import { fail } from './error';
 import { canonicalContract, type ContractInput } from './contract';
-import { extrinsicValue, greeksBlackScholes, intrinsicValue } from './pricing';
+import { extrinsicValue, greeksDefault, intrinsicValue } from './pricing';
 import type { AssignmentRiskLevel, MoneynessLabel, OptionPosition, OptionRight, ShortItmPosition } from './types';
 
 const CONTRACT_MULTIPLIER = 100;
@@ -296,7 +296,7 @@ export function strikeForTargetDelta(
       strike < spot * 1.5 + strikeStep * 0.5;
       strike += strikeStep
     ) {
-      const greeks = greeksBlackScholes({
+      const greeks = greeksDefault({
         spot,
         strike,
         years,
@@ -315,7 +315,7 @@ export function strikeForTargetDelta(
       strike <= spot * 1.1 + strikeStep * 0.5;
       strike += strikeStep
     ) {
-      const greeks = greeksBlackScholes({
+      const greeks = greeksDefault({
         spot,
         strike,
         years,

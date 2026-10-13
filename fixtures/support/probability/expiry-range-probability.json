@@ -14,7 +14,7 @@
         "volatility": 0.2
       },
       "expected": {
-        "value": 0.6164081624782114
+        "value": 0.6170853973216657
       },
       "tolerance": 1e-06
     }

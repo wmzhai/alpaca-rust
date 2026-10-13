@@ -143,8 +143,8 @@ Field-level definitions live in `../models/core-models.md`.
 
 ### Responsibilities
 
-- Black-Scholes-Merton price, Greeks, and IV
-- focused Rust-only Black-Scholes-Merton Gamma
+- default Bjerksund–Stensland 2002 price, central-difference Greeks, and IV
+- European Black-Scholes-Merton price, Greeks, IV, and focused Rust-only Gamma
 - intrinsic and extrinsic value
 - contract-driven extrinsic value
 
@@ -152,10 +152,12 @@ Field-level definitions live in `../models/core-models.md`.
 
 | API | Returns | Semantics |
 | --- | --- | --- |
-| `pricing.price_black_scholes(input)` / `pricing.priceBlackScholes(input)` | `number` | returns the theoretical price from `BlackScholesInput` |
+| `pricing.price_default(input)` / `pricing.priceDefault(input)` | `number` | returns the default Bjerksund–Stensland 2002 price from `BlackScholesInput` |
+| `pricing.price_black_scholes(input)` / `pricing.priceBlackScholes(input)` | `number` | returns the European Black-Scholes-Merton price from `BlackScholesInput` |
 | Rust: `pricing.gamma_black_scholes(input)` | `number` | returns Gamma from `BlackScholesInput` without calculating price, normal CDF values, or the other Greeks; it uses the caller-supplied `rate` and the same validation contract as the full pricing APIs |
 | `pricing.greeks_black_scholes(input)` / `pricing.greeksBlackScholes(input)` | `Greeks` | returns `delta/gamma/vega/theta/rho` from `BlackScholesInput` |
-| `pricing.implied_volatility_from_price(input)` / `pricing.impliedVolatilityFromPrice(input)` | `number` | solves IV from a target option price |
+| `pricing.greeks_default(input)` / `pricing.greeksDefault(input)` | `Greeks` | central differences of the 2002 price; vega is per volatility point, theta is per day, rho is per 1% rate |
+| `pricing.implied_volatility_from_price(input)` / `pricing.impliedVolatilityFromPrice(input)` | `number` | solves IV from a target option price with the 2002 price and the caller dividend yield |
 | `pricing.intrinsic_value(spot, strike, option_right)` / `pricing.intrinsicValue(spot, strike, optionRight)` | `number` | returns intrinsic value |
 | `pricing.extrinsic_value(option_price, spot, strike, option_right)` / `pricing.extrinsicValue(optionPrice, spot, strike, optionRight)` | `number` | returns `max(option_price - intrinsic_value, 0)` |
 | `pricing.contract_extrinsic_value(option_price, spot, contract)` / `pricing.contractExtrinsicValue(optionPrice, spot, contract)` | `number \| null` | directly accepts canonical contract or legacy contract input and returns an empty value for invalid cases |
@@ -170,7 +172,7 @@ Field-level definitions live in `../models/core-models.md`.
 
 | API | Returns | Semantics |
 | --- | --- | --- |
-| `probability.expiry_probability_in_range(...)` / `probability.expiryProbabilityInRange(input)` | `number` | computes the probability from spot, bounds, years, dividend yield, and volatility; Rust selects the default curve rate from `years`, while TypeScript accepts the explicit rate in the input object |
+| `probability.expiry_probability_in_range(...)` / `probability.expiryProbabilityInRange(input)` | `number` | zero-drift probability from spot, bounds, years, and volatility; rate and dividend yield are validated and do not enter `z` |
 | Rust: `probability.expiry_probability_in_range_with_rate(...)` | `number` | explicit-rate Rust variant for callers that should not use the default curve |
 
 ## `rate`

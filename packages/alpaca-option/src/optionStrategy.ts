@@ -5,9 +5,9 @@ import { fail } from './error';
 import { refineBracketedRoot } from './numeric';
 import { spread as snapshotSpread } from './snapshot';
 import {
-  greeksBlackScholes,
+  greeksDefault,
   intrinsicValue,
-  priceBlackScholes,
+  priceDefault,
 } from './pricing';
 import { activeRiskFreeRateCurve, rateOnCurve, type RiskFreeRatePoint } from './rate';
 import type {
@@ -206,7 +206,7 @@ function strategyMarkValuePrepared(input: {
     const years = preparedYears(position);
     const optionValue = years <= 0
       ? intrinsicValue(input.underlying_price, strike, optionRight)
-      : priceBlackScholes({
+      : priceDefault({
           spot: input.underlying_price,
           strike,
           years,
@@ -250,7 +250,7 @@ function strategyGreeksPrepared(input: {
     const years = preparedYears(position);
     const greeks = years <= 0
       ? expiryIntrinsicGreeks(input.underlying_price, strike, optionRight)
-      : greeksBlackScholes({
+      : greeksDefault({
           spot: input.underlying_price,
           strike,
           years,

@@ -1511,20 +1511,38 @@ test('numeric.brentSolve surfaces bracketing and convergence errors', () => {
 });
 
 test('pricing.impliedVolatilityFromPrice uses discounted no-arbitrage lower bounds', () => {
-  const impliedVolatility = pricing.impliedVolatilityFromPrice({
-    targetPrice: 130.65325629560832,
-    spot: 250,
+  const price = pricing.priceDefault({
+    spot: 100,
     strike: 100,
-    years: 10,
+    years: 1,
+    rate: 0.03,
+    dividendYield: 0.02,
+    volatility: 0.2,
+    optionRight: 'call',
+  });
+  const impliedVolatility = pricing.impliedVolatilityFromPrice({
+    targetPrice: price,
+    spot: 100,
+    strike: 100,
+    years: 1,
     rate: 0.03,
     dividendYield: 0.02,
     optionRight: 'call',
     lowerBound: 0.000001,
-    upperBound: 5,
-    tolerance: 1e-12,
+    upperBound: 20,
+    tolerance: 1e-8,
   });
 
-  assert.ok(Math.abs(impliedVolatility - 0.12) <= 1e-10);
+  assert.ok(Math.abs(impliedVolatility - 0.2) <= 1e-4);
+  assert.throws(() => pricing.impliedVolatilityFromPrice({
+    targetPrice: 1,
+    spot: 250,
+    strike: 100,
+    years: 1,
+    rate: 0.03,
+    dividendYield: 0.02,
+    optionRight: 'call',
+  }));
 });
 
 test('advanced math kernels surface explicit boundary errors', () => {

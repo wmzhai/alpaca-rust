@@ -1,6 +1,6 @@
 use crate::error::{OptionError, OptionResult};
 use crate::pricing;
-use crate::pricing::greeks_black_scholes;
+use crate::pricing::greeks_default;
 use crate::types::{
     AssignmentRiskLevel, BlackScholesInput, MoneynessLabel, OptionPosition, OptionRight,
     PositionSide, ShortItmPosition,
@@ -280,7 +280,7 @@ pub fn strike_for_target_delta(
         OptionRight::Call => {
             let mut strike = (spot / strike_step).round() * strike_step;
             while strike < spot * 1.5 + strike_step * 0.5 {
-                let greeks = greeks_black_scholes(&BlackScholesInput {
+                let greeks = greeks_default(&BlackScholesInput {
                     spot,
                     strike,
                     years,
@@ -298,7 +298,7 @@ pub fn strike_for_target_delta(
         OptionRight::Put => {
             let mut strike = (spot * 0.7 / strike_step).round() * strike_step;
             while strike <= spot * 1.1 + strike_step * 0.5 {
-                let greeks = greeks_black_scholes(&BlackScholesInput {
+                let greeks = greeks_default(&BlackScholesInput {
                     spot,
                     strike,
                     years,

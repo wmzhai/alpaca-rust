@@ -1847,24 +1847,50 @@ fn numeric_solver_surfaces_bracketing_and_convergence_errors() {
 
 #[test]
 fn pricing_implied_volatility_uses_discounted_no_arbitrage_lower_bounds() {
+    let price = pricing::price_default(&alpaca_option::BlackScholesInput {
+        spot: 100.0,
+        strike: 100.0,
+        years: 1.0,
+        rate: TEST_RISK_FREE_RATE,
+        dividend_yield: 0.02,
+        volatility: 0.2,
+        option_right: OptionRight::Call,
+    })
+    .unwrap();
     let implied_volatility = pricing::implied_volatility_from_price(
         &alpaca_option::BlackScholesImpliedVolatilityInput {
-            target_price: 130.65325629560832,
-            spot: 250.0,
+            target_price: price,
+            spot: 100.0,
             strike: 100.0,
-            years: 10.0,
+            years: 1.0,
             rate: TEST_RISK_FREE_RATE,
             dividend_yield: 0.02,
             option_right: OptionRight::Call,
             lower_bound: Some(0.000001),
-            upper_bound: Some(5.0),
-            tolerance: Some(1e-12),
+            upper_bound: Some(20.0),
+            tolerance: Some(1e-8),
             max_iterations: None,
         },
     )
     .unwrap();
 
-    assert!((implied_volatility - 0.12).abs() <= 1e-10);
+    assert!((implied_volatility - 0.2).abs() <= 1e-4);
+    assert!(pricing::implied_volatility_from_price(
+        &alpaca_option::BlackScholesImpliedVolatilityInput {
+            target_price: 1.0,
+            spot: 250.0,
+            strike: 100.0,
+            years: 1.0,
+            rate: TEST_RISK_FREE_RATE,
+            dividend_yield: 0.02,
+            option_right: OptionRight::Call,
+            lower_bound: None,
+            upper_bound: None,
+            tolerance: None,
+            max_iterations: None,
+        },
+    )
+    .is_err());
 }
 
 #[test]

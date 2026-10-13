@@ -31,7 +31,7 @@
 
 ### Pricing model
 
-The current core pricing model is Black-Scholes-Merton:
+The default theoretical price is Bjerksund–Stensland 2002 (`price_default` / `priceDefault`):
 
 - `spot`
 - `strike`
@@ -40,6 +40,10 @@ The current core pricing model is Black-Scholes-Merton:
 - `dividend_yield`
 - `volatility`
 - `option_right`
+
+`price_black_scholes` / `priceBlackScholes` remains the European formula. A call with `dividend_yield = 0` matches that European price. A put can include early-exercise value. When carry is at least the interest rate, the 2002 call price uses the European price.
+
+Default Greeks are central differences of the 2002 price. Default IV inversion uses the same price. `greeks_black_scholes` and `implied_volatility_black_scholes` stay on the European formula.
 
 ### Time input
 

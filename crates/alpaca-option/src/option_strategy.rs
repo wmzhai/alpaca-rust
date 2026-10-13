@@ -456,7 +456,7 @@ impl OptionStrategy {
             let option_value = if years <= 0.0 {
                 pricing::intrinsic_value(underlying_price, strike, option_right.as_str())?
             } else {
-                pricing::price_black_scholes(&crate::BlackScholesInput {
+                pricing::price_default(&crate::BlackScholesInput {
                     spot: underlying_price,
                     strike,
                     years,
@@ -510,7 +510,7 @@ impl OptionStrategy {
             let greeks = if years <= 0.0 {
                 Self::expiry_intrinsic_greeks(underlying_price, strike, &option_right)
             } else {
-                pricing::greeks_black_scholes(&crate::BlackScholesInput {
+                pricing::greeks_default(&crate::BlackScholesInput {
                     spot: underlying_price,
                     strike,
                     years,

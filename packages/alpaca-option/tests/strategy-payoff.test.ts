@@ -320,7 +320,7 @@ test('strategyPnl mixes expired and unexpired positions', () => {
   ];
 
   const longYears = timeExpiration.years('2025-04-24', evaluationTime);
-  const expectedLongValue = pricing.priceBlackScholes({
+  const expectedLongValue = pricing.priceDefault({
     spot: 97,
     strike: 95,
     years: longYears,
@@ -351,7 +351,7 @@ test('strategyPnl uses snapshot implied volatility directly', () => {
   ];
 
   const years = timeExpiration.years('2025-04-24', evaluationTime);
-  const expectedLong = pricing.priceBlackScholes({
+  const expectedLong = pricing.priceDefault({
     spot: 102,
     strike: 100,
     years,
@@ -360,7 +360,7 @@ test('strategyPnl uses snapshot implied volatility directly', () => {
     volatility: 0.20,
     optionRight: 'call',
   });
-  const expectedShort = pricing.priceBlackScholes({
+  const expectedShort = pricing.priceDefault({
     spot: 102,
     strike: 95,
     years,
@@ -401,7 +401,7 @@ test('OptionStrategy marks and Greeks diagonal with term rates per leg', () => {
   const shortYears = timeExpiration.years('2026-07-17', evaluationTime);
   const longYears = timeExpiration.years('2027-06-11', evaluationTime);
 
-  const shortValue = pricing.priceBlackScholes({
+  const shortValue = pricing.priceDefault({
     spot,
     strike: 100,
     years: shortYears,
@@ -410,7 +410,7 @@ test('OptionStrategy marks and Greeks diagonal with term rates per leg', () => {
     volatility: 0.28,
     optionRight: 'put',
   });
-  const longValue = pricing.priceBlackScholes({
+  const longValue = pricing.priceDefault({
     spot,
     strike: 95,
     years: longYears,
@@ -423,7 +423,7 @@ test('OptionStrategy marks and Greeks diagonal with term rates per leg', () => {
   const expectedMark = (longValue - shortValue) * 100;
   assert.ok(Math.abs(actualMark - expectedMark) < 1e-9, `actual=${actualMark}, expected=${expectedMark}`);
 
-  const shortGreeks = pricing.greeksBlackScholes({
+  const shortGreeks = pricing.greeksDefault({
     spot,
     strike: 100,
     years: shortYears,
@@ -432,7 +432,7 @@ test('OptionStrategy marks and Greeks diagonal with term rates per leg', () => {
     volatility: 0.28,
     optionRight: 'put',
   });
-  const longGreeks = pricing.greeksBlackScholes({
+  const longGreeks = pricing.greeksDefault({
     spot,
     strike: 95,
     years: longYears,
@@ -704,7 +704,7 @@ test('OptionStrategy aggregates model Greeks with qty', () => {
   });
 
   const years = timeExpiration.years('2025-04-17', evaluationTime);
-  const long = pricing.greeksBlackScholes({
+  const long = pricing.greeksDefault({
     spot: 102,
     strike: 100,
     years,
@@ -713,7 +713,7 @@ test('OptionStrategy aggregates model Greeks with qty', () => {
     volatility: 0.22,
     optionRight: 'call',
   });
-  const short = pricing.greeksBlackScholes({
+  const short = pricing.greeksDefault({
     spot: 102,
     strike: 105,
     years,
@@ -746,7 +746,7 @@ test('OptionStrategy prepares from option positions and uses instance Greeks', (
   }).greeksAt(102);
 
   const years = timeExpiration.years('2025-04-17', evaluationTime);
-  const long = pricing.greeksBlackScholes({
+  const long = pricing.greeksDefault({
     spot: 102,
     strike: 100,
     years,
@@ -755,7 +755,7 @@ test('OptionStrategy prepares from option positions and uses instance Greeks', (
     volatility: 0.25,
     optionRight: 'call',
   });
-  const short = pricing.greeksBlackScholes({
+  const short = pricing.greeksDefault({
     spot: 102,
     strike: 105,
     years,

@@ -35,12 +35,8 @@ export function expiryProbabilityInRange(input: {
   }
 
   const sigmaSqrtT = input.volatility * Math.sqrt(input.years);
-  const d2Lower = (Math.log(input.spot / input.lowerPrice)
-    + (input.rate - input.dividendYield - 0.5 * input.volatility * input.volatility) * input.years)
-    / sigmaSqrtT;
-  const d2Upper = (Math.log(input.spot / input.upperPrice)
-    + (input.rate - input.dividendYield - 0.5 * input.volatility * input.volatility) * input.years)
-    / sigmaSqrtT;
+  const zLower = Math.log(input.spot / input.lowerPrice) / sigmaSqrtT;
+  const zUpper = Math.log(input.spot / input.upperPrice) / sigmaSqrtT;
 
-  return normalCdf(d2Lower) - normalCdf(d2Upper);
+  return normalCdf(zLower) - normalCdf(zUpper);
 }

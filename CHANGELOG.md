@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+## v0.33.5
+
+- The default theoretical price is Bjerksund–Stensland 2002 through `price_default` / `priceDefault`. `price_black_scholes` remains the European formula. A call with zero dividend yield matches that European price. A put can include early-exercise value.
+- Default Greeks are central differences of the 2002 price. Vega is per volatility point, theta is per day, and rho is per 1% rate. `greeks_black_scholes` stays analytical and European.
+- `implied_volatility_from_price` inverts the 2002 price with the caller dividend yield. The default upper bound is 20. European inversion remains `implied_volatility_black_scholes`.
+- Expiry probability uses zero drift, `z = ln(target / spot) / (σ √t)`. Rate and dividend yield are validated and do not enter `z`.
+
 ## v0.33.4
 
 - `mergeOptionstratUrls` keeps stock fragments and combines the same underlying by share quantity and weighted average cost. Option legs stay separate. The TypeScript and Rust helpers match.

@@ -62,6 +62,35 @@ export function normalPdf(x: number): number {
   return Math.exp(-0.5 * x * x) / SQRT_2PI;
 }
 
+export function bivariateNormalCdf(x: number, y: number, rho: number): number {
+  if (!Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(rho)) {
+    return Number.NaN;
+  }
+  if (rho >= 0.999999) {
+    return normalCdf(Math.min(x, y));
+  }
+  if (rho <= -0.999999) {
+    return Math.max(normalCdf(x) - normalCdf(-y), 0);
+  }
+
+  const lower = Math.min(-8, x);
+  if (x <= lower + 1e-12) {
+    return 0;
+  }
+
+  const scale = Math.sqrt(1 - rho * rho);
+  const panels = 256;
+  const width = (x - lower) / panels;
+  const integrand = (t: number) => normalPdf(t) * normalCdf((y - rho * t) / scale);
+  let sum = integrand(lower) + integrand(x);
+  for (let index = 1; index < panels; index += 1) {
+    const t = lower + index * width;
+    const weight = index % 2 === 0 ? 2 : 4;
+    sum += weight * integrand(t);
+  }
+  return Math.min(Math.max(sum * width / 3, 0), 1);
+}
+
 export function round(value: number, decimals: number): number {
   ensureFinite('value', value);
   if (!Number.isInteger(decimals) || decimals < 0) {

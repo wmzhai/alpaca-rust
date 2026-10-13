@@ -69,6 +69,36 @@ pub fn normal_pdf(x: f64) -> f64 {
     (-0.5 * x * x).exp() / SQRT_2PI
 }
 
+/// P(X <= x, Y <= y) for standard normals with correlation `rho`.
+pub fn bivariate_normal_cdf(x: f64, y: f64, rho: f64) -> f64 {
+    if !x.is_finite() || !y.is_finite() || !rho.is_finite() {
+        return f64::NAN;
+    }
+    if rho >= 0.999_999 {
+        return normal_cdf(x.min(y));
+    }
+    if rho <= -0.999_999 {
+        return (normal_cdf(x) - normal_cdf(-y)).max(0.0);
+    }
+
+    let lower = (-8.0_f64).min(x);
+    if x <= lower + 1e-12 {
+        return 0.0;
+    }
+
+    let scale = (1.0 - rho * rho).sqrt();
+    let panels = 256;
+    let width = (x - lower) / panels as f64;
+    let integrand = |t: f64| normal_pdf(t) * normal_cdf((y - rho * t) / scale);
+    let mut sum = integrand(lower) + integrand(x);
+    for index in 1..panels {
+        let t = lower + index as f64 * width;
+        let weight = if index % 2 == 0 { 2.0 } else { 4.0 };
+        sum += weight * integrand(t);
+    }
+    (sum * width / 3.0).clamp(0.0, 1.0)
+}
+
 pub fn round(value: f64, decimals: u32) -> OptionResult<f64> {
     ensure_finite("value", value)?;
     Ok(float::round(value, decimals))

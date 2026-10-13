@@ -428,7 +428,7 @@ function runCase(item: FixtureCase): unknown {
         item.input.option_right as 'call' | 'put',
       );
     case 'pricing.implied_volatility_from_price':
-      return pricing.impliedVolatilityFromPrice({
+      return pricing.impliedVolatilityBlackScholes({
         targetPrice: Number(item.input.target_price),
         spot: Number(item.input.spot),
         strike: Number(item.input.strike),

@@ -1,6 +1,6 @@
 use crate::error::{OptionError, OptionResult};
 use crate::math::round_to_fixture_years;
-use crate::numeric::{normal_cdf, normal_pdf};
+use crate::numeric::{bivariate_normal_cdf, normal_cdf, normal_pdf};
 use crate::types::OptionRight;
 use serde::{Deserialize, Serialize};
 
@@ -313,6 +313,104 @@ fn bs1993_call_price(
         + strike * bs1993_phi(spot, years, 0.0, strike, i, rate, carry, volatility)
 }
 
+fn bs2002_psi(
+    spot: f64,
+    years: f64,
+    gamma: f64,
+    h: f64,
+    i2: f64,
+    i1: f64,
+    t1: f64,
+    rate: f64,
+    carry: f64,
+    volatility: f64,
+) -> f64 {
+    let sigma_sq = volatility * volatility;
+    let vol_sqrt_t1 = volatility * t1.sqrt();
+    let vol_sqrt_years = volatility * years.sqrt();
+    let drift_t1 = (carry + (gamma - 0.5) * sigma_sq) * t1;
+    let drift_years = (carry + (gamma - 0.5) * sigma_sq) * years;
+    let d1 = ((spot / i1).ln() + drift_t1) / vol_sqrt_t1;
+    let d2 = ((i2 * i2 / (spot * i1)).ln() + drift_t1) / vol_sqrt_t1;
+    let d3 = ((spot / i1).ln() - drift_t1) / vol_sqrt_t1;
+    let d4 = ((i2 * i2 / (spot * i1)).ln() - drift_t1) / vol_sqrt_t1;
+    let e1 = ((spot / h).ln() + drift_years) / vol_sqrt_years;
+    let e2 = ((i2 * i2 / (spot * h)).ln() + drift_years) / vol_sqrt_years;
+    let e3 = ((i1 * i1 / (spot * h)).ln() + drift_years) / vol_sqrt_years;
+    let e4 = ((i1 * i1 / (i2 * h)).ln() + drift_years) / vol_sqrt_years;
+    let tau = (t1 / years).sqrt();
+    let lambda = -rate + gamma * carry + 0.5 * gamma * (gamma - 1.0) * sigma_sq;
+    let kappa = 2.0 * carry / sigma_sq + (2.0 * gamma - 1.0);
+
+    (lambda * years).exp() * spot.powf(gamma) * (bivariate_normal_cdf(-d1, -e1, tau)
+        - (i2 / spot).powf(kappa) * bivariate_normal_cdf(-d2, -e2, tau)
+        - (i1 / spot).powf(kappa) * bivariate_normal_cdf(-d3, -e3, -tau)
+        + (i1 / i2).powf(kappa) * bivariate_normal_cdf(-d4, -e4, -tau))
+}
+
+fn bs2002_call_price(
+    spot: f64,
+    strike: f64,
+    years: f64,
+    rate: f64,
+    carry: f64,
+    volatility: f64,
+) -> f64 {
+    let european = gbs_price(
+        &OptionRight::Call,
+        spot,
+        strike,
+        years,
+        rate,
+        carry,
+        volatility,
+    );
+    if carry >= rate {
+        return european;
+    }
+
+    let sigma_sq = volatility * volatility;
+    let beta = (0.5 - carry / sigma_sq)
+        + ((carry / sigma_sq - 0.5) * (carry / sigma_sq - 0.5) + 2.0 * rate / sigma_sq).sqrt();
+    if beta <= 1.0 {
+        return european;
+    }
+    let b_infinity = beta / (beta - 1.0) * strike;
+    let b0 = strike.max(rate / (rate - carry) * strike);
+    let gap = b_infinity - b0;
+    if !gap.is_finite() || gap.abs() < 1e-12 || b0 <= 0.0 {
+        return european;
+    }
+
+    let t1 = 0.5 * (5.0_f64.sqrt() - 1.0) * years;
+    let ht1 = -(carry * t1 + 2.0 * volatility * t1.sqrt()) * strike * strike / (gap * b0);
+    let ht2 = -(carry * years + 2.0 * volatility * years.sqrt()) * strike * strike / (gap * b0);
+    let i1 = b0 + gap * (1.0 - ht1.exp());
+    let i2 = b0 + gap * (1.0 - ht2.exp());
+    if !i1.is_finite() || !i2.is_finite() || i1 <= 0.0 || i2 <= 0.0 {
+        return european;
+    }
+    if spot >= i2 {
+        return (spot - strike).max(european);
+    }
+
+    let alpha1 = (i1 - strike) * i1.powf(-beta);
+    let alpha2 = (i2 - strike) * i2.powf(-beta);
+    let value = alpha2 * spot.powf(beta)
+        - alpha2 * bs1993_phi(spot, t1, beta, i2, i2, rate, carry, volatility)
+        + bs1993_phi(spot, t1, 1.0, i2, i2, rate, carry, volatility)
+        - bs1993_phi(spot, t1, 1.0, i1, i2, rate, carry, volatility)
+        - strike * bs1993_phi(spot, t1, 0.0, i2, i2, rate, carry, volatility)
+        + strike * bs1993_phi(spot, t1, 0.0, i1, i2, rate, carry, volatility)
+        + alpha1 * bs1993_phi(spot, t1, beta, i1, i2, rate, carry, volatility)
+        - alpha1 * bs2002_psi(spot, years, beta, i1, i2, i1, t1, rate, carry, volatility)
+        + bs2002_psi(spot, years, 1.0, i1, i2, i1, t1, rate, carry, volatility)
+        - bs2002_psi(spot, years, 1.0, strike, i2, i1, t1, rate, carry, volatility)
+        - strike * bs2002_psi(spot, years, 0.0, i1, i2, i1, t1, rate, carry, volatility)
+        + strike * bs2002_psi(spot, years, 0.0, strike, i2, i1, t1, rate, carry, volatility);
+    value.max(european)
+}
+
 fn ju_quadratic_price_inner(
     option_right: &OptionRight,
     spot: f64,
@@ -612,6 +710,33 @@ pub fn bjerksund_stensland_1993_price(
         OptionRight::Call => bs1993_call_price(spot, strike, years, rate, carry, volatility),
         OptionRight::Put => {
             bs1993_call_price(strike, spot, years, dividend_yield, -carry, volatility)
+        }
+    })
+}
+
+pub fn bjerksund_stensland_2002_price(
+    spot: f64,
+    strike: f64,
+    years: f64,
+    rate: f64,
+    dividend_yield: f64,
+    volatility: f64,
+    option_right: &str,
+) -> OptionResult<f64> {
+    let option_right = validate_inputs(
+        spot,
+        strike,
+        years,
+        rate,
+        dividend_yield,
+        volatility,
+        option_right,
+    )?;
+    let carry = carry(rate, dividend_yield);
+    Ok(match option_right {
+        OptionRight::Call => bs2002_call_price(spot, strike, years, rate, carry, volatility),
+        OptionRight::Put => {
+            bs2002_call_price(strike, spot, years, dividend_yield, -carry, volatility)
         }
     })
 }

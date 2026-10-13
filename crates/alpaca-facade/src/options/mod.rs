@@ -249,7 +249,7 @@ fn repaired_greeks_and_iv(
         return (fallback_greeks, fallback_iv);
     };
 
-    let mut greeks = match pricing::greeks_black_scholes(&alpaca_option::BlackScholesInput::new(
+    let mut greeks = match pricing::greeks_default(&alpaca_option::BlackScholesInput::new(
         iv_spot,
         contract.strike,
         years,
@@ -304,7 +304,7 @@ pub fn apply_optionstrat_premium_model(
 
     snapshot.implied_volatility = Some(implied_volatility);
     snapshot.underlying_price = Some(iv_spot);
-    if let Ok(greeks) = pricing::greeks_black_scholes(&alpaca_option::BlackScholesInput::new(
+    if let Ok(greeks) = pricing::greeks_default(&alpaca_option::BlackScholesInput::new(
         iv_spot,
         contract.strike,
         years,
@@ -598,7 +598,7 @@ mod tests {
         let contract = contract::parse_occ_symbol(OCC_SYMBOL).expect("test OCC should parse");
         let years = expiration::years(&contract.expiration_date, Some(evaluation_time), None)
             .max(MIN_TIME_YEARS);
-        pricing::price_black_scholes(&alpaca_option::BlackScholesInput::new(
+        pricing::price_default(&alpaca_option::BlackScholesInput::new(
             spot,
             contract.strike,
             years,
@@ -655,7 +655,7 @@ mod tests {
         implied_volatility: f64,
     ) -> Greeks {
         let contract = contract::parse_occ_symbol(occ_symbol).expect("test OCC should parse");
-        pricing::greeks_black_scholes(&alpaca_option::BlackScholesInput::new(
+        pricing::greeks_default(&alpaca_option::BlackScholesInput::new(
             spot,
             contract.strike,
             expiration::years(&contract.expiration_date, Some(evaluation_time), None)

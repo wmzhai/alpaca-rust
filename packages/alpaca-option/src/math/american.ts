@@ -1,5 +1,5 @@
 import { fail } from '../error';
-import { normalCdf, normalPdf } from '../numeric';
+import { bivariateNormalCdf, normalCdf, normalPdf } from '../numeric';
 import type { OptionRight } from '../types';
 import { roundToFixtureYears } from './shared';
 
@@ -256,6 +256,116 @@ function bs1993CallPrice(input: {
     + input.strike * bs1993Phi({ spot: input.spot, years: input.years, gamma: 0, h: input.strike, i, rate: input.rate, carry: input.carry, volatility: input.volatility });
 }
 
+function bs2002Psi(input: {
+  spot: number;
+  years: number;
+  gamma: number;
+  h: number;
+  i2: number;
+  i1: number;
+  t1: number;
+  rate: number;
+  carry: number;
+  volatility: number;
+}): number {
+  const sigmaSq = input.volatility * input.volatility;
+  const volSqrtT1 = input.volatility * Math.sqrt(input.t1);
+  const volSqrtYears = input.volatility * Math.sqrt(input.years);
+  const driftT1 = (input.carry + (input.gamma - 0.5) * sigmaSq) * input.t1;
+  const driftYears = (input.carry + (input.gamma - 0.5) * sigmaSq) * input.years;
+  const d1 = (Math.log(input.spot / input.i1) + driftT1) / volSqrtT1;
+  const d2 = (Math.log((input.i2 * input.i2) / (input.spot * input.i1)) + driftT1) / volSqrtT1;
+  const d3 = (Math.log(input.spot / input.i1) - driftT1) / volSqrtT1;
+  const d4 = (Math.log((input.i2 * input.i2) / (input.spot * input.i1)) - driftT1) / volSqrtT1;
+  const e1 = (Math.log(input.spot / input.h) + driftYears) / volSqrtYears;
+  const e2 = (Math.log((input.i2 * input.i2) / (input.spot * input.h)) + driftYears) / volSqrtYears;
+  const e3 = (Math.log((input.i1 * input.i1) / (input.spot * input.h)) + driftYears) / volSqrtYears;
+  const e4 = (Math.log((input.i1 * input.i1) / (input.i2 * input.h)) + driftYears) / volSqrtYears;
+  const tau = Math.sqrt(input.t1 / input.years);
+  const lambda = -input.rate + input.gamma * input.carry + 0.5 * input.gamma * (input.gamma - 1) * sigmaSq;
+  const kappa = 2 * input.carry / sigmaSq + (2 * input.gamma - 1);
+  return Math.exp(lambda * input.years) * (input.spot ** input.gamma) * (
+    bivariateNormalCdf(-d1, -e1, tau)
+    - ((input.i2 / input.spot) ** kappa) * bivariateNormalCdf(-d2, -e2, tau)
+    - ((input.i1 / input.spot) ** kappa) * bivariateNormalCdf(-d3, -e3, -tau)
+    + ((input.i1 / input.i2) ** kappa) * bivariateNormalCdf(-d4, -e4, -tau)
+  );
+}
+
+function bs2002CallPrice(input: {
+  spot: number;
+  strike: number;
+  years: number;
+  rate: number;
+  carry: number;
+  volatility: number;
+}): number {
+  const european = gbsPrice({ ...input, optionRight: 'call' });
+  if (input.carry >= input.rate) {
+    return european;
+  }
+  const sigmaSq = input.volatility * input.volatility;
+  const beta = (0.5 - input.carry / sigmaSq)
+    + Math.sqrt((input.carry / sigmaSq - 0.5) ** 2 + 2 * input.rate / sigmaSq);
+  if (beta <= 1) {
+    return european;
+  }
+  const bInfinity = beta / (beta - 1) * input.strike;
+  const b0 = Math.max(input.strike, input.rate / (input.rate - input.carry) * input.strike);
+  const gap = bInfinity - b0;
+  if (!Number.isFinite(gap) || Math.abs(gap) < 1e-12 || b0 <= 0) {
+    return european;
+  }
+  const t1 = 0.5 * (Math.sqrt(5) - 1) * input.years;
+  const ht1 = -(input.carry * t1 + 2 * input.volatility * Math.sqrt(t1)) * input.strike * input.strike / (gap * b0);
+  const ht2 = -(input.carry * input.years + 2 * input.volatility * Math.sqrt(input.years)) * input.strike * input.strike / (gap * b0);
+  const i1 = b0 + gap * (1 - Math.exp(ht1));
+  const i2 = b0 + gap * (1 - Math.exp(ht2));
+  if (!Number.isFinite(i1) || !Number.isFinite(i2) || i1 <= 0 || i2 <= 0) {
+    return european;
+  }
+  if (input.spot >= i2) {
+    return Math.max(input.spot - input.strike, european);
+  }
+  const alpha1 = (i1 - input.strike) * (i1 ** (-beta));
+  const alpha2 = (i2 - input.strike) * (i2 ** (-beta));
+  const phi = (gamma: number, h: number, i: number, years: number) => bs1993Phi({
+    spot: input.spot,
+    years,
+    gamma,
+    h,
+    i,
+    rate: input.rate,
+    carry: input.carry,
+    volatility: input.volatility,
+  });
+  const psi = (gamma: number, h: number, i2Value: number, i1Value: number) => bs2002Psi({
+    spot: input.spot,
+    years: input.years,
+    gamma,
+    h,
+    i2: i2Value,
+    i1: i1Value,
+    t1,
+    rate: input.rate,
+    carry: input.carry,
+    volatility: input.volatility,
+  });
+  const value = alpha2 * (input.spot ** beta)
+    - alpha2 * phi(beta, i2, i2, t1)
+    + phi(1, i2, i2, t1)
+    - phi(1, i1, i2, t1)
+    - input.strike * phi(0, i2, i2, t1)
+    + input.strike * phi(0, i1, i2, t1)
+    + alpha1 * phi(beta, i1, i2, t1)
+    - alpha1 * psi(beta, i1, i2, i1)
+    + psi(1, i1, i2, i1)
+    - psi(1, input.strike, i2, i1)
+    - input.strike * psi(0, i1, i2, i1)
+    + input.strike * psi(0, input.strike, i2, i1);
+  return Math.max(value, european);
+}
+
 function juQuadraticPriceInner(input: {
   optionRight: OptionRight;
   spot: number;
@@ -452,6 +562,36 @@ export function bjerksundStensland1993Price(input: {
         volatility: input.volatility,
       })
     : bs1993CallPrice({
+        spot: input.strike,
+        strike: input.spot,
+        years: input.years,
+        rate: input.dividendYield,
+        carry: -assetCarry,
+        volatility: input.volatility,
+      });
+}
+
+export function bjerksundStensland2002Price(input: {
+  spot: number;
+  strike: number;
+  years: number;
+  rate: number;
+  dividendYield: number;
+  volatility: number;
+  optionRight: OptionRight;
+}): number {
+  const optionRight = validateInput(input);
+  const assetCarry = carry(input.rate, input.dividendYield);
+  return optionRight === 'call'
+    ? bs2002CallPrice({
+        spot: input.spot,
+        strike: input.strike,
+        years: input.years,
+        rate: input.rate,
+        carry: assetCarry,
+        volatility: input.volatility,
+      })
+    : bs2002CallPrice({
         spot: input.strike,
         strike: input.spot,
         years: input.years,

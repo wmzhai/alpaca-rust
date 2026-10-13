@@ -96,6 +96,18 @@ pub fn price_black_scholes(input: &BlackScholesInput) -> OptionResult<f64> {
     Ok(price_black_scholes_core(input))
 }
 
+pub fn price_default(input: &BlackScholesInput) -> OptionResult<f64> {
+    crate::math::american::bjerksund_stensland_2002_price(
+        input.spot,
+        input.strike,
+        input.years,
+        input.rate,
+        input.dividend_yield,
+        input.volatility,
+        input.option_right.as_str(),
+    )
+}
+
 /// Computes Black-Scholes-Merton gamma without calculating price or the other Greeks.
 ///
 /// The calculation uses the rate supplied by [`BlackScholesInput`] and applies the same input
@@ -158,6 +170,96 @@ pub fn greeks_black_scholes(input: &BlackScholesInput) -> OptionResult<Greeks> {
     })
 }
 
+fn default_price_or_intrinsic(
+    input: &BlackScholesInput,
+    spot: f64,
+    years: f64,
+    volatility: f64,
+    rate: f64,
+) -> OptionResult<f64> {
+    if years <= 0.0 {
+        return intrinsic_value(spot, input.strike, input.option_right.as_str());
+    }
+    price_default(&BlackScholesInput {
+        spot,
+        years,
+        volatility,
+        rate,
+        ..input.clone()
+    })
+}
+
+pub fn greeks_default(input: &BlackScholesInput) -> OptionResult<Greeks> {
+    validate_black_scholes_inputs(input)?;
+    let spot_step = 0.01;
+    let up = default_price_or_intrinsic(input, input.spot + spot_step, input.years, input.volatility, input.rate)?;
+    let down = default_price_or_intrinsic(input, input.spot - spot_step, input.years, input.volatility, input.rate)?;
+    let mid = default_price_or_intrinsic(input, input.spot, input.years, input.volatility, input.rate)?;
+    let delta = (up - down) / (2.0 * spot_step);
+    let gamma = (up - 2.0 * mid + down) / (spot_step * spot_step);
+
+    let days = input.years * 365.0;
+    let day_step = (days / 24.0).min(1.0 / 24.0);
+    let year_step = day_step / 365.0;
+    let sooner = default_price_or_intrinsic(
+        input,
+        input.spot,
+        input.years - year_step,
+        input.volatility,
+        input.rate,
+    )?;
+    let later = default_price_or_intrinsic(
+        input,
+        input.spot,
+        input.years + year_step,
+        input.volatility,
+        input.rate,
+    )?;
+    let theta = (sooner - later) / (2.0 * day_step);
+
+    let vol_step = 0.01;
+    let vol_up = default_price_or_intrinsic(
+        input,
+        input.spot,
+        input.years,
+        input.volatility + vol_step,
+        input.rate,
+    )?;
+    let vol_down = default_price_or_intrinsic(
+        input,
+        input.spot,
+        input.years,
+        input.volatility - vol_step,
+        input.rate,
+    )?;
+    let vega = (vol_up - vol_down) / 2.0;
+
+    let rate_step = 0.001;
+    let rate_up = default_price_or_intrinsic(
+        input,
+        input.spot,
+        input.years,
+        input.volatility,
+        input.rate + rate_step,
+    )?;
+    let rate_down = default_price_or_intrinsic(
+        input,
+        input.spot,
+        input.years,
+        input.volatility,
+        input.rate - rate_step,
+    )?;
+    let rho = (rate_up - rate_down) / 2.0 / 0.1;
+
+    Ok(Greeks {
+        delta,
+        gamma,
+        vega,
+        theta,
+        rho,
+    })
+}
+
 pub fn intrinsic_value(spot: f64, strike: f64, option_right: &str) -> OptionResult<f64> {
     ensure_finite("spot", spot)?;
     ensure_positive("strike", strike)?;
@@ -192,7 +294,7 @@ pub fn contract_extrinsic_value(
     )
 }
 
-pub fn implied_volatility_from_price(
+pub fn implied_volatility_black_scholes(
     input: &BlackScholesImpliedVolatilityInput,
 ) -> OptionResult<f64> {
     ensure_finite("target_price", input.target_price)?;
@@ -236,6 +338,64 @@ pub fn implied_volatility_from_price(
                 volatility,
                 ..black_scholes_input.clone()
             }) - input.target_price
+        },
+        input.tolerance,
+        input.max_iterations,
+    )
+}
+
+pub fn implied_volatility_from_price(
+    input: &BlackScholesImpliedVolatilityInput,
+) -> OptionResult<f64> {
+    ensure_finite("target_price", input.target_price)?;
+    let black_scholes_input = BlackScholesInput {
+        spot: input.spot,
+        strike: input.strike,
+        years: input.years,
+        rate: input.rate,
+        dividend_yield: input.dividend_yield,
+        volatility: 0.2,
+        option_right: input.option_right.clone(),
+    };
+    validate_black_scholes_inputs(&black_scholes_input)?;
+    let minimum_price = european_no_arbitrage_lower_bound(&black_scholes_input)
+        .max(intrinsic_value(
+            input.spot,
+            input.strike,
+            input.option_right.as_str(),
+        )?);
+    if input.target_price + 1e-12 < minimum_price {
+        return Err(OptionError::new(
+            "invalid_pricing_input",
+            format!(
+                "target_price is below discounted no-arbitrage lower bound: {} < {minimum_price}",
+                input.target_price
+            ),
+        ));
+    }
+
+    let lower_bound = input.lower_bound.unwrap_or(0.0001);
+    let upper_bound = input.upper_bound.unwrap_or(20.0);
+    ensure_positive("lower_bound", lower_bound)?;
+    ensure_positive("upper_bound", upper_bound)?;
+    if lower_bound >= upper_bound {
+        return Err(OptionError::new(
+            "invalid_pricing_input",
+            format!("lower_bound must be less than upper_bound: {lower_bound} >= {upper_bound}"),
+        ));
+    }
+
+    brent_solve(
+        lower_bound,
+        upper_bound,
+        |volatility| {
+            match price_default(&BlackScholesInput {
+                volatility,
+                ..black_scholes_input.clone()
+            }) {
+                Ok(price) => price - input.target_price,
+                Err(_) => f64::NAN,
+            }
         },
         input.tolerance,
         input.max_iterations,

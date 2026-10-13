@@ -1,5 +1,6 @@
 import * as optionContract from './contract';
 import { fail } from './error';
+import { bjerksundStensland2002Price } from './math/american';
 import { brentSolve, normalCdf, normalPdf } from './numeric';
 import type {
   BlackScholesImpliedVolatilityInput,
@@ -77,6 +78,11 @@ export function priceBlackScholes(input: BlackScholesInput): number {
   return priceBlackScholesCore({ ...input, optionRight });
 }
 
+export function priceDefault(input: BlackScholesInput): number {
+  validateBlackScholesInput(input);
+  return bjerksundStensland2002Price(input);
+}
+
 export function greeksBlackScholes(input: BlackScholesInput): Greeks {
   const optionRight = validateBlackScholesInput(input);
   const { d1, d2 } = d1d2(input);
@@ -104,6 +110,48 @@ export function greeksBlackScholes(input: BlackScholesInput): Greeks {
   const rho = optionRight === 'call'
     ? input.strike * input.years * expMinusRt * nd2
     : -input.strike * input.years * expMinusRt * nMinusD2;
+
+  return { delta, gamma, vega, theta, rho };
+}
+
+function defaultPriceOrIntrinsic(
+  input: BlackScholesInput,
+  spot: number,
+  years: number,
+  volatility: number,
+  rate: number,
+): number {
+  if (years <= 0) {
+    return intrinsicValue(spot, input.strike, input.optionRight);
+  }
+  return priceDefault({ ...input, spot, years, volatility, rate });
+}
+
+export function greeksDefault(input: BlackScholesInput): Greeks {
+  validateBlackScholesInput(input);
+  const spotStep = 0.01;
+  const up = defaultPriceOrIntrinsic(input, input.spot + spotStep, input.years, input.volatility, input.rate);
+  const down = defaultPriceOrIntrinsic(input, input.spot - spotStep, input.years, input.volatility, input.rate);
+  const mid = defaultPriceOrIntrinsic(input, input.spot, input.years, input.volatility, input.rate);
+  const delta = (up - down) / (2 * spotStep);
+  const gamma = (up - 2 * mid + down) / (spotStep * spotStep);
+
+  const days = input.years * 365;
+  const dayStep = Math.min(days / 24, 1 / 24);
+  const yearStep = dayStep / 365;
+  const sooner = defaultPriceOrIntrinsic(input, input.spot, input.years - yearStep, input.volatility, input.rate);
+  const later = defaultPriceOrIntrinsic(input, input.spot, input.years + yearStep, input.volatility, input.rate);
+  const theta = (sooner - later) / (2 * dayStep);
+
+  const volStep = 0.01;
+  const volUp = defaultPriceOrIntrinsic(input, input.spot, input.years, input.volatility + volStep, input.rate);
+  const volDown = defaultPriceOrIntrinsic(input, input.spot, input.years, input.volatility - volStep, input.rate);
+  const vega = (volUp - volDown) / 2;
+
+  const rateStep = 0.001;
+  const rateUp = defaultPriceOrIntrinsic(input, input.spot, input.years, input.volatility, input.rate + rateStep);
+  const rateDown = defaultPriceOrIntrinsic(input, input.spot, input.years, input.volatility, input.rate - rateStep);
+  const rho = (rateUp - rateDown) / 2 / 0.1;
 
   return { delta, gamma, vega, theta, rho };
 }
@@ -142,7 +190,7 @@ export function contractExtrinsicValue(
   return extrinsicValue(optionPrice, spot, contract.strike, contract.option_right);
 }
 
-export function impliedVolatilityFromPrice(input: BlackScholesImpliedVolatilityInput): number {
+export function impliedVolatilityBlackScholes(input: BlackScholesImpliedVolatilityInput): number {
   ensureFinite('targetPrice', input.targetPrice);
   validateBlackScholesInput({ ...input, volatility: 0.2 });
 
@@ -173,6 +221,45 @@ export function impliedVolatilityFromPrice(input: BlackScholesImpliedVolatilityI
     lowerBound,
     upperBound,
     (volatility) => priceBlackScholesCore({ ...input, volatility }) - input.targetPrice,
+    input.tolerance,
+    input.maxIterations,
+  );
+}
+
+export function impliedVolatilityFromPrice(input: BlackScholesImpliedVolatilityInput): number {
+  ensureFinite('targetPrice', input.targetPrice);
+  validateBlackScholesInput({ ...input, volatility: 0.2 });
+
+  const minimumPrice = Math.max(
+    europeanNoArbitrageLowerBound({
+      spot: input.spot,
+      strike: input.strike,
+      years: input.years,
+      rate: input.rate,
+      dividendYield: input.dividendYield,
+      optionRight: input.optionRight,
+    }),
+    intrinsicValue(input.spot, input.strike, input.optionRight),
+  );
+  if (input.targetPrice + 1e-12 < minimumPrice) {
+    fail(
+      'invalid_pricing_input',
+      `targetPrice is below discounted no-arbitrage lower bound: ${input.targetPrice} < ${minimumPrice}`,
+    );
+  }
+
+  const lowerBound = input.lowerBound ?? 0.0001;
+  const upperBound = input.upperBound ?? 20.0;
+  ensurePositive('lowerBound', lowerBound);
+  ensurePositive('upperBound', upperBound);
+  if (lowerBound >= upperBound) {
+    fail('invalid_pricing_input', `lowerBound must be less than upperBound: ${lowerBound} >= ${upperBound}`);
+  }
+
+  return brentSolve(
+    lowerBound,
+    upperBound,
+    (volatility) => priceDefault({ ...input, volatility }) - input.targetPrice,
     input.tolerance,
     input.maxIterations,
   );

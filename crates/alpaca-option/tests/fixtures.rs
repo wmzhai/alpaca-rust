@@ -549,7 +549,7 @@ fn run_case(case: &Value) -> Value {
         )
         .unwrap(),
         "pricing.implied_volatility_from_price" => serde_json::to_value(
-            pricing::implied_volatility_from_price(
+            pricing::implied_volatility_black_scholes(
                 &alpaca_option::BlackScholesImpliedVolatilityInput {
                     target_price: input.get("target_price").unwrap().as_f64().unwrap(),
                     spot: input.get("spot").unwrap().as_f64().unwrap(),
