@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+## v0.33.6
+
+- `bivariate_normal_cdf` and `bivariateNormalCdf` use a 16-point Gauss-Legendre rule on the Drezner-Wesolowsky arcsine integral. The 256-panel Simpson integrator is removed. Rust and TypeScript share the same nodes. Bjerksund-Stensland 2002 prices and default Greeks call this function.
+
 ## v0.33.5
 
 - The default theoretical price is Bjerksund–Stensland 2002 through `price_default` / `priceDefault`. `price_black_scholes` remains the European formula. A call with zero dividend yield matches that European price. A put can include early-exercise value.
