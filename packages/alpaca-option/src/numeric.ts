@@ -62,6 +62,40 @@ export function normalPdf(x: number): number {
   return Math.exp(-0.5 * x * x) / SQRT_2PI;
 }
 
+// Positive half of the 16-point Gauss-Legendre rule on [-1, 1].
+// Keep these identical to the Rust implementation in crates/alpaca-option.
+const GAUSS_16_NODE = [
+  0.09501250983763769,
+  0.2816035507792589,
+  0.4580167776572271,
+  0.6178762444026439,
+  0.755404408355003,
+  0.8656312023878316,
+  0.9445750230732324,
+  0.9894009349916503,
+];
+const GAUSS_16_WEIGHT = [
+  0.18945061045506847,
+  0.18260341504492356,
+  0.16915651939500262,
+  0.14959598881657668,
+  0.12462897125553392,
+  0.09515851168249283,
+  0.06225352393864823,
+  0.02715245941175309,
+];
+
+function bivariateAngleDensity(theta: number, product: number, halfSquare: number): number {
+  const cosine = Math.cos(theta);
+  const denominator = cosine * cosine;
+  if (denominator <= 1e-18) {
+    return 0;
+  }
+  return Math.exp((Math.sin(theta) * product - halfSquare) / denominator);
+}
+
+// P(X <= x, Y <= y) for standard normals with correlation rho.
+// Drezner-Wesolowsky arcsine integral, same 16-point rule as the Rust crate.
 export function bivariateNormalCdf(x: number, y: number, rho: number): number {
   if (!Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(rho)) {
     return Number.NaN;
@@ -72,23 +106,25 @@ export function bivariateNormalCdf(x: number, y: number, rho: number): number {
   if (rho <= -0.999999) {
     return Math.max(normalCdf(x) - normalCdf(-y), 0);
   }
-
-  const lower = Math.min(-8, x);
-  if (x <= lower + 1e-12) {
+  if (x <= -8 || y <= -8) {
     return 0;
   }
-
-  const scale = Math.sqrt(1 - rho * rho);
-  const panels = 256;
-  const width = (x - lower) / panels;
-  const integrand = (t: number) => normalPdf(t) * normalCdf((y - rho * t) / scale);
-  let sum = integrand(lower) + integrand(x);
-  for (let index = 1; index < panels; index += 1) {
-    const t = lower + index * width;
-    const weight = index % 2 === 0 ? 2 : 4;
-    sum += weight * integrand(t);
+  if (x >= 8 && y >= 8) {
+    return 1;
   }
-  return Math.min(Math.max(sum * width / 3, 0), 1);
+
+  const angle = Math.asin(rho);
+  const halfSquare = 0.5 * (x * x + y * y);
+  const product = x * y;
+  let sum = 0;
+  for (let index = 0; index < GAUSS_16_NODE.length; index += 1) {
+    const node = GAUSS_16_NODE[index];
+    const weight = GAUSS_16_WEIGHT[index];
+    sum += weight * bivariateAngleDensity(angle * (node + 1) * 0.5, product, halfSquare);
+    sum += weight * bivariateAngleDensity(angle * (1 - node) * 0.5, product, halfSquare);
+  }
+  const value = normalCdf(x) * normalCdf(y) + (angle * sum) / (4 * Math.PI);
+  return Math.min(Math.max(value, 0), 1);
 }
 
 export function round(value: number, decimals: number): number {

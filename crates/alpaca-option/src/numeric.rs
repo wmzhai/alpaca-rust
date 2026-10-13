@@ -69,7 +69,32 @@ pub fn normal_pdf(x: f64) -> f64 {
     (-0.5 * x * x).exp() / SQRT_2PI
 }
 
+// Positive half of the 16-point Gauss-Legendre rule on [-1, 1].
+const GAUSS_16_NODE: [f64; 8] = [
+    0.095_012_509_837_637_69,
+    0.281_603_550_779_258_9,
+    0.458_016_777_657_227_1,
+    0.617_876_244_402_643_9,
+    0.755_404_408_355_003,
+    0.865_631_202_387_831_6,
+    0.944_575_023_073_232_4,
+    0.989_400_934_991_650_3,
+];
+const GAUSS_16_WEIGHT: [f64; 8] = [
+    0.189_450_610_455_068_47,
+    0.182_603_415_044_923_56,
+    0.169_156_519_395_002_62,
+    0.149_595_988_816_576_68,
+    0.124_628_971_255_533_92,
+    0.095_158_511_682_492_83,
+    0.062_253_523_938_648_23,
+    0.027_152_459_411_753_09,
+];
+
 /// P(X <= x, Y <= y) for standard normals with correlation `rho`.
+///
+/// Uses the Drezner-Wesolowsky arcsine integral with 16-point Gauss-Legendre
+/// quadrature. Bjerksund-Stensland 2002 calls this with correlation near ±0.786.
 pub fn bivariate_normal_cdf(x: f64, y: f64, rho: f64) -> f64 {
     if !x.is_finite() || !y.is_finite() || !rho.is_finite() {
         return f64::NAN;
@@ -80,23 +105,33 @@ pub fn bivariate_normal_cdf(x: f64, y: f64, rho: f64) -> f64 {
     if rho <= -0.999_999 {
         return (normal_cdf(x) - normal_cdf(-y)).max(0.0);
     }
-
-    let lower = (-8.0_f64).min(x);
-    if x <= lower + 1e-12 {
+    if x <= -8.0 || y <= -8.0 {
         return 0.0;
     }
-
-    let scale = (1.0 - rho * rho).sqrt();
-    let panels = 256;
-    let width = (x - lower) / panels as f64;
-    let integrand = |t: f64| normal_pdf(t) * normal_cdf((y - rho * t) / scale);
-    let mut sum = integrand(lower) + integrand(x);
-    for index in 1..panels {
-        let t = lower + index as f64 * width;
-        let weight = if index % 2 == 0 { 2.0 } else { 4.0 };
-        sum += weight * integrand(t);
+    if x >= 8.0 && y >= 8.0 {
+        return 1.0;
     }
-    (sum * width / 3.0).clamp(0.0, 1.0)
+
+    let angle = rho.asin();
+    let half_square = 0.5 * (x * x + y * y);
+    let product = x * y;
+    let mut sum = 0.0;
+    for index in 0..GAUSS_16_NODE.len() {
+        let node = GAUSS_16_NODE[index];
+        let weight = GAUSS_16_WEIGHT[index];
+        sum += weight * bivariate_angle_density(angle * (node + 1.0) * 0.5, product, half_square);
+        sum += weight * bivariate_angle_density(angle * (1.0 - node) * 0.5, product, half_square);
+    }
+    (normal_cdf(x) * normal_cdf(y) + angle * sum / (4.0 * std::f64::consts::PI)).clamp(0.0, 1.0)
+}
+
+fn bivariate_angle_density(theta: f64, product: f64, half_square: f64) -> f64 {
+    let cosine = theta.cos();
+    let denominator = cosine * cosine;
+    if denominator <= 1e-18 {
+        return 0.0;
+    }
+    ((theta.sin() * product - half_square) / denominator).exp()
 }
 
 pub fn round(value: f64, decimals: u32) -> OptionResult<f64> {

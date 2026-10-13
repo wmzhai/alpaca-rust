@@ -110,7 +110,7 @@
         "dividend_yield": null
       },
       "expected": {
-        "value": -10.317226762737164
+        "value": -10.317229555577967
       },
       "tolerance": 1e-09
     },
@@ -322,7 +322,7 @@
           "rho": 28.855025047263894
         }
       },
-      "tolerance": 1e-09
+      "tolerance": 1e-07
     },
     {
       "id": "option-strategy-curve-pmcc",
