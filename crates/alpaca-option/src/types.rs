@@ -383,6 +383,9 @@ pub struct OptionSnapshot {
     pub greeks: Option<Greeks>,
     pub implied_volatility: Option<f64>,
     pub underlying_price: Option<f64>,
+    /// Alpaca snapshot `dailyBar.v`. Absent on hand-built and historical snapshots.
+    #[serde(default)]
+    pub daily_volume: Option<u64>,
 }
 
 impl Default for OptionSnapshot {
@@ -394,6 +397,7 @@ impl Default for OptionSnapshot {
             greeks: None,
             implied_volatility: None,
             underlying_price: None,
+            daily_volume: None,
         }
     }
 }
@@ -781,6 +785,7 @@ impl From<ExecutionSnapshot> for OptionSnapshot {
             greeks: Some(value.greeks),
             implied_volatility: value.iv.is_finite().then_some(value.iv),
             underlying_price: None,
+            daily_volume: None,
         }
     }
 }
@@ -851,6 +856,8 @@ impl From<&OptionSnapshot> for OptionChainRecord {
                 .as_ref()
                 .map(|greeks| greeks.rho)
                 .filter(|number| number.is_finite()),
+            daily_volume: value.daily_volume,
+            open_interest: None,
         }
     }
 }
@@ -897,6 +904,7 @@ impl From<&OptionChainRecord> for OptionSnapshot {
             }),
             implied_volatility: value.implied_volatility.filter(|number| number.is_finite()),
             underlying_price: value.underlying_price.filter(|number| number.is_finite()),
+            daily_volume: value.daily_volume,
         }
     }
 }
@@ -1029,6 +1037,12 @@ pub struct OptionChainRecord {
     pub vega: Option<f64>,
     pub theta: Option<f64>,
     pub rho: Option<f64>,
+    /// Alpaca snapshot `dailyBar.v`. Missing on stored historical chains.
+    #[serde(default)]
+    pub daily_volume: Option<u64>,
+    /// Alpaca contracts `open_interest`. Not part of the snapshot payload.
+    #[serde(default)]
+    pub open_interest: Option<f64>,
 }
 
 impl OptionChainRecord {
@@ -1268,7 +1282,9 @@ mod quote_mid_tests {
                 greeks: None,
                 implied_volatility: Some(0.3),
                 underlying_price: Some(50.0),
-            },
+
+            daily_volume: None,
+        },
             qty,
             avg_cost: Decimal::from(5),
             leg_type: "longcall".to_string(),

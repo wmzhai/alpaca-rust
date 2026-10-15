@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+## v0.33.7 - 2026-10-15
+
+- `OptionSnapshot` and `OptionChainRecord` carry `daily_volume` from the option snapshot daily bar volume. The TypeScript `OptionChainRecord` includes the same optional field.
+- `OptionChainRecord` carries optional `open_interest`. Mapping a chain from snapshots leaves it unset so the host can fill the contracts API value.
+
 ## v0.33.6
 
 - `bivariate_normal_cdf` and `bivariateNormalCdf` use a 16-point Gauss-Legendre rule on the Drezner-Wesolowsky arcsine integral. The 256-panel Simpson integrator is removed. Rust and TypeScript share the same nodes. Bjerksund-Stensland 2002 prices and default Greeks call this function.

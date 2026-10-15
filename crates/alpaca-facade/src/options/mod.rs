@@ -420,6 +420,7 @@ pub fn map_snapshot_with_pricing_reference(
                     .flatten()
             })
         }),
+        daily_volume: snapshot.daily_volume(),
     })
 }
 
@@ -781,6 +782,7 @@ mod tests {
             greeks: None,
             implied_volatility: Some(0.12),
             underlying_price: None,
+            daily_volume: None,
         };
 
         apply_optionstrat_premium_model(

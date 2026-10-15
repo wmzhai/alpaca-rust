@@ -223,6 +223,10 @@ export type OptionChainRecord = {
   vega: number | null;
   theta: number | null;
   rho: number | null;
+  /** Alpaca snapshot `dailyBar.v`. */
+  daily_volume?: number | null;
+  /** Alpaca contracts `open_interest`. */
+  open_interest?: number | null;
 };
 
 export type MarketStructureOptionRecord = {

@@ -50,7 +50,9 @@ fn strategy_position(
             greeks: None,
             implied_volatility: Some(implied_volatility),
             underlying_price: Some(100.0),
-        },
+
+        daily_volume: None,
+    },
         qty: quantity,
         avg_cost: alpaca_core::decimal::from_f64(avg_entry_price, 4),
         leg_type: String::new(),
@@ -82,7 +84,9 @@ fn option_position(
             greeks: Some(greeks),
             implied_volatility: Some(0.25),
             underlying_price: Some(100.0),
-        },
+
+        daily_volume: None,
+    },
         qty: quantity,
         avg_cost: Decimal::new(110, 2),
         leg_type: String::new(),
@@ -117,7 +121,9 @@ fn priced_position(
             greeks: None,
             implied_volatility: Some(0.25),
             underlying_price: Some(100.0),
-        },
+
+        daily_volume: None,
+    },
         qty: quantity,
         avg_cost: alpaca_core::decimal::from_f64(avg_entry_price, 4),
         leg_type: String::new(),

@@ -84,6 +84,7 @@ fn sample_snapshot(bid: Option<f64>, ask: Option<f64>) -> OptionSnapshot {
         greeks: None,
         implied_volatility: None,
         underlying_price: None,
+        daily_volume: None,
     }
 }
 
@@ -165,7 +166,9 @@ fn option_chain_record_roundtrip_stays_in_bottom_library() {
         }),
         implied_volatility: Some(0.22),
         underlying_price: Some(598.75),
-    };
+
+    daily_volume: None,
+};
 
     let record = OptionChainRecord::from(&snapshot);
     assert_eq!(record.as_of, "2025-02-06 11:30:04");
@@ -286,7 +289,9 @@ fn canonical_snapshot_serialization_keeps_single_canonical_shape_in_bottom_libra
         }),
         implied_volatility: Some(0.22),
         underlying_price: Some(598.75),
-    };
+
+    daily_volume: None,
+};
 
     let encoded = serde_json::to_value(&snapshot).unwrap();
     assert_eq!(
@@ -434,7 +439,9 @@ fn liquidity_models_stay_in_bottom_library() {
             }),
             implied_volatility: Some(0.28),
             underlying_price: Some(600.0),
-        },
+
+        daily_volume: None,
+    },
         43,
     )
     .unwrap();
@@ -564,7 +571,9 @@ fn snapshot_helpers_keep_contract_and_quote_semantics_in_core() {
         greeks: None,
         implied_volatility: None,
         underlying_price: None,
-    };
+
+    daily_volume: None,
+};
     assert!(!snapshot::is_valid(&invalid));
     assert_eq!(snapshot::liquidity(&invalid), None);
 }
@@ -951,7 +960,9 @@ fn chain_helpers_absorb_snapshot_lookup_and_expiration_extraction_directly() {
             greeks: None,
             implied_volatility: None,
             underlying_price: Some(598.0),
-        },
+
+        daily_volume: None,
+    },
         alpaca_option::OptionSnapshot {
             as_of: "2025-02-06 11:30:04".to_string(),
             contract: contract::parse_occ_symbol("SPY250328P00580000").unwrap(),
@@ -964,7 +975,9 @@ fn chain_helpers_absorb_snapshot_lookup_and_expiration_extraction_directly() {
             greeks: None,
             implied_volatility: None,
             underlying_price: Some(598.0),
-        },
+
+        daily_volume: None,
+    },
         alpaca_option::OptionSnapshot {
             as_of: "2025-02-06 11:30:04".to_string(),
             contract: contract::parse_occ_symbol("SPY250328C00600000").unwrap(),
@@ -977,7 +990,9 @@ fn chain_helpers_absorb_snapshot_lookup_and_expiration_extraction_directly() {
             greeks: None,
             implied_volatility: None,
             underlying_price: Some(598.0),
-        },
+
+        daily_volume: None,
+    },
     ];
     let option_chain = alpaca_option::OptionChain {
         underlying_symbol: "SPY".to_string(),
@@ -1058,7 +1073,9 @@ fn analysis_short_extrinsic_amount_handles_canonical_short_positions() {
                 greeks: None,
                 implied_volatility: None,
                 underlying_price: Some(105.0),
-            }),
+
+            daily_volume: None,
+        }),
         ),
         sample_position(
             contract_at(95.0, OptionRight::Put),
@@ -1077,7 +1094,9 @@ fn analysis_short_extrinsic_amount_handles_canonical_short_positions() {
                 greeks: None,
                 implied_volatility: None,
                 underlying_price: Some(105.0),
-            }),
+
+            daily_volume: None,
+        }),
         ),
         sample_position(
             contract_at(110.0, OptionRight::Call),
@@ -1096,7 +1115,9 @@ fn analysis_short_extrinsic_amount_handles_canonical_short_positions() {
                 greeks: None,
                 implied_volatility: None,
                 underlying_price: Some(105.0),
-            }),
+
+            daily_volume: None,
+        }),
         ),
     ];
 
@@ -1122,7 +1143,9 @@ fn analysis_short_extrinsic_amount_handles_canonical_short_positions() {
             greeks: None,
             implied_volatility: None,
             underlying_price: Some(105.0),
-        }),
+
+        daily_volume: None,
+    }),
     )];
     assert_eq!(
         analysis::short_extrinsic_amount(105.0, &missing_price, None).unwrap(),
@@ -1150,7 +1173,9 @@ fn analysis_short_itm_positions_handle_canonical_short_positions() {
                 greeks: None,
                 implied_volatility: None,
                 underlying_price: Some(105.0),
-            }),
+
+            daily_volume: None,
+        }),
         ),
         sample_position(
             contract_at(110.0, OptionRight::Put),
@@ -1176,7 +1201,9 @@ fn analysis_short_itm_positions_handle_canonical_short_positions() {
                 greeks: None,
                 implied_volatility: None,
                 underlying_price: Some(105.0),
-            }),
+
+            daily_volume: None,
+        }),
         ),
     ];
 
@@ -1284,7 +1311,9 @@ fn execution_quote_quote_and_limit_price_keep_boundary_behavior_simple() {
         greeks: None,
         implied_volatility: None,
         underlying_price: None,
-    };
+
+    daily_volume: None,
+};
 
     let normalized = execution_quote::quote(&snapshot);
     assert_eq!(normalized.bid, Some(1.1));
@@ -1417,7 +1446,9 @@ fn execution_quote_order_legs_and_roll_legs_keep_execution_mapping_in_one_place(
                 greeks: None,
                 implied_volatility: Some(0.25),
                 underlying_price: Some(600.0),
-            }),
+
+            daily_volume: None,
+        }),
         ),
         sample_position(
             short_put_contract.clone(),
@@ -1436,7 +1467,9 @@ fn execution_quote_order_legs_and_roll_legs_keep_execution_mapping_in_one_place(
                 greeks: None,
                 implied_volatility: Some(0.28),
                 underlying_price: Some(600.0),
-            }),
+
+            daily_volume: None,
+        }),
         ),
     ];
 
