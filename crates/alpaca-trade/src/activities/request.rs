@@ -71,7 +71,7 @@ impl ListRequest {
         let after_date = after_date
             .map(ToOwned::to_owned)
             .unwrap_or_else(default_option_records_after_date);
-        Self::for_types(&["OPASN", "OPEXP"], Some(after_date.as_str()))
+        Self::for_types(&["OPASN", "OPEXP", "OPTRD"], Some(after_date.as_str()))
     }
 
     pub(crate) fn into_query(self) -> Result<Vec<(String, String)>, Error> {

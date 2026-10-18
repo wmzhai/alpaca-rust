@@ -6,6 +6,7 @@ use super::Activity;
 pub struct OptionActivityRecords {
     pub assignments: Vec<Activity>,
     pub expirations: Vec<Activity>,
+    pub trades: Vec<Activity>,
 }
 
 impl OptionActivityRecords {
@@ -18,6 +19,8 @@ impl OptionActivityRecords {
                 grouped.assignments.push(record);
             } else if record.is_option_expiration() {
                 grouped.expirations.push(record);
+            } else if record.is_option_trade() {
+                grouped.trades.push(record);
             }
         }
 
@@ -86,5 +89,10 @@ impl Activity {
     #[must_use]
     pub fn is_option_expiration(&self) -> bool {
         self.activity_type == "OPEXP"
+    }
+
+    #[must_use]
+    pub fn is_option_trade(&self) -> bool {
+        self.activity_type == "OPTRD"
     }
 }

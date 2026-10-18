@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+## v0.33.8 - 2026-10-18
+
+- Option activity reads requested for assignments and expirations also include `OPTRD`. `OptionActivityRecords` keeps those rows so a host can use the stock delivery quantity instead of assuming 100 shares per contract.
+
 ## v0.33.7 - 2026-10-15
 
 - `OptionSnapshot` and `OptionChainRecord` carry `daily_volume` from the option snapshot daily bar volume. The TypeScript `OptionChainRecord` includes the same optional field.
