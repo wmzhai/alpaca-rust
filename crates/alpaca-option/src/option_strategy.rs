@@ -477,12 +477,10 @@ impl OptionStrategy {
         option_right: &OptionRight,
     ) -> Greeks {
         let delta = match option_right {
-            OptionRight::Call if underlying_price > strike => 1.0,
-            OptionRight::Call if underlying_price < strike => 0.0,
-            OptionRight::Call => 0.5,
+            OptionRight::Call if underlying_price >= strike => 1.0,
+            OptionRight::Call => 0.0,
             OptionRight::Put if underlying_price < strike => -1.0,
-            OptionRight::Put if underlying_price > strike => 0.0,
-            OptionRight::Put => -0.5,
+            OptionRight::Put => 0.0,
         };
 
         Greeks {

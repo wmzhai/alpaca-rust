@@ -190,6 +190,18 @@ fn default_price_or_intrinsic(
 }
 
 pub fn greeks_default(input: &BlackScholesInput) -> OptionResult<Greeks> {
+    if input.years <= 0.0 {
+        let delta = match input.option_right {
+            OptionRight::Call if input.spot >= input.strike => 1.0,
+            OptionRight::Call => 0.0,
+            OptionRight::Put if input.spot < input.strike => -1.0,
+            OptionRight::Put => 0.0,
+        };
+        return Ok(Greeks {
+            delta,
+            ..Greeks::default()
+        });
+    }
     validate_black_scholes_inputs(input)?;
     let spot_step = 0.01;
     let up = default_price_or_intrinsic(input, input.spot + spot_step, input.years, input.volatility, input.rate)?;
@@ -208,14 +220,7 @@ pub fn greeks_default(input: &BlackScholesInput) -> OptionResult<Greeks> {
         input.volatility,
         input.rate,
     )?;
-    let later = default_price_or_intrinsic(
-        input,
-        input.spot,
-        input.years + year_step,
-        input.volatility,
-        input.rate,
-    )?;
-    let theta = (sooner - later) / (2.0 * day_step);
+    let theta = (sooner - mid) / day_step;
 
     let vol_step = 0.01;
     let vol_up = default_price_or_intrinsic(

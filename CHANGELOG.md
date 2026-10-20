@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## v0.33.9 - 2026-10-20
+
+- Default theta is a one-sided step of at most one hour, `(price sooner - price now) / days`. At expiration, call delta is 1 at or above the strike and put delta is 0 there. Rust and TypeScript match.
+- `profitLossBounds` / `profit_loss_bounds` finds the best and worst PnL. One expiration uses the strike knots out to 100 times spot and treats a still-sloping wing as unlimited. Several expirations use derivative zeros inside the five-move window and the value approached at 100 times spot.
+- `strategyCollateral` / `strategy_collateral` returns dollar margin for naked shorts, cash-secured puts, credit spreads, short straddles and strangles, ratio spreads, synthetics, and combos. Other structures return nothing.
+- `chanceOfProfit` / `chance_of_profit` turns any number of directed breakevens into one probability of profit. Each point adds or removes the zero-drift lognormal mass below it. `directedBreakEvens` and `polishedDirectedBreakEvens` supply the points and their directions. Rate and dividend stay out of this chance. Rust and TypeScript share the formula.
 - `greekDefault` and `OptionStrategy.greekAt` price one of delta, gamma, vega, theta, or rho. The central-difference formulas match `greeksDefault`, including Rho per 1% rate. A host can draw the selected Greek without recomputing the other four.
 
 ## v0.33.8 - 2026-10-18

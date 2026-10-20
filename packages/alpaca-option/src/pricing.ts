@@ -135,13 +135,9 @@ export function greekDefault(input: BlackScholesInput, name: GreekName): number 
       return 0;
     }
     if (input.optionRight === 'call') {
-      if (input.spot > input.strike) return 1;
-      if (input.spot < input.strike) return 0;
-      return 0.5;
+      return input.spot >= input.strike ? 1 : 0;
     }
-    if (input.spot < input.strike) return -1;
-    if (input.spot > input.strike) return 0;
-    return -0.5;
+    return input.spot < input.strike ? -1 : 0;
   }
   validateBlackScholesInput(input);
   if (name === 'delta' || name === 'gamma') {
@@ -159,8 +155,8 @@ export function greekDefault(input: BlackScholesInput, name: GreekName): number 
     const dayStep = Math.min(days / 24, 1 / 24);
     const yearStep = dayStep / 365;
     const sooner = defaultPriceOrIntrinsic(input, input.spot, input.years - yearStep, input.volatility, input.rate);
-    const later = defaultPriceOrIntrinsic(input, input.spot, input.years + yearStep, input.volatility, input.rate);
-    return (sooner - later) / (2 * dayStep);
+    const current = defaultPriceOrIntrinsic(input, input.spot, input.years, input.volatility, input.rate);
+    return (sooner - current) / dayStep;
   }
   if (name === 'vega') {
     const volStep = 0.01;

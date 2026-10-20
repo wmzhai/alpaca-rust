@@ -13,6 +13,7 @@ pub mod error;
 pub mod execution_quote;
 pub mod expiration_selection;
 pub mod liquidity;
+pub mod margin;
 pub mod market_structure;
 pub mod math;
 pub mod numeric;

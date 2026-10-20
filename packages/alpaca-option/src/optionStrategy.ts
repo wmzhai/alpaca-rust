@@ -226,13 +226,9 @@ function strategyMarkValuePrepared(input: {
 function expiryIntrinsicGreeks(underlyingPrice: number, strike: number, optionRight: OptionRight): Greeks {
   const delta = (() => {
     if (optionRight === 'call') {
-      if (underlyingPrice > strike) return 1;
-      if (underlyingPrice < strike) return 0;
-      return 0.5;
+      return underlyingPrice >= strike ? 1 : 0;
     }
-    if (underlyingPrice < strike) return -1;
-    if (underlyingPrice > strike) return 0;
-    return -0.5;
+    return underlyingPrice < strike ? -1 : 0;
   })();
   return { delta, gamma: 0, vega: 0, theta: 0, rho: 0 };
 }

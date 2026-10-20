@@ -4,6 +4,7 @@ export * as contract from './contract';
 export * as display from './display';
 export * as executionQuote from './executionQuote';
 export * as expirationSelection from './expirationSelection';
+export * as margin from './margin';
 export * as marketStructure from './marketStructure';
 export * as math from './math';
 export * as numeric from './numeric';
