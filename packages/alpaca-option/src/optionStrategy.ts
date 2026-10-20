@@ -5,9 +5,11 @@ import { fail } from './error';
 import { refineBracketedRoot } from './numeric';
 import { spread as snapshotSpread } from './snapshot';
 import {
+  greekDefault,
   greeksDefault,
   intrinsicValue,
   priceDefault,
+  type GreekName,
 } from './pricing';
 import { activeRiskFreeRateCurve, rateOnCurve, type RiskFreeRatePoint } from './rate';
 import type {
@@ -270,6 +272,35 @@ function strategyGreeksPrepared(input: {
   return total;
 }
 
+function strategyGreekPrepared(input: {
+  positions: OptionPosition[];
+  underlying_price: number;
+  dividend_yield: number;
+  rate_curve: readonly RiskFreeRatePoint[];
+  name: GreekName;
+}): number {
+  ensurePositive('invalid_strategy_payoff_input', 'underlyingPrice', input.underlying_price);
+  let total = 0;
+  for (const position of input.positions) {
+    const optionRight = preparedOptionRight(position);
+    const strike = preparedStrike(position);
+    const years = preparedYears(position);
+    const greek = years <= 0
+      ? expiryIntrinsicGreeks(input.underlying_price, strike, optionRight)[input.name]
+      : greekDefault({
+          spot: input.underlying_price,
+          strike,
+          years,
+          rate: rateOnCurve(input.rate_curve, years),
+          dividendYield: input.dividend_yield,
+          volatility: preparedImpliedVolatility(position),
+          optionRight,
+        }, input.name);
+    total += greek * position.qty * CONTRACT_MULTIPLIER;
+  }
+  return total;
+}
+
 function pushUniqueRoot(roots: number[], root: number, tolerance: number): void {
   if (roots.some((existing) => Math.abs(existing - root) <= tolerance)) {
     return;
@@ -485,6 +516,17 @@ export class OptionStrategy {
       theta: total.theta * this.qty,
       rho: total.rho * this.qty,
     };
+  }
+
+  greekAt(underlyingPrice: number, name: GreekName): number {
+    const total = strategyGreekPrepared({
+      positions: this.positions,
+      underlying_price: underlyingPrice,
+      dividend_yield: this.dividendYield,
+      rate_curve: this.rateCurve,
+      name,
+    });
+    return name === 'delta' ? total * this.qty + this.stock_qty : total * this.qty;
   }
 
   positionTotals(): StrategyPositionTotals {

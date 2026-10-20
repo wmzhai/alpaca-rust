@@ -127,33 +127,62 @@ function defaultPriceOrIntrinsic(
   return priceDefault({ ...input, spot, years, volatility, rate });
 }
 
-export function greeksDefault(input: BlackScholesInput): Greeks {
+export type GreekName = 'delta' | 'gamma' | 'vega' | 'theta' | 'rho';
+
+export function greekDefault(input: BlackScholesInput, name: GreekName): number {
+  if (!(input.years > 0)) {
+    if (name !== 'delta') {
+      return 0;
+    }
+    if (input.optionRight === 'call') {
+      if (input.spot > input.strike) return 1;
+      if (input.spot < input.strike) return 0;
+      return 0.5;
+    }
+    if (input.spot < input.strike) return -1;
+    if (input.spot > input.strike) return 0;
+    return -0.5;
+  }
   validateBlackScholesInput(input);
-  const spotStep = 0.01;
-  const up = defaultPriceOrIntrinsic(input, input.spot + spotStep, input.years, input.volatility, input.rate);
-  const down = defaultPriceOrIntrinsic(input, input.spot - spotStep, input.years, input.volatility, input.rate);
-  const mid = defaultPriceOrIntrinsic(input, input.spot, input.years, input.volatility, input.rate);
-  const delta = (up - down) / (2 * spotStep);
-  const gamma = (up - 2 * mid + down) / (spotStep * spotStep);
-
-  const days = input.years * 365;
-  const dayStep = Math.min(days / 24, 1 / 24);
-  const yearStep = dayStep / 365;
-  const sooner = defaultPriceOrIntrinsic(input, input.spot, input.years - yearStep, input.volatility, input.rate);
-  const later = defaultPriceOrIntrinsic(input, input.spot, input.years + yearStep, input.volatility, input.rate);
-  const theta = (sooner - later) / (2 * dayStep);
-
-  const volStep = 0.01;
-  const volUp = defaultPriceOrIntrinsic(input, input.spot, input.years, input.volatility + volStep, input.rate);
-  const volDown = defaultPriceOrIntrinsic(input, input.spot, input.years, input.volatility - volStep, input.rate);
-  const vega = (volUp - volDown) / 2;
-
+  if (name === 'delta' || name === 'gamma') {
+    const spotStep = 0.01;
+    const up = defaultPriceOrIntrinsic(input, input.spot + spotStep, input.years, input.volatility, input.rate);
+    const down = defaultPriceOrIntrinsic(input, input.spot - spotStep, input.years, input.volatility, input.rate);
+    if (name === 'delta') {
+      return (up - down) / (2 * spotStep);
+    }
+    const mid = defaultPriceOrIntrinsic(input, input.spot, input.years, input.volatility, input.rate);
+    return (up - 2 * mid + down) / (spotStep * spotStep);
+  }
+  if (name === 'theta') {
+    const days = input.years * 365;
+    const dayStep = Math.min(days / 24, 1 / 24);
+    const yearStep = dayStep / 365;
+    const sooner = defaultPriceOrIntrinsic(input, input.spot, input.years - yearStep, input.volatility, input.rate);
+    const later = defaultPriceOrIntrinsic(input, input.spot, input.years + yearStep, input.volatility, input.rate);
+    return (sooner - later) / (2 * dayStep);
+  }
+  if (name === 'vega') {
+    const volStep = 0.01;
+    const volUp = defaultPriceOrIntrinsic(input, input.spot, input.years, input.volatility + volStep, input.rate);
+    const volDown = defaultPriceOrIntrinsic(input, input.spot, input.years, input.volatility - volStep, input.rate);
+    return (volUp - volDown) / 2;
+  }
   const rateStep = 0.001;
   const rateUp = defaultPriceOrIntrinsic(input, input.spot, input.years, input.volatility, input.rate + rateStep);
   const rateDown = defaultPriceOrIntrinsic(input, input.spot, input.years, input.volatility, input.rate - rateStep);
-  const rho = (rateUp - rateDown) / 2 / 0.1;
+  return (rateUp - rateDown) / 2 / 0.1;
+}
 
-  return { delta, gamma, vega, theta, rho };
+export function greeksDefault(input: BlackScholesInput): Greeks {
+  validateBlackScholesInput(input);
+  return {
+    delta: greekDefault(input, 'delta'),
+    gamma: greekDefault(input, 'gamma'),
+    vega: greekDefault(input, 'vega'),
+    theta: greekDefault(input, 'theta'),
+    rho: greekDefault(input, 'rho'),
+  };
 }
 
 export function intrinsicValue(spot: number, strike: number, optionRight: OptionRight): number {

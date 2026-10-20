@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- `greekDefault` and `OptionStrategy.greekAt` price one of delta, gamma, vega, theta, or rho. The central-difference formulas match `greeksDefault`, including Rho per 1% rate. A host can draw the selected Greek without recomputing the other four.
+
 ## v0.33.8 - 2026-10-18
 
 - Option activity reads requested for assignments and expirations also include `OPTRD`. `OptionActivityRecords` keeps those rows so a host can use the stock delivery quantity instead of assuming 100 shares per contract.
