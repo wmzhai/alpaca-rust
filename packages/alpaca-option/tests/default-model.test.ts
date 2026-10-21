@@ -24,6 +24,26 @@ test('zero dividend call matches european and put matches the rust price', () =>
   assert.ok(Number.isFinite(greeks.rho));
 });
 
+test('several expirations scan two moves around the anchors', () => {
+  const seen: number[] = [];
+  probability.profitLossBounds({
+    evaluate: (price) => {
+      seen.push(price);
+      return price - 100;
+    },
+    spot: 100,
+    strikes: [80, 120],
+    singleExpiration: false,
+    impliedMove: 40,
+    samples: 20,
+  });
+  const grid = seen.filter((price) => price < 1000);
+  assert.ok(grid.length > 0);
+  assert.ok(grid.every((price) => price >= 0.1 && price <= 200.01), String(grid));
+  assert.ok(Math.min(...grid) < 1);
+  assert.ok(seen.some((price) => price >= 9000));
+});
+
 test('probability ignores rate and dividend', () => {
   const base = probability.expiryProbabilityInRange({
     spot: 100,

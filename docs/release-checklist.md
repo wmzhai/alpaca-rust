@@ -4,7 +4,7 @@ This checklist defines the public release bar for `alpaca-rust`.
 
 ## Current Release Baseline
 
-- The current published release line is `v0.33.9`
+- The current published release line is `v0.34.0`
 - `.github/workflows/github-pages.yml` is the only release workflow
 - The release workflow publishes crates and GitHub Releases only on semantic version tags matching `v*.*.*`
 - crates.io Trusted Publishing must remain configured for all published Rust crates:
@@ -22,7 +22,7 @@ This checklist defines the public release bar for `alpaca-rust`.
 - `Cargo.toml` metadata is present for every published Rust crate
 - docs.rs is the primary API-reference host
 - GitHub Pages hosts narrative docs for the whole workspace
-- `CHANGELOG.md` contains a non-empty section for the release tag
+- `CHANGELOG.md` contains a non-empty section whose heading is `## v${VERSION}` or `## v${VERSION} - YYYY-MM-DD`
 - author metadata uses `Weiming Zhai (wmzhai@gmail.com)`
 
 ## Verification
@@ -55,7 +55,7 @@ Use this flow for a patch release. Set `VERSION` once and reuse it consistently.
    - bump all in-workspace dependency version pins in crate `Cargo.toml` files
    - bump the website package version in `website/package.json`
    - update versioned install snippets in `docs/getting-started.md` and `docs/installation.md`
-   - add a non-empty `## v${VERSION}` section to `CHANGELOG.md`
+   - add a non-empty `## v${VERSION} - YYYY-MM-DD` section to `CHANGELOG.md`
    - ensure the three-layer crate list is consistent across `README.md`, `docs/`, generated docs metadata, and the website
    - regenerate docs metadata with `python3 tools/docs/generate-doc-site`
 

@@ -214,7 +214,30 @@ jobs:
         env:
           RELEASE_TAG: ${{ github.ref_name }}
         run: |
-          python3 -c 'import os; from pathlib import Path; tag = os.environ["RELEASE_TAG"]; lines = Path("CHANGELOG.md").read_text(encoding="utf-8").splitlines(); heading = f"## {tag}"; start = next((i for i, line in enumerate(lines) if line.strip() == heading), None); start is not None or (_ for _ in ()).throw(SystemExit(f"missing changelog section for {tag}")); end = next((i for i in range(start + 1, len(lines)) if lines[i].startswith("## ")), len(lines)); section = "\n".join(lines[start + 1:end]).strip(); section or (_ for _ in ()).throw(SystemExit(f"empty changelog section for {tag}")); Path("release-notes.md").write_text(section + "\n", encoding="utf-8")'
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+
+          tag = os.environ["RELEASE_TAG"]
+          lines = Path("CHANGELOG.md").read_text(encoding="utf-8").splitlines()
+          prefix = f"## {tag}"
+
+          def is_section(line: str) -> bool:
+              text = line.strip()
+              if text == prefix:
+                  return True
+              # Accept "## v1.2.3 - 2026-10-21" without matching "## v1.2.30".
+              return text.startswith(prefix + " ") or text.startswith(prefix + "\t")
+
+          start = next((i for i, line in enumerate(lines) if is_section(line)), None)
+          if start is None:
+              raise SystemExit(f"missing changelog section for {tag}")
+          end = next((i for i in range(start + 1, len(lines)) if lines[i].startswith("## ")), len(lines))
+          section = "\n".join(lines[start + 1:end]).strip()
+          if not section:
+              raise SystemExit(f"empty changelog section for {tag}")
+          Path("release-notes.md").write_text(section + "\n", encoding="utf-8")
+          PY
 
       - name: Create or update GitHub Release
         uses: softprops/action-gh-release@v2

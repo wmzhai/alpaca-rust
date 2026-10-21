@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+## v0.34.0 - 2026-10-21
+
+- The GitHub Release job accepts a changelog heading of `## vX.Y.Z` or `## vX.Y.Z - YYYY-MM-DD`. v0.33.7 through v0.33.9 failed that job because their headings include a date.
+- Several-expiration profit and loss scans cover two nearest-expiration implied moves around the spot and the strikes. The lower bound is 0.1 when that span crosses zero. A non-finite sample is dropped. One expiration still prices the intrinsic knot at zero.
+
 ## v0.33.9 - 2026-10-20
 
 - Default theta is a one-sided step of at most one hour, `(price sooner - price now) / days`. At expiration, call delta is 1 at or above the strike and put delta is 0 there. Rust and TypeScript match.

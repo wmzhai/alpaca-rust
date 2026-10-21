@@ -303,8 +303,9 @@ where
     for price in prices {
         ensure_finite("price", *price)?;
         let pnl = evaluate(*price);
-        ensure_finite("pnl", pnl)?;
-        sampled.push((*price, pnl));
+        if pnl.is_finite() {
+            sampled.push((*price, pnl));
+        }
     }
     let mut roots = Vec::new();
     for index in 1..sampled.len() {
@@ -441,6 +442,44 @@ pub struct ProfitLossBounds {
     pub min_pnl: f64,
 }
 
+/// Lowest underlying the several-expiration scan will price.
+const SCAN_PRICE_FLOOR: f64 = 0.1;
+
+/// Two implied moves around the spot and the strikes. The lower bound stays positive.
+fn profit_loss_scan_window(spot: f64, implied_move: f64, strikes: &[f64]) -> (f64, f64) {
+    let pad = 2.0 * implied_move.max(0.0);
+    let mut low = f64::INFINITY;
+    let mut high = f64::NEG_INFINITY;
+    if spot > 0.0 {
+        low = spot;
+        high = spot;
+    }
+    for strike in strikes {
+        if *strike > 0.0 {
+            low = low.min(*strike);
+            high = high.max(*strike);
+        }
+    }
+    if !low.is_finite() || !high.is_finite() {
+        low = SCAN_PRICE_FLOOR;
+        high = SCAN_PRICE_FLOOR;
+    }
+    let mut lower = low - pad;
+    let mut upper = high + pad;
+    if lower < SCAN_PRICE_FLOOR {
+        lower = SCAN_PRICE_FLOOR;
+    }
+    for strike in strikes {
+        if *strike > 0.0 && *strike < lower {
+            lower = *strike;
+        }
+    }
+    if upper <= lower {
+        upper = lower + 1.0;
+    }
+    (lower, upper)
+}
+
 /// Best and worst PnL. One expiration uses strike knots. Several use derivative zeros.
 pub fn profit_loss_bounds<F>(
     mut evaluate: F,
@@ -487,19 +526,7 @@ where
         return Ok(ProfitLossBounds { max_profit, min_pnl });
     }
 
-    let mut lower = (spot - 5.0 * implied_move.max(0.0)).max(0.0);
-    let mut upper = spot + 5.0 * implied_move.max(0.0);
-    for strike in &listed {
-        if *strike < lower {
-            lower = strike.max(0.0);
-        }
-        if *strike > upper {
-            upper = *strike;
-        }
-    }
-    if upper <= lower {
-        upper = lower + 1.0;
-    }
+    let (lower, upper) = profit_loss_scan_window(spot, implied_move, &listed);
     let count = samples.max(1);
     let step = (upper - lower) / count as f64;
     let bump = 0.001;
@@ -507,16 +534,22 @@ where
     let mut previous_slope: Option<f64> = None;
     for index in 0..count {
         let price = lower + index as f64 * step;
+        if price <= 0.0 {
+            continue;
+        }
         let next = slope_of(&mut evaluate, price, bump);
+        if next.is_nan() {
+            previous_slope = None;
+            continue;
+        }
+        let left = price - step;
         if let Some(prior) = previous_slope {
-            if prior.signum() != 0.0 && next.signum() != 0.0 && prior.signum() != next.signum() {
-                zeros.push(bisect_slope(
-                    &mut evaluate,
-                    (price - step).max(0.0),
-                    price,
-                    bump,
-                    30,
-                ));
+            if left > 0.0
+                && prior.signum() != 0.0
+                && next.signum() != 0.0
+                && prior.signum() != next.signum()
+            {
+                zeros.push(bisect_slope(&mut evaluate, left, price, bump, 30));
             }
         }
         previous_slope = Some(next);
@@ -524,13 +557,17 @@ where
     let mut max_profit = f64::NEG_INFINITY;
     let mut min_pnl = f64::INFINITY;
     let mut consider = |value: f64| {
+        if value.is_nan() {
+            return;
+        }
         max_profit = max_profit.max(value);
         min_pnl = min_pnl.min(value);
     };
     for zero in zeros {
-        consider(evaluate(zero));
+        if zero > 0.0 {
+            consider(evaluate(zero));
+        }
     }
-    consider(evaluate(0.0));
     consider(approaching_value(&mut evaluate, spot.max(0.0) * 100.0, 1.0));
     Ok(ProfitLossBounds { max_profit, min_pnl })
 }

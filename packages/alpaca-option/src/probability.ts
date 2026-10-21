@@ -224,7 +224,7 @@ function bisectRoot(
   return (lower + upper) / 2;
 }
 
-/** Sign scan, then bisection of `evaluate` down to `tolerance`. */
+/** Sign scan, then bisection of `evaluate` down to `tolerance`. A non-finite sample is dropped. */
 export function polishedDirectedBreakEvens(input: {
   prices: readonly number[];
   evaluate: (price: number) => number;
@@ -235,12 +235,14 @@ export function polishedDirectedBreakEvens(input: {
   if (!Number.isInteger(input.maxIterations) || input.maxIterations <= 0) {
     fail('invalid_probability_input', `maxIterations must be a positive integer: ${input.maxIterations}`);
   }
-  const sampled = input.prices.map((price) => {
+  const sampled: { price: number; pnl: number }[] = [];
+  for (const price of input.prices) {
     ensureFinite('price', price);
     const pnl = input.evaluate(price);
-    ensureFinite('pnl', pnl);
-    return { price, pnl };
-  });
+    if (Number.isFinite(pnl)) {
+      sampled.push({ price, pnl });
+    }
+  }
   const roots: DirectedBreakEven[] = [];
   for (let index = 1; index < sampled.length; index += 1) {
     const left = sampled[index - 1];
@@ -290,10 +292,46 @@ export function approachingValue(
   return atBound;
 }
 
+/** Lowest underlying the several-expiration scan will price. */
+export const SCAN_PRICE_FLOOR = 0.1;
+
+/**
+ * Several-expiration scan window.
+ * Two nearest-expiration implied moves around the spot and the strikes.
+ * The lower bound is raised to {@link SCAN_PRICE_FLOOR} when that span crosses zero.
+ * A positive strike below the floor stays inside the window.
+ */
+export function profitLossScanWindow(input: {
+  spot: number;
+  impliedMove: number;
+  strikes: readonly number[];
+}): { lower: number; upper: number } {
+  const move = Number.isFinite(input.impliedMove) ? Math.max(input.impliedMove, 0) : 0;
+  const pad = 2 * move;
+  const strikes = input.strikes.filter((strike) => strike > 0);
+  const anchors = [input.spot, ...strikes].filter((price) => price > 0);
+  const low = anchors.length > 0 ? Math.min(...anchors) : SCAN_PRICE_FLOOR;
+  const high = anchors.length > 0 ? Math.max(...anchors) : SCAN_PRICE_FLOOR;
+  let lower = low - pad;
+  let upper = high + pad;
+  if (!(lower >= SCAN_PRICE_FLOOR)) {
+    lower = SCAN_PRICE_FLOOR;
+  }
+  for (const strike of strikes) {
+    if (strike < lower) {
+      lower = strike;
+    }
+  }
+  if (!(upper > lower)) {
+    upper = lower + 1;
+  }
+  return { lower, upper };
+}
+
 /**
  * Best and worst PnL.
  * One expiration uses the strike knots out to 100 times spot.
- * Several expirations use derivative zeros inside the five-move window, plus the far wing.
+ * Several expirations use derivative zeros inside {@link profitLossScanWindow}, plus the far wing.
  */
 export function profitLossBounds(input: {
   evaluate: (price: number) => number;
@@ -332,19 +370,9 @@ export function profitLossBounds(input: {
     return { maxProfit, minPnl };
   }
 
-  let lower = Math.max(0, input.spot - 5 * Math.max(input.impliedMove, 0));
-  let upper = input.spot + 5 * Math.max(input.impliedMove, 0);
-  for (const strike of strikes) {
-    if (strike < lower) {
-      lower = Math.max(0, strike);
-    }
-    if (strike > upper) {
-      upper = strike;
-    }
-  }
-  if (!(upper > lower)) {
-    upper = lower + 1;
-  }
+  const scan = profitLossScanWindow({ spot: input.spot, impliedMove: input.impliedMove, strikes });
+  const lower = scan.lower;
+  const upper = scan.upper;
   const count = Math.max(1, input.samples ?? 500);
   const step = (upper - lower) / count;
   const bump = 0.001;
@@ -353,15 +381,26 @@ export function profitLossBounds(input: {
   let previousSlope: number | null = null;
   for (let index = 0; index < count; index += 1) {
     const price = lower + index * step;
+    if (!(price > 0)) {
+      continue;
+    }
     const next = slope(price);
-    if (previousSlope != null && Math.sign(previousSlope) !== 0 && Math.sign(next) !== 0 && Math.sign(previousSlope) !== Math.sign(next)) {
-      zeros.push(bisectRoot(slope, Math.max(0, price - step), price, bump, 30));
+    if (Number.isNaN(next)) {
+      previousSlope = null;
+      continue;
+    }
+    const left = price - step;
+    if (previousSlope != null && left > 0 && Math.sign(previousSlope) !== 0 && Math.sign(next) !== 0 && Math.sign(previousSlope) !== Math.sign(next)) {
+      zeros.push(bisectRoot(slope, left, price, bump, 30));
     }
     previousSlope = next;
   }
   let maxProfit = Number.NEGATIVE_INFINITY;
   let minPnl = Number.POSITIVE_INFINITY;
   const consider = (value: number) => {
+    if (Number.isNaN(value)) {
+      return;
+    }
     if (value > maxProfit) {
       maxProfit = value;
     }
@@ -370,9 +409,10 @@ export function profitLossBounds(input: {
     }
   };
   for (const zero of zeros) {
-    consider(input.evaluate(zero));
+    if (zero > 0) {
+      consider(input.evaluate(zero));
+    }
   }
-  consider(input.evaluate(0));
   consider(approachingValue(input.evaluate, Math.max(input.spot, 0) * 100, 1));
   return { maxProfit, minPnl };
 }

@@ -33,6 +33,36 @@ fn zero_dividend_put_is_above_european() {
 }
 
 #[test]
+fn several_expirations_scan_two_moves_around_the_anchors() {
+    use alpaca_option::probability::profit_loss_bounds;
+    use std::cell::RefCell;
+
+    let seen = RefCell::new(Vec::new());
+    let bounds = profit_loss_bounds(
+        |price| {
+            seen.borrow_mut().push(price);
+            price - 100.0
+        },
+        100.0,
+        &[80.0, 120.0],
+        false,
+        40.0,
+        20,
+    )
+    .expect("bounds");
+    assert!(bounds.max_profit.is_finite() || bounds.max_profit.is_infinite());
+    let prices = seen.borrow();
+    let grid: Vec<f64> = prices.iter().copied().filter(|price| *price < 1000.0).collect();
+    assert!(!grid.is_empty());
+    assert!(
+        grid.iter().all(|price| *price >= 0.1 && *price <= 200.01),
+        "{grid:?}"
+    );
+    assert!(grid.iter().copied().fold(f64::INFINITY, f64::min) < 1.0);
+    assert!(prices.iter().any(|price| *price >= 9000.0));
+}
+
+#[test]
 fn default_greeks_are_finite() {
     let greeks = greeks_default(&sample(OptionRight::Put, 0.0)).expect("greeks");
     assert!(greeks.delta.is_finite());
