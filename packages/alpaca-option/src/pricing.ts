@@ -79,6 +79,15 @@ export function priceBlackScholes(input: BlackScholesInput): number {
 }
 
 export function priceDefault(input: BlackScholesInput): number {
+  if (input.spot === 0) {
+    ensurePositive('strike', input.strike);
+    ensurePositive('years', input.years);
+    ensureFinite('rate', input.rate);
+    ensureFinite('dividendYield', input.dividendYield);
+    ensurePositive('volatility', input.volatility);
+    const optionRight = validateOptionRight(input.optionRight);
+    return optionRight === 'call' ? 0 : input.strike;
+  }
   validateBlackScholesInput(input);
   return bjerksundStensland2002Price(input);
 }

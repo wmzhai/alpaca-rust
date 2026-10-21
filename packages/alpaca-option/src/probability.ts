@@ -292,14 +292,9 @@ export function approachingValue(
   return atBound;
 }
 
-/** Lowest underlying the several-expiration scan will price. */
-export const SCAN_PRICE_FLOOR = 0.1;
-
 /**
  * Several-expiration scan window.
- * Two nearest-expiration implied moves around the spot and the strikes.
- * The lower bound is raised to {@link SCAN_PRICE_FLOOR} when that span crosses zero.
- * A positive strike below the floor stays inside the window.
+ * Five implied moves around the spot, floored at 0, then expanded to every positive strike.
  */
 export function profitLossScanWindow(input: {
   spot: number;
@@ -307,19 +302,19 @@ export function profitLossScanWindow(input: {
   strikes: readonly number[];
 }): { lower: number; upper: number } {
   const move = Number.isFinite(input.impliedMove) ? Math.max(input.impliedMove, 0) : 0;
-  const pad = 2 * move;
-  const strikes = input.strikes.filter((strike) => strike > 0);
-  const anchors = [input.spot, ...strikes].filter((price) => price > 0);
-  const low = anchors.length > 0 ? Math.min(...anchors) : SCAN_PRICE_FLOOR;
-  const high = anchors.length > 0 ? Math.max(...anchors) : SCAN_PRICE_FLOOR;
-  let lower = low - pad;
-  let upper = high + pad;
-  if (!(lower >= SCAN_PRICE_FLOOR)) {
-    lower = SCAN_PRICE_FLOOR;
-  }
-  for (const strike of strikes) {
+  const pad = 5 * move;
+  const spot = Number.isFinite(input.spot) ? input.spot : 0;
+  let lower = Math.max(0, spot - pad);
+  let upper = spot + pad;
+  for (const strike of input.strikes) {
+    if (!(strike > 0)) {
+      continue;
+    }
     if (strike < lower) {
       lower = strike;
+    }
+    if (strike > upper) {
+      upper = strike;
     }
   }
   if (!(upper > lower)) {
@@ -331,7 +326,8 @@ export function profitLossScanWindow(input: {
 /**
  * Best and worst PnL.
  * One expiration uses the strike knots out to 100 times spot.
- * Several expirations use derivative zeros inside {@link profitLossScanWindow}, plus the far wing.
+ * Several expirations use derivative zeros inside {@link profitLossScanWindow},
+ * the American value at price 0, and the far wing. Price 0 is not a breakeven sample.
  */
 export function profitLossBounds(input: {
   evaluate: (price: number) => number;
@@ -413,6 +409,7 @@ export function profitLossBounds(input: {
       consider(input.evaluate(zero));
     }
   }
+  consider(input.evaluate(0));
   consider(approachingValue(input.evaluate, Math.max(input.spot, 0) * 100, 1));
   return { maxProfit, minPnl };
 }

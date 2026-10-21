@@ -97,6 +97,17 @@ pub fn price_black_scholes(input: &BlackScholesInput) -> OptionResult<f64> {
 }
 
 pub fn price_default(input: &BlackScholesInput) -> OptionResult<f64> {
+    if input.spot == 0.0 {
+        ensure_positive("strike", input.strike)?;
+        ensure_positive("years", input.years)?;
+        ensure_finite("rate", input.rate)?;
+        ensure_finite("dividend_yield", input.dividend_yield)?;
+        ensure_positive("volatility", input.volatility)?;
+        return Ok(match input.option_right {
+            OptionRight::Call => 0.0,
+            OptionRight::Put => input.strike,
+        });
+    }
     crate::math::american::bjerksund_stensland_2002_price(
         input.spot,
         input.strike,

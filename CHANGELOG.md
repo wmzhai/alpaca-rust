@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+## v0.34.1 - 2026-10-21
+
+- Several-expiration profit and loss scans use five implied moves around the spot, then expand to every positive strike. The lower bound may be 0. The extrema also price the underlying at 0 and still approach 100 times spot. `price_default` / `priceDefault` returns the American intrinsic value at spot 0: a call is 0 and a put is the strike. European pricing and the other positive-input checks stay unchanged. Spot 0 is not a breakeven sample. One expiration still uses the strike knots, including 0.
+
 ## v0.34.0 - 2026-10-21
 
 - The GitHub Release job accepts a changelog heading of `## vX.Y.Z` or `## vX.Y.Z - YYYY-MM-DD`. v0.33.7 through v0.33.9 failed that job because their headings include a date.

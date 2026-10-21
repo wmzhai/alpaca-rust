@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { pricing, probability } from '../src/index.ts';
+import { OptionStrategy, pricing, probability } from '../src/index.ts';
 
 const sample = {
   spot: 100,
@@ -24,24 +24,101 @@ test('zero dividend call matches european and put matches the rust price', () =>
   assert.ok(Number.isFinite(greeks.rho));
 });
 
-test('several expirations scan two moves around the anchors', () => {
+test('spot zero is the american intrinsic value', () => {
+  const call = pricing.priceDefault({ ...sample, spot: 0, optionRight: 'call' });
+  assert.equal(call, 0);
+  const put = pricing.priceDefault({ ...sample, spot: 0 });
+  assert.equal(put, sample.strike);
+  assert.throws(() => pricing.priceDefault({ ...sample, spot: -1 }));
+  assert.throws(() => pricing.priceBlackScholes({ ...sample, spot: 0 }));
+});
+
+test('several expirations scan five moves and price zero', () => {
+  assert.deepEqual(probability.profitLossScanWindow({ spot: 160, impliedMove: 20, strikes: [] }), {
+    lower: 60,
+    upper: 260,
+  });
+  assert.deepEqual(probability.profitLossScanWindow({ spot: 100, impliedMove: 40, strikes: [80] }), {
+    lower: 0,
+    upper: 300,
+  });
+  assert.deepEqual(probability.profitLossScanWindow({ spot: 100, impliedMove: 1, strikes: [5, 400] }), {
+    lower: 5,
+    upper: 400,
+  });
+
   const seen: number[] = [];
-  probability.profitLossBounds({
+  const bounds = probability.profitLossBounds({
     evaluate: (price) => {
       seen.push(price);
-      return price - 100;
+      return price === 0 ? -4153 : -268;
     },
-    spot: 100,
-    strikes: [80, 120],
+    spot: 160,
+    strikes: [115, 150],
     singleExpiration: false,
-    impliedMove: 40,
+    impliedMove: 80,
     samples: 20,
   });
-  const grid = seen.filter((price) => price < 1000);
-  assert.ok(grid.length > 0);
-  assert.ok(grid.every((price) => price >= 0.1 && price <= 200.01), String(grid));
-  assert.ok(Math.min(...grid) < 1);
-  assert.ok(seen.some((price) => price >= 9000));
+  assert.equal(bounds.minPnl, -4153);
+  assert.ok(seen.includes(0));
+  assert.ok(seen.some((price) => price >= 160 * 100));
+});
+
+test('call diagonal at spot zero loses the full debit', () => {
+  const long = {
+    contract: 'SPCX270820C00115000',
+    snapshot: {
+      as_of: '2026-10-21 09:30:00',
+      contract: {
+        underlying_symbol: 'SPCX',
+        expiration_date: '2027-08-20',
+        strike: 115,
+        option_right: 'call' as const,
+        occ_symbol: 'SPCX270820C00115000',
+      },
+      quote: { bid: 55.63, ask: 55.63, mark: 55.63, last: 55.63 },
+      greeks: null,
+      implied_volatility: 0.4,
+      underlying_price: 160,
+    },
+    qty: 1,
+    avg_cost: '55.6300',
+    leg_type: '',
+    option_right: null,
+    strike: null,
+    valuation_years: null,
+  };
+  const short = {
+    contract: 'SPCX261113C00150000',
+    snapshot: {
+      as_of: '2026-10-21 09:30:00',
+      contract: {
+        underlying_symbol: 'SPCX',
+        expiration_date: '2026-11-13',
+        strike: 150,
+        option_right: 'call' as const,
+        occ_symbol: 'SPCX261113C00150000',
+      },
+      quote: { bid: 14.1, ask: 14.1, mark: 14.1, last: 14.1 },
+      greeks: null,
+      implied_volatility: 0.54,
+      underlying_price: 160,
+    },
+    qty: -1,
+    avg_cost: '14.1000',
+    leg_type: '',
+    option_right: null,
+    strike: null,
+    valuation_years: null,
+  };
+  const strategy = OptionStrategy.prepare({
+    positions: [long, short],
+    qty: 1,
+    evaluation_time: '2026-10-21 09:30:00',
+    entry_cost: null,
+    dividend_yield: 0,
+  });
+  assert.equal(strategy.pnlAt(0), -4153);
 });
 
 test('probability ignores rate and dividend', () => {

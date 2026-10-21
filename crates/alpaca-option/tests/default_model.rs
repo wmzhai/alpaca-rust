@@ -33,7 +33,21 @@ fn zero_dividend_put_is_above_european() {
 }
 
 #[test]
-fn several_expirations_scan_two_moves_around_the_anchors() {
+fn spot_zero_is_the_american_intrinsic_value() {
+    let mut input = sample(OptionRight::Call, 0.0);
+    input.spot = 0.0;
+    assert_eq!(price_default(&input).expect("call at zero"), 0.0);
+    input.option_right = OptionRight::Put;
+    assert_eq!(price_default(&input).expect("put at zero"), input.strike);
+    input.spot = -1.0;
+    assert!(price_default(&input).is_err());
+    input.spot = 0.0;
+    input.option_right = OptionRight::Call;
+    assert!(price_black_scholes(&input).is_err());
+}
+
+#[test]
+fn several_expirations_scan_five_moves_and_price_zero() {
     use alpaca_option::probability::profit_loss_bounds;
     use std::cell::RefCell;
 
@@ -41,25 +55,32 @@ fn several_expirations_scan_two_moves_around_the_anchors() {
     let bounds = profit_loss_bounds(
         |price| {
             seen.borrow_mut().push(price);
-            price - 100.0
+            if price == 0.0 {
+                -4153.0
+            } else {
+                -268.0
+            }
         },
-        100.0,
-        &[80.0, 120.0],
+        160.0,
+        &[115.0, 150.0],
         false,
-        40.0,
+        80.0,
         20,
     )
     .expect("bounds");
-    assert!(bounds.max_profit.is_finite() || bounds.max_profit.is_infinite());
+    assert!((bounds.min_pnl - -4153.0).abs() < 1e-9, "{}", bounds.min_pnl);
     let prices = seen.borrow();
-    let grid: Vec<f64> = prices.iter().copied().filter(|price| *price < 1000.0).collect();
-    assert!(!grid.is_empty());
+    assert!(prices.iter().any(|price| *price == 0.0));
+    assert!(prices.iter().any(|price| *price >= 160.0 * 100.0));
+    let grid: Vec<f64> = prices
+        .iter()
+        .copied()
+        .filter(|price| *price > 0.0 && *price < 1000.0)
+        .collect();
     assert!(
-        grid.iter().all(|price| *price >= 0.1 && *price <= 200.01),
+        grid.iter().all(|price| *price <= 560.0 + 1e-6),
         "{grid:?}"
     );
-    assert!(grid.iter().copied().fold(f64::INFINITY, f64::min) < 1.0);
-    assert!(prices.iter().any(|price| *price >= 9000.0));
 }
 
 #[test]

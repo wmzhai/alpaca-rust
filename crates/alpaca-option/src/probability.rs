@@ -442,36 +442,25 @@ pub struct ProfitLossBounds {
     pub min_pnl: f64,
 }
 
-/// Lowest underlying the several-expiration scan will price.
-const SCAN_PRICE_FLOOR: f64 = 0.1;
-
-/// Two implied moves around the spot and the strikes. The lower bound stays positive.
+/// Five implied moves around the spot, floored at 0, then expanded to every positive strike.
 fn profit_loss_scan_window(spot: f64, implied_move: f64, strikes: &[f64]) -> (f64, f64) {
-    let pad = 2.0 * implied_move.max(0.0);
-    let mut low = f64::INFINITY;
-    let mut high = f64::NEG_INFINITY;
-    if spot > 0.0 {
-        low = spot;
-        high = spot;
-    }
+    let move_size = if implied_move.is_finite() {
+        implied_move.max(0.0)
+    } else {
+        0.0
+    };
+    let pad = 5.0 * move_size;
+    let spot = if spot.is_finite() { spot } else { 0.0 };
+    let mut lower = (spot - pad).max(0.0);
+    let mut upper = spot + pad;
     for strike in strikes {
         if *strike > 0.0 {
-            low = low.min(*strike);
-            high = high.max(*strike);
-        }
-    }
-    if !low.is_finite() || !high.is_finite() {
-        low = SCAN_PRICE_FLOOR;
-        high = SCAN_PRICE_FLOOR;
-    }
-    let mut lower = low - pad;
-    let mut upper = high + pad;
-    if lower < SCAN_PRICE_FLOOR {
-        lower = SCAN_PRICE_FLOOR;
-    }
-    for strike in strikes {
-        if *strike > 0.0 && *strike < lower {
-            lower = *strike;
+            if *strike < lower {
+                lower = *strike;
+            }
+            if *strike > upper {
+                upper = *strike;
+            }
         }
     }
     if upper <= lower {
@@ -480,7 +469,7 @@ fn profit_loss_scan_window(spot: f64, implied_move: f64, strikes: &[f64]) -> (f6
     (lower, upper)
 }
 
-/// Best and worst PnL. One expiration uses strike knots. Several use derivative zeros.
+/// Best and worst PnL. One expiration uses strike knots. Several use derivative zeros and price 0.
 pub fn profit_loss_bounds<F>(
     mut evaluate: F,
     spot: f64,
@@ -568,6 +557,7 @@ where
             consider(evaluate(zero));
         }
     }
+    consider(evaluate(0.0));
     consider(approaching_value(&mut evaluate, spot.max(0.0) * 100.0, 1.0));
     Ok(ProfitLossBounds { max_profit, min_pnl })
 }
