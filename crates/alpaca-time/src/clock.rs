@@ -164,6 +164,11 @@ pub fn to_utc_rfc3339(input: &str) -> TimeResult<String> {
     Ok(utc.format("%Y-%m-%dT%H:%M:%SZ").to_string())
 }
 
+/// Unix seconds for a New York timestamp. Both option runtimes binary-search on this.
+pub fn unix_seconds(input: &str) -> TimeResult<i64> {
+    Ok(ny_local_to_utc(parse_naive_timestamp(input)?)?.timestamp())
+}
+
 pub fn from_unix_seconds(seconds: i64) -> String {
     if seconds == 0 {
         return String::new();

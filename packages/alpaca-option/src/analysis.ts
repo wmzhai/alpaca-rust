@@ -1,3 +1,27 @@
+export {
+  analyzeStrategy,
+  findThetaZero,
+} from './strategyAnalysis';
+export type {
+  AnalysisSection,
+  BreakEvenSection,
+  DirectedRoot,
+  EvaluationRequest,
+  PeakSection,
+  PriceSearch,
+  ProbabilityRequest,
+  ProfitRegion,
+  RangeStatus,
+  SectionStatus,
+  StrategyAnalysis,
+  StrategyAnalysisInput,
+  StrategyAnalysisOptions,
+  ThetaZeroKind,
+  ThetaZeroSearch,
+  ThetaZeroSection,
+  ValueSource,
+} from './strategyAnalysis';
+
 import { fail } from './error';
 import { canonicalContract, type ContractInput } from './contract';
 import { extrinsicValue, greeksDefault, intrinsicValue } from './pricing';

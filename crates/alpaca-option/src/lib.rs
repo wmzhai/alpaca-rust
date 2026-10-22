@@ -23,6 +23,7 @@ pub mod pricing;
 pub mod probability;
 pub mod rate;
 pub mod snapshot;
+mod strategy_analysis;
 pub mod types;
 pub mod url;
 

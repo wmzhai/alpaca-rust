@@ -2,8 +2,8 @@ import { expiration as timeExpiration } from '@alpaca/time';
 
 import * as executionQuote from './executionQuote';
 import { canonicalContract } from './contract';
-import { round } from './numeric';
-import type { ExecutionSnapshot, OptionContract, OptionSnapshot } from './types';
+import { round, roundHalfEven } from './numeric';
+import type { ExecutionSnapshot, OptionContract, OptionPosition, OptionSnapshot } from './types';
 
 export type SnapshotInput = OptionSnapshot | ExecutionSnapshot | null | undefined;
 
@@ -21,6 +21,37 @@ function asOf(snapshot: SnapshotInput): string {
 
 export function quote(snapshot: SnapshotInput) {
   return executionQuote.quote(snapshot);
+}
+
+/** Two-sided mid. Missing, crossed, or non-positive ask quotes return null. */
+export function twoSidedMid(snapshot: SnapshotInput): number | null {
+  const normalized = quote(snapshot);
+  const bid = normalized?.bid;
+  const ask = normalized?.ask;
+  if (bid == null || ask == null || !Number.isFinite(bid) || !Number.isFinite(ask)) {
+    return null;
+  }
+  if (!(ask > 0 && ask >= bid)) {
+    return null;
+  }
+  return (bid + ask) / 2;
+}
+
+/**
+ * Option mark from two-sided mids. Each quote is rounded to cents, then multiplied
+ * by the signed contract quantity and 100. Any leg without a two-sided mid returns null.
+ */
+export function quoteMidOptionValue(positions: readonly OptionPosition[], strategyQty: number): number | null {
+  const quantity = Math.max(1, Math.trunc(strategyQty));
+  let total = 0;
+  for (const position of positions) {
+    const mid = twoSidedMid(position.snapshot);
+    if (mid == null) {
+      return null;
+    }
+    total += roundHalfEven(mid, 2) * position.qty * 100;
+  }
+  return roundHalfEven(total * quantity, 2);
 }
 
 export function contract(snapshot: SnapshotInput): OptionContract | null {

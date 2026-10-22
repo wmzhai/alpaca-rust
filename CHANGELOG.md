@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+## v0.34.2 - 2026-10-22
+
+- `analyze_strategy` / `analyzeStrategy` prices an arbitrary option list plus stock from one shared input. Mark uses the existing two-sided mid inside the regular session and the model otherwise. Break-even, curve, peak, probability, and theta-zero are optional sections. Rust and TypeScript read the same fixture file.
+- A profit pocket inside one price sample is found from a delta sign change. Probability uses that same refined peak, so the pocket is not reported as a zero chance.
+- Cashflow and entry cost are compared after rounding to cents. A difference of one cent is consistent.
+- `find_theta_zero` / `findThetaZero` searches a caller-supplied theta between two New York timestamps. The default precision is one hour.
+- `snapshot.twoSidedMid` and `snapshot.quoteMidOptionValue` mirror the Rust quote-mid rule: round each live mid to cents, then multiply by the signed contract quantity.
+
 ## v0.34.1 - 2026-10-21
 
 - Several-expiration profit and loss scans use five implied moves around the spot, then expand to every positive strike. The lower bound may be 0. The extrema also price the underlying at 0 and still approach 100 times spot. `price_default` / `priceDefault` returns the American intrinsic value at spot 0: a call is 0 and a put is the strike. European pricing and the other positive-input checks stay unchanged. Spot 0 is not a breakeven sample. One expiration still uses the strike knots, including 0.

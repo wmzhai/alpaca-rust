@@ -216,6 +216,8 @@ Field-level definitions live in `../models/core-models.md`.
 | `analysis.short_extrinsic_amount(spot, positions, structure_quantity?)` / `analysis.shortExtrinsicAmount(spot, positions, structureQuantity?)` | `number \| null` | totals the remaining extrinsic dollar amount across short legs |
 | `analysis.short_itm_positions(spot, positions)` / `analysis.shortItmPositions(spot, positions)` | `ShortItmPosition[]` | returns all short option legs that are ITM at the current spot |
 | `analysis.strike_for_target_delta(...)` / `analysis.strikeForTargetDelta(...)` | `number` | solves for the strike that matches a target delta |
+| `analysis.analyze_strategy(input, options)` / `analysis.analyzeStrategy(input, options)` | `StrategyAnalysis` | prices any option list plus stock from `avg_cost`, explicit `entry_cost`, or authoritative `cashflow`; default sections are mark and greeks; break-even, curve, peak, probability, and theta-zero run only when requested |
+| `analysis.find_theta_zero(search, theta_at)` / `analysis.findThetaZero(search, thetaAt)` | `ThetaZeroSection` | binary-searches a caller-supplied theta over New York timestamps; one hour is the default precision |
 
 ## `payoff`
 

@@ -433,7 +433,7 @@ export class OptionStrategy {
     public qty: number,
     private entryCost: number,
     private readonly dividendYield: number,
-    private readonly rateCurve: readonly RiskFreeRatePoint[],
+    private rateCurve: readonly RiskFreeRatePoint[],
   ) {
     this.cost = entryCost;
     this.calculateValue();
@@ -465,6 +465,24 @@ export class OptionStrategy {
       entry_cost: input.entry_cost,
       dividend_yield: input.dividend_yield ?? null,
     });
+  }
+
+  useRateCurve(curve: readonly RiskFreeRatePoint[]): void {
+    if (curve.length < 2) {
+      fail('invalid_risk_free_rate_curve', 'risk-free curve must contain at least two points');
+    }
+    let previousYears = Number.NEGATIVE_INFINITY;
+    const next = curve.map((point) => {
+      if (!Number.isFinite(point.years) || point.years <= previousYears) {
+        fail('invalid_risk_free_rate_curve', `curve years must be finite and strictly increasing: ${point.years}`);
+      }
+      if (!Number.isFinite(point.rate) || point.rate <= 0 || point.rate >= 1) {
+        fail('invalid_risk_free_rate_curve', `curve rate must be in (0, 1): ${point.rate}`);
+      }
+      previousYears = point.years;
+      return { years: point.years, rate: point.rate };
+    });
+    this.rateCurve = next;
   }
 
   static prepare(input: OptionStrategyInput & { evaluation_time: string }): OptionStrategy {
@@ -831,6 +849,58 @@ export class OptionStrategy {
   }
 
   pnlPeakFromCurrent(input: StrategyPnlPeakSearchInput): StrategyPnlPeak | null {
+    const peak = this.pnlPeakFromCurrentIncludingNonPositive(input);
+    const tolerance = input.tolerance ?? 1e-6;
+    return peak.pnl > tolerance ? peak : null;
+  }
+
+  private peakDeltaTolerance(tolerance: number): number {
+    return Math.min(Math.max(Math.sqrt(tolerance * CONTRACT_MULTIPLIER), 1e-4), 0.5);
+  }
+
+  private directionalPeakStep(baseStep: number, currentPrice: number, delta: number, remaining: number): number {
+    const deltaScale = Math.min(Math.max(Math.sqrt(Math.abs(delta) / CONTRACT_MULTIPLIER), 0.25), 4);
+    const spotCap = Math.max(currentPrice, 1) * 0.1;
+    return Math.min(Math.min(Math.max(baseStep * deltaScale, 0.01), spotCap), remaining);
+  }
+
+  private pnlPeakFromDeltaBracket(
+    lowerBound: number,
+    upperBound: number,
+    lowerDelta: number,
+    upperDelta: number,
+    deltaTolerance: number,
+  ): StrategyPnlPeak {
+    const at = (spot: number): StrategyPnlPeak => {
+      const pnl = this.pnlAt(spot);
+      ensureFinite('invalid_strategy_payoff_input', 'peakPnl', pnl);
+      return { spot, pnl };
+    };
+    if (lowerBound >= upperBound || Math.abs(lowerDelta) <= deltaTolerance) {
+      return at(lowerBound);
+    }
+    if (Math.abs(upperDelta) <= deltaTolerance) {
+      return at(upperBound);
+    }
+    if (lowerDelta * upperDelta < 0) {
+      try {
+        const spot = refineBracketedRoot(
+          lowerBound,
+          upperBound,
+          (price) => this.greeksAt(price).delta,
+          deltaTolerance,
+          40,
+        );
+        return at(spot);
+      } catch {
+        // The bracket did not converge; the range maximum below is the fallback.
+      }
+    }
+    return this.maximizePnlInRange(lowerBound, upperBound, 40);
+  }
+
+  /** Best PnL from the current spot, including a peak that is not a profit. */
+  pnlPeakFromCurrentIncludingNonPositive(input: StrategyPnlPeakSearchInput): StrategyPnlPeak {
     ensurePositive('invalid_strategy_payoff_input', 'currentPrice', input.current_price);
     ensurePositive('invalid_strategy_payoff_input', 'leftBoundary', input.left_boundary);
     if (input.left_boundary >= input.current_price) {
@@ -859,44 +929,74 @@ export class OptionStrategy {
       fail('invalid_strategy_payoff_input', `maxSearchSteps must be a positive integer: ${maxSearchSteps}`);
     }
 
-    const preferredStep = Math.min(
-      Math.max(
-        input.step_hint != null && Number.isFinite(input.step_hint) && input.step_hint > 0
-          ? input.step_hint
-          : Math.min(Math.max(input.current_price * 0.005, 0.1), 5),
-        0.05,
-      ),
-      Math.max(input.current_price, 1) * 0.05,
-    );
-    const range = input.right_boundary - input.left_boundary;
-    const preferredIntervals = Math.max(Math.ceil(range / preferredStep), 2);
-    const intervals = Math.min(preferredIntervals, Math.max(maxSearchSteps, 2));
-    const scanStep = range / intervals;
-    let bestIndex = 0;
-    let bestSpot = input.left_boundary;
-    let bestPnl = this.pnlAt(bestSpot);
+    const hinted = input.step_hint != null && Number.isFinite(input.step_hint) && input.step_hint > 0
+      ? input.step_hint
+      : Math.min(Math.max(input.current_price * 0.005, 0.1), 5);
+    const baseStep = Math.min(Math.max(hinted, 0.05), Math.max(input.current_price, 1) * 0.1);
+    const deltaTolerance = this.peakDeltaTolerance(tolerance);
+    const currentDelta = this.greeksAt(input.current_price).delta;
+    ensureFinite('invalid_strategy_payoff_input', 'currentDelta', currentDelta);
+    const currentPeak = { spot: input.current_price, pnl: this.pnlAt(input.current_price) };
+    ensureFinite('invalid_strategy_payoff_input', 'peakPnl', currentPeak.pnl);
 
-    for (let index = 1; index <= intervals; index += 1) {
-      const spot = index === intervals
-        ? input.right_boundary
-        : input.left_boundary + scanStep * index;
-      const pnl = this.pnlAt(spot);
-      if (pnl > bestPnl + tolerance) {
-        bestIndex = index;
-        bestSpot = spot;
-        bestPnl = pnl;
+    if (Math.abs(currentDelta) <= deltaTolerance) {
+      const lower = Math.max(input.current_price - baseStep, input.left_boundary);
+      const upper = Math.min(input.current_price + baseStep, input.right_boundary);
+      if (lower < upper) {
+        const localPeak = this.maximizePnlInRange(lower, upper, 40);
+        return localPeak.pnl > currentPeak.pnl + tolerance ? localPeak : currentPeak;
       }
+      return currentPeak;
     }
 
-    const peak = bestIndex === 0 || bestIndex === intervals
-      ? { spot: bestSpot, pnl: bestPnl }
-      : this.maximizePnlInRange(
-          input.left_boundary + scanStep * (bestIndex - 1),
-          input.left_boundary + scanStep * (bestIndex + 1),
-          80,
-        );
+    const direction = Math.sign(currentDelta);
+    const boundary = direction > 0 ? input.right_boundary : input.left_boundary;
+    let previousSpot = input.current_price;
+    let previousDelta = currentDelta;
+    let previousPeak = currentPeak;
+    let bestPeak = previousPeak;
 
-    return peak.pnl > tolerance ? peak : null;
+    for (let index = 0; index < maxSearchSteps; index += 1) {
+      const remaining = direction > 0 ? boundary - previousSpot : previousSpot - boundary;
+      if (remaining <= tolerance) {
+        break;
+      }
+      const step = this.directionalPeakStep(baseStep, input.current_price, previousDelta, remaining);
+      const nextSpot = previousSpot + direction * step;
+      if (Math.abs(nextSpot - previousSpot) <= Number.EPSILON) {
+        break;
+      }
+      const nextDelta = this.greeksAt(nextSpot).delta;
+      ensureFinite('invalid_strategy_payoff_input', 'nextDelta', nextDelta);
+      const nextPnl = this.pnlAt(nextSpot);
+      ensureFinite('invalid_strategy_payoff_input', 'peakPnl', nextPnl);
+      const nextPeak = { spot: nextSpot, pnl: nextPnl };
+      if (nextPeak.pnl > bestPeak.pnl + tolerance) {
+        bestPeak = nextPeak;
+      }
+      const lower = Math.min(previousSpot, nextSpot);
+      const upper = Math.max(previousSpot, nextSpot);
+      if (Math.abs(nextDelta) <= deltaTolerance || previousDelta * nextDelta < 0) {
+        return this.pnlPeakFromDeltaBracket(
+          lower,
+          upper,
+          lower === previousSpot ? previousDelta : nextDelta,
+          upper === previousSpot ? previousDelta : nextDelta,
+          deltaTolerance,
+        );
+      }
+      if (nextPeak.pnl + tolerance < previousPeak.pnl) {
+        return this.maximizePnlInRange(lower, upper, 40);
+      }
+      if (Math.abs(nextSpot - boundary) <= tolerance) {
+        break;
+      }
+      previousSpot = nextSpot;
+      previousDelta = nextDelta;
+      previousPeak = nextPeak;
+    }
+
+    return bestPeak;
   }
 
   static aggregateSnapshotGreeks(input: {

@@ -2,6 +2,7 @@
   "version": 1,
   "support_paths": [
     "fixtures/support/analysis/analysis-functions.json",
+    "fixtures/support/analysis/strategy-analysis.json",
     "fixtures/support/contracts/occ-contracts.json",
     "fixtures/support/execution-quote/execution-quote.json",
     "fixtures/support/expiration-selection/expiration-selection.json",

@@ -614,7 +614,7 @@ test('OptionStrategy pnlPeakFromCurrent finds positive peak', () => {
   assert.ok(peak.pnl > 0);
 });
 
-test('OptionStrategy pnlPeakFromCurrent scans past local peak', () => {
+test('OptionStrategy pnlPeakFromCurrent stops at the first delta turn', () => {
   const strategy = OptionStrategy.prepare({
     positions: [
       strategyPosition('2025-03-21', 90, 'call', 1, 0, 0.25),
@@ -640,7 +640,7 @@ test('OptionStrategy pnlPeakFromCurrent scans past local peak', () => {
   });
 
   assert.ok(peak != null);
-  assert.ok(Math.abs(peak.spot - 140) <= 0.1, `peak spot was ${peak.spot}`);
+  assert.ok(Math.abs(peak.spot - 100) <= 0.1, `peak spot was ${peak.spot}`);
 });
 
 test('OptionStrategy prepare preserves snapshot implied volatility', () => {

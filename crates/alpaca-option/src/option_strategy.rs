@@ -658,6 +658,37 @@ impl OptionStrategy {
         })
     }
 
+    /// Replace the curve copied at `prepare`. Later active-curve installs do not affect it.
+    pub fn use_rate_curve(&mut self, curve: &[RiskFreeRatePoint]) -> OptionResult<()> {
+        if curve.len() < 2 {
+            return Err(OptionError::new(
+                "invalid_risk_free_rate_curve",
+                "risk-free curve must contain at least two points",
+            ));
+        }
+        let mut previous_years = f64::NEG_INFINITY;
+        for point in curve {
+            if !point.years.is_finite() || point.years <= previous_years {
+                return Err(OptionError::new(
+                    "invalid_risk_free_rate_curve",
+                    format!(
+                        "curve years must be finite and strictly increasing: {}",
+                        point.years
+                    ),
+                ));
+            }
+            if !point.rate.is_finite() || point.rate <= 0.0 || point.rate >= 1.0 {
+                return Err(OptionError::new(
+                    "invalid_risk_free_rate_curve",
+                    format!("curve rate must be in (0, 1): {}", point.rate),
+                ));
+            }
+            previous_years = point.years;
+        }
+        self.rate_curve = PreparedRateCurve(std::sync::Arc::<[RiskFreeRatePoint]>::from(curve));
+        Ok(())
+    }
+
     pub fn from_input(input: &OptionStrategyInput) -> OptionResult<Self> {
         let evaluation_time = input
             .evaluation_time

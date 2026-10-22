@@ -1,0 +1,971 @@
+{
+  "fixture": "strategy-analysis",
+  "notes": "Ledger amounts are hand identities. Live call Greeks stay within 0.02 of the Pineify 30-day ATM call after the contract multiplier; Rho stays per 1% and is not multiplied by 100. The 247.14 mark is price_default, the American Bjerksund-Stensland value rounded to cents, not the European Pineify price. The theta-zero timestamp is the high side of an independent linear search.",
+  "cases": [
+    {
+      "id": "stock-only-mark-and-greeks",
+      "api": "analysis.analyze_strategy",
+      "input": {
+        "analysis": {
+          "positions": [],
+          "stock_qty": 100,
+          "stock_cashflow": "-5000.00",
+          "underlying_price": 60,
+          "evaluation_time": "2025-02-19 16:00:00"
+        },
+        "options": {}
+      },
+      "expected": {
+        "cost": "5000.00",
+        "option_cost": "0.00",
+        "stock_cost": "5000.00",
+        "value": "6000.00",
+        "value_source": "model",
+        "model_value": "6000.00",
+        "mid_value": "6000.00",
+        "pnl": "1000.00",
+        "mark_status": "ok",
+        "greeks": { "delta": 100, "gamma": 0, "vega": 0, "theta": 0, "rho": 0 },
+        "greeks_status": "ok",
+        "break_even": null,
+        "break_even_status": "not_requested",
+        "curve": null,
+        "curve_status": "not_requested",
+        "peak": null,
+        "peak_status": "not_requested",
+        "probability": null,
+        "probability_status": "not_requested",
+        "theta_zero": null,
+        "theta_zero_status": "not_requested"
+      },
+      "tolerance": 1e-9
+    },
+    {
+      "id": "expired-long-call-roots-peak-probability",
+      "api": "analysis.analyze_strategy",
+      "input": {
+        "analysis": {
+          "positions": [
+            {
+              "contract": "SPY250321C00100000",
+              "qty": 1,
+              "avg_cost": "2.00",
+              "leg_type": "longcall",
+              "snapshot": {
+                "as_of": "2025-03-21 16:00:00",
+                "contract": {
+                  "underlying_symbol": "SPY",
+                  "expiration_date": "2025-03-21",
+                  "strike": 100,
+                  "option_right": "call",
+                  "occ_symbol": "SPY250321C00100000"
+                },
+                "quote": { "bid": null, "ask": null, "mark": null, "last": null },
+                "greeks": null,
+                "implied_volatility": null,
+                "underlying_price": 100
+              }
+            }
+          ],
+          "underlying_price": 100,
+          "evaluation_time": "2025-03-21 16:00:00",
+          "rate": 0.045
+        },
+        "options": {
+          "sections": ["mark", "break_even", "peak", "probability"],
+          "price_search": { "lower_bound": 50, "upper_bound": 150, "scan_step": 10 },
+          "probability": { "horizon_days": 30, "volatility": 0.2 }
+        }
+      },
+      "expected": {
+        "cost": "200.00",
+        "option_cost": "200.00",
+        "stock_cost": "0.00",
+        "value": "0.00",
+        "value_source": "model",
+        "model_value": "0.00",
+        "mid_value": null,
+        "pnl": "-200.00",
+        "mark_status": "ok",
+        "greeks": null,
+        "greeks_status": "not_requested",
+        "break_even": {
+          "points": [{ "at": 102, "direction": 1 }],
+          "touches": [],
+          "profit_regions": [
+            { "lower": 102, "upper": 150, "lower_is_window": false, "upper_is_window": true }
+          ],
+          "range_status": "roots",
+          "lower_truncated": false,
+          "upper_truncated": true,
+          "lower_unbounded": false,
+          "upper_unbounded": true
+        },
+        "break_even_status": "ok",
+        "curve": null,
+        "curve_status": "not_requested",
+        "peak": {
+          "spot": 150,
+          "pnl": 4800,
+          "at_boundary": true,
+          "window_limited": true,
+          "non_positive": false
+        },
+        "peak_status": "ok",
+        "probability": 0.36491,
+        "probability_status": "ok",
+        "theta_zero": null,
+        "theta_zero_status": "not_requested"
+      },
+      "tolerance": 1e-6,
+      "field_tolerances": {
+        "at": 1e-4,
+        "lower": 1e-4,
+        "probability": 1e-4,
+        "pnl": 1e-4
+      }
+    },
+    {
+      "id": "expired-short-strangle-two-roots",
+      "api": "analysis.analyze_strategy",
+      "input": {
+        "analysis": {
+          "positions": [
+            {
+              "contract": "SPY250321P00090000",
+              "qty": -1,
+              "avg_cost": "1.50",
+              "leg_type": "shortput",
+              "snapshot": {
+                "as_of": "2025-03-21 16:00:00",
+                "contract": {
+                  "underlying_symbol": "SPY",
+                  "expiration_date": "2025-03-21",
+                  "strike": 90,
+                  "option_right": "put",
+                  "occ_symbol": "SPY250321P00090000"
+                },
+                "quote": { "bid": null, "ask": null, "mark": null, "last": null },
+                "greeks": null,
+                "implied_volatility": null,
+                "underlying_price": 100
+              }
+            },
+            {
+              "contract": "SPY250321C00110000",
+              "qty": -1,
+              "avg_cost": "1.50",
+              "leg_type": "shortcall",
+              "snapshot": {
+                "as_of": "2025-03-21 16:00:00",
+                "contract": {
+                  "underlying_symbol": "SPY",
+                  "expiration_date": "2025-03-21",
+                  "strike": 110,
+                  "option_right": "call",
+                  "occ_symbol": "SPY250321C00110000"
+                },
+                "quote": { "bid": null, "ask": null, "mark": null, "last": null },
+                "greeks": null,
+                "implied_volatility": null,
+                "underlying_price": 100
+              }
+            }
+          ],
+          "underlying_price": 100,
+          "evaluation_time": "2025-03-21 16:00:00"
+        },
+        "options": {
+          "sections": ["mark", "break_even", "peak"],
+          "price_search": { "lower_bound": 50, "upper_bound": 150, "scan_step": 1 }
+        }
+      },
+      "expected": {
+        "cost": "-300.00",
+        "option_cost": "-300.00",
+        "stock_cost": "0.00",
+        "value": "0.00",
+        "value_source": "model",
+        "model_value": "0.00",
+        "mid_value": null,
+        "pnl": "300.00",
+        "mark_status": "ok",
+        "greeks": null,
+        "greeks_status": "not_requested",
+        "break_even": {
+          "points": [
+            { "at": 87, "direction": 1 },
+            { "at": 113, "direction": -1 }
+          ],
+          "touches": [87, 113],
+          "profit_regions": [
+            { "lower": 87, "upper": 113, "lower_is_window": false, "upper_is_window": false }
+          ],
+          "range_status": "roots",
+          "lower_truncated": false,
+          "upper_truncated": false,
+          "lower_unbounded": false,
+          "upper_unbounded": false
+        },
+        "break_even_status": "ok",
+        "curve": null,
+        "curve_status": "not_requested",
+        "peak": {
+          "spot": 90,
+          "pnl": 300,
+          "at_boundary": false,
+          "window_limited": true,
+          "non_positive": false
+        },
+        "peak_status": "ok",
+        "probability": null,
+        "probability_status": "not_requested",
+        "theta_zero": null,
+        "theta_zero_status": "not_requested"
+      },
+      "tolerance": 1e-6,
+      "field_tolerances": {
+        "at": 1e-4,
+        "lower": 1e-4,
+        "upper": 1e-4,
+        "pnl": 1e-4
+      }
+    },
+    {
+      "id": "four-roles-expired-at-the-money",
+      "api": "analysis.analyze_strategy",
+      "input": {
+        "analysis": {
+          "positions": [
+            {
+              "contract": "SPY250321C00100000",
+              "qty": 1,
+              "avg_cost": "2.00",
+              "leg_type": "longcall",
+              "snapshot": {
+                "as_of": "2025-03-21 16:00:00",
+                "contract": {
+                  "underlying_symbol": "SPY",
+                  "expiration_date": "2025-03-21",
+                  "strike": 100,
+                  "option_right": "call",
+                  "occ_symbol": "SPY250321C00100000"
+                },
+                "quote": { "bid": null, "ask": null, "mark": null, "last": null },
+                "greeks": null,
+                "implied_volatility": null,
+                "underlying_price": 100
+              }
+            },
+            {
+              "contract": "SPY250321C00105000",
+              "qty": -1,
+              "avg_cost": "1.00",
+              "leg_type": "shortcall",
+              "snapshot": {
+                "as_of": "2025-03-21 16:00:00",
+                "contract": {
+                  "underlying_symbol": "SPY",
+                  "expiration_date": "2025-03-21",
+                  "strike": 105,
+                  "option_right": "call",
+                  "occ_symbol": "SPY250321C00105000"
+                },
+                "quote": { "bid": null, "ask": null, "mark": null, "last": null },
+                "greeks": null,
+                "implied_volatility": null,
+                "underlying_price": 100
+              }
+            },
+            {
+              "contract": "SPY250321P00090000",
+              "qty": 1,
+              "avg_cost": "1.00",
+              "leg_type": "longput",
+              "snapshot": {
+                "as_of": "2025-03-21 16:00:00",
+                "contract": {
+                  "underlying_symbol": "SPY",
+                  "expiration_date": "2025-03-21",
+                  "strike": 90,
+                  "option_right": "put",
+                  "occ_symbol": "SPY250321P00090000"
+                },
+                "quote": { "bid": null, "ask": null, "mark": null, "last": null },
+                "greeks": null,
+                "implied_volatility": null,
+                "underlying_price": 100
+              }
+            },
+            {
+              "contract": "SPY250321P00085000",
+              "qty": -1,
+              "avg_cost": "0.50",
+              "leg_type": "shortput",
+              "snapshot": {
+                "as_of": "2025-03-21 16:00:00",
+                "contract": {
+                  "underlying_symbol": "SPY",
+                  "expiration_date": "2025-03-21",
+                  "strike": 85,
+                  "option_right": "put",
+                  "occ_symbol": "SPY250321P00085000"
+                },
+                "quote": { "bid": null, "ask": null, "mark": null, "last": null },
+                "greeks": null,
+                "implied_volatility": null,
+                "underlying_price": 100
+              }
+            }
+          ],
+          "underlying_price": 100,
+          "evaluation_time": "2025-03-21 16:00:00"
+        },
+        "options": { "sections": ["mark"] }
+      },
+      "expected": {
+        "cost": "150.00",
+        "option_cost": "150.00",
+        "stock_cost": "0.00",
+        "value": "0.00",
+        "value_source": "model",
+        "model_value": "0.00",
+        "mid_value": null,
+        "pnl": "-150.00",
+        "mark_status": "ok",
+        "greeks": null,
+        "greeks_status": "not_requested",
+        "break_even": null,
+        "break_even_status": "not_requested",
+        "curve": null,
+        "curve_status": "not_requested",
+        "peak": null,
+        "peak_status": "not_requested",
+        "probability": null,
+        "probability_status": "not_requested",
+        "theta_zero": null,
+        "theta_zero_status": "not_requested"
+      }
+    },
+    {
+      "id": "cashflow-is-authoritative-total",
+      "api": "analysis.analyze_strategy",
+      "input": {
+        "analysis": {
+          "positions": [],
+          "cashflow": "500.00",
+          "underlying_price": 10,
+          "evaluation_time": "2025-02-19 16:00:00"
+        },
+        "options": { "sections": ["mark"] }
+      },
+      "expected": {
+        "cost": "-500.00",
+        "option_cost": "-500.00",
+        "stock_cost": "0.00",
+        "value": "0.00",
+        "value_source": "model",
+        "model_value": "0.00",
+        "mid_value": "0.00",
+        "pnl": "500.00",
+        "mark_status": "ok",
+        "greeks": null,
+        "greeks_status": "not_requested",
+        "break_even": null,
+        "break_even_status": "not_requested",
+        "curve": null,
+        "curve_status": "not_requested",
+        "peak": null,
+        "peak_status": "not_requested",
+        "probability": null,
+        "probability_status": "not_requested",
+        "theta_zero": null,
+        "theta_zero_status": "not_requested"
+      }
+    },
+    {
+      "id": "strategy-qty-scales-once",
+      "api": "analysis.analyze_strategy",
+      "input": {
+        "analysis": {
+          "positions": [
+            {
+              "contract": "SPY250321C00100000",
+              "qty": 1,
+              "avg_cost": "2.00",
+              "leg_type": "longcall",
+              "snapshot": {
+                "as_of": "2025-03-21 16:00:00",
+                "contract": {
+                  "underlying_symbol": "SPY",
+                  "expiration_date": "2025-03-21",
+                  "strike": 100,
+                  "option_right": "call",
+                  "occ_symbol": "SPY250321C00100000"
+                },
+                "quote": { "bid": null, "ask": null, "mark": null, "last": null },
+                "greeks": null,
+                "implied_volatility": null,
+                "underlying_price": 110
+              }
+            }
+          ],
+          "qty": 2,
+          "underlying_price": 110,
+          "evaluation_time": "2025-03-21 16:00:00"
+        },
+        "options": { "sections": ["mark"] }
+      },
+      "expected": {
+        "cost": "400.00",
+        "option_cost": "400.00",
+        "stock_cost": "0.00",
+        "value": "2000.00",
+        "value_source": "model",
+        "model_value": "2000.00",
+        "mid_value": null,
+        "pnl": "1600.00",
+        "mark_status": "ok",
+        "greeks": null,
+        "greeks_status": "not_requested",
+        "break_even": null,
+        "break_even_status": "not_requested",
+        "curve": null,
+        "curve_status": "not_requested",
+        "peak": null,
+        "peak_status": "not_requested",
+        "probability": null,
+        "probability_status": "not_requested",
+        "theta_zero": null,
+        "theta_zero_status": "not_requested"
+      }
+    },
+    {
+      "id": "regular-session-uses-two-sided-mid",
+      "api": "analysis.analyze_strategy",
+      "input": {
+        "analysis": {
+          "positions": [
+            {
+              "contract": "SPY250321C00100000",
+              "qty": 1,
+              "avg_cost": "2.00",
+              "leg_type": "longcall",
+              "snapshot": {
+                "as_of": "2025-02-19 11:00:00",
+                "contract": {
+                  "underlying_symbol": "SPY",
+                  "expiration_date": "2025-03-21",
+                  "strike": 100,
+                  "option_right": "call",
+                  "occ_symbol": "SPY250321C00100000"
+                },
+                "quote": { "bid": 10, "ask": 12, "mark": 9, "last": 8 },
+                "greeks": null,
+                "implied_volatility": 0.2,
+                "underlying_price": 100
+              }
+            }
+          ],
+          "underlying_price": 100,
+          "evaluation_time": "2025-02-19 11:00:00",
+          "rate": 0.045
+        },
+        "options": { "sections": ["mark"] }
+      },
+      "expected": {
+        "cost": "200.00",
+        "option_cost": "200.00",
+        "stock_cost": "0.00",
+        "value": "1100.00",
+        "value_source": "mid",
+        "model_value": "248.06",
+        "mid_value": "1100.00",
+        "pnl": "900.00",
+        "mark_status": "ok",
+        "greeks": null,
+        "greeks_status": "not_requested",
+        "break_even": null,
+        "break_even_status": "not_requested",
+        "curve": null,
+        "curve_status": "not_requested",
+        "peak": null,
+        "peak_status": "not_requested",
+        "probability": null,
+        "probability_status": "not_requested",
+        "theta_zero": null,
+        "theta_zero_status": "not_requested"
+      }
+    },
+    {
+      "id": "pineify-call-greeks-scaled-by-contract",
+      "api": "analysis.analyze_strategy",
+      "input": {
+        "analysis": {
+          "positions": [
+            {
+              "contract": "SPY250321C00100000",
+              "qty": 1,
+              "avg_cost": "0.00",
+              "leg_type": "longcall",
+              "snapshot": {
+                "as_of": "2025-02-19 16:00:00",
+                "contract": {
+                  "underlying_symbol": "SPY",
+                  "expiration_date": "2025-03-21",
+                  "strike": 100,
+                  "option_right": "call",
+                  "occ_symbol": "SPY250321C00100000"
+                },
+                "quote": { "bid": null, "ask": null, "mark": null, "last": null },
+                "greeks": null,
+                "implied_volatility": 0.2,
+                "underlying_price": 100
+              }
+            }
+          ],
+          "underlying_price": 100,
+          "evaluation_time": "2025-02-19 16:00:00",
+          "rate": 0.045,
+          "dividend_yield": 0
+        },
+        "options": {}
+      },
+      "expected": {
+        "cost": "0.00",
+        "option_cost": "0.00",
+        "stock_cost": "0.00",
+        "value": "247.14",
+        "value_source": "model",
+        "model_value": "247.14",
+        "mid_value": null,
+        "pnl": "247.14",
+        "mark_status": "ok",
+        "greeks": { "delta": 53.71, "gamma": 6.93, "vega": 11.39, "theta": -4.43, "rho": 4.21 },
+        "greeks_status": "ok",
+        "break_even": null,
+        "break_even_status": "not_requested",
+        "curve": null,
+        "curve_status": "not_requested",
+        "peak": null,
+        "peak_status": "not_requested",
+        "probability": null,
+        "probability_status": "not_requested",
+        "theta_zero": null,
+        "theta_zero_status": "not_requested"
+      },
+      "tolerance": 0.02
+    },
+    {
+      "id": "no-root-profitable-stock",
+      "api": "analysis.analyze_strategy",
+      "input": {
+        "analysis": {
+          "positions": [],
+          "stock_qty": 100,
+          "stock_cashflow": "-1000.00",
+          "underlying_price": 60,
+          "evaluation_time": "2025-02-19 16:00:00"
+        },
+        "options": {
+          "sections": ["break_even"],
+          "price_search": { "lower_bound": 50, "upper_bound": 80, "scan_step": 5 }
+        }
+      },
+      "expected": {
+        "cost": "1000.00",
+        "option_cost": "0.00",
+        "stock_cost": "1000.00",
+        "value": null,
+        "value_source": null,
+        "model_value": null,
+        "mid_value": null,
+        "pnl": null,
+        "mark_status": "not_requested",
+        "greeks": null,
+        "greeks_status": "not_requested",
+        "break_even": {
+          "points": [],
+          "touches": [],
+          "profit_regions": [
+            { "lower": 50, "upper": 80, "lower_is_window": true, "upper_is_window": true }
+          ],
+          "range_status": "no_root_profit",
+          "lower_truncated": true,
+          "upper_truncated": true,
+          "lower_unbounded": false,
+          "upper_unbounded": true
+        },
+        "break_even_status": "ok",
+        "curve": null,
+        "curve_status": "not_requested",
+        "peak": null,
+        "peak_status": "not_requested",
+        "probability": null,
+        "probability_status": "not_requested",
+        "theta_zero": null,
+        "theta_zero_status": "not_requested"
+      },
+      "tolerance": 1e-9
+    },
+    {
+      "id": "expired-call-curve-knots",
+      "api": "analysis.analyze_strategy",
+      "input": {
+        "analysis": {
+          "positions": [
+            {
+              "contract": "SPY250321C00100000",
+              "qty": 1,
+              "avg_cost": "2.00",
+              "leg_type": "longcall",
+              "snapshot": {
+                "as_of": "2025-03-21 16:00:00",
+                "contract": {
+                  "underlying_symbol": "SPY",
+                  "expiration_date": "2025-03-21",
+                  "strike": 100,
+                  "option_right": "call",
+                  "occ_symbol": "SPY250321C00100000"
+                },
+                "quote": { "bid": null, "ask": null, "mark": null, "last": null },
+                "greeks": null,
+                "implied_volatility": null,
+                "underlying_price": 100
+              }
+            }
+          ],
+          "underlying_price": 100,
+          "evaluation_time": "2025-03-21 16:00:00"
+        },
+        "options": {
+          "sections": ["curve"],
+          "price_search": { "lower_bound": 100, "upper_bound": 102, "scan_step": 1 }
+        }
+      },
+      "expected": {
+        "cost": "200.00",
+        "option_cost": "200.00",
+        "stock_cost": "0.00",
+        "value": null,
+        "value_source": null,
+        "model_value": null,
+        "mid_value": null,
+        "pnl": null,
+        "mark_status": "not_requested",
+        "greeks": null,
+        "greeks_status": "not_requested",
+        "break_even": null,
+        "break_even_status": "not_requested",
+        "curve": [
+          { "underlying_price": 100, "mark_value": 0, "pnl": -200 },
+          { "underlying_price": 101, "mark_value": 100, "pnl": -100 },
+          { "underlying_price": 102, "mark_value": 200, "pnl": 0 }
+        ],
+        "curve_status": "ok",
+        "peak": null,
+        "peak_status": "not_requested",
+        "probability": null,
+        "probability_status": "not_requested",
+        "theta_zero": null,
+        "theta_zero_status": "not_requested"
+      },
+      "tolerance": 1e-6
+    },
+    {
+      "id": "long-call-theta-starts-negative",
+      "api": "analysis.analyze_strategy",
+      "input": {
+        "analysis": {
+          "positions": [
+            {
+              "contract": "SPY250321C00100000",
+              "qty": 1,
+              "avg_cost": "2.00",
+              "leg_type": "longcall",
+              "snapshot": {
+                "as_of": "2025-02-19 16:00:00",
+                "contract": {
+                  "underlying_symbol": "SPY",
+                  "expiration_date": "2025-03-21",
+                  "strike": 100,
+                  "option_right": "call",
+                  "occ_symbol": "SPY250321C00100000"
+                },
+                "quote": { "bid": null, "ask": null, "mark": null, "last": null },
+                "greeks": null,
+                "implied_volatility": 0.2,
+                "underlying_price": 100
+              }
+            }
+          ],
+          "underlying_price": 100,
+          "evaluation_time": "2025-02-19 16:00:00",
+          "rate": 0.045
+        },
+        "options": {
+          "sections": ["theta_zero"],
+          "time_search": {
+            "start_time": "2025-02-19 16:00:00",
+            "end_time": "2025-03-21 16:00:00",
+            "precision_seconds": 3600
+          }
+        }
+      },
+      "expected": {
+        "cost": "200.00",
+        "option_cost": "200.00",
+        "stock_cost": "0.00",
+        "value": null,
+        "value_source": null,
+        "model_value": null,
+        "mid_value": null,
+        "pnl": null,
+        "mark_status": "not_requested",
+        "greeks": null,
+        "greeks_status": "not_requested",
+        "break_even": null,
+        "break_even_status": "not_requested",
+        "curve": null,
+        "curve_status": "not_requested",
+        "peak": null,
+        "peak_status": "not_requested",
+        "probability": null,
+        "probability_status": "not_requested",
+        "theta_zero": { "kind": "initially_non_positive" },
+        "theta_zero_status": "ok"
+      }
+    },
+    {
+      "id": "cashflow-disagrees-with-entry-cost",
+      "api": "analysis.analyze_strategy",
+      "input": {
+        "analysis": {
+          "positions": [],
+          "cashflow": "0.00",
+          "entry_cost": 10,
+          "underlying_price": 1,
+          "evaluation_time": "2025-02-19 16:00:00"
+        },
+        "options": {}
+      },
+      "expected_error": "inconsistent_strategy_cost"
+    },
+    {
+      "id": "cost-difference-of-one-cent-is-consistent",
+      "api": "analysis.analyze_strategy",
+      "input": {
+        "analysis": {
+          "positions": [],
+          "cashflow": "-1.01",
+          "entry_cost": 1,
+          "underlying_price": 1,
+          "evaluation_time": "2025-02-19 16:00:00"
+        },
+        "options": { "sections": ["mark", "greeks"] }
+      },
+      "expected": {
+        "cost": "1.01",
+        "option_cost": "1.01",
+        "stock_cost": "0.00",
+        "value": "0.00",
+        "value_source": "model",
+        "model_value": "0.00",
+        "mid_value": "0.00",
+        "pnl": "-1.01",
+        "mark_status": "ok",
+        "greeks": { "delta": 0.0, "gamma": 0.0, "vega": 0.0, "theta": 0.0, "rho": 0.0 },
+        "greeks_status": "ok",
+        "break_even": null,
+        "break_even_status": "not_requested",
+        "curve": null,
+        "curve_status": "not_requested",
+        "peak": null,
+        "peak_status": "not_requested",
+        "probability": null,
+        "probability_status": "not_requested",
+        "theta_zero": null,
+        "theta_zero_status": "not_requested"
+      }
+    },
+    {
+      "id": "negative-cost-difference-of-one-cent-is-consistent",
+      "api": "analysis.analyze_strategy",
+      "input": {
+        "analysis": {
+          "positions": [],
+          "cashflow": "1.01",
+          "entry_cost": -1,
+          "underlying_price": 1,
+          "evaluation_time": "2025-02-19 16:00:00"
+        },
+        "options": { "sections": ["mark", "greeks"] }
+      },
+      "expected": {
+        "cost": "-1.01",
+        "option_cost": "-1.01",
+        "stock_cost": "0.00",
+        "value": "0.00",
+        "value_source": "model",
+        "model_value": "0.00",
+        "mid_value": "0.00",
+        "pnl": "1.01",
+        "mark_status": "ok",
+        "greeks": { "delta": 0.0, "gamma": 0.0, "vega": 0.0, "theta": 0.0, "rho": 0.0 },
+        "greeks_status": "ok",
+        "break_even": null,
+        "break_even_status": "not_requested",
+        "curve": null,
+        "curve_status": "not_requested",
+        "peak": null,
+        "peak_status": "not_requested",
+        "probability": null,
+        "probability_status": "not_requested",
+        "theta_zero": null,
+        "theta_zero_status": "not_requested"
+      }
+    },
+    {
+      "id": "cost-difference-above-one-cent",
+      "api": "analysis.analyze_strategy",
+      "input": {
+        "analysis": {
+          "positions": [],
+          "cashflow": "-1.02",
+          "entry_cost": 1,
+          "underlying_price": 1,
+          "evaluation_time": "2025-02-19 16:00:00"
+        },
+        "options": {}
+      },
+      "expected_error": "inconsistent_strategy_cost"
+    },
+    {
+      "id": "narrow-profit-pocket-inside-one-sample",
+      "api": "analysis.analyze_strategy",
+      "input": {
+        "analysis": {
+          "positions": [
+            {
+              "contract": "SPY250919C00100000",
+              "qty": 1,
+              "avg_cost": "0",
+              "leg_type": "longcall",
+              "snapshot": {
+                "as_of": "2025-02-19 11:00:00",
+                "contract": {
+                  "underlying_symbol": "SPY",
+                  "expiration_date": "2025-09-19",
+                  "strike": 100,
+                  "option_right": "call",
+                  "occ_symbol": "SPY250919C00100000"
+                },
+                "quote": { "bid": null, "ask": null, "mark": null, "last": null },
+                "greeks": null,
+                "implied_volatility": 0.2,
+                "underlying_price": 100
+              }
+            },
+            {
+              "contract": "SPY250321C00100000",
+              "qty": -1,
+              "avg_cost": "0",
+              "leg_type": "shortcall",
+              "snapshot": {
+                "as_of": "2025-02-19 11:00:00",
+                "contract": {
+                  "underlying_symbol": "SPY",
+                  "expiration_date": "2025-03-21",
+                  "strike": 100,
+                  "option_right": "call",
+                  "occ_symbol": "SPY250321C00100000"
+                },
+                "quote": { "bid": null, "ask": null, "mark": null, "last": null },
+                "greeks": null,
+                "implied_volatility": 0.2,
+                "underlying_price": 100
+              }
+            }
+          ],
+          "qty": 100,
+          "cashflow": "-49370",
+          "underlying_price": 100,
+          "evaluation_time": "2025-02-19 11:00:00",
+          "dividend_yield": 0,
+          "rate": 0.045
+        },
+        "options": {
+          "sections": ["break_even", "peak", "probability"],
+          "price_search": { "lower_bound": 50, "upper_bound": 150, "scan_step": 1, "max_samples": 8000 },
+          "probability": { "horizon_days": 30, "volatility": 0.2 }
+        }
+      },
+      "expected": {
+        "cost": "49370.00",
+        "option_cost": "49370.00",
+        "stock_cost": "0.00",
+        "value": null,
+        "value_source": null,
+        "model_value": null,
+        "mid_value": null,
+        "pnl": null,
+        "mark_status": "not_requested",
+        "greeks": null,
+        "greeks_status": "not_requested",
+        "break_even": {
+          "points": [
+            { "at": 101.22973212221842, "direction": 1 },
+            { "at": 101.64163591539098, "direction": -1 }
+          ],
+          "touches": [],
+          "profit_regions": [
+            {
+              "lower": 101.22973212221842,
+              "upper": 101.64163591539098,
+              "lower_is_window": false,
+              "upper_is_window": false
+            }
+          ],
+          "range_status": "roots",
+          "lower_truncated": false,
+          "upper_truncated": false,
+          "lower_unbounded": false,
+          "upper_unbounded": false
+        },
+        "break_even_status": "ok",
+        "curve": null,
+        "curve_status": "not_requested",
+        "peak": {
+          "spot": 101.435046169577,
+          "pnl": 8.518274981506693,
+          "at_boundary": false,
+          "window_limited": true,
+          "non_positive": false
+        },
+        "peak_status": "ok",
+        "probability": 0.02738856103065801,
+        "probability_status": "ok",
+        "theta_zero": null,
+        "theta_zero_status": "not_requested"
+      },
+      "tolerance": 1e-6
+    },
+    {
+      "id": "linear-theta-zero-lands-on-the-midpoint",
+      "api": "analysis.find_theta_zero",
+      "input": {
+        "start_time": "2025-03-01 16:00:00",
+        "end_time": "2025-03-03 16:00:00",
+        "precision_seconds": 3600,
+        "evaluator": "linear_plus_one_to_minus_one"
+      },
+      "expected": {
+        "kind": "found",
+        "at": "2025-03-02 16:00:00",
+        "days_from_start": 1,
+        "days_to_end": 1
+      },
+      "tolerance": 1e-9
+    }
+  ]
+}

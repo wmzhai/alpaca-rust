@@ -3,6 +3,8 @@ use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
 
+use alpaca_time::clock;
+
 use alpaca_option::{
     ExecutionLegInput, ExecutionSnapshot, OptionChain, OptionChainRecord, OptionContract,
     OptionPosition, OptionQuote, OptionRight, OptionSnapshot, OptionStrategy, OptionStrategyInput,
@@ -124,10 +126,15 @@ fn assert_rate_dependent_cases_have_explicit_rate(relative_path: &str) {
 }
 
 fn unwrap_expected(expected: &Value) -> Value {
-    expected
-        .get("value")
-        .cloned()
-        .unwrap_or_else(|| expected.clone())
+    let Some(object) = expected.as_object() else {
+        return expected.clone();
+    };
+    if object.len() == 1 {
+        if let Some(value) = object.get("value") {
+            return value.clone();
+        }
+    }
+    expected.clone()
 }
 
 fn fixture_avg_cost_value(input: &Value) -> Value {
@@ -375,6 +382,54 @@ fn assert_with_tolerance(
         }
         _ => assert_eq!(actual, expected, "{case_id}"),
     }
+}
+
+fn analysis_input(input: &Value) -> analysis::StrategyAnalysisInput {
+    serde_json::from_value(input.get("analysis").unwrap().clone()).unwrap()
+}
+
+fn analysis_options(input: &Value) -> analysis::StrategyAnalysisOptions {
+    serde_json::from_value(
+        input
+            .get("options")
+            .cloned()
+            .unwrap_or_else(|| Value::Object(Default::default())),
+    )
+    .unwrap()
+}
+
+fn run_case_error_code(case: &Value) -> Option<String> {
+    let api = case.get("api").and_then(Value::as_str).unwrap();
+    let input = case.get("input").unwrap();
+    match api {
+        "analysis.analyze_strategy" => analysis::analyze_strategy(&analysis_input(input), &analysis_options(input))
+            .err()
+            .map(|error| error.code.to_string()),
+        "analysis.find_theta_zero" => {
+            let search = serde_json::from_value(input.clone()).unwrap();
+            find_theta_zero_case(&search).err().map(|error| error.code.to_string())
+        }
+        _ => None,
+    }
+}
+
+fn find_theta_zero_case(input: &Value) -> alpaca_option::OptionResult<analysis::ThetaZeroSection> {
+    let search: analysis::ThetaZeroSearch = serde_json::from_value(input.clone()).unwrap();
+    let evaluator = input.get("evaluator").and_then(Value::as_str).unwrap();
+    let start = clock::unix_seconds(search.start_time.trim()).unwrap();
+    let end = clock::unix_seconds(search.end_time.trim()).unwrap();
+    analysis::find_theta_zero(&search, |timestamp| {
+        let now = clock::unix_seconds(timestamp).ok()?;
+        let span = (end - start) as f64;
+        if span == 0.0 {
+            return None;
+        }
+        let progress = (now - start) as f64 / span;
+        match evaluator {
+            "linear_plus_one_to_minus_one" => Some(1.0 - 2.0 * progress),
+            _ => panic!("Unhandled theta evaluator: {evaluator}"),
+        }
+    })
 }
 
 fn run_case(case: &Value) -> Value {
@@ -788,6 +843,11 @@ fn run_case(case: &Value) -> Value {
             .unwrap(),
         )
         .unwrap(),
+        "analysis.analyze_strategy" => serde_json::to_value(
+            analysis::analyze_strategy(&analysis_input(input), &analysis_options(input)).unwrap(),
+        )
+        .unwrap(),
+        "analysis.find_theta_zero" => serde_json::to_value(find_theta_zero_case(input).unwrap()).unwrap(),
         "analysis.annualized_premium_yield" => serde_json::to_value(
             analysis::annualized_premium_yield(
                 input.get("premium").unwrap().as_f64().unwrap(),
@@ -1243,32 +1303,44 @@ fn rate_dependent_layer_fixtures_use_explicit_rates() {
     }
 }
 
+fn assert_fixture_case(fixture_path: &str, case: &Value) {
+    let case_label = format!(
+        "{}::{}",
+        fixture_path,
+        case.get("id").and_then(Value::as_str).unwrap()
+    );
+    if let Some(expected_error) = case.get("expected_error").and_then(Value::as_str) {
+        assert_eq!(
+            run_case_error_code(case).as_deref(),
+            Some(expected_error),
+            "{case_label}"
+        );
+        return;
+    }
+    let actual = run_case(case);
+    let expected = unwrap_expected(case.get("expected").unwrap());
+    let tolerance = case.get("tolerance").and_then(Value::as_f64);
+    let field_tolerances = case
+        .get("field_tolerances")
+        .cloned()
+        .map(serde_json::from_value::<HashMap<String, f64>>)
+        .transpose()
+        .expect("field_tolerances should be an object of numbers");
+    assert_with_tolerance(
+        &actual,
+        &expected,
+        tolerance,
+        &case_label,
+        field_tolerances.as_ref(),
+        &[],
+    );
+}
+
 #[test]
 fn fixture_suite() {
     for fixture_path in load_support_fixture_paths() {
         for case in load_cases(&fixture_path) {
-            let actual = run_case(&case);
-            let expected = unwrap_expected(case.get("expected").unwrap());
-            let tolerance = case.get("tolerance").and_then(Value::as_f64);
-            let case_label = format!(
-                "{}::{}",
-                fixture_path,
-                case.get("id").and_then(Value::as_str).unwrap()
-            );
-            let field_tolerances = case
-                .get("field_tolerances")
-                .cloned()
-                .map(serde_json::from_value::<HashMap<String, f64>>)
-                .transpose()
-                .expect("field_tolerances should be an object of numbers");
-            assert_with_tolerance(
-                &actual,
-                &expected,
-                tolerance,
-                &case_label,
-                field_tolerances.as_ref(),
-                &[],
-            );
+            assert_fixture_case(&fixture_path, &case);
         }
     }
 }
@@ -1278,28 +1350,7 @@ fn fixture_suite() {
 fn layer_fixture_suite() {
     for fixture_path in load_layer_fixture_paths() {
         for case in load_cases(&fixture_path) {
-            let actual = run_case(&case);
-            let expected = unwrap_expected(case.get("expected").unwrap());
-            let tolerance = case.get("tolerance").and_then(Value::as_f64);
-            let case_label = format!(
-                "{}::{}",
-                fixture_path,
-                case.get("id").and_then(Value::as_str).unwrap()
-            );
-            let field_tolerances = case
-                .get("field_tolerances")
-                .cloned()
-                .map(serde_json::from_value::<HashMap<String, f64>>)
-                .transpose()
-                .expect("field_tolerances should be an object of numbers");
-            assert_with_tolerance(
-                &actual,
-                &expected,
-                tolerance,
-                &case_label,
-                field_tolerances.as_ref(),
-                &[],
-            );
+            assert_fixture_case(&fixture_path, &case);
         }
     }
 }

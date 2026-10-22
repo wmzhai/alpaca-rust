@@ -320,3 +320,11 @@ pub fn strike_for_target_delta(
         format!("no strike found for target delta: {target_delta}"),
     ))
 }
+
+pub use crate::strategy_analysis::{
+    analyze_strategy, find_theta_zero, AnalysisSection, BreakEvenSection, DirectedRoot,
+    EvaluationRequest, PeakSection, PriceSearch, ProbabilityRequest, ProfitRegion, RangeStatus,
+    RateCurvePoint,
+    SectionStatus, StrategyAnalysis, StrategyAnalysisInput, StrategyAnalysisOptions,
+    ThetaZeroKind, ThetaZeroSearch, ThetaZeroSection, ValueSource,
+};

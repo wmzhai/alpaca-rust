@@ -109,6 +109,15 @@ export function toUtcRfc3339(input: string): string {
   return toUtcRfc3339String(input);
 }
 
+/** Unix seconds for a New York timestamp. Both option runtimes binary-search on this. */
+export function unixSeconds(input: string): number {
+  const millis = Date.parse(toUtcRfc3339String(input));
+  if (!Number.isFinite(millis)) {
+    fail('invalid_timestamp', `invalid timestamp: ${input}`);
+  }
+  return Math.trunc(millis / 1000);
+}
+
 export function fromUnixSeconds(seconds: number): NyTimestampString {
   if (seconds === 0) {
     return '';

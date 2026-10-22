@@ -136,6 +136,28 @@ export function round(value: number, decimals: number): number {
   return Math.round(value * multiplier) / multiplier;
 }
 
+/** Half-even rounding used by rust_decimal `round_dp` for quote amounts. */
+export function roundHalfEven(value: number, decimals: number): number {
+  if (!Number.isFinite(value)) {
+    return value;
+  }
+  if (!Number.isInteger(decimals) || decimals < 0) {
+    fail('invalid_numeric_input', `decimals must be a non-negative integer: ${decimals}`);
+  }
+  const sign = value < 0 ? -1 : 1;
+  const factor = 10 ** decimals;
+  const scaled = Math.abs(value) * factor;
+  const base = Math.floor(scaled + 1e-10);
+  const fraction = scaled - base;
+  let rounded = base;
+  if (fraction > 0.5 + 1e-8) {
+    rounded = base + 1;
+  } else if (Math.abs(fraction - 0.5) <= 1e-8) {
+    rounded = base % 2 === 0 ? base : base + 1;
+  }
+  return (sign * rounded) / factor;
+}
+
 export function linspace(start: number, end: number, count: number): number[] {
   ensureFinite('start', start);
   ensureFinite('end', end);

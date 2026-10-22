@@ -4,6 +4,9 @@ import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
+import { clock as timeClock } from '@alpaca/time';
+
+import { OptionError } from '../src/error';
 import {
   OptionStrategy,
   analysis,
@@ -35,7 +38,8 @@ type FixtureCase = {
   id: string;
   api: string;
   input: Record<string, unknown>;
-  expected: Record<string, unknown>;
+  expected?: Record<string, unknown>;
+  expected_error?: string;
   tolerance?: number;
   field_tolerances?: Record<string, number>;
 };
@@ -67,8 +71,48 @@ async function loadFixturePaths(): Promise<string[]> {
   return [...supportPaths, ...layerPaths];
 }
 
+function analysisPayload(input: Record<string, unknown>) {
+  return {
+    analysis: input.analysis as analysis.StrategyAnalysisInput,
+    options: (input.options ?? {}) as analysis.StrategyAnalysisOptions,
+  };
+}
+
+function findThetaZeroCase(input: Record<string, unknown>) {
+  const search = input as unknown as analysis.ThetaZeroSearch;
+  const start = timeClock.unixSeconds(search.start_time.trim());
+  const end = timeClock.unixSeconds(search.end_time.trim());
+  return analysis.findThetaZero(search, (timestamp) => {
+    const now = timeClock.unixSeconds(timestamp);
+    const span = end - start;
+    if (span === 0) {
+      return null;
+    }
+    const progress = (now - start) / span;
+    switch (input.evaluator) {
+      case 'linear_plus_one_to_minus_one':
+        return 1 - 2 * progress;
+      default:
+        throw new Error(`Unhandled theta evaluator: ${String(input.evaluator)}`);
+    }
+  });
+}
+
+function runCaseErrorCode(item: FixtureCase): string | null {
+  try {
+    runCase(item);
+    return null;
+  } catch (error) {
+    return error instanceof OptionError ? error.code : null;
+  }
+}
+
 function unwrapExpected(expected: Record<string, unknown>): unknown {
-  return Object.prototype.hasOwnProperty.call(expected, 'value') ? expected.value : expected;
+  const keys = Object.keys(expected);
+  if (keys.length === 1 && keys[0] === 'value') {
+    return expected.value;
+  }
+  return expected;
 }
 
 function toSnakeCase(value: string): string {
@@ -602,6 +646,12 @@ function runCase(item: FixtureCase): unknown {
         dividendYield: Number(item.input.dividend_yield),
         volatility: Number(item.input.volatility),
       });
+    case 'analysis.analyze_strategy': {
+      const payload = analysisPayload(item.input);
+      return analysis.analyzeStrategy(payload.analysis, payload.options);
+    }
+    case 'analysis.find_theta_zero':
+      return findThetaZeroCase(item.input);
     case 'analysis.annualized_premium_yield':
       return analysis.annualizedPremiumYield(
         Number(item.input.premium),
@@ -875,9 +925,14 @@ test('fixtures catalog', async (t) => {
     await t.test(fixturePath, async () => {
       const cases = await loadFixture(fixturePath);
       for (const item of cases) {
+        const label = `${fixturePath}::${item.id}`;
+        if (item.expected_error) {
+          assert.equal(runCaseErrorCode(item), item.expected_error, label);
+          continue;
+        }
         const actual = comparable(runCase(item));
-        const expected = unwrapExpected(item.expected);
-        assertWithTolerance(actual, expected, item.tolerance, `${fixturePath}::${item.id}`, item.field_tolerances);
+        const expected = unwrapExpected(item.expected ?? {});
+        assertWithTolerance(actual, expected, item.tolerance, label, item.field_tolerances);
       }
     });
   }
