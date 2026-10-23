@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Shared strategy analysis fixtures cover an unequal five-type book across expirations, and the same book after adding one long call. The historical cashflow stays fixed when that quantity changes.
+- The PMCC model Greek fixture theta matches the one-sided hour-step default.
+
 ## v0.34.2 - 2026-10-22
 
 - `analyze_strategy` / `analyzeStrategy` prices an arbitrary option list plus stock from one shared input. Mark uses the existing two-sided mid inside the regular session and the model otherwise. Break-even, curve, peak, probability, and theta-zero are optional sections. Rust and TypeScript read the same fixture file.
