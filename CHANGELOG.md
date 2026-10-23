@@ -4,6 +4,7 @@
 
 - Shared strategy analysis fixtures cover an unequal five-type book across expirations, and the same book after adding one long call. The historical cashflow stays fixed when that quantity changes.
 - The PMCC model Greek fixture theta matches the one-sided hour-step default.
+- Omitting `analyze_strategy` qty means each leg quantity is already the actual size. An explicit qty still scales that structure once.
 
 ## v0.34.2 - 2026-10-22
 

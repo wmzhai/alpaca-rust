@@ -188,11 +188,20 @@ function legOptionCost(positions: readonly OptionPosition[], qty: number): numbe
   return roundHalfEven(total * qty, 2);
 }
 
-function resolveBook(input: StrategyAnalysisInput): ResolvedBook {
-  const qty = input.qty ?? 1;
+// OptionStrategy always multiplies by a structure count. An omitted qty uses 1
+// so the stored leg quantities are not scaled again.
+function structureScale(qty: number | null | undefined): number {
+  if (qty == null) {
+    return 1;
+  }
   if (!Number.isInteger(qty) || qty <= 0) {
     fail('invalid_analysis_input', `qty must be greater than zero: ${qty}`);
   }
+  return qty;
+}
+
+function resolveBook(input: StrategyAnalysisInput): ResolvedBook {
+  const scale = structureScale(input.qty);
   if (!Number.isFinite(input.underlying_price) || input.underlying_price < 0) {
     fail('invalid_analysis_input', `underlying_price must be non-negative: ${input.underlying_price}`);
   }
@@ -207,7 +216,7 @@ function resolveBook(input: StrategyAnalysisInput): ResolvedBook {
   }
   const stockCashflow = parseMoney(input.stock_cashflow, 'stock_cashflow') ?? 0;
   const stockCost = roundHalfEven(-stockCashflow, 2);
-  const fromLegs = legOptionCost(input.positions, qty);
+  const fromLegs = legOptionCost(input.positions, scale);
   const cashflow = parseMoney(input.cashflow, 'cashflow');
   const entryCost = input.entry_cost == null ? null : input.entry_cost;
   if (entryCost != null && !Number.isFinite(entryCost)) {
@@ -240,7 +249,7 @@ function resolveBook(input: StrategyAnalysisInput): ResolvedBook {
 function buildStrategy(input: StrategyAnalysisInput, book: ResolvedBook): OptionStrategy {
   const strategy = OptionStrategy.prepare({
     positions: input.positions,
-    qty: input.qty ?? 1,
+    qty: structureScale(input.qty),
     evaluation_time: input.evaluation_time.trim(),
     entry_cost: book.optionCost,
     dividend_yield: input.dividend_yield ?? null,
@@ -296,7 +305,7 @@ function fillMark(
 ): void {
   const model = roundHalfEven(strategy.markValueAt(input.underlying_price), 2);
   const stockValue = roundHalfEven((input.stock_qty ?? 0) * input.underlying_price, 2);
-  const optionMid = quoteMidOptionValue(input.positions, input.qty ?? 1);
+  const optionMid = quoteMidOptionValue(input.positions, structureScale(input.qty));
   const mid = optionMid == null ? null : roundHalfEven(optionMid + stockValue, 2);
   const regular = timeSession.isRegularSessionAt(input.evaluation_time.trim());
   const source: ValueSource = regular && mid != null ? 'mid' : 'model';

@@ -98,8 +98,9 @@ pub enum ThetaZeroKind {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct StrategyAnalysisInput {
     pub positions: Vec<OptionPosition>,
-    #[serde(default = "default_qty")]
-    pub qty: i32,
+    /// Copies of one structure. Absent means each leg `qty` is already the actual size.
+    #[serde(default)]
+    pub qty: Option<i32>,
     #[serde(default)]
     pub stock_qty: i32,
     #[serde(
@@ -132,8 +133,14 @@ pub struct RateCurvePoint {
     pub rate: f64,
 }
 
-fn default_qty() -> i32 {
-    1
+/// `OptionStrategy` always multiplies by a structure count. An omitted qty uses 1
+/// so the stored leg quantities are not scaled again.
+fn structure_scale(qty: Option<i32>) -> OptionResult<i32> {
+    match qty {
+        None => Ok(1),
+        Some(qty) if qty > 0 => Ok(qty),
+        Some(qty) => Err(invalid(format!("qty must be greater than zero: {qty}"))),
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -400,9 +407,7 @@ fn requested_sections(options: &StrategyAnalysisOptions) -> BTreeSet<AnalysisSec
 }
 
 fn resolve_book(input: &StrategyAnalysisInput) -> OptionResult<ResolvedBook> {
-    if input.qty <= 0 {
-        return Err(invalid(format!("qty must be greater than zero: {}", input.qty)));
-    }
+    let scale = structure_scale(input.qty)?;
     if !input.underlying_price.is_finite() || input.underlying_price < 0.0 {
         return Err(invalid(format!(
             "underlying_price must be non-negative: {}",
@@ -423,7 +428,7 @@ fn resolve_book(input: &StrategyAnalysisInput) -> OptionResult<ResolvedBook> {
         }
     }
     let stock_cost = -input.stock_cashflow;
-    let from_legs = leg_option_cost(&input.positions, input.qty);
+    let from_legs = leg_option_cost(&input.positions, scale);
     let (option_cost, total_cost) = match (input.cashflow, input.entry_cost) {
         (Some(cashflow), Some(entry_cost)) => {
             let from_cashflow = -cashflow;
@@ -467,9 +472,10 @@ fn build_strategy(input: &StrategyAnalysisInput, book: &ResolvedBook) -> OptionR
         .to_f64()
         .filter(|value| value.is_finite())
         .ok_or_else(|| invalid("option cost does not fit a finite entry_cost"))?;
+    let scale = structure_scale(input.qty)?;
     let mut strategy = OptionStrategy::prepare(
         &input.positions,
-        input.qty,
+        scale,
         input.evaluation_time.trim(),
         Some(option_cost),
         input.dividend_yield,
@@ -535,7 +541,7 @@ fn fill_mark(
 ) -> OptionResult<()> {
     let model = decimal_from_f64(strategy.mark_value_at(input.underlying_price)?)?;
     let stock_value = decimal_from_f64(f64::from(input.stock_qty) * input.underlying_price)?;
-    let mid = quote_mid_option_value(&input.positions, input.qty).map(|option_value| option_value + stock_value);
+    let mid = quote_mid_option_value(&input.positions, structure_scale(input.qty)?).map(|option_value| option_value + stock_value);
     let regular = session::is_regular_session_at(input.evaluation_time.trim());
     let (value, source) = if regular {
         if let Some(mid_value) = mid {
