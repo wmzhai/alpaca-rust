@@ -2506,10 +2506,11 @@ fn apply_fill_effects(
         .filled_avg_price
         .expect("filled mock order should always have filled_avg_price");
     let qty = order.filled_qty;
+    let multiplier = option_fill_multiplier(order);
     let cash_delta = if order.order_class == OrderClass::Mleg {
-        (-price * qty).round_dp(8)
+        (-price * qty * multiplier).round_dp(2)
     } else {
-        signed_cash_delta(request_side, qty, price)
+        signed_cash_delta(request_side, qty * multiplier, price).round_dp(2)
     };
     account.cash_ledger.apply_delta(cash_delta);
     let occurred_at = order
@@ -2541,6 +2542,14 @@ fn apply_fill_effects(
         )
         .with_fill_order(order, request_side),
     );
+}
+
+fn option_fill_multiplier(order: &Order) -> Decimal {
+    if order.order_class == OrderClass::Mleg || order.asset_class == "us_option" {
+        Decimal::new(100, 0)
+    } else {
+        Decimal::ONE
+    }
 }
 
 fn signed_cash_delta(side: &OrderSide, qty: Decimal, price: Decimal) -> Decimal {

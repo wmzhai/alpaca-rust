@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+## v0.34.3 - 2026-10-25
+
+- Mock option and multi-leg fills move cash by the contract multiplier of 100. Equity fills stay one share per unit. This matches broker cash and order cashflow.
 - Shared strategy analysis fixtures cover an unequal five-type book across expirations, and the same book after adding one long call. The historical cashflow stays fixed when that quantity changes.
 - The PMCC model Greek fixture theta matches the one-sided hour-step default.
 - Omitting `analyze_strategy` qty means each leg quantity is already the actual size. An explicit qty still scales that structure once.
