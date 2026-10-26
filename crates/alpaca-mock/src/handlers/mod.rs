@@ -15,7 +15,7 @@ mod watchlists;
 pub(crate) use account::{account_configurations_get, account_configurations_update, account_get};
 pub(crate) use activities::{activities_by_type, activities_list};
 pub(crate) use admin::{
-    admin_reset, admin_seed_rejected_replacement_race, admin_set_http_fault,
+    admin_import_orders, admin_reset, admin_seed_rejected_replacement_race, admin_set_http_fault,
     admin_set_runtime_stock_price, admin_state,
 };
 pub(crate) use assets::{assets_get, assets_list};

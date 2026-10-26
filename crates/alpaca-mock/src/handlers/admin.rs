@@ -5,12 +5,12 @@ use axum::{
 use rust_decimal::Decimal;
 use serde::Deserialize;
 
-use alpaca_trade::orders::OrderStatus;
+use alpaca_trade::orders::{OrderSide, OrderStatus};
 
 use crate::auth::MockHttpError;
 use crate::state::{
-    AdminStateResponse, InjectedHttpFault, MockServerState, RejectedReplacementRaceFixture,
-    RuntimeStockPriceResponse,
+    AdminStateResponse, ImportOrdersResponse, ImportedLimitOrder, InjectedHttpFault,
+    MockServerState, RejectedReplacementRaceFixture, RuntimeStockPriceResponse,
 };
 
 #[derive(Debug, Deserialize)]
@@ -71,4 +71,47 @@ pub(crate) async fn admin_seed_rejected_replacement_race(
     Json(request): Json<SeedRejectedReplacementRaceRequest>,
 ) -> Json<RejectedReplacementRaceFixture> {
     Json(state.seed_rejected_replacement_race(&request.api_key, request.predecessor_status))
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ImportOrdersRequest {
+    pub api_key: String,
+    pub orders: Vec<ImportOrderRequest>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ImportOrderRequest {
+    pub id: String,
+    pub client_order_id: String,
+    pub symbol: String,
+    pub side: OrderSide,
+    #[serde(deserialize_with = "alpaca_core::decimal::number_contract::deserialize")]
+    pub qty: Decimal,
+    #[serde(deserialize_with = "alpaca_core::decimal::price_string_contract::deserialize")]
+    pub limit_price: Decimal,
+}
+
+pub(crate) async fn admin_import_orders(
+    State(state): State<MockServerState>,
+    Json(request): Json<ImportOrdersRequest>,
+) -> Result<Json<ImportOrdersResponse>, MockHttpError> {
+    if request.api_key.is_empty() {
+        return Err(MockHttpError::bad_request("api_key must not be empty"));
+    }
+    let orders = request
+        .orders
+        .into_iter()
+        .map(|order| ImportedLimitOrder {
+            id: order.id,
+            client_order_id: order.client_order_id,
+            symbol: order.symbol,
+            side: order.side,
+            qty: order.qty,
+            limit_price: order.limit_price,
+        })
+        .collect();
+    state
+        .import_orders(&request.api_key, orders)
+        .map(Json)
+        .map_err(|error| MockHttpError::bad_request(error.to_string()))
 }

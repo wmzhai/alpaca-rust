@@ -61,6 +61,7 @@ Unauthenticated:
 - `POST /admin/reset`
 - `POST /admin/faults/http`
 - `POST /admin/market-data/stocks/{symbol}`
+- `POST /admin/orders/import`
 
 Authenticated trading routes:
 
@@ -105,6 +106,34 @@ Example:
 Sets a deterministic runtime price for a stock symbol. The price is rounded to two decimal places and exposed as the bid, ask, and latest trade through the authenticated `GET /v2/stocks/{symbol}/snapshot` route.
 
 Existing open simple equity limit orders made marketable by the new price are filled exactly once. The response contains `symbol`, the normalized Decimal-string `price`, and sorted `filled_order_ids`. This control is intended only for deterministic local integration scenarios; it is not a general-purpose market-data generator.
+
+### `POST /admin/orders/import`
+
+Inserts resting simple equity limit orders directly into the in-memory account selected by `api_key`. This does not call order creation, so the supplied `id` is preserved and the order is not filled at insert time. Missing accounts are created empty. Cash, positions, and activities are left unchanged.
+
+Each order is stored as status `new`, filled quantity `0`, type `limit`, time in force `gtc`, and `extended_hours=true`. The same `id` on a later import replaces that order. A `client_order_id` already owned by a different order is rejected for that row only; the rest of the batch still applies. An empty `api_key` is HTTP 400.
+
+Imported orders use the normal resting-limit rules. A later price that makes the limit marketable fills them.
+
+Example:
+
+```json
+{
+  "api_key": "mock-key",
+  "orders": [
+    {
+      "id": "57883507-70c4-4a1b-87e8-325e32c88700",
+      "client_order_id": "grid-submit-1",
+      "symbol": "AAPL",
+      "side": "buy",
+      "qty": "10",
+      "limit_price": "100.00"
+    }
+  ]
+}
+```
+
+The response counts `imported`, `replaced`, and `rejected`. `rejected` entries contain `id` and `reason`.
 
 ## Fill Behavior
 

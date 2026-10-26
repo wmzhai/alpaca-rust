@@ -217,6 +217,29 @@ pub struct RuntimeStockPriceResponse {
     pub filled_order_ids: Vec<String>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ImportedLimitOrder {
+    pub id: String,
+    pub client_order_id: String,
+    pub symbol: String,
+    pub side: OrderSide,
+    pub qty: Decimal,
+    pub limit_price: Decimal,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize)]
+pub struct ImportOrdersResponse {
+    pub imported: usize,
+    pub replaced: usize,
+    pub rejected: Vec<RejectedImportedOrder>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct RejectedImportedOrder {
+    pub id: String,
+    pub reason: String,
+}
+
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct LimitOrderPollReport {
     pub filled_order_ids: Vec<String>,
@@ -1876,6 +1899,39 @@ impl MockServerState {
         }
     }
 
+    pub fn import_orders(
+        &self,
+        api_key: &str,
+        orders: Vec<ImportedLimitOrder>,
+    ) -> Result<ImportOrdersResponse, MockStateError> {
+        if api_key.is_empty() {
+            return Err(MockStateError::Conflict(
+                "api_key must not be empty".to_owned(),
+            ));
+        }
+        if orders.is_empty() {
+            return Ok(ImportOrdersResponse::default());
+        }
+
+        let mut accounts = self
+            .inner
+            .accounts
+            .write()
+            .expect("accounts lock should not poison");
+        let account = accounts
+            .entry(api_key.to_owned())
+            .or_insert_with(|| VirtualAccountState::new(api_key));
+        let mut response = ImportOrdersResponse::default();
+        for order in orders {
+            match account.import_resting_limit(order) {
+                Ok(true) => response.replaced += 1,
+                Ok(false) => response.imported += 1,
+                Err(rejected) => response.rejected.push(rejected),
+            }
+        }
+        Ok(response)
+    }
+
     fn take_rejected_replacement_race(&self, api_key: &str, order_id: &str) -> Option<OrderStatus> {
         self.inner
             .rejected_replacement_races
@@ -2612,6 +2668,99 @@ fn execution_facts_from_order(
             .and_then(|quotes| market_quote(quotes, &order.symbol, &order.asset_class).cloned()),
         occurred_at.to_owned(),
     )]
+}
+
+impl VirtualAccountState {
+    fn import_resting_limit(
+        &mut self,
+        input: ImportedLimitOrder,
+    ) -> Result<bool, RejectedImportedOrder> {
+        let order_id = input.id.clone();
+        let order = match resting_limit_order(input) {
+            Ok(order) => order,
+            Err(reason) => {
+                return Err(RejectedImportedOrder {
+                    id: order_id,
+                    reason,
+                });
+            }
+        };
+        if let Some(existing_id) = self.client_order_ids.get(&order.client_order_id) {
+            if existing_id != &order.id {
+                return Err(RejectedImportedOrder {
+                    id: order.id,
+                    reason: format!("client_order_id {} already exists", order.client_order_id),
+                });
+            }
+        }
+
+        let replaced = if let Some(previous) = self.orders.remove(&order.id) {
+            if previous.order.client_order_id != order.client_order_id {
+                self.client_order_ids
+                    .remove(&previous.order.client_order_id);
+            }
+            true
+        } else {
+            false
+        };
+        self.client_order_ids
+            .insert(order.client_order_id.clone(), order.id.clone());
+        let request_side = order.side.clone();
+        self.orders.insert(
+            order.id.clone(),
+            StoredOrder {
+                order,
+                request_side,
+            },
+        );
+        Ok(replaced)
+    }
+}
+
+fn resting_limit_order(input: ImportedLimitOrder) -> Result<Order, String> {
+    if input.id.is_empty() {
+        return Err("order id must not be empty".to_owned());
+    }
+    if input.client_order_id.is_empty() {
+        return Err("client_order_id must not be empty".to_owned());
+    }
+    if !matches!(input.side, OrderSide::Buy | OrderSide::Sell) {
+        return Err("side must be buy or sell".to_owned());
+    }
+    if input.qty <= Decimal::ZERO {
+        return Err("qty must be greater than 0".to_owned());
+    }
+    let limit_price = input.limit_price.round_dp(2);
+    if limit_price <= Decimal::ZERO {
+        return Err("limit_price must be greater than 0".to_owned());
+    }
+    let symbol = display_stock_symbol(&input.symbol);
+    if symbol.is_empty() {
+        return Err("symbol must not be empty".to_owned());
+    }
+
+    let now = now_string();
+    Ok(Order {
+        id: input.id,
+        client_order_id: input.client_order_id,
+        created_at: now.clone(),
+        updated_at: now.clone(),
+        submitted_at: now,
+        asset_id: mock_asset_id(&symbol),
+        symbol,
+        asset_class: "us_equity".to_owned(),
+        qty: Some(input.qty),
+        filled_qty: Decimal::ZERO,
+        order_class: OrderClass::Simple,
+        order_type: OrderType::Limit,
+        r#type: OrderType::Limit,
+        side: input.side,
+        time_in_force: TimeInForce::Gtc,
+        limit_price: Some(limit_price),
+        status: OrderStatus::New,
+        extended_hours: true,
+        ..Order::default()
+    })
 }
 
 fn is_terminal_status(status: &OrderStatus) -> bool {
@@ -3444,5 +3593,113 @@ fn expires_at_for(time_in_force: &TimeInForce) -> Option<String> {
         | TimeInForce::Ioc
         | TimeInForce::Fok
         | TimeInForce::Unspecified => None,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use rust_decimal::Decimal;
+
+    use alpaca_trade::orders::{OrderSide, OrderStatus, OrderType, TimeInForce};
+
+    use super::{ImportedLimitOrder, MockServerState};
+
+    fn resting_buy() -> ImportedLimitOrder {
+        ImportedLimitOrder {
+            id: "order-1".to_owned(),
+            client_order_id: "client-1".to_owned(),
+            symbol: "AAPL".to_owned(),
+            side: OrderSide::Buy,
+            qty: Decimal::from(10),
+            limit_price: Decimal::from(100),
+        }
+    }
+
+    #[test]
+    fn imported_new_limit_stays_open_until_price_crosses() {
+        let state = MockServerState::new();
+        let first = state
+            .import_orders("mock-key", vec![resting_buy()])
+            .expect("import should succeed");
+        assert_eq!(first.imported, 1);
+        assert_eq!(first.replaced, 0);
+        assert!(first.rejected.is_empty());
+
+        let order = state
+            .get_order("mock-key", "order-1", false)
+            .expect("imported order should be readable");
+        assert_eq!(order.id, "order-1");
+        assert_eq!(order.client_order_id, "client-1");
+        assert_eq!(order.status, OrderStatus::New);
+        assert_eq!(order.filled_qty, Decimal::ZERO);
+        assert_eq!(order.qty, Some(Decimal::from(10)));
+        assert_eq!(order.limit_price, Some(Decimal::from(100)));
+        assert_eq!(order.r#type, OrderType::Limit);
+        assert_eq!(order.time_in_force, TimeInForce::Gtc);
+        assert!(order.extended_hours);
+        assert_eq!(order.asset_class, "us_equity");
+
+        let candidates = state.collect_limit_order_poll_batch();
+        assert_eq!(candidates.candidates.len(), 1);
+        assert_eq!(candidates.candidates[0].order_id, "order-1");
+
+        let cash = {
+            let accounts = state
+                .inner
+                .accounts
+                .read()
+                .expect("accounts lock should not poison");
+            let account = accounts.get("mock-key").expect("account should exist");
+            assert!(account.executions.is_empty());
+            assert!(account.activities.is_empty());
+            account.cash_ledger.cash_balance()
+        };
+        assert_eq!(cash, Decimal::new(1_000_000, 0));
+
+        let unchanged = state
+            .set_runtime_stock_price("AAPL", Decimal::from(150))
+            .expect("higher price should be stored");
+        assert!(unchanged.filled_order_ids.is_empty());
+        assert_eq!(
+            state
+                .get_order("mock-key", "order-1", false)
+                .expect("order should remain")
+                .status,
+            OrderStatus::New
+        );
+
+        let filled = state
+            .set_runtime_stock_price("AAPL", Decimal::from(90))
+            .expect("marketable price should fill");
+        assert_eq!(filled.filled_order_ids, vec!["order-1".to_owned()]);
+        assert_eq!(
+            state
+                .get_order("mock-key", "order-1", false)
+                .expect("filled order should remain")
+                .status,
+            OrderStatus::Filled
+        );
+
+        let conflict = state
+            .import_orders(
+                "mock-key",
+                vec![
+                    resting_buy(),
+                    ImportedLimitOrder {
+                        id: "order-2".to_owned(),
+                        client_order_id: "client-1".to_owned(),
+                        symbol: "AAPL".to_owned(),
+                        side: OrderSide::Sell,
+                        qty: Decimal::ONE,
+                        limit_price: Decimal::from(110),
+                    },
+                ],
+            )
+            .expect("second import should succeed");
+        assert_eq!(conflict.replaced, 1);
+        assert_eq!(conflict.imported, 0);
+        assert_eq!(conflict.rejected.len(), 1);
+        assert_eq!(conflict.rejected[0].id, "order-2");
+        assert!(state.get_order("mock-key", "order-2", false).is_none());
     }
 }

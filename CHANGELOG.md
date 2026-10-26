@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+## v0.34.4 - 2026-10-26
+
+- `POST /admin/orders/import` writes resting equity limit orders straight into an in-memory mock account and keeps the supplied order id. The orders stay `new` with no fill, and later prices fill them under the existing limit rules.
+
 ## v0.34.3 - 2026-10-25
 
 - Mock option and multi-leg fills move cash by the contract multiplier of 100. Equity fills stay one share per unit. This matches broker cash and order cashflow.
