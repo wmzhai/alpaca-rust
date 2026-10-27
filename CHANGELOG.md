@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+## v0.34.5 - 2026-10-27
+
+- `POST /admin/accounts/import` sets an in-memory account's cash and the overview balances used by reconciliation. Later order imports keep that cash. Accounts that were not imported still start at 1,000,000.
+
 ## v0.34.4 - 2026-10-26
 
 - `POST /admin/orders/import` writes resting equity limit orders straight into an in-memory mock account and keeps the supplied order id. The orders stay `new` with no fill, and later prices fill them under the existing limit rules.

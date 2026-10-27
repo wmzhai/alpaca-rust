@@ -80,6 +80,7 @@ pub(crate) struct VirtualAccountState {
     activities: Vec<ActivityEvent>,
     watchlists: WatchlistBook,
     sequence_clock: u64,
+    imported_balances: Option<account::ImportedBalances>,
 }
 
 #[derive(Debug, Clone)]
@@ -1899,6 +1900,45 @@ impl MockServerState {
         }
     }
 
+    pub fn import_account(
+        &self,
+        api_key: &str,
+        imported: ImportedAccount,
+    ) -> Result<(), MockStateError> {
+        if api_key.is_empty() {
+            return Err(MockStateError::Conflict(
+                "api_key must not be empty".to_owned(),
+            ));
+        }
+        if imported.status.is_empty() {
+            return Err(MockStateError::Conflict(
+                "status must not be empty".to_owned(),
+            ));
+        }
+
+        let mut accounts = self
+            .inner
+            .accounts
+            .write()
+            .expect("accounts lock should not poison");
+        let account = accounts
+            .entry(api_key.to_owned())
+            .or_insert_with(|| VirtualAccountState::new(api_key));
+        account.account_profile.status = imported.status;
+        account.cash_ledger.set_balance(imported.cash);
+        account.imported_balances = Some(account::ImportedBalances {
+            portfolio_value: imported.portfolio_value,
+            equity: imported.equity,
+            long_market_value: imported.long_market_value,
+            short_market_value: imported.short_market_value,
+            buying_power: imported.buying_power,
+            maintenance_margin: imported.maintenance_margin,
+            options_buying_power: imported.options_buying_power,
+            multiplier: imported.multiplier,
+        });
+        Ok(())
+    }
+
     pub fn import_orders(
         &self,
         api_key: &str,
@@ -2287,6 +2327,7 @@ impl VirtualAccountState {
             positions: PositionBook::default(),
             activities: Vec::new(),
             watchlists: WatchlistBook::default(),
+            imported_balances: None,
             sequence_clock: 0,
         }
     }
@@ -2325,6 +2366,24 @@ pub(crate) fn cash_balance(state: &VirtualAccountState) -> Decimal {
 
 pub(crate) fn account_profile(state: &VirtualAccountState) -> &account::AccountProfile {
     &state.account_profile
+}
+
+pub(crate) fn imported_balances(state: &VirtualAccountState) -> Option<&account::ImportedBalances> {
+    state.imported_balances.as_ref()
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ImportedAccount {
+    pub status: String,
+    pub cash: Decimal,
+    pub portfolio_value: Decimal,
+    pub equity: Decimal,
+    pub long_market_value: Decimal,
+    pub short_market_value: Decimal,
+    pub buying_power: Decimal,
+    pub maintenance_margin: Decimal,
+    pub options_buying_power: Decimal,
+    pub multiplier: Decimal,
 }
 
 fn normalize_qty(

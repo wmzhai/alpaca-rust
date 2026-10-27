@@ -9,7 +9,7 @@ use alpaca_trade::orders::{OrderSide, OrderStatus};
 
 use crate::auth::MockHttpError;
 use crate::state::{
-    AdminStateResponse, ImportOrdersResponse, ImportedLimitOrder, InjectedHttpFault,
+    AdminStateResponse, ImportOrdersResponse, ImportedAccount, ImportedLimitOrder, InjectedHttpFault,
     MockServerState, RejectedReplacementRaceFixture, RuntimeStockPriceResponse,
 };
 
@@ -89,6 +89,54 @@ pub struct ImportOrderRequest {
     pub qty: Decimal,
     #[serde(deserialize_with = "alpaca_core::decimal::price_string_contract::deserialize")]
     pub limit_price: Decimal,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ImportAccountRequest {
+    pub api_key: String,
+    pub status: String,
+    #[serde(deserialize_with = "alpaca_core::decimal::deserialize_decimal_from_string_or_number")]
+    pub cash: Decimal,
+    #[serde(deserialize_with = "alpaca_core::decimal::deserialize_decimal_from_string_or_number")]
+    pub portfolio_value: Decimal,
+    #[serde(deserialize_with = "alpaca_core::decimal::deserialize_decimal_from_string_or_number")]
+    pub equity: Decimal,
+    #[serde(deserialize_with = "alpaca_core::decimal::deserialize_decimal_from_string_or_number")]
+    pub long_market_value: Decimal,
+    #[serde(deserialize_with = "alpaca_core::decimal::deserialize_decimal_from_string_or_number")]
+    pub short_market_value: Decimal,
+    #[serde(deserialize_with = "alpaca_core::decimal::deserialize_decimal_from_string_or_number")]
+    pub buying_power: Decimal,
+    #[serde(deserialize_with = "alpaca_core::decimal::deserialize_decimal_from_string_or_number")]
+    pub maintenance_margin: Decimal,
+    #[serde(deserialize_with = "alpaca_core::decimal::deserialize_decimal_from_string_or_number")]
+    pub options_buying_power: Decimal,
+    #[serde(deserialize_with = "alpaca_core::decimal::deserialize_decimal_from_string_or_number")]
+    pub multiplier: Decimal,
+}
+
+pub(crate) async fn admin_import_account(
+    State(state): State<MockServerState>,
+    Json(request): Json<ImportAccountRequest>,
+) -> Result<Json<AdminStateResponse>, MockHttpError> {
+    state
+        .import_account(
+            &request.api_key,
+            ImportedAccount {
+                status: request.status,
+                cash: request.cash,
+                portfolio_value: request.portfolio_value,
+                equity: request.equity,
+                long_market_value: request.long_market_value,
+                short_market_value: request.short_market_value,
+                buying_power: request.buying_power,
+                maintenance_margin: request.maintenance_margin,
+                options_buying_power: request.options_buying_power,
+                multiplier: request.multiplier,
+            },
+        )
+        .map_err(|error| MockHttpError::bad_request(error.to_string()))?;
+    Ok(Json(state.admin_state()))
 }
 
 pub(crate) async fn admin_import_orders(

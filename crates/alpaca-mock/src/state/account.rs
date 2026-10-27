@@ -3,7 +3,7 @@ use std::hash::{Hash, Hasher};
 
 use rust_decimal::Decimal;
 
-use crate::state::{VirtualAccountState, account_profile, cash_balance};
+use crate::state::{VirtualAccountState, account_profile, cash_balance, imported_balances};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AccountProfile {
@@ -63,6 +63,18 @@ fn hash_account_key(namespace: &str, api_key: &str) -> u64 {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct ImportedBalances {
+    pub portfolio_value: Decimal,
+    pub equity: Decimal,
+    pub long_market_value: Decimal,
+    pub short_market_value: Decimal,
+    pub buying_power: Decimal,
+    pub maintenance_margin: Decimal,
+    pub options_buying_power: Decimal,
+    pub multiplier: Decimal,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CashLedger {
     cash: Decimal,
 }
@@ -78,6 +90,10 @@ impl CashLedger {
         self.cash
     }
 
+    pub fn set_balance(&mut self, cash: Decimal) {
+        self.cash = cash;
+    }
+
     pub fn apply_delta(&mut self, delta: Decimal) {
         self.cash += delta;
     }
@@ -87,7 +103,29 @@ pub(crate) fn project_account(state: &VirtualAccountState) -> alpaca_trade::acco
     let profile = account_profile(state);
     let cash = cash_balance(state);
     let large_buying_power = Decimal::new(9_999_999, 0);
-    let multiplier = Decimal::new(4, 0);
+    let imported = imported_balances(state);
+    let portfolio_value = imported
+        .map(|balances| balances.portfolio_value)
+        .unwrap_or(cash);
+    let equity = imported.map(|balances| balances.equity).unwrap_or(cash);
+    let long_market_value = imported
+        .map(|balances| balances.long_market_value)
+        .unwrap_or(Decimal::ZERO);
+    let short_market_value = imported
+        .map(|balances| balances.short_market_value)
+        .unwrap_or(Decimal::ZERO);
+    let buying_power = imported
+        .map(|balances| balances.buying_power)
+        .unwrap_or(large_buying_power);
+    let maintenance_margin = imported
+        .map(|balances| balances.maintenance_margin)
+        .unwrap_or(Decimal::ZERO);
+    let options_buying_power = imported
+        .map(|balances| balances.options_buying_power)
+        .unwrap_or(large_buying_power);
+    let multiplier = imported
+        .map(|balances| balances.multiplier)
+        .unwrap_or_else(|| Decimal::new(4, 0));
 
     alpaca_trade::account::Account {
         id: profile.id.clone(),
@@ -97,8 +135,8 @@ pub(crate) fn project_account(state: &VirtualAccountState) -> alpaca_trade::acco
         crypto_status: Some("ACTIVE".to_owned()),
         crypto_tier: Some(1),
         cash: Some(cash),
-        portfolio_value: Some(cash),
-        non_marginable_buying_power: Some(large_buying_power),
+        portfolio_value: Some(portfolio_value),
+        non_marginable_buying_power: Some(buying_power),
         accrued_fees: Some(Decimal::ZERO),
         pending_transfer_in: Some(Decimal::ZERO),
         pending_transfer_out: Some(Decimal::ZERO),
@@ -107,24 +145,24 @@ pub(crate) fn project_account(state: &VirtualAccountState) -> alpaca_trade::acco
         transfers_blocked: Some(false),
         account_blocked: Some(false),
         shorting_enabled: Some(true),
-        long_market_value: Some(Decimal::ZERO),
-        short_market_value: Some(Decimal::ZERO),
-        equity: Some(cash),
-        last_equity: Some(cash),
+        long_market_value: Some(long_market_value),
+        short_market_value: Some(short_market_value),
+        equity: Some(equity),
+        last_equity: Some(equity),
         multiplier: Some(multiplier),
-        buying_power: Some(large_buying_power),
-        effective_buying_power: Some(large_buying_power),
+        buying_power: Some(buying_power),
+        effective_buying_power: Some(buying_power),
         initial_margin: Some(Decimal::ZERO),
-        maintenance_margin: Some(Decimal::ZERO),
+        maintenance_margin: Some(maintenance_margin),
         sma: Some(Decimal::ZERO),
-        last_maintenance_margin: Some(Decimal::ZERO),
-        regt_buying_power: Some(large_buying_power),
-        options_buying_power: Some(large_buying_power),
+        last_maintenance_margin: Some(maintenance_margin),
+        regt_buying_power: Some(buying_power),
+        options_buying_power: Some(options_buying_power),
         options_approved_level: Some(0),
         options_trading_level: Some(0),
         intraday_adjustments: Some(Decimal::ZERO),
         pending_reg_taf_fees: Some(Decimal::ZERO),
-        position_market_value: Some(Decimal::ZERO),
+        position_market_value: Some(long_market_value),
         admin_configurations: Some(serde_json::json!({})),
         user_configurations: Some(serde_json::json!({})),
         ..alpaca_trade::account::Account::default()

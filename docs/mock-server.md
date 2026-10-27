@@ -61,6 +61,7 @@ Unauthenticated:
 - `POST /admin/reset`
 - `POST /admin/faults/http`
 - `POST /admin/market-data/stocks/{symbol}`
+- `POST /admin/accounts/import`
 - `POST /admin/orders/import`
 
 Authenticated trading routes:
@@ -106,6 +107,28 @@ Example:
 Sets a deterministic runtime price for a stock symbol. The price is rounded to two decimal places and exposed as the bid, ask, and latest trade through the authenticated `GET /v2/stocks/{symbol}/snapshot` route.
 
 Existing open simple equity limit orders made marketable by the new price are filled exactly once. The response contains `symbol`, the normalized Decimal-string `price`, and sorted `filled_order_ids`. This control is intended only for deterministic local integration scenarios; it is not a general-purpose market-data generator.
+
+### `POST /admin/accounts/import`
+
+Sets the in-memory account selected by `api_key` to a broker snapshot. `cash` becomes the account cash balance. Portfolio value, equity, long and short market value, buying power, maintenance margin, options buying power, multiplier, and status replace the default overview figures. An existing account keeps its orders. A missing account is created with those balances. Accounts that are never imported still start at cash `1000000` and buying power `9999999`.
+
+Example:
+
+```json
+{
+  "api_key": "mock-key",
+  "status": "ACTIVE",
+  "cash": "1500.25",
+  "portfolio_value": "6400.25",
+  "equity": "6400.25",
+  "long_market_value": "5000.00",
+  "short_market_value": "100.00",
+  "buying_power": "4000.50",
+  "maintenance_margin": "250.00",
+  "options_buying_power": "1800.00",
+  "multiplier": "4"
+}
+```
 
 ### `POST /admin/orders/import`
 
