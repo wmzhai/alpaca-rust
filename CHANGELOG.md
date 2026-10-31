@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- `@alpaca/option`: `OptionStrategy.preparedLegs()` exposes each leg's prepared pricing inputs, `strategyLegValue(leg, price)` prices one prepared leg, and `entryValue()` returns the strategy's entry value. Callers can cache per-leg values and sum them in the same order as `markValueAt`.
+
 ## v0.34.6 - 2026-10-29
 
 - `iv_window` / `ivWindow` shares the 365-day strict-less IV percentile, IV rank, term-curve interpolation quality, drawdown, EMA, Wilder ATR, IV momentum, and expected move. Replay drops samples after the as-of date and samples older than the lookback.

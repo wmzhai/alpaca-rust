@@ -190,6 +190,40 @@ function preparedImpliedVolatility(position: OptionPosition): number {
   return impliedVolatility;
 }
 
+/** Pricing inputs of one prepared option position; `strategyLegValue` prices it the same way `markValueAt` does. */
+export type PreparedStrategyLeg = {
+  option_right: OptionRight;
+  strike: number;
+  years: number;
+  rate: number;
+  dividend_yield: number;
+  volatility: number | null;
+  qty: number;
+};
+
+/** Per-contract option value of a prepared leg at one underlying price. Throws like `markValueAt` on invalid input. */
+export function strategyLegValue(leg: PreparedStrategyLeg, underlyingPrice: number): number {
+  ensureFinite('invalid_strategy_payoff_input', 'underlyingPrice', underlyingPrice);
+  if (underlyingPrice < 0) {
+    fail('invalid_strategy_payoff_input', `underlyingPrice must be non-negative: ${underlyingPrice}`);
+  }
+  if (leg.years <= 0) {
+    return intrinsicValue(underlyingPrice, leg.strike, leg.option_right);
+  }
+  if (leg.volatility == null || !Number.isFinite(leg.volatility)) {
+    fail('invalid_strategy_payoff_input', 'impliedVolatility is required before expiration');
+  }
+  return priceDefault({
+    spot: underlyingPrice,
+    strike: leg.strike,
+    years: leg.years,
+    rate: leg.rate,
+    dividendYield: leg.dividend_yield,
+    volatility: leg.volatility,
+    optionRight: leg.option_right,
+  });
+}
+
 function strategyMarkValuePrepared(input: {
   positions: OptionPosition[];
   underlying_price: number;
@@ -541,6 +575,32 @@ export class OptionStrategy {
       name,
     });
     return name === 'delta' ? total * this.qty + this.stock_qty : total * this.qty;
+  }
+
+  /**
+   * Prepared pricing inputs per option position, in `positions` order.
+   * markValueAt(price) = sum(strategyLegValue(leg, price) * leg.qty * 100) * qty + stock_qty * price,
+   * so callers can cache unchanged legs across strategies that share them.
+   */
+  preparedLegs(): PreparedStrategyLeg[] {
+    return this.positions.map((position) => {
+      const years = preparedYears(position);
+      const volatility = position.snapshot?.implied_volatility ?? null;
+      return {
+        option_right: preparedOptionRight(position),
+        strike: preparedStrike(position),
+        years,
+        rate: years <= 0 ? 0 : rateOnCurve(this.rateCurve, years),
+        dividend_yield: this.dividendYield,
+        volatility: volatility != null && Number.isFinite(volatility) ? volatility : null,
+        qty: position.qty,
+      };
+    });
+  }
+
+  /** The amount `pnlAt` subtracts from `markValueAt`. */
+  entryValue(): number {
+    return this.effectiveEntryCost();
   }
 
   positionTotals(): StrategyPositionTotals {
