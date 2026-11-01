@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+## v0.35.1 - 2026-11-01
+
+- Mock position import and restore use the same `mock-asset-` identity as fills. Rows left under the old symbol key are netted, including opposite signs, before the fill is applied. The surviving side keeps its own average cost.
+
 ## v0.35.0 - 2026-11-01
 
 - `@alpaca/option`: `OptionStrategy.preparedLegs()` exposes each leg's prepared pricing inputs, `strategyLegValue(leg, price)` prices one prepared leg, and `entryValue()` returns the strategy's entry value. Callers can cache per-leg values and sum them in the same order as `markValueAt`.

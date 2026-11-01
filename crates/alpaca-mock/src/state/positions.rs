@@ -250,7 +250,8 @@ impl PositionBook {
             } else {
                 "us_equity"
             };
-            let mut held = InstrumentPosition::new(&position.symbol, &position.symbol, asset_class);
+            let asset_id = mock_asset_id(&position.symbol);
+            let mut held = InstrumentPosition::new(&asset_id, &position.symbol, asset_class);
             let price = if position.avg_entry_price > Decimal::ZERO {
                 position.avg_entry_price
             } else {
@@ -261,12 +262,13 @@ impl PositionBook {
             } else {
                 held.open_short(position.qty.abs(), price, None, "imported");
             }
-            let key = InstrumentKey::new(&position.symbol, &position.symbol);
+            let key = InstrumentKey::new(&asset_id, &position.symbol);
             self.instrument_positions.insert(key, held);
         }
     }
 
     pub(crate) fn apply_execution(&mut self, execution: &ExecutionFact) {
+        self.rekey_symbol_position(&execution.symbol, &execution.asset_id);
         let key = InstrumentKey::new(&execution.asset_id, &execution.symbol);
         let should_remove = {
             let position = self
@@ -350,6 +352,33 @@ impl PositionBook {
         if should_remove {
             self.do_not_exercise_overrides.remove(&execution.symbol);
             self.instrument_positions.remove(&key);
+        }
+    }
+
+    // Import and restore used to key positions by the symbol. Fills use mock-asset ids.
+    // Net every same-symbol row onto the fill identity before applying the execution.
+    fn rekey_symbol_position(&mut self, symbol: &str, asset_id: &str) {
+        let canonical = InstrumentKey::new(asset_id, symbol);
+        let legacy_keys: Vec<InstrumentKey> = self
+            .instrument_positions
+            .keys()
+            .filter(|key| key.symbol.eq_ignore_ascii_case(symbol) && key.asset_id != asset_id)
+            .cloned()
+            .collect();
+        if legacy_keys.is_empty() {
+            return;
+        }
+        let mut parts = Vec::new();
+        if let Some(existing) = self.instrument_positions.remove(&canonical) {
+            parts.push(existing);
+        }
+        for key in legacy_keys {
+            if let Some(held) = self.instrument_positions.remove(&key) {
+                parts.push(held);
+            }
+        }
+        if let Some(merged) = net_same_symbol(asset_id, parts) {
+            self.instrument_positions.insert(canonical, merged);
         }
     }
 
@@ -545,6 +574,58 @@ pub(crate) struct ParsedOptionSymbol {
     pub(crate) strike_price: Decimal,
 }
 
+/// Combine split rows for one symbol. The surviving side keeps its own average
+/// cost; the opposite side is closed against it and is not blended in.
+fn net_same_symbol(asset_id: &str, parts: Vec<InstrumentPosition>) -> Option<InstrumentPosition> {
+    let template = parts
+        .iter()
+        .find(|part| part.instrument_identity.asset_id == asset_id)
+        .or_else(|| parts.first())?;
+    let mut long_qty = Decimal::ZERO;
+    let mut long_cost = Decimal::ZERO;
+    let mut short_qty = Decimal::ZERO;
+    let mut short_cost = Decimal::ZERO;
+    for part in &parts {
+        if part.net_qty > Decimal::ZERO {
+            long_qty += part.net_qty;
+            long_cost += part.net_qty * part.avg_entry_price();
+        } else if part.net_qty < Decimal::ZERO {
+            let qty = -part.net_qty;
+            short_qty += qty;
+            short_cost += qty * part.avg_entry_price();
+        }
+    }
+    let net = long_qty - short_qty;
+    if net == Decimal::ZERO {
+        return None;
+    }
+    let symbol = template.instrument_identity.symbol.clone();
+    let asset_class = template.instrument_identity.asset_class.clone();
+    let snapshot = template.market_snapshot.clone();
+    let occurred_at = template.last_update_at.clone();
+    let mut merged = InstrumentPosition::new(asset_id, &symbol, &asset_class);
+    if net > Decimal::ZERO {
+        let price = (long_cost / long_qty).round_dp(8);
+        merged.open_long(net, price, snapshot.as_ref(), &occurred_at);
+    } else {
+        let price = (short_cost / short_qty).round_dp(8);
+        merged.open_short(-net, price, snapshot.as_ref(), &occurred_at);
+    }
+    Some(merged)
+}
+
+pub(crate) fn mock_asset_id(symbol: &str) -> String {
+    let mut sanitized = String::with_capacity(symbol.len());
+    for ch in symbol.chars() {
+        if ch.is_ascii_alphanumeric() {
+            sanitized.push(ch.to_ascii_lowercase());
+        } else {
+            sanitized.push('-');
+        }
+    }
+    format!("mock-asset-{}", sanitized.trim_matches('-'))
+}
+
 pub(crate) fn parse_option_symbol(symbol: &str) -> Option<ParsedOptionSymbol> {
     let root_len = symbol.len().checked_sub(15)?;
     let underlying_symbol = symbol.get(..root_len)?.trim().to_owned();
@@ -575,8 +656,11 @@ pub(crate) fn parse_option_symbol(symbol: &str) -> Option<ParsedOptionSymbol> {
 
 #[cfg(test)]
 mod tests {
-    use super::{PositionBook, SignedPosition};
+    use alpaca_trade::orders::{OrderSide, PositionIntent};
     use rust_decimal::Decimal;
+
+    use super::super::executions::ExecutionFact;
+    use super::{mock_asset_id, InstrumentKey, InstrumentPosition, PositionBook, SignedPosition};
 
     #[test]
     fn signed_roundtrip_keeps_long_and_short() {
@@ -597,5 +681,90 @@ mod tests {
         assert_eq!(exported.len(), 2);
         assert_eq!(exported.iter().find(|position| position.symbol.ends_with("C00600000")).unwrap().qty, Decimal::ONE);
         assert_eq!(exported.iter().find(|position| position.symbol.ends_with("C00679000")).unwrap().qty, -Decimal::ONE);
+    }
+
+    #[test]
+    fn imported_and_filled_positions_share_one_asset_id() {
+        let symbol = "QQQ270617C00600000";
+        let asset_id = mock_asset_id(symbol);
+        let mut book = PositionBook::default();
+        book.replace_signed(vec![SignedPosition {
+            symbol: symbol.to_owned(),
+            qty: Decimal::from(2),
+            avg_entry_price: Decimal::ONE,
+        }]);
+        book.apply_execution(&execution(asset_id.clone(), symbol, OrderSide::Sell, PositionIntent::SellToClose, Decimal::ONE));
+        let open = book.list_open_positions();
+        assert_eq!(open.len(), 1);
+        assert_eq!(open[0].instrument_identity.asset_id, asset_id);
+        assert_eq!(open[0].net_qty, Decimal::ONE);
+
+        book.apply_execution(&execution(asset_id.clone(), symbol, OrderSide::Buy, PositionIntent::BuyToOpen, Decimal::ONE));
+        let open = book.list_open_positions();
+        assert_eq!(open.len(), 1);
+        assert_eq!(open[0].net_qty, Decimal::from(2));
+
+        let mut legacy = PositionBook::default();
+        let mut held = InstrumentPosition::new(symbol, symbol, "us_option");
+        held.open_long(Decimal::from(2), Decimal::ONE, None, "imported");
+        legacy
+            .instrument_positions
+            .insert(InstrumentKey::new(symbol, symbol), held);
+        legacy.apply_execution(&execution(asset_id.clone(), symbol, OrderSide::Sell, PositionIntent::SellToClose, Decimal::ONE));
+        let open = legacy.list_open_positions();
+        assert_eq!(open.len(), 1);
+        assert_eq!(open[0].instrument_identity.asset_id, asset_id);
+        assert_eq!(open[0].net_qty, Decimal::ONE);
+    }
+
+    #[test]
+    fn opposite_rows_net_before_the_next_fill() {
+        let symbol = "AAPL";
+        let asset_id = mock_asset_id(symbol);
+        let mut book = PositionBook::default();
+        let mut canonical = InstrumentPosition::new(&asset_id, symbol, "us_equity");
+        canonical.open_short(Decimal::from(10), Decimal::from(30), None, "canonical");
+        book.instrument_positions
+            .insert(InstrumentKey::new(&asset_id, symbol), canonical);
+        let mut legacy = InstrumentPosition::new(symbol, symbol, "us_equity");
+        legacy.open_long(Decimal::from(100), Decimal::from(50), None, "legacy");
+        book.instrument_positions
+            .insert(InstrumentKey::new(symbol, symbol), legacy);
+
+        book.apply_execution(&ExecutionFact::new(
+            1,
+            "order-1".to_owned(),
+            asset_id.clone(),
+            symbol.to_owned(),
+            "us_equity".to_owned(),
+            OrderSide::Sell,
+            None,
+            Decimal::from(10),
+            Decimal::from(55),
+            None,
+            "2026-11-01T15:00:00Z".to_owned(),
+        ));
+
+        let open = book.list_open_positions();
+        assert_eq!(open.len(), 1);
+        assert_eq!(open[0].instrument_identity.asset_id, asset_id);
+        assert_eq!(open[0].net_qty, Decimal::from(80));
+        assert_eq!(open[0].avg_entry_price(), Decimal::from(50));
+    }
+
+    fn execution(asset_id: String, symbol: &str, side: OrderSide, intent: PositionIntent, qty: Decimal) -> ExecutionFact {
+        ExecutionFact::new(
+            1,
+            "order-1".to_owned(),
+            asset_id,
+            symbol.to_owned(),
+            "us_option".to_owned(),
+            side,
+            Some(intent),
+            qty,
+            Decimal::ONE,
+            None,
+            "2026-11-01T15:00:00Z".to_owned(),
+        )
     }
 }

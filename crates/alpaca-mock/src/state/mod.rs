@@ -3090,15 +3090,7 @@ fn event_matches_date(event: &ActivityEvent, date: &str) -> bool {
 }
 
 fn mock_asset_id(symbol: &str) -> String {
-    let mut sanitized = String::with_capacity(symbol.len());
-    for ch in symbol.chars() {
-        if ch.is_ascii_alphanumeric() {
-            sanitized.push(ch.to_ascii_lowercase());
-        } else {
-            sanitized.push('-');
-        }
-    }
-    format!("mock-asset-{}", sanitized.trim_matches('-'))
+    positions::mock_asset_id(symbol)
 }
 
 fn canonical_option_symbol(symbol: &str) -> Option<String> {
