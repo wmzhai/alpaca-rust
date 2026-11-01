@@ -133,6 +133,8 @@ pub fn build_app_with_state(state: MockServerState) -> Router {
         )
         .route("/admin/orders/import", post(handlers::admin_import_orders))
         .route("/admin/accounts/import", post(handlers::admin_import_account))
+        .route("/admin/positions/import", post(handlers::admin_import_positions))
+        .route("/admin/positions/clear", post(handlers::admin_clear_positions))
         .merge(trading_router)
         .with_state(state)
 }

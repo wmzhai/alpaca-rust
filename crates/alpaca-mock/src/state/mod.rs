@@ -9,6 +9,7 @@ mod clock;
 mod executions;
 mod market_data;
 mod options_contracts;
+mod position_redis;
 mod positions;
 mod watchlists;
 
@@ -51,7 +52,8 @@ use activities::{
 };
 use executions::ExecutionFact;
 pub use market_data::{DEFAULT_STOCK_SYMBOL, InstrumentSnapshot, LiveMarketDataBridge};
-use positions::{OptionContractType, PositionBook, parse_option_symbol, project_position};
+use position_redis::PositionRedis;
+use positions::{OptionContractType, PositionBook, SignedPosition, parse_option_symbol, project_position};
 use watchlists::WatchlistBook;
 
 #[derive(Debug, Clone)]
@@ -66,6 +68,7 @@ struct SharedState {
     rejected_replacement_races: RwLock<HashMap<(String, String), OrderStatus>>,
     market_data_bridge: Option<LiveMarketDataBridge>,
     market_data_overrides: RwLock<HashMap<String, InstrumentSnapshot>>,
+    position_redis: Option<PositionRedis>,
 }
 
 #[derive(Debug, Clone)]
@@ -283,18 +286,125 @@ impl MockServerState {
                 rejected_replacement_races: RwLock::new(HashMap::new()),
                 market_data_bridge: None,
                 market_data_overrides: RwLock::new(HashMap::new()),
+                position_redis: None,
             }),
         }
     }
 
     pub fn from_env() -> Result<Self, MarketDataBridgeError> {
-        Ok(match LiveMarketDataBridge::from_env_optional()? {
+        let mut state = match LiveMarketDataBridge::from_env_optional()? {
             Some(bridge) => Self::new().with_market_data_bridge(bridge),
             None => Self::new(),
-        })
+        };
+        match PositionRedis::from_env() {
+            Ok(Some(store)) => {
+                state.load_persisted_positions(&store);
+                state = state.with_position_redis(store);
+            }
+            Ok(None) => {}
+            Err(error) => {
+                return Err(MarketDataBridgeError::Unavailable(format!(
+                    "redis positions unavailable: {error}"
+                )));
+            }
+        }
+        Ok(state)
     }
 
     #[must_use]
+    #[must_use]
+    pub fn with_position_redis(mut self, store: PositionRedis) -> Self {
+        Arc::get_mut(&mut self.inner)
+            .expect("mock state should be uniquely owned during configuration")
+            .position_redis = Some(store);
+        self
+    }
+
+    fn load_persisted_positions(&self, store: &PositionRedis) {
+        let loaded = match store.load_all() {
+            Ok(loaded) => loaded,
+            Err(error) => {
+                eprintln!("alpaca-mock redis position load failed: {error}");
+                return;
+            }
+        };
+        let mut accounts = self
+            .inner
+            .accounts
+            .write()
+            .expect("accounts lock should not poison");
+        for (api_key, positions) in loaded {
+            let account = accounts
+                .entry(api_key.clone())
+                .or_insert_with(|| VirtualAccountState::new(&api_key));
+            account.positions.replace_signed(positions);
+        }
+    }
+
+    fn save_positions(&self, api_key: &str, book: &PositionBook) {
+        let Some(store) = &self.inner.position_redis else {
+            return;
+        };
+        if let Err(error) = store.save(api_key, &book.export_signed()) {
+            eprintln!("alpaca-mock redis position save failed: {error}");
+        }
+    }
+
+    pub fn clear_persisted_positions(&self) -> Result<(), MockStateError> {
+        if let Some(store) = &self.inner.position_redis {
+            store
+                .clear()
+                .map_err(MockStateError::Conflict)?;
+        }
+        let mut accounts = self
+            .inner
+            .accounts
+            .write()
+            .expect("accounts lock should not poison");
+        for account in accounts.values_mut() {
+            account.positions.replace_signed(Vec::new());
+        }
+        Ok(())
+    }
+
+    pub fn import_positions(
+        &self,
+        api_key: &str,
+        positions: Vec<ImportedPosition>,
+    ) -> Result<usize, MockStateError> {
+        if api_key.is_empty() {
+            return Err(MockStateError::Conflict(
+                "api_key must not be empty".to_owned(),
+            ));
+        }
+        let positions = positions
+            .into_iter()
+            .map(|position| SignedPosition {
+                symbol: position.symbol,
+                qty: position.qty,
+                avg_entry_price: position.avg_entry_price,
+            })
+            .collect::<Vec<_>>();
+        let count = positions.iter().filter(|position| position.qty != Decimal::ZERO).count();
+        let mut accounts = self
+            .inner
+            .accounts
+            .write()
+            .expect("accounts lock should not poison");
+        let account = accounts
+            .entry(api_key.to_owned())
+            .or_insert_with(|| VirtualAccountState::new(api_key));
+        account.positions.replace_signed(positions);
+        let exported = account.positions.export_signed();
+        drop(accounts);
+        if let Some(store) = &self.inner.position_redis {
+            if let Err(error) = store.save(api_key, &exported) {
+                eprintln!("alpaca-mock redis position save failed: {error}");
+            }
+        }
+        Ok(count)
+    }
+
     pub fn with_market_data_bridge(mut self, bridge: LiveMarketDataBridge) -> Self {
         Arc::get_mut(&mut self.inner)
             .expect("mock state should be uniquely owned during configuration")
@@ -742,7 +852,7 @@ impl MockServerState {
                 request_side: request_side.clone(),
             },
         );
-        record_create_effects(account, &order, &request_side, &market_quotes);
+        record_create_effects(self, api_key, account, &order, &request_side, &market_quotes);
 
         Ok(order)
     }
@@ -1309,7 +1419,7 @@ impl MockServerState {
             Decimal::ZERO,
         );
         account.activities.push(replaced_event);
-        record_post_replace_effects(account, &replacement, &request_side, &market_quotes);
+        record_post_replace_effects(self, api_key, account, &replacement, &request_side, &market_quotes);
 
         Ok(replacement)
     }
@@ -1571,7 +1681,7 @@ impl MockServerState {
             position.instrument_identity.symbol.clone(),
             snapshot.clone(),
         )]);
-        apply_fill_effects(account, &order, &request_side, Some(&market_quotes));
+        apply_fill_effects(self, api_key, account, &order, &request_side, Some(&market_quotes));
 
         Ok(order)
     }
@@ -1730,6 +1840,7 @@ impl MockServerState {
         account.cash_ledger.apply_delta(underlying_cash_delta);
         account.positions.apply_execution(&underlying_execution);
         account.executions.push(underlying_execution);
+        self.save_positions(api_key, &account.positions);
         let sequence = account.next_sequence();
         let action_id = format!("mock-exercise-{}", now_millis());
         account.activities.push(ActivityEvent::new(
@@ -1820,7 +1931,7 @@ impl MockServerState {
 
             for order_id in order_ids {
                 if let Some(order_id) =
-                    try_fill_stored_order(account, &order_id, &market_quotes, |order| {
+                    try_fill_stored_order(self, &account_key, account, &order_id, &market_quotes, |order| {
                         runtime_price_can_fill(order, &symbol)
                     })
                 {
@@ -2182,6 +2293,8 @@ impl MockServerState {
                 continue;
             };
             if let Some(order_id) = try_fill_stored_order(
+                self,
+                &candidate.api_key,
                 account,
                 &candidate.order_id,
                 &market_quotes,
@@ -2373,6 +2486,12 @@ pub(crate) fn imported_balances(state: &VirtualAccountState) -> Option<&account:
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ImportedPosition {
+    pub symbol: String,
+    pub qty: Decimal,
+    pub avg_entry_price: Decimal,
+}
+
 pub struct ImportedAccount {
     pub status: String,
     pub cash: Decimal,
@@ -2562,13 +2681,15 @@ fn mark_order_filled(
 }
 
 fn record_create_effects(
+    state: &MockServerState,
+    api_key: &str,
     account: &mut VirtualAccountState,
     order: &Order,
     request_side: &OrderSide,
     market_quotes: &HashMap<String, InstrumentSnapshot>,
 ) {
     if order.status == OrderStatus::Filled {
-        apply_fill_effects(account, order, request_side, Some(market_quotes));
+        apply_fill_effects(state, api_key, account, order, request_side, Some(market_quotes));
     } else {
         let sequence = account.next_sequence();
         account.activities.push(ActivityEvent::new(
@@ -2587,13 +2708,15 @@ fn record_create_effects(
 }
 
 fn record_post_replace_effects(
+    state: &MockServerState,
+    api_key: &str,
     account: &mut VirtualAccountState,
     order: &Order,
     request_side: &OrderSide,
     market_quotes: &HashMap<String, InstrumentSnapshot>,
 ) {
     if order.status == OrderStatus::Filled {
-        apply_fill_effects(account, order, request_side, Some(market_quotes));
+        apply_fill_effects(state, api_key, account, order, request_side, Some(market_quotes));
     } else {
         let sequence = account.next_sequence();
         account.activities.push(ActivityEvent::new(
@@ -2612,6 +2735,8 @@ fn record_post_replace_effects(
 }
 
 fn apply_fill_effects(
+    state: &MockServerState,
+    api_key: &str,
     account: &mut VirtualAccountState,
     order: &Order,
     request_side: &OrderSide,
@@ -2657,6 +2782,7 @@ fn apply_fill_effects(
         )
         .with_fill_order(order, request_side),
     );
+    state.save_positions(api_key, &account.positions);
 }
 
 fn option_fill_multiplier(order: &Order) -> Decimal {
@@ -2866,6 +2992,8 @@ fn is_limit_order_poll_candidate(order: &Order) -> bool {
 }
 
 fn try_fill_stored_order(
+    state: &MockServerState,
+    api_key: &str,
     account: &mut VirtualAccountState,
     order_id: &str,
     market_quotes: &HashMap<String, InstrumentSnapshot>,
@@ -2882,7 +3010,7 @@ fn try_fill_stored_order(
         (stored.order.clone(), stored.request_side.clone())
     };
 
-    apply_fill_effects(account, &order, &request_side, Some(market_quotes));
+    apply_fill_effects(state, api_key, account, &order, &request_side, Some(market_quotes));
     Some(order.id)
 }
 

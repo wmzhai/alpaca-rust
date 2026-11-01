@@ -2,7 +2,10 @@
 
 ## Unreleased
 
+## v0.35.0 - 2026-11-01
+
 - `@alpaca/option`: `OptionStrategy.preparedLegs()` exposes each leg's prepared pricing inputs, `strategyLegValue(leg, price)` prices one prepared leg, and `entryValue()` returns the strategy's entry value. Callers can cache per-leg values and sum them in the same order as `markValueAt`.
+- The mock stores each account's open positions in Redis and loads them when the process starts. `POST /admin/positions/import` replaces one account's positions. `POST /admin/positions/clear` removes every stored mock position.
 
 ## v0.34.6 - 2026-10-29
 

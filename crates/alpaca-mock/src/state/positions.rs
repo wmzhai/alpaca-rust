@@ -215,7 +215,57 @@ pub(crate) struct PositionBook {
     do_not_exercise_overrides: HashMap<String, String>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct SignedPosition {
+    pub(crate) symbol: String,
+    pub(crate) qty: Decimal,
+    pub(crate) avg_entry_price: Decimal,
+}
+
 impl PositionBook {
+    pub(crate) fn export_signed(&self) -> Vec<SignedPosition> {
+        let mut positions = self
+            .instrument_positions
+            .values()
+            .filter(|position| position.net_qty != Decimal::ZERO)
+            .map(|position| SignedPosition {
+                symbol: position.instrument_identity.symbol.clone(),
+                qty: position.net_qty,
+                avg_entry_price: position.avg_entry_price(),
+            })
+            .collect::<Vec<_>>();
+        positions.sort_by(|left, right| left.symbol.cmp(&right.symbol));
+        positions
+    }
+
+    pub(crate) fn replace_signed(&mut self, positions: Vec<SignedPosition>) {
+        self.instrument_positions.clear();
+        self.do_not_exercise_overrides.clear();
+        for position in positions {
+            if position.qty == Decimal::ZERO || position.symbol.trim().is_empty() {
+                continue;
+            }
+            let asset_class = if parse_option_symbol(&position.symbol).is_some() {
+                "us_option"
+            } else {
+                "us_equity"
+            };
+            let mut held = InstrumentPosition::new(&position.symbol, &position.symbol, asset_class);
+            let price = if position.avg_entry_price > Decimal::ZERO {
+                position.avg_entry_price
+            } else {
+                Decimal::ONE
+            };
+            if position.qty > Decimal::ZERO {
+                held.open_long(position.qty, price, None, "imported");
+            } else {
+                held.open_short(position.qty.abs(), price, None, "imported");
+            }
+            let key = InstrumentKey::new(&position.symbol, &position.symbol);
+            self.instrument_positions.insert(key, held);
+        }
+    }
+
     pub(crate) fn apply_execution(&mut self, execution: &ExecutionFact) {
         let key = InstrumentKey::new(&execution.asset_id, &execution.symbol);
         let should_remove = {
@@ -521,4 +571,31 @@ pub(crate) fn parse_option_symbol(symbol: &str) -> Option<ParsedOptionSymbol> {
         contract_type,
         strike_price,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{PositionBook, SignedPosition};
+    use rust_decimal::Decimal;
+
+    #[test]
+    fn signed_roundtrip_keeps_long_and_short() {
+        let mut book = PositionBook::default();
+        book.replace_signed(vec![
+            SignedPosition {
+                symbol: "QQQ270617C00600000".to_owned(),
+                qty: Decimal::ONE,
+                avg_entry_price: Decimal::new(12565, 2),
+            },
+            SignedPosition {
+                symbol: "QQQ261120C00679000".to_owned(),
+                qty: -Decimal::ONE,
+                avg_entry_price: Decimal::new(2605, 2),
+            },
+        ]);
+        let exported = book.export_signed();
+        assert_eq!(exported.len(), 2);
+        assert_eq!(exported.iter().find(|position| position.symbol.ends_with("C00600000")).unwrap().qty, Decimal::ONE);
+        assert_eq!(exported.iter().find(|position| position.symbol.ends_with("C00679000")).unwrap().qty, -Decimal::ONE);
+    }
 }

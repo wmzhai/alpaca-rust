@@ -9,7 +9,7 @@ use alpaca_trade::orders::{OrderSide, OrderStatus};
 
 use crate::auth::MockHttpError;
 use crate::state::{
-    AdminStateResponse, ImportOrdersResponse, ImportedAccount, ImportedLimitOrder, InjectedHttpFault,
+    AdminStateResponse, ImportOrdersResponse, ImportedAccount, ImportedLimitOrder, ImportedPosition, InjectedHttpFault,
     MockServerState, RejectedReplacementRaceFixture, RuntimeStockPriceResponse,
 };
 
@@ -135,6 +135,54 @@ pub(crate) async fn admin_import_account(
                 multiplier: request.multiplier,
             },
         )
+        .map_err(|error| MockHttpError::bad_request(error.to_string()))?;
+    Ok(Json(state.admin_state()))
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ImportPositionsRequest {
+    pub api_key: String,
+    pub positions: Vec<ImportPositionRequest>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ImportPositionRequest {
+    pub symbol: String,
+    pub qty: String,
+    pub avg_entry_price: String,
+}
+
+pub(crate) async fn admin_import_positions(
+    State(state): State<MockServerState>,
+    Json(request): Json<ImportPositionsRequest>,
+) -> Result<Json<AdminStateResponse>, MockHttpError> {
+    let mut positions = Vec::new();
+    for position in request.positions {
+        let qty = position
+            .qty
+            .parse()
+            .map_err(|error: rust_decimal::Error| MockHttpError::bad_request(error.to_string()))?;
+        let avg_entry_price = position
+            .avg_entry_price
+            .parse()
+            .map_err(|error: rust_decimal::Error| MockHttpError::bad_request(error.to_string()))?;
+        positions.push(ImportedPosition {
+            symbol: position.symbol,
+            qty,
+            avg_entry_price,
+        });
+    }
+    state
+        .import_positions(&request.api_key, positions)
+        .map_err(|error| MockHttpError::bad_request(error.to_string()))?;
+    Ok(Json(state.admin_state()))
+}
+
+pub(crate) async fn admin_clear_positions(
+    State(state): State<MockServerState>,
+) -> Result<Json<AdminStateResponse>, MockHttpError> {
+    state
+        .clear_persisted_positions()
         .map_err(|error| MockHttpError::bad_request(error.to_string()))?;
     Ok(Json(state.admin_state()))
 }

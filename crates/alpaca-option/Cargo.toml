@@ -17,8 +17,8 @@ categories = ["mathematics"]
 path = "src/lib.rs"
 
 [dependencies]
-alpaca-core = { path = "../alpaca-core", version = "0.34.6" }
-alpaca-time = { path = "../alpaca-time", version = "0.34.6" }
+alpaca-core = { path = "../alpaca-core", version = "0.35.0" }
+alpaca-time = { path = "../alpaca-time", version = "0.35.0" }
 rust_decimal.workspace = true
 serde.workspace = true
 ts-rs.workspace = true
