@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Bump the package manager to pnpm 12.18.0.
+
 ## v0.35.1 - 2026-11-01
 
 - Mock position import and restore use the same `mock-asset-` identity as fills. Rows left under the old symbol key are netted, including opposite signs, before the fill is applied. The surviving side keeps its own average cost.
