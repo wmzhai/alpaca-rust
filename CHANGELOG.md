@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Pin the Rust toolchain to 1.100.0.
 - `@alpaca/option`: `normalInvCdf` returns the inverse standard normal CDF.
 - Bump the package manager to pnpm 12.18.0.
 
