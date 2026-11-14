@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- `@alpaca/option`: `normalInvCdf` returns the inverse standard normal CDF.
 - Bump the package manager to pnpm 12.18.0.
 
 ## v0.35.1 - 2026-11-01

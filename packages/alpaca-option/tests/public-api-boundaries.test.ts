@@ -1510,6 +1510,12 @@ test('numeric.brentSolve surfaces bracketing and convergence errors', () => {
   assertOptionError(() => numeric.brentSolve(0, 2, (x) => x * x - 2, 1e-20, 1), 'root_not_converged');
 });
 
+test('numeric.normalInvCdf validates probability domain strictly within (0, 1)', () => {
+  for (const bad of [0, 1, -0.1, 1.1, Number.NaN, Number.POSITIVE_INFINITY]) {
+    assertOptionError(() => numeric.normalInvCdf(bad), 'invalid_numeric_input');
+  }
+});
+
 test('pricing.impliedVolatilityFromPrice uses discounted no-arbitrage lower bounds', () => {
   const price = pricing.priceDefault({
     spot: 100,

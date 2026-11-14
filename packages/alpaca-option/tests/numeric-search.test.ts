@@ -20,3 +20,13 @@ test('scanRangeExtrema finds min and max points', () => {
   assert.equal(extrema.maxSpot, 110);
   assert.equal(extrema.maxValue, 20);
 });
+
+test('normalInvCdf inverts normalCdf with double-precision round-trip accuracy', () => {
+  assert.equal(numeric.normalInvCdf(0.5), 0);
+  for (const p of [1e-6, 0.005, 0.02, 0.15, 0.3, 0.7, 0.85, 0.98, 0.995, 1 - 1e-6]) {
+    const z = numeric.normalInvCdf(p);
+    assert.ok(Math.abs(numeric.normalCdf(z) - p) < 1e-13, `p=${p}, z=${z}`);
+  }
+  assert.ok(Math.abs(numeric.normalInvCdf(0.85) - 1.0364333894937896) < 1e-12);
+  assert.ok(Math.abs(numeric.normalInvCdf(0.7) - 0.5244005127080407) < 1e-12);
+});

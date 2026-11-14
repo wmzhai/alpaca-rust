@@ -62,6 +62,83 @@ export function normalPdf(x: number): number {
   return Math.exp(-0.5 * x * x) / SQRT_2PI;
 }
 
+const INV_CDF_P_LOW = 0.02425;
+const INV_CDF_P_HIGH = 1 - INV_CDF_P_LOW;
+const INV_CDF_A = [
+  -3.969683028665376e1,
+  2.209460984245205e2,
+  -2.759285104469687e2,
+  1.38357751867269e2,
+  -3.066479806614716e1,
+  2.506628277459239e0,
+] as const;
+const INV_CDF_B = [
+  -5.447609879822406e1,
+  1.615858368580409e2,
+  -1.556989798598866e2,
+  6.680131188771972e1,
+  -1.328068155288572e1,
+] as const;
+const INV_CDF_C = [
+  -7.784894002430293e-3,
+  -3.223964580411365e-1,
+  -2.400758277161838e0,
+  -2.549732539343734e0,
+  4.374664141464968e0,
+  2.938163982698783e0,
+] as const;
+const INV_CDF_D = [
+  7.784695709041462e-3,
+  3.224671290700398e-1,
+  2.445134137142996e0,
+  3.754408661907416e0,
+] as const;
+
+/**
+ * Inverse standard normal CDF via Acklam rational approximation with Halley refinement.
+ */
+export function normalInvCdf(probability: number): number {
+  ensureFinite('probability', probability);
+  if (probability <= 0 || probability >= 1) {
+    fail('invalid_numeric_input', `probability must lie strictly within (0, 1): ${probability}`);
+  }
+  if (probability === 0.5) {
+    return 0;
+  }
+
+  let estimate: number;
+  if (probability < INV_CDF_P_LOW) {
+    const q = Math.sqrt(-2 * Math.log(probability));
+    estimate =
+      (((((INV_CDF_C[0] * q + INV_CDF_C[1]) * q + INV_CDF_C[2]) * q + INV_CDF_C[3]) * q + INV_CDF_C[4]) * q + INV_CDF_C[5]) /
+      ((((INV_CDF_D[0] * q + INV_CDF_D[1]) * q + INV_CDF_D[2]) * q + INV_CDF_D[3]) * q + 1);
+  } else if (probability <= INV_CDF_P_HIGH) {
+    const q = probability - 0.5;
+    const r = q * q;
+    estimate =
+      ((((((INV_CDF_A[0] * r + INV_CDF_A[1]) * r + INV_CDF_A[2]) * r + INV_CDF_A[3]) * r + INV_CDF_A[4]) * r + INV_CDF_A[5]) * q) /
+      (((((INV_CDF_B[0] * r + INV_CDF_B[1]) * r + INV_CDF_B[2]) * r + INV_CDF_B[3]) * r + INV_CDF_B[4]) * r + 1);
+  } else {
+    const q = Math.sqrt(-2 * Math.log(1 - probability));
+    estimate =
+      -(((((INV_CDF_C[0] * q + INV_CDF_C[1]) * q + INV_CDF_C[2]) * q + INV_CDF_C[3]) * q + INV_CDF_C[4]) * q + INV_CDF_C[5]) /
+      ((((INV_CDF_D[0] * q + INV_CDF_D[1]) * q + INV_CDF_D[2]) * q + INV_CDF_D[3]) * q + 1);
+  }
+
+  // Refine twice with Halley's step so extreme tails also reach double precision.
+  for (let step = 0; step < 2; step += 1) {
+    const pdf = normalPdf(estimate);
+    if (pdf <= 0) break;
+    const u = (normalCdf(estimate) - probability) / pdf;
+    const denom = 1 + 0.5 * estimate * u;
+    if (denom !== 0) {
+      estimate -= u / denom;
+    }
+  }
+
+  return estimate;
+}
+
 // Positive half of the 16-point Gauss-Legendre rule on [-1, 1].
 // Keep these identical to the Rust implementation in crates/alpaca-option.
 const GAUSS_16_NODE = [
