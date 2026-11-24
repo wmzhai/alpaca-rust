@@ -65,27 +65,69 @@ pub async fn live_option_chain(
     underlying_price: Option<Decimal>,
     dividend_yield: Option<f64>,
 ) -> Result<OptionChain> {
+    live_option_chain_priced(client, request, underlying_price, None, dividend_yield).await
+}
+
+/// `iv_underlying_price` must already come from `get_prices_for_iv_calculation`.
+/// Off session it is reused as the close used to invert IV. A live or extended
+/// price passed only as `underlying_price` is never used for that inversion.
+pub async fn live_option_chain_with_iv_price(
+    client: &Client,
+    request: ChainRequest,
+    underlying_price: Option<Decimal>,
+    iv_underlying_price: Option<Decimal>,
+    dividend_yield: Option<f64>,
+) -> Result<OptionChain> {
+    live_option_chain_priced(
+        client,
+        request,
+        underlying_price,
+        iv_underlying_price,
+        dividend_yield,
+    )
+    .await
+}
+
+/// Same as `live_option_chain_with_iv_price`, with the close price supplied as `f64`.
+pub async fn live_option_chain_with_close_price(
+    client: &Client,
+    request: ChainRequest,
+    close_price: f64,
+    dividend_yield: Option<f64>,
+) -> Result<OptionChain> {
+    let price = Decimal::from_f64_retain(close_price).filter(|price| *price > Decimal::ZERO);
+    live_option_chain_priced(client, request, price, price, dividend_yield).await
+}
+
+async fn live_option_chain_priced(
+    client: &Client,
+    request: ChainRequest,
+    underlying_price: Option<Decimal>,
+    iv_underlying_price: Option<Decimal>,
+    dividend_yield: Option<f64>,
+) -> Result<OptionChain> {
     let underlying_symbol = request.underlying_symbol.clone();
     let response = client
         .options()
         .chain_all(request)
         .await
         .context("failed to load live option chain via alpaca-data")?;
+    let displays = underlying_display_symbols(&response.snapshots);
 
-    let mut known_latest = HashMap::new();
+    let mut latest = HashMap::new();
     if let Some(price) = underlying_price.filter(|price| *price > Decimal::ZERO) {
-        apply_known_underlying_price(
-            &mut known_latest,
-            &underlying_symbol,
-            price,
-            &underlying_display_symbols(&response.snapshots),
-        );
+        apply_known_underlying_price(&mut latest, &underlying_symbol, price, &displays);
+    }
+    let mut iv_prices = HashMap::new();
+    if let Some(price) = iv_underlying_price.filter(|price| *price > Decimal::ZERO) {
+        apply_known_underlying_price(&mut iv_prices, &underlying_symbol, price, &displays);
     }
 
-    let snapshots = map_live_snapshots_from_client(
+    let snapshots = map_live_snapshots_with_prices(
         client,
         &response.snapshots,
-        (!known_latest.is_empty()).then_some(&known_latest),
+        (!latest.is_empty()).then_some(&latest),
+        (!iv_prices.is_empty()).then_some(&iv_prices),
         dividend_yield,
     )
     .await?;
@@ -147,14 +189,38 @@ fn merge_fetched_stock_prices(
     }
 }
 
-async fn iv_prices_for_mapped_snapshots(
+async fn resolve_latest_prices(
     client: &Client,
     symbols: &[String],
-    known_prices: Option<&HashMap<String, Decimal>>,
+    known_latest: Option<&HashMap<String, Decimal>>,
+    now: &str,
+) -> HashMap<String, Decimal> {
+    let mut prices = copy_positive_prices(known_latest);
+    // Off session the mapped snapshot keeps the close used for IV. A live
+    // stock snapshot is not read, so do not request one.
+    if !session::is_regular_session_at(now) {
+        return prices;
+    }
+    let missing = missing_symbols(symbols, &prices);
+    if !missing.is_empty() {
+        merge_fetched_stock_prices(
+            &mut prices,
+            snapshot_stock_prices(client, &missing).await,
+            "failed to load stock snapshots for live option snapshots; continuing with available quotes",
+        );
+    }
+    prices
+}
+
+async fn resolve_iv_prices(
+    client: &Client,
+    symbols: &[String],
+    latest_prices: Option<&HashMap<String, Decimal>>,
+    trusted_iv_prices: Option<&HashMap<String, Decimal>>,
     now: &str,
 ) -> HashMap<String, Decimal> {
     if session::is_regular_session_at(now) {
-        let mut prices = copy_positive_prices(known_prices);
+        let mut prices = copy_positive_prices(trusted_iv_prices.or(latest_prices));
         let missing = missing_symbols(symbols, &prices);
         if !missing.is_empty() {
             merge_fetched_stock_prices(
@@ -163,21 +229,24 @@ async fn iv_prices_for_mapped_snapshots(
                 "failed to load stock snapshots for live option snapshots; continuing with available quotes",
             );
         }
-        prices
-    } else if symbols.is_empty() {
-        HashMap::new()
-    } else {
-        match prices_for_iv_calculation(client, symbols).await {
-            Ok(prices) => prices,
-            Err(error) => {
-                tracing::warn!(
-                    error = %error,
-                    "failed to load IV calculation stock prices for live option snapshots; continuing without repaired IV"
-                );
-                HashMap::new()
-            }
-        }
+        return prices;
     }
+    if symbols.is_empty() {
+        return HashMap::new();
+    }
+    let mut prices = copy_positive_prices(trusted_iv_prices);
+    let missing = missing_symbols(symbols, &prices);
+    if missing.is_empty() {
+        return prices;
+    }
+    match prices_for_iv_calculation(client, &missing).await {
+        Ok(fetched) => merge_positive_prices(&mut prices, fetched),
+        Err(error) => tracing::warn!(
+            error = %error,
+            "failed to load IV calculation stock prices for live option snapshots; continuing without repaired IV"
+        ),
+    }
+    prices
 }
 
 fn missing_symbols(symbols: &[String], prices: &HashMap<String, Decimal>) -> Vec<String> {
@@ -221,7 +290,7 @@ async fn snapshot_stock_prices(
         .collect())
 }
 
-async fn prices_for_iv_calculation(
+pub async fn prices_for_iv_calculation(
     client: &Client,
     symbols: &[String],
 ) -> Result<HashMap<String, Decimal>> {
@@ -241,13 +310,25 @@ pub async fn map_live_snapshots_from_client(
     known_prices: Option<&HashMap<String, Decimal>>,
     dividend_yield: Option<f64>,
 ) -> Result<Vec<OptionSnapshot>> {
+    map_live_snapshots_with_prices(client, snapshots, known_prices, None, dividend_yield).await
+}
+
+async fn map_live_snapshots_with_prices(
+    client: &Client,
+    snapshots: &HashMap<String, ProviderOptionSnapshot>,
+    latest_prices: Option<&HashMap<String, Decimal>>,
+    iv_prices: Option<&HashMap<String, Decimal>>,
+    dividend_yield: Option<f64>,
+) -> Result<Vec<OptionSnapshot>> {
     let now = clock::now();
     let symbols = underlying_display_symbols(snapshots);
-    let iv_prices = iv_prices_for_mapped_snapshots(client, &symbols, known_prices, &now).await;
-    let price_map = (!iv_prices.is_empty()).then_some(&iv_prices);
+    let latest = resolve_latest_prices(client, &symbols, latest_prices, &now).await;
+    let iv = resolve_iv_prices(client, &symbols, Some(&latest), iv_prices, &now).await;
+    let latest_map = (!latest.is_empty()).then_some(&latest);
+    let iv_map = (!iv.is_empty()).then_some(&iv);
 
     let pricing_references =
-        pricing_references_for_snapshots(snapshots, price_map, price_map, &now)?;
+        pricing_references_for_snapshots(snapshots, latest_map, iv_map, &now)?;
     map_snapshots_with_pricing_references(
         snapshots,
         (!pricing_references.is_empty()).then_some(&pricing_references),

@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+## v0.35.2 - 2026-11-24
+
+- Off session, `live_option_chain` keeps using the close to invert IV. A caller-supplied live or extended price is not reused as that close. `live_option_chain_with_iv_price` reuses a price already taken from `get_prices_for_iv_calculation`.
+- Off session, mapping skips the extra stock snapshot request when the snapshot only reads the IV price.
 - Pin the Rust toolchain to 1.100.0.
 - `@alpaca/option`: `normalInvCdf` returns the inverse standard normal CDF.
 - Bump the package manager to pnpm 12.18.0.
