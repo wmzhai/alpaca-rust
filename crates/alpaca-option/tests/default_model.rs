@@ -1,3 +1,4 @@
+use alpaca_option::math::american::{bjerksund_stensland_2002_price, tree_price};
 use alpaca_option::numeric::bivariate_normal_cdf;
 use alpaca_option::pricing::{greeks_default, price_black_scholes, price_default};
 use alpaca_option::probability::expiry_probability_in_range_with_rate;
@@ -29,7 +30,7 @@ fn zero_dividend_put_is_above_european() {
     let american = price_default(&input).expect("american put");
     let european = price_black_scholes(&input).expect("european put");
     assert!(american + 1e-8 >= european, "{american} vs {european}");
-    assert!((american - 7.103_512).abs() < 1e-4, "{american}");
+    assert!((american - 7.077_381).abs() < 1e-5, "{american}");
 }
 
 #[test]
@@ -98,6 +99,39 @@ fn bivariate_orthant_matches_closed_form() {
     let actual = bivariate_normal_cdf(0.0, 0.0, 0.5);
     let expected = 0.25 + (0.5_f64.asin()) / (2.0 * std::f64::consts::PI);
     assert!((actual - expected).abs() < 1e-6, "{actual} vs {expected}");
+}
+
+#[test]
+fn bjs2002_itm_put_stays_below_crr_and_above_intrinsic() {
+    // 180 calendar days, deep in-the-money put. The flat boundary is a
+    // suboptimal exercise policy, so BJS-2002 is a lower bound of the CRR price.
+    let years = 180.0 / 365.0;
+    let spot = 90.0;
+    let strike = 100.0;
+    let rate = 0.05;
+    let dividend = 0.0;
+    let volatility = 0.25;
+    let bjs = bjerksund_stensland_2002_price(
+        spot, strike, years, rate, dividend, volatility, "put",
+    )
+    .expect("bjs");
+    let crr = tree_price(
+        spot,
+        strike,
+        years,
+        rate,
+        dividend,
+        volatility,
+        "put",
+        Some(2000),
+        Some(true),
+    )
+    .expect("crr");
+    let intrinsic = strike - spot;
+    assert!(bjs + 1e-8 >= intrinsic, "bjs {bjs} intrinsic {intrinsic}");
+    assert!(bjs <= crr + 1e-4, "bjs {bjs} crr {crr}");
+    assert!((bjs - crr).abs() < 0.05, "bjs {bjs} crr {crr}");
+    assert!((bjs - 11.582_657).abs() < 1e-5, "bjs {bjs} crr {crr}");
 }
 
 #[test]

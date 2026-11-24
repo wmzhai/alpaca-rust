@@ -280,7 +280,8 @@ function bs2002Psi(input: {
   const e1 = (Math.log(input.spot / input.h) + driftYears) / volSqrtYears;
   const e2 = (Math.log((input.i2 * input.i2) / (input.spot * input.h)) + driftYears) / volSqrtYears;
   const e3 = (Math.log((input.i1 * input.i1) / (input.spot * input.h)) + driftYears) / volSqrtYears;
-  const e4 = (Math.log((input.i1 * input.i1) / (input.i2 * input.h)) + driftYears) / volSqrtYears;
+  // Bjerksund-Stensland 2002 Eq. (16): log(S * I1^2 / (I2^2 * H)).
+  const e4 = (Math.log((input.spot * input.i1 * input.i1) / (input.i2 * input.i2 * input.h)) + driftYears) / volSqrtYears;
   const tau = Math.sqrt(input.t1 / input.years);
   const lambda = -input.rate + input.gamma * input.carry + 0.5 * input.gamma * (input.gamma - 1) * sigmaSq;
   const kappa = 2 * input.carry / sigmaSq + (2 * input.gamma - 1);
@@ -317,7 +318,9 @@ function bs2002CallPrice(input: {
     return european;
   }
   const t1 = 0.5 * (Math.sqrt(5) - 1) * input.years;
-  const ht1 = -(input.carry * t1 + 2 * input.volatility * Math.sqrt(t1)) * input.strike * input.strike / (gap * b0);
+  // Eq. (5): the intermediate flat boundary uses time-to-go (T - t1), not t1.
+  const tau1 = input.years - t1;
+  const ht1 = -(input.carry * tau1 + 2 * input.volatility * Math.sqrt(tau1)) * input.strike * input.strike / (gap * b0);
   const ht2 = -(input.carry * input.years + 2 * input.volatility * Math.sqrt(input.years)) * input.strike * input.strike / (gap * b0);
   const i1 = b0 + gap * (1 - Math.exp(ht1));
   const i2 = b0 + gap * (1 - Math.exp(ht2));
@@ -363,7 +366,8 @@ function bs2002CallPrice(input: {
     - psi(1, input.strike, i2, i1)
     - input.strike * psi(0, i1, i2, i1)
     + input.strike * psi(0, input.strike, i2, i1);
-  return Math.max(value, european);
+  // The flat-boundary value can undershoot intrinsic after the put-call transform.
+  return Math.max(value, european, input.spot - input.strike);
 }
 
 function juQuadraticPriceInner(input: {

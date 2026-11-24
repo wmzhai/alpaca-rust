@@ -337,7 +337,8 @@ fn bs2002_psi(
     let e1 = ((spot / h).ln() + drift_years) / vol_sqrt_years;
     let e2 = ((i2 * i2 / (spot * h)).ln() + drift_years) / vol_sqrt_years;
     let e3 = ((i1 * i1 / (spot * h)).ln() + drift_years) / vol_sqrt_years;
-    let e4 = ((i1 * i1 / (i2 * h)).ln() + drift_years) / vol_sqrt_years;
+    // Bjerksund-Stensland 2002 Eq. (16): log(S * I1^2 / (I2^2 * H)).
+    let e4 = ((spot * i1 * i1 / (i2 * i2 * h)).ln() + drift_years) / vol_sqrt_years;
     let tau = (t1 / years).sqrt();
     let lambda = -rate + gamma * carry + 0.5 * gamma * (gamma - 1.0) * sigma_sq;
     let kappa = 2.0 * carry / sigma_sq + (2.0 * gamma - 1.0);
@@ -383,7 +384,9 @@ fn bs2002_call_price(
     }
 
     let t1 = 0.5 * (5.0_f64.sqrt() - 1.0) * years;
-    let ht1 = -(carry * t1 + 2.0 * volatility * t1.sqrt()) * strike * strike / (gap * b0);
+    // Eq. (5): the intermediate flat boundary uses time-to-go (T - t1), not t1.
+    let tau1 = years - t1;
+    let ht1 = -(carry * tau1 + 2.0 * volatility * tau1.sqrt()) * strike * strike / (gap * b0);
     let ht2 = -(carry * years + 2.0 * volatility * years.sqrt()) * strike * strike / (gap * b0);
     let i1 = b0 + gap * (1.0 - ht1.exp());
     let i2 = b0 + gap * (1.0 - ht2.exp());
@@ -408,7 +411,8 @@ fn bs2002_call_price(
         - bs2002_psi(spot, years, 1.0, strike, i2, i1, t1, rate, carry, volatility)
         - strike * bs2002_psi(spot, years, 0.0, i1, i2, i1, t1, rate, carry, volatility)
         + strike * bs2002_psi(spot, years, 0.0, strike, i2, i1, t1, rate, carry, volatility);
-    value.max(european)
+    // The flat-boundary value can undershoot intrinsic after the put-call transform.
+    value.max(european).max(spot - strike)
 }
 
 fn ju_quadratic_price_inner(

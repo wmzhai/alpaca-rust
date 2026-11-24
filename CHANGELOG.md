@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+## v0.35.3 - 2026-11-24
+
+- Fix Bjerksund-Stensland 2002. `ht1` uses the time remaining `years - t1`, and `e4` uses `ln(spot * I1^2 / (I2^2 * H))`.
+- The American value is at least the European value and intrinsic value.
+- The at-the-money put 100/100/0.75y is 7.077381. A 180-day in-the-money put stays below the CRR price.
+- Update the mixed-expiration payoff fixture to the corrected price.
+
 ## v0.35.2 - 2026-11-24
 
 - Off session, `live_option_chain` keeps using the close to invert IV. A caller-supplied live or extended price is not reused as that close. `live_option_chain_with_iv_price` reuses a price already taken from `get_prices_for_iv_calculation`.

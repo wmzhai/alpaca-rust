@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { OptionStrategy, pricing, probability } from '../src/index.ts';
+import { math, OptionStrategy, pricing, probability } from '../src/index.ts';
 
 const sample = {
   spot: 100,
@@ -18,10 +18,28 @@ test('zero dividend call matches european and put matches the rust price', () =>
   assert.ok(Math.abs(pricing.priceDefault(call) - pricing.priceBlackScholes(call)) < 1e-8);
   const put = pricing.priceDefault(sample);
   assert.ok(put + 1e-8 >= pricing.priceBlackScholes(sample));
-  assert.ok(Math.abs(put - 7.103512) < 1e-4, String(put));
+  assert.ok(Math.abs(put - 7.077381) < 1e-5, String(put));
   const greeks = pricing.greeksDefault(sample);
   assert.ok(Number.isFinite(greeks.delta));
   assert.ok(Number.isFinite(greeks.rho));
+});
+
+test('bjs2002 180 day itm put stays below crr and above intrinsic', () => {
+  const input = {
+    spot: 90,
+    strike: 100,
+    years: 180 / 365,
+    rate: 0.05,
+    dividendYield: 0,
+    volatility: 0.25,
+    optionRight: 'put' as const,
+  };
+  const bjs = math.american.bjerksundStensland2002Price(input);
+  const crr = math.american.treePrice({ ...input, steps: 2000, useRichardson: true });
+  assert.ok(bjs + 1e-8 >= input.strike - input.spot, String(bjs));
+  assert.ok(bjs <= crr + 1e-4, `bjs ${bjs} crr ${crr}`);
+  assert.ok(Math.abs(bjs - crr) < 0.05, `bjs ${bjs} crr ${crr}`);
+  assert.ok(Math.abs(bjs - 11.582657) < 1e-5, `bjs ${bjs} crr ${crr}`);
 });
 
 test('spot zero is the american intrinsic value', () => {

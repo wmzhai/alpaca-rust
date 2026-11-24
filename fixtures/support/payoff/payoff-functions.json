@@ -110,7 +110,7 @@
         "dividend_yield": null
       },
       "expected": {
-        "value": -10.317229555577967
+        "value": -10.21820855225144
       },
       "tolerance": 1e-09
     },
