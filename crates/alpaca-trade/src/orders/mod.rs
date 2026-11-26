@@ -1,5 +1,6 @@
 mod client;
 mod convenience;
+mod dynamic_market;
 mod execution;
 mod lifecycle;
 mod model;
@@ -12,7 +13,11 @@ pub use convenience::{
     SubmitOrderPolicy, SubmitOrderRequest, SubmitOrderStyle, TransitionOrderPolicy,
     TransitionResolution,
 };
-pub use execution::Execution;
+pub use dynamic_market::{
+    DynamicMarketKind, DynamicMarketProfile, DynamicMarketQuote, DynamicMarketState,
+    DynamicMarketStepOptions,
+};
+pub use execution::{DynamicMarketStepAction, Execution};
 pub use lifecycle::{ReplaceResolution, ResolvedOrder, WaitFor};
 pub use model::{
     CancelAllOrderResult, Order, OrderAssetClass, OrderClass, OrderLeg, OrderSide, OrderStatus,

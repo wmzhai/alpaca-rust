@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## v0.35.4 - 2026-11-26
+
+- Add `DynamicMarket` Fast and Standard profiles, a locked initial mid and spread, and `step_dynamic_market`.
+- The ladder stays a limit. Missing quotes pause. Zero fills use Recreate. Partial fills use Replace. After the last round the order is marked stalled.
+- `restart` asks for one more high-band round and does not return to 40%.
+
 ## v0.35.3 - 2026-11-24
 
 - Fix Bjerksund-Stensland 2002. `ht1` uses the time remaining `years - t1`, and `e4` uses `ln(spot * I1^2 / (I2^2 * H))`.

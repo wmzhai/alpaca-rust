@@ -6,7 +6,32 @@ use ts_rs::TS;
 
 use crate::Error;
 
-use super::{OrderStatus, OrderTerminalState, SubmitOrderStyle};
+use super::dynamic_market::{
+    install_submission_benchmark, step_dynamic_market_state, DynamicMarketKind,
+    DynamicMarketProfile, DynamicMarketQuote, DynamicMarketState, DynamicMarketStepOptions,
+};
+use super::SubmitOrderStyle;
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum DynamicMarketStepAction {
+    Wait(Execution),
+    Replace(Execution),
+    Recreate(Execution),
+    MarkStalled(Execution),
+    MissingQuote,
+}
+
+impl DynamicMarketStepAction {
+    pub fn execution(&self) -> Option<&Execution> {
+        match self {
+            Self::Wait(execution)
+            | Self::Replace(execution)
+            | Self::Recreate(execution)
+            | Self::MarkStalled(execution) => Some(execution),
+            Self::MissingQuote => None,
+        }
+    }
+}
 
 #[derive(Debug, Clone, Serialize, PartialEq, Default, TS)]
 #[ts(export_to = "../../../packages/alpaca-trade/src/generated/")]
@@ -46,6 +71,38 @@ pub enum Execution {
         interval_seconds: i64,
         #[serde(default)]
         last_adjustment_time: Option<NaiveDateTime>,
+        #[serde(default)]
+        profile: DynamicMarketProfile,
+        #[serde(default)]
+        start_at_mid: bool,
+        #[ts(type = "string | null")]
+        #[serde(default)]
+        initial_mid: Option<Decimal>,
+        #[ts(type = "string | null")]
+        #[serde(default)]
+        initial_spread: Option<Decimal>,
+        #[serde(default)]
+        step_index: u16,
+        #[serde(default)]
+        step_entered_at: Option<NaiveDateTime>,
+        #[serde(default)]
+        round: u8,
+        #[serde(default)]
+        max_rounds: u8,
+        #[serde(default)]
+        drift_accelerated: bool,
+        #[serde(default)]
+        sanity_pause_count: u8,
+        #[serde(default)]
+        replace_count: u16,
+        #[serde(default)]
+        stalled: bool,
+        #[serde(default)]
+        phase_label: String,
+        #[serde(default)]
+        leg_count: u8,
+        #[serde(default)]
+        restart: bool,
     },
 }
 
@@ -135,6 +192,46 @@ impl<'de> Deserialize<'de> for Execution {
             }
         };
 
+        let bool_default = |field: &str| -> Result<bool, D::Error> {
+            match object.get(field) {
+                Some(raw) if !raw.is_null() => serde_json::from_value(raw.clone())
+                    .map_err(|error| D::Error::custom(format!("execution.{field}: {error}"))),
+                _ => Ok(false),
+            }
+        };
+
+        let u8_default = |field: &str, default: u8| -> Result<u8, D::Error> {
+            match object.get(field) {
+                Some(raw) if !raw.is_null() => serde_json::from_value(raw.clone())
+                    .map_err(|error| D::Error::custom(format!("execution.{field}: {error}"))),
+                _ => Ok(default),
+            }
+        };
+
+        let u16_default = |field: &str| -> Result<u16, D::Error> {
+            match object.get(field) {
+                Some(raw) if !raw.is_null() => serde_json::from_value(raw.clone())
+                    .map_err(|error| D::Error::custom(format!("execution.{field}: {error}"))),
+                _ => Ok(0),
+            }
+        };
+
+        let string_default = |field: &str| -> Result<String, D::Error> {
+            match object.get(field) {
+                Some(raw) if !raw.is_null() => serde_json::from_value(raw.clone())
+                    .map_err(|error| D::Error::custom(format!("execution.{field}: {error}"))),
+                _ => Ok(String::new()),
+            }
+        };
+
+        let profile_default = || -> Result<DynamicMarketProfile, D::Error> {
+            match object.get("profile") {
+                Some(raw) if !raw.is_null() => serde_json::from_value(raw.clone())
+                    .map_err(|error| D::Error::custom(format!("execution.profile: {error}"))),
+                _ => Ok(DynamicMarketProfile::Standard),
+            }
+        };
+
         let execution = match kind {
             "market" => Ok(Self::Market),
             "limit" => Ok(Self::Limit {
@@ -156,6 +253,31 @@ impl<'de> Deserialize<'de> for Execution {
                 percentage_step: f64_default("percentage_step", 0.0)?,
                 interval_seconds: i64_default("interval_seconds", 0)?,
                 last_adjustment_time: datetime_default("last_adjustment_time")?,
+                profile: profile_default()?,
+                start_at_mid: bool_default("start_at_mid")?,
+                initial_mid: match object.get("initial_mid") {
+                    Some(raw) if !raw.is_null() => Some(serde_json::from_value(raw.clone()).map_err(
+                        |error| D::Error::custom(format!("execution.initial_mid: {error}")),
+                    )?),
+                    _ => None,
+                },
+                initial_spread: match object.get("initial_spread") {
+                    Some(raw) if !raw.is_null() => Some(serde_json::from_value(raw.clone()).map_err(
+                        |error| D::Error::custom(format!("execution.initial_spread: {error}")),
+                    )?),
+                    _ => None,
+                },
+                step_index: u16_default("step_index")?,
+                step_entered_at: datetime_default("step_entered_at")?,
+                round: u8_default("round", 1)?,
+                max_rounds: u8_default("max_rounds", 3)?,
+                drift_accelerated: bool_default("drift_accelerated")?,
+                sanity_pause_count: u8_default("sanity_pause_count", 0)?,
+                replace_count: u16_default("replace_count")?,
+                stalled: bool_default("stalled")?,
+                phase_label: string_default("phase_label")?,
+                leg_count: u8_default("leg_count", 0)?,
+                restart: bool_default("restart")?,
             }),
             other => Err(D::Error::custom(format!(
                 "unsupported execution.type: {other}"
@@ -196,21 +318,182 @@ impl Execution {
                 interval_seconds: *interval_seconds,
                 last_adjustment_time: *last_adjustment_time,
             },
-            Self::DynamicMarket {
-                limit_price,
-                start_percentage,
+            Self::DynamicMarket { .. } => {
+                let Some(mut state) = self.dynamic_market_state() else {
+                    return self.clone();
+                };
+                state.limit_price = Self::normalize_order_price(state.limit_price);
+                if let Some(mid) = state.initial_mid {
+                    state.initial_mid = Some(Self::normalize_order_price(mid));
+                }
+                if let Some(spread) = state.initial_spread {
+                    state.initial_spread = Some(Self::normalize_order_price(spread));
+                }
+                state.normalize_bounds();
+                Self::from_dynamic_market_state(state)
+            }
+        }
+    }
+
+    pub fn dynamic_market_linear(
+        limit_price: Decimal,
+        start_percentage: f64,
+        current_percentage: f64,
+        percentage_step: f64,
+        interval_seconds: i64,
+    ) -> Self {
+        Self::from_dynamic_market_state(DynamicMarketState::legacy(
+            limit_price,
+            start_percentage,
+            current_percentage,
+            percentage_step,
+            interval_seconds,
+            None,
+        ))
+    }
+
+    pub fn dynamic_market_fast(
+        limit_price: Decimal,
+        start_percentage: f64,
+        current_percentage: f64,
+        percentage_step: f64,
+        interval_seconds: i64,
+    ) -> Self {
+        let mut state = DynamicMarketState::legacy(
+            limit_price,
+            start_percentage,
+            current_percentage,
+            percentage_step,
+            interval_seconds,
+            None,
+        );
+        state.profile = DynamicMarketProfile::Fast;
+        Self::from_dynamic_market_state(state)
+    }
+
+    pub fn dynamic_market_state(&self) -> Option<DynamicMarketState> {
+        let Self::DynamicMarket {
+            limit_price,
+            start_percentage,
+            current_percentage,
+            percentage_step,
+            interval_seconds,
+            last_adjustment_time,
+            profile,
+            start_at_mid,
+            initial_mid,
+            initial_spread,
+            step_index,
+            step_entered_at,
+            round,
+            max_rounds,
+            drift_accelerated,
+            sanity_pause_count,
+            replace_count,
+            stalled,
+            phase_label,
+            leg_count,
+            restart,
+        } = self
+        else {
+            return None;
+        };
+        Some(DynamicMarketState {
+            limit_price: *limit_price,
+            start_percentage: *start_percentage,
+            current_percentage: *current_percentage,
+            percentage_step: *percentage_step,
+            interval_seconds: *interval_seconds,
+            last_adjustment_time: *last_adjustment_time,
+            profile: *profile,
+            start_at_mid: *start_at_mid,
+            initial_mid: *initial_mid,
+            initial_spread: *initial_spread,
+            step_index: *step_index,
+            step_entered_at: *step_entered_at,
+            round: *round,
+            max_rounds: *max_rounds,
+            drift_accelerated: *drift_accelerated,
+            sanity_pause_count: *sanity_pause_count,
+            replace_count: *replace_count,
+            stalled: *stalled,
+            phase_label: phase_label.clone(),
+            leg_count: *leg_count,
+            restart: *restart,
+        })
+    }
+
+    pub fn from_dynamic_market_state(state: DynamicMarketState) -> Self {
+        Self::DynamicMarket {
+            limit_price: state.limit_price,
+            start_percentage: state.start_percentage,
+            current_percentage: state.current_percentage,
+            percentage_step: state.percentage_step,
+            interval_seconds: state.interval_seconds,
+            last_adjustment_time: state.last_adjustment_time,
+            profile: state.profile,
+            start_at_mid: state.start_at_mid,
+            initial_mid: state.initial_mid,
+            initial_spread: state.initial_spread,
+            step_index: state.step_index,
+            step_entered_at: state.step_entered_at,
+            round: state.round,
+            max_rounds: state.max_rounds,
+            drift_accelerated: state.drift_accelerated,
+            sanity_pause_count: state.sanity_pause_count,
+            replace_count: state.replace_count,
+            stalled: state.stalled,
+            phase_label: state.phase_label,
+            leg_count: state.leg_count,
+            restart: state.restart,
+        }
+    }
+
+    /// Price rung 0 and lock the spread benchmark before the broker submit.
+    pub fn prepare_dynamic_market_submission(
+        self,
+        quote: DynamicMarketQuote,
+        now: NaiveDateTime,
+        positive_price: bool,
+        leg_count: u8,
+    ) -> Result<Self, Error> {
+        let Some(mut state) = self.dynamic_market_state() else {
+            return Ok(self);
+        };
+        if !install_submission_benchmark(&mut state, quote, now, positive_price, leg_count) {
+            return Err(Error::InvalidRequest(
+                "dynamic market submission is missing a usable quote".to_string(),
+            ));
+        }
+        Ok(Self::from_dynamic_market_state(state).normalized_prices())
+    }
+
+    pub fn with_limit_price(self, limit_price: Decimal) -> Self {
+        if let Some(mut state) = self.dynamic_market_state() {
+            state.limit_price = limit_price;
+            return Self::from_dynamic_market_state(state);
+        }
+        match self {
+            Self::Market => Self::Market,
+            Self::Limit { .. } => Self::Limit { limit_price },
+            Self::DynamicLimit {
+                start_price,
+                end_price,
                 current_percentage,
                 percentage_step,
                 interval_seconds,
                 last_adjustment_time,
-            } => Self::DynamicMarket {
-                limit_price: Self::normalize_order_price(*limit_price),
-                start_percentage: *start_percentage,
-                current_percentage: *current_percentage,
-                percentage_step: *percentage_step,
-                interval_seconds: *interval_seconds,
-                last_adjustment_time: *last_adjustment_time,
+                ..
+            } => Self::DynamicLimit {
+                limit_price,
+                start_price,
+                end_price,
+                current_percentage,
+                percentage_step,
+                interval_seconds,
+                last_adjustment_time,
             },
+            Self::DynamicMarket { .. } => self,
         }
     }
 
@@ -385,6 +668,29 @@ impl Execution {
         self.advance_dynamic_market_inner(best, worst, now, false)
     }
 
+    pub fn step_dynamic_market(
+        &self,
+        quote: Option<DynamicMarketQuote>,
+        now: NaiveDateTime,
+        filled_qty: i32,
+        options: DynamicMarketStepOptions,
+    ) -> Result<DynamicMarketStepAction, Error> {
+        let Some(state) = self.dynamic_market_state() else {
+            return Err(Error::InvalidRequest(
+                "step_dynamic_market() only supports dynamic_market execution".to_string(),
+            ));
+        };
+        let outcome = step_dynamic_market_state(&state, quote, now, filled_qty, options);
+        let execution = Self::from_dynamic_market_state(outcome.state).normalized_prices();
+        Ok(match outcome.kind {
+            DynamicMarketKind::Wait => DynamicMarketStepAction::Wait(execution),
+            DynamicMarketKind::Replace => DynamicMarketStepAction::Replace(execution),
+            DynamicMarketKind::Recreate => DynamicMarketStepAction::Recreate(execution),
+            DynamicMarketKind::MarkStalled => DynamicMarketStepAction::MarkStalled(execution),
+            DynamicMarketKind::MissingQuote => DynamicMarketStepAction::MissingQuote,
+        })
+    }
+
     fn advance_dynamic_market_inner(
         &self,
         best: Decimal,
@@ -392,60 +698,24 @@ impl Execution {
         now: NaiveDateTime,
         require_interval: bool,
     ) -> Result<Self, Error> {
-        match self {
-            Self::DynamicMarket {
-                limit_price,
-                start_percentage,
-                current_percentage,
-                percentage_step,
-                interval_seconds,
-                last_adjustment_time,
-            } => {
-                if *current_percentage >= 1.0 {
-                    return Ok(Self::Market);
-                }
-
-                if require_interval
-                    && !Self::interval_elapsed(
-                        *last_adjustment_time,
-                        *interval_seconds,
-                        now,
-                    )
-                {
-                    return Ok(self.normalized_prices());
-                }
-
-                let hanging = Self::normalize_order_price(*limit_price);
-                let mut next_percentage = *current_percentage;
-                loop {
-                    let previous_percentage = next_percentage;
-                    next_percentage = (next_percentage + *percentage_step).min(1.0);
-                    if next_percentage >= 1.0 {
-                        return Ok(Self::Market);
-                    }
-
-                    let next_limit_price = Self::normalize_order_price(
-                        best + (worst - best) * Self::progress_decimal(next_percentage)?,
-                    );
-                    if next_limit_price != hanging
-                        || *percentage_step <= 0.0
-                        || next_percentage <= previous_percentage
-                    {
-                        return Ok(Self::DynamicMarket {
-                            limit_price: next_limit_price,
-                            start_percentage: *start_percentage,
-                            current_percentage: next_percentage,
-                            percentage_step: *percentage_step,
-                            interval_seconds: *interval_seconds,
-                            last_adjustment_time: Some(now),
-                        });
-                    }
-                }
-            }
-            _ => Err(Error::InvalidRequest(
+        if self.dynamic_market_state().is_none() {
+            return Err(Error::InvalidRequest(
                 "advance_dynamic_market() only supports dynamic_market execution".to_string(),
-            )),
+            ));
         }
+        let action = self.step_dynamic_market(
+            Some(DynamicMarketQuote { best, worst }),
+            now,
+            0,
+            DynamicMarketStepOptions {
+                force: !require_interval,
+                ..DynamicMarketStepOptions::default()
+            },
+        )?;
+        Ok(action
+            .execution()
+            .cloned()
+            .unwrap_or_else(|| self.normalized_prices()))
     }
 
     #[must_use]
@@ -461,21 +731,8 @@ impl Execution {
     }
 
     #[must_use]
-    pub fn needs_market_retry(&self, status: &str) -> bool {
-        if let Self::DynamicMarket {
-            current_percentage, ..
-        } = self
-        {
-            *current_percentage >= 1.0
-                && matches!(
-                    OrderStatus::parse(status)
-                        .ok()
-                        .and_then(OrderStatus::terminal_state),
-                    Some(OrderTerminalState::Canceled) | Some(OrderTerminalState::Rejected)
-                )
-        } else {
-            false
-        }
+    pub fn needs_market_retry(&self, _status: &str) -> bool {
+        false
     }
 
     pub fn from_order_type(order_type: &str, limit_price: Option<Decimal>) -> Result<Self, Error> {
@@ -488,5 +745,51 @@ impl Execution {
             }),
             _ => Ok(Self::Market),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn legacy_dynamic_market_json_keeps_defaults_and_does_not_require_new_fields() {
+        let raw = r#"{
+            "type":"dynamic_market",
+            "limit_price":"1.16",
+            "start_percentage":0.4,
+            "current_percentage":0.7,
+            "percentage_step":0.1,
+            "interval_seconds":30,
+            "last_adjustment_time":null
+        }"#;
+        let execution: Execution = serde_json::from_str(raw).expect("old json should parse");
+        let state = execution.dynamic_market_state().expect("dynamic market");
+        assert!(state.initial_mid.is_none());
+        assert!(state.initial_spread.is_none());
+        assert_eq!(state.current_percentage, 0.7);
+        assert_eq!(state.round, 1);
+        assert_eq!(state.max_rounds, 3);
+        assert_eq!(state.profile, DynamicMarketProfile::Standard);
+        assert!(!state.stalled);
+        assert!(!state.start_at_mid);
+
+        let stepped = execution
+            .step_dynamic_market(
+                Some(DynamicMarketQuote {
+                    best: Decimal::new(100, 2),
+                    worst: Decimal::new(120, 2),
+                }),
+                chrono::NaiveDateTime::parse_from_str("2026-04-17 10:00:00", "%Y-%m-%d %H:%M:%S")
+                    .unwrap(),
+                0,
+                DynamicMarketStepOptions::default(),
+            )
+            .expect("step");
+        let next = stepped.execution().expect("priced execution");
+        let next_state = next.dynamic_market_state().unwrap();
+        assert!(next_state.initial_mid.is_some());
+        assert!(next_state.current_percentage + 1e-9 >= 0.6);
+        assert!(!matches!(next, Execution::Market));
     }
 }
