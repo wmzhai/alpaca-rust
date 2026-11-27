@@ -225,7 +225,14 @@ pub fn step_dynamic_market_state(
             };
         }
     }
-    let mut index = (state.step_index as usize).min(ladder.len() - 1);
+    let mut index = if seeded {
+        state.step_index as usize
+    } else {
+        let reconciled = reconcile_step_index(&state, &ladder);
+        state.step_index = reconciled;
+        reconciled as usize
+    };
+    index = index.min(ladder.len() - 1);
 
     let mut drifted = false;
     if let Some(jump) = drift_index(&state, quote, &ladder, index) {
@@ -280,15 +287,26 @@ pub fn step_dynamic_market_state(
     }
     if !unpriced && target == hanging {
         if elapsed || options.force {
-            if let Some(next) = ladder.get(index + 1) {
+            let mut advanced = false;
+            for cand_idx in (index + 1)..ladder.len() {
+                let anchor = ladder[cand_idx].anchor;
+                if rung_needs_sanity(anchor) && sanity_blocked(&mut state, quote, spread0) {
+                    publish_rung(&mut state, &ladder[index], index);
+                    return DynamicMarketOutcome {
+                        state,
+                        kind: DynamicMarketKind::Wait,
+                    };
+                }
                 let next_price =
-                    price_anchor(next.anchor, quote, direction, cap, options.positive_price);
+                    price_anchor(anchor, quote, direction, cap, options.positive_price);
                 if next_price != hanging && !retreats(next_price, hanging, direction) {
-                    index += 1;
+                    index = cand_idx;
                     target = next_price;
+                    advanced = true;
+                    break;
                 }
             }
-            if target == hanging {
+            if !advanced {
                 let nudged = clamp_to_cap(
                     hanging + tick(direction),
                     quote,
@@ -296,6 +314,15 @@ pub fn step_dynamic_market_state(
                     cap,
                     options.positive_price,
                 );
+                let past_worst =
+                    (nudged - quote.worst) * Decimal::from(direction) > Decimal::ZERO;
+                if past_worst && sanity_blocked(&mut state, quote, spread0) {
+                    publish_rung(&mut state, &ladder[index], index);
+                    return DynamicMarketOutcome {
+                        state,
+                        kind: DynamicMarketKind::Wait,
+                    };
+                }
                 if nudged != hanging && !retreats(nudged, hanging, direction) {
                     target = nudged;
                 }
@@ -376,7 +403,7 @@ fn finish_round(
     }
     state.limit_price = target;
     state.current_percentage = 1.0;
-    state.interval_seconds = 2;
+    state.interval_seconds = reroute_wait(state.profile);
     state.step_entered_at = Some(now);
     state.last_adjustment_time = Some(now);
     state.phase_label = format!("R{} reroute", state.round);
@@ -487,44 +514,55 @@ fn ladder_for(state: &DynamicMarketState, spread0: Decimal, cap: Decimal) -> Vec
         let narrow = state.start_at_mid || spread0 <= Decimal::new(5, 2);
         return match (state.profile, narrow) {
             (DynamicMarketProfile::Fast, true) => vec![
-                rung(Anchor::Percent(50), 4),
-                rung(Anchor::MidTick, 3),
-                rung(Anchor::Percent(100), 2),
-                rung(Anchor::NaturalCents(1), 2),
-                rung(Anchor::NaturalCents(2), 2),
+                rung(Anchor::Percent(50), 10),
+                rung(Anchor::MidTick, 8),
+                rung(Anchor::Percent(100), 4),
+                rung(Anchor::NaturalCents(1), 4),
+                rung(Anchor::NaturalCents(2), 4),
             ],
             (DynamicMarketProfile::Fast, false) => vec![
-                rung(Anchor::Percent(40), 2),
-                rung(Anchor::Percent(50), 5),
-                rung(Anchor::Percent(75), 3),
-                rung(Anchor::Percent(100), 2),
-                rung(Anchor::NaturalCents(1), 2),
-                rung(Anchor::NaturalCents(2), 2),
+                rung(Anchor::Percent(40), 8),
+                rung(Anchor::Percent(50), 12),
+                rung(Anchor::Percent(60), 8),
+                rung(Anchor::Percent(75), 6),
+                rung(Anchor::Percent(100), 4),
+                rung(Anchor::NaturalCents(1), 4),
+                rung(Anchor::NaturalCents(2), 4),
             ],
             (DynamicMarketProfile::Standard, true) => vec![
-                rung(Anchor::Percent(50), 6),
-                rung(Anchor::MidTick, 4),
-                rung(Anchor::Percent(100), 3),
-                rung(Anchor::NaturalCents(1), 3),
-                rung(Anchor::NaturalCents(2), 3),
+                rung(Anchor::Percent(50), 15),
+                rung(Anchor::MidTick, 12),
+                rung(Anchor::Percent(100), 6),
+                rung(Anchor::NaturalCents(1), 5),
+                rung(Anchor::NaturalCents(2), 5),
             ],
             (DynamicMarketProfile::Standard, false) => vec![
-                rung(Anchor::Percent(40), 3),
-                rung(Anchor::Percent(50), 10),
-                rung(Anchor::Percent(60), 6),
-                rung(Anchor::Percent(75), 5),
-                rung(Anchor::Percent(100), 3),
-                rung(Anchor::NaturalCents(2), 3),
+                rung(Anchor::Percent(40), 12),
+                rung(Anchor::Percent(45), 12),
+                rung(Anchor::Percent(50), 20),
+                rung(Anchor::Percent(55), 15),
+                rung(Anchor::Percent(60), 12),
+                rung(Anchor::Percent(75), 8),
+                rung(Anchor::Percent(100), 6),
+                rung(Anchor::NaturalCents(2), 5),
             ],
         };
     }
+    let wait = reroute_wait(state.profile);
     if state.round == 2 {
         vec![
-            rung(Anchor::NaturalCents(1), 2),
-            rung(Anchor::NaturalCents(2), 2),
+            rung(Anchor::NaturalCents(1), wait),
+            rung(Anchor::NaturalCents(2), wait),
         ]
     } else {
-        vec![rung(Anchor::NaturalCents(cents_of(cap).max(2)), 2)]
+        vec![rung(Anchor::NaturalCents(cents_of(cap).max(2)), wait)]
+    }
+}
+
+fn reroute_wait(profile: DynamicMarketProfile) -> i64 {
+    match profile {
+        DynamicMarketProfile::Fast => 4,
+        DynamicMarketProfile::Standard => 5,
     }
 }
 
@@ -550,6 +588,35 @@ fn map_legacy_index(ladder: &[Rung], current_percentage: f64) -> u16 {
     index as u16
 }
 
+/// Keep an in-flight order on the rung its phase label names.
+/// Percentage is only the fallback for rows that never stored a label.
+/// Round 2+ ladders did not change shape, so their indexes stay put.
+fn reconcile_step_index(state: &DynamicMarketState, ladder: &[Rung]) -> u16 {
+    let index = (state.step_index as usize).min(ladder.len().saturating_sub(1));
+    if state.round > 1 || ladder.is_empty() {
+        return index as u16;
+    }
+    let expected = |rung: &Rung| format!("R{} {}", state.round, anchor_label(rung.anchor));
+    if ladder
+        .get(index)
+        .is_some_and(|rung| state.phase_label == expected(rung))
+    {
+        return index as u16;
+    }
+    if let Some(matched) = ladder
+        .iter()
+        .position(|rung| state.phase_label == expected(rung))
+    {
+        return matched as u16;
+    }
+    map_legacy_index(ladder, state.current_percentage)
+}
+
+/// `initial_mid` stays fixed so slippage and the severe threshold keep accumulating.
+/// Severe drift goes to 100% natural. A mild move below 60% stops at 60% or
+/// mid+1tick and sets `drift_accelerated`, which then holds that defense rung
+/// until the move becomes severe. Reaching 60% by the timer, without that flag,
+/// still jumps to 100% natural on a later mild move.
 fn drift_index(
     state: &DynamicMarketState,
     quote: DynamicMarketQuote,
@@ -560,15 +627,53 @@ fn drift_index(
     let spread0 = state.initial_spread?;
     let direction = price_direction(quote.best, quote.worst);
     let adverse = (mid_price(quote) - mid0) * Decimal::from(direction);
-    let threshold = match state.profile {
-        DynamicMarketProfile::Fast => Decimal::new(2, 2).max(spread0 * Decimal::new(35, 2)),
-        DynamicMarketProfile::Standard => Decimal::new(3, 2).max(spread0 * Decimal::new(40, 2)),
-    };
-    if adverse < threshold {
+    let (mild, severe) = drift_thresholds(state.profile, spread0);
+    if adverse < mild {
         return None;
     }
-    ladder.iter().position(|rung| matches!(rung.anchor, Anchor::Percent(100)))
-        .filter(|natural| *natural > index)
+    let front = ladder
+        .get(index)
+        .is_some_and(|rung| anchor_rank(rung.anchor) < 0.60);
+    let target = if adverse >= severe {
+        natural_index(ladder)
+    } else if front {
+        defense_index(ladder)
+    } else if state.drift_accelerated {
+        None
+    } else {
+        natural_index(ladder)
+    };
+    target.filter(|pos| *pos > index)
+}
+
+fn drift_thresholds(profile: DynamicMarketProfile, spread0: Decimal) -> (Decimal, Decimal) {
+    match profile {
+        DynamicMarketProfile::Fast => (
+            Decimal::new(3, 2).max(spread0 * Decimal::new(45, 2)),
+            Decimal::new(6, 2).max(spread0 * Decimal::new(80, 2)),
+        ),
+        DynamicMarketProfile::Standard => (
+            Decimal::new(4, 2).max(spread0 * Decimal::new(50, 2)),
+            Decimal::new(8, 2).max(spread0 * Decimal::new(90, 2)),
+        ),
+    }
+}
+
+fn defense_index(ladder: &[Rung]) -> Option<usize> {
+    ladder
+        .iter()
+        .position(|rung| matches!(rung.anchor, Anchor::Percent(60)))
+        .or_else(|| {
+            ladder
+                .iter()
+                .position(|rung| matches!(rung.anchor, Anchor::MidTick))
+        })
+}
+
+fn natural_index(ladder: &[Rung]) -> Option<usize> {
+    ladder
+        .iter()
+        .position(|rung| matches!(rung.anchor, Anchor::Percent(100)))
 }
 
 fn wait_elapsed(
@@ -779,6 +884,7 @@ mod tests {
         state.initial_mid = Some(Decimal::new(2, 2));
         state.initial_spread = Some(Decimal::new(2, 2));
         state.step_index = 4;
+        state.phase_label = "R1 natural+0.02".to_string();
         state.step_entered_at = Some(ts("2026-04-17 10:00:00"));
         let penetrated = step_dynamic_market_state(
             &state,
@@ -836,7 +942,8 @@ mod tests {
         state.limit_price = Decimal::new(122, 2);
         state.initial_mid = Some(Decimal::new(110, 2));
         state.initial_spread = Some(Decimal::new(20, 2));
-        state.step_index = 5;
+        state.step_index = 6;
+        state.phase_label = "R1 natural+0.02".to_string();
         state.step_entered_at = Some(ts("2026-04-17 10:00:00"));
         let recreated = step_dynamic_market_state(
             &state,
@@ -848,6 +955,7 @@ mod tests {
         assert_eq!(recreated.kind, DynamicMarketKind::Recreate);
         assert_eq!(recreated.state.round, 2);
         assert_eq!(recreated.state.phase_label, "R2 reroute");
+        assert_eq!(recreated.state.interval_seconds, 4);
         assert!(recreated.state.limit_price >= Decimal::new(120, 2));
 
         state.limit_price = Decimal::new(110, 2);
@@ -892,7 +1000,8 @@ mod tests {
         state.limit_price = Decimal::new(110, 2);
         state.initial_mid = Some(Decimal::new(105, 2));
         state.initial_spread = Some(Decimal::new(10, 2));
-        state.step_index = 3;
+        state.step_index = 4;
+        state.phase_label = "R1 100% natural".to_string();
         state.step_entered_at = Some(ts("2026-04-17 10:00:00"));
         let paused = step_dynamic_market_state(
             &state,
@@ -942,7 +1051,8 @@ mod tests {
         state.limit_price = Decimal::new(112, 2);
         state.initial_mid = Some(Decimal::new(105, 2));
         state.initial_spread = Some(Decimal::new(10, 2));
-        state.step_index = 4;
+        state.step_index = 5;
+        state.phase_label = "R1 natural+0.01".to_string();
         state.step_entered_at = Some(ts("2026-04-17 10:00:00"));
         state.leg_count = 2;
         let stepped = step_dynamic_market_state(
@@ -965,7 +1075,8 @@ mod tests {
         state.limit_price = Decimal::new(110, 2);
         state.initial_mid = Some(Decimal::new(105, 2));
         state.initial_spread = Some(Decimal::new(10, 2));
-        state.step_index = 3;
+        state.step_index = 4;
+        state.phase_label = "R1 100% natural".to_string();
         state.sanity_pause_count = 3;
         state.step_entered_at = Some(ts("2026-04-17 10:00:00"));
         let paused = step_dynamic_market_state(
@@ -977,7 +1088,7 @@ mod tests {
         );
         assert_eq!(paused.kind, DynamicMarketKind::Wait);
         assert_eq!(paused.state.sanity_pause_count, 3);
-        assert_eq!(paused.state.step_index, 3);
+        assert_eq!(paused.state.step_index, 4);
         assert_eq!(paused.state.phase_label, "R1 100% natural");
     }
 
@@ -989,7 +1100,7 @@ mod tests {
         state.initial_spread = Some(Decimal::new(10, 2));
         state.step_index = 0;
         state.step_entered_at = Some(ts("2026-04-17 10:00:00"));
-        let now = ts("2026-04-17 10:00:05");
+        let now = ts("2026-04-17 10:00:08");
         let stepped = step_dynamic_market_state(
             &state,
             Some(quote(100, 110)),
@@ -1014,7 +1125,7 @@ mod tests {
         let stepped = step_dynamic_market_state(
             &state,
             Some(quote(-20, 0)),
-            ts("2026-04-17 10:00:06"),
+            ts("2026-04-17 10:00:15"),
             0,
             DynamicMarketStepOptions::default(),
         );
@@ -1092,5 +1203,353 @@ mod tests {
         );
         assert_eq!(again.kind, DynamicMarketKind::Wait);
         assert_eq!(again.state.limit_price, Decimal::new(10080, 2));
+    }
+
+    fn working(profile: DynamicMarketProfile, percentage: f64) -> DynamicMarketState {
+        let mut state = fresh(profile, percentage);
+        state.initial_mid = Some(Decimal::new(110, 2));
+        state.initial_spread = Some(Decimal::new(20, 2));
+        state.step_entered_at = Some(ts("2026-04-17 10:00:00"));
+        state
+    }
+
+    #[test]
+    fn opening_and_mid_rungs_hold_for_their_full_dwell() {
+        let start = ts("2026-04-17 10:00:00");
+        let opened = step_dynamic_market_state(
+            &fresh(DynamicMarketProfile::Standard, 0.4),
+            Some(quote(100, 120)),
+            start,
+            0,
+            DynamicMarketStepOptions::default(),
+        );
+        assert_eq!(opened.state.phase_label, "R1 40%");
+        assert_eq!(opened.state.interval_seconds, 12);
+        assert_eq!(opened.state.limit_price, Decimal::new(108, 2));
+
+        let early = step_dynamic_market_state(
+            &opened.state,
+            Some(quote(100, 120)),
+            ts("2026-04-17 10:00:11"),
+            0,
+            DynamicMarketStepOptions::default(),
+        );
+        assert_eq!(early.kind, DynamicMarketKind::Wait);
+        assert_eq!(early.state.step_index, 0);
+        assert_eq!(early.state.phase_label, "R1 40%");
+
+        let next = step_dynamic_market_state(
+            &opened.state,
+            Some(quote(100, 120)),
+            ts("2026-04-17 10:00:12"),
+            0,
+            DynamicMarketStepOptions::default(),
+        );
+        assert_eq!(next.kind, DynamicMarketKind::Replace);
+        assert_eq!(next.state.phase_label, "R1 45%");
+        assert_eq!(next.state.interval_seconds, 12);
+        assert_eq!(next.state.limit_price, Decimal::new(109, 2));
+
+        let mut mid = opened.state;
+        mid.step_index = 2;
+        mid.current_percentage = 0.5;
+        mid.phase_label = "R1 50% mid".to_string();
+        mid.limit_price = Decimal::new(110, 2);
+        mid.interval_seconds = 20;
+        let held = step_dynamic_market_state(
+            &mid,
+            Some(quote(100, 120)),
+            ts("2026-04-17 10:00:19"),
+            0,
+            DynamicMarketStepOptions::default(),
+        );
+        assert_eq!(held.kind, DynamicMarketKind::Wait);
+        assert_eq!(held.state.step_index, 2);
+        assert_eq!(held.state.phase_label, "R1 50% mid");
+
+        let advanced = step_dynamic_market_state(
+            &mid,
+            Some(quote(100, 120)),
+            ts("2026-04-17 10:00:20"),
+            0,
+            DynamicMarketStepOptions::default(),
+        );
+        assert_eq!(advanced.kind, DynamicMarketKind::Replace);
+        assert_eq!(advanced.state.phase_label, "R1 55%");
+        assert_eq!(advanced.state.interval_seconds, 15);
+        assert_eq!(advanced.state.limit_price, Decimal::new(111, 2));
+
+        let fast = step_dynamic_market_state(
+            &fresh(DynamicMarketProfile::Fast, 0.4),
+            Some(quote(100, 120)),
+            start,
+            0,
+            DynamicMarketStepOptions::default(),
+        );
+        assert_eq!(fast.state.interval_seconds, 8);
+        let fast_early = step_dynamic_market_state(
+            &fast.state,
+            Some(quote(100, 120)),
+            ts("2026-04-17 10:00:07"),
+            0,
+            DynamicMarketStepOptions::default(),
+        );
+        assert_eq!(fast_early.kind, DynamicMarketKind::Wait);
+        assert_eq!(fast_early.state.step_index, 0);
+        assert_eq!(fast_early.state.phase_label, "R1 40%");
+    }
+
+    #[test]
+    fn same_cent_rungs_skip_to_the_next_distinct_price() {
+        let mut state = fresh(DynamicMarketProfile::Standard, 0.5);
+        state.limit_price = Decimal::new(103, 2);
+        state.initial_mid = Some(Decimal::new(103, 2));
+        state.initial_spread = Some(Decimal::new(6, 2));
+        state.step_index = 2;
+        state.phase_label = "R1 50% mid".to_string();
+        state.step_entered_at = Some(ts("2026-04-17 10:00:00"));
+        let stepped = step_dynamic_market_state(
+            &state,
+            Some(quote(100, 106)),
+            ts("2026-04-17 10:00:20"),
+            0,
+            DynamicMarketStepOptions::default(),
+        );
+        assert_eq!(stepped.kind, DynamicMarketKind::Replace);
+        assert_eq!(stepped.state.limit_price, Decimal::new(104, 2));
+        assert_eq!(stepped.state.phase_label, "R1 75%");
+        assert_eq!(stepped.state.interval_seconds, 8);
+        assert_eq!(stepped.state.step_index, 5);
+    }
+
+    #[test]
+    fn drift_uses_two_thresholds_before_natural() {
+        let mut calm = working(DynamicMarketProfile::Standard, 0.4);
+        calm.limit_price = Decimal::new(108, 2);
+        calm.phase_label = "R1 40%".to_string();
+        let held = step_dynamic_market_state(
+            &calm,
+            Some(quote(109, 129)),
+            ts("2026-04-17 10:00:01"),
+            0,
+            DynamicMarketStepOptions::default(),
+        );
+        assert!(!held.state.drift_accelerated);
+        assert_eq!(held.state.phase_label, "R1 40%");
+        assert_eq!(held.state.limit_price, Decimal::new(108, 2));
+        assert_eq!(held.kind, DynamicMarketKind::Wait);
+
+        let mild = step_dynamic_market_state(
+            &calm,
+            Some(quote(110, 130)),
+            ts("2026-04-17 10:00:01"),
+            0,
+            DynamicMarketStepOptions::default(),
+        );
+        assert!(mild.state.drift_accelerated);
+        assert_eq!(mild.state.phase_label, "R1 60%");
+        assert_eq!(mild.state.current_percentage, 0.6);
+        assert_eq!(mild.state.limit_price, Decimal::new(122, 2));
+        assert_eq!(mild.kind, DynamicMarketKind::Replace);
+
+        let severe = step_dynamic_market_state(
+            &calm,
+            Some(quote(118, 138)),
+            ts("2026-04-17 10:00:01"),
+            0,
+            DynamicMarketStepOptions::default(),
+        );
+        assert!(severe.state.drift_accelerated);
+        assert_eq!(severe.state.phase_label, "R1 100% natural");
+        assert_eq!(severe.state.current_percentage, 1.0);
+        assert_eq!(severe.state.limit_price, Decimal::new(138, 2));
+
+        let mut narrow = fresh(DynamicMarketProfile::Standard, 0.5);
+        narrow.start_at_mid = true;
+        narrow.limit_price = Decimal::new(102, 2);
+        narrow.initial_mid = Some(Decimal::new(102, 2));
+        narrow.initial_spread = Some(Decimal::new(4, 2));
+        narrow.phase_label = "R1 50% mid".to_string();
+        narrow.step_entered_at = Some(ts("2026-04-17 10:00:00"));
+        let defended = step_dynamic_market_state(
+            &narrow,
+            Some(quote(104, 108)),
+            ts("2026-04-17 10:00:01"),
+            0,
+            DynamicMarketStepOptions::default(),
+        );
+        assert!(defended.state.drift_accelerated);
+        assert_eq!(defended.state.phase_label, "R1 mid+1tick");
+        assert_eq!(defended.state.current_percentage, 0.55);
+        assert_eq!(defended.state.limit_price, Decimal::new(107, 2));
+        assert_ne!(defended.state.current_percentage, 1.0);
+
+        let mut fast = working(DynamicMarketProfile::Fast, 0.4);
+        fast.initial_mid = Some(Decimal::new(105, 2));
+        fast.initial_spread = Some(Decimal::new(10, 2));
+        fast.limit_price = Decimal::new(104, 2);
+        fast.phase_label = "R1 40%".to_string();
+        let fast_mild = step_dynamic_market_state(
+            &fast,
+            Some(quote(105, 114)),
+            ts("2026-04-17 10:00:01"),
+            0,
+            DynamicMarketStepOptions::default(),
+        );
+        assert!(fast_mild.state.drift_accelerated);
+        assert_eq!(fast_mild.state.phase_label, "R1 60%");
+        assert_eq!(fast_mild.state.limit_price, Decimal::new(110, 2));
+        assert_ne!(fast_mild.state.current_percentage, 1.0);
+
+        let mut later = working(DynamicMarketProfile::Standard, 0.6);
+        later.limit_price = Decimal::new(112, 2);
+        later.step_index = 4;
+        later.phase_label = "R1 60%".to_string();
+        let later_mild = step_dynamic_market_state(
+            &later,
+            Some(quote(110, 130)),
+            ts("2026-04-17 10:00:01"),
+            0,
+            DynamicMarketStepOptions::default(),
+        );
+        assert!(later_mild.state.drift_accelerated);
+        assert_eq!(later_mild.state.phase_label, "R1 100% natural");
+        assert_eq!(later_mild.state.limit_price, Decimal::new(130, 2));
+    }
+
+    #[test]
+    fn mild_drift_holds_the_wide_defense_rung_until_severe() {
+        let mut standard = working(DynamicMarketProfile::Standard, 0.4);
+        standard.limit_price = Decimal::new(108, 2);
+        standard.phase_label = "R1 40%".to_string();
+        let defended = step_dynamic_market_state(
+            &standard,
+            Some(quote(110, 130)),
+            ts("2026-04-17 10:00:01"),
+            0,
+            DynamicMarketStepOptions::default(),
+        );
+        assert_eq!(defended.kind, DynamicMarketKind::Replace);
+        assert!(defended.state.drift_accelerated);
+        assert_eq!(defended.state.phase_label, "R1 60%");
+        assert_eq!(defended.state.initial_mid, Some(Decimal::new(110, 2)));
+
+        let held = step_dynamic_market_state(
+            &defended.state,
+            Some(quote(110, 130)),
+            ts("2026-04-17 10:00:02"),
+            0,
+            DynamicMarketStepOptions::default(),
+        );
+        assert_eq!(held.kind, DynamicMarketKind::Wait);
+        assert_eq!(held.state.phase_label, "R1 60%");
+        assert_eq!(held.state.limit_price, defended.state.limit_price);
+        assert_eq!(held.state.initial_mid, Some(Decimal::new(110, 2)));
+
+        let severe = step_dynamic_market_state(
+            &defended.state,
+            Some(quote(118, 138)),
+            ts("2026-04-17 10:00:02"),
+            0,
+            DynamicMarketStepOptions::default(),
+        );
+        assert_eq!(severe.kind, DynamicMarketKind::Replace);
+        assert_eq!(severe.state.phase_label, "R1 100% natural");
+        assert_eq!(severe.state.limit_price, Decimal::new(138, 2));
+
+        let mut fast = working(DynamicMarketProfile::Fast, 0.4);
+        fast.initial_mid = Some(Decimal::new(105, 2));
+        fast.initial_spread = Some(Decimal::new(10, 2));
+        fast.limit_price = Decimal::new(104, 2);
+        fast.phase_label = "R1 40%".to_string();
+        let fast_defended = step_dynamic_market_state(
+            &fast,
+            Some(quote(105, 114)),
+            ts("2026-04-17 10:00:01"),
+            0,
+            DynamicMarketStepOptions::default(),
+        );
+        assert_eq!(fast_defended.state.phase_label, "R1 60%");
+        assert!(fast_defended.state.drift_accelerated);
+        let fast_held = step_dynamic_market_state(
+            &fast_defended.state,
+            Some(quote(105, 114)),
+            ts("2026-04-17 10:00:02"),
+            0,
+            DynamicMarketStepOptions::default(),
+        );
+        assert_eq!(fast_held.kind, DynamicMarketKind::Wait);
+        assert_eq!(fast_held.state.phase_label, "R1 60%");
+        assert_eq!(fast_held.state.limit_price, fast_defended.state.limit_price);
+
+        let fast_severe = step_dynamic_market_state(
+            &fast_defended.state,
+            Some(quote(109, 117)),
+            ts("2026-04-17 10:00:02"),
+            0,
+            DynamicMarketStepOptions::default(),
+        );
+        assert_eq!(fast_severe.kind, DynamicMarketKind::Replace);
+        assert_eq!(fast_severe.state.phase_label, "R1 100% natural");
+        assert_eq!(fast_severe.state.limit_price, Decimal::new(117, 2));
+    }
+
+    #[test]
+    fn widened_book_does_not_pierce_natural_from_a_same_price_scan() {
+        let mut state = fresh(DynamicMarketProfile::Fast, 0.75);
+        state.limit_price = Decimal::new(140, 2);
+        state.initial_mid = Some(Decimal::new(120, 2));
+        state.initial_spread = Some(Decimal::new(10, 2));
+        state.step_index = 3;
+        state.phase_label = "R1 75%".to_string();
+        state.step_entered_at = Some(ts("2026-04-17 10:00:00"));
+        let paused = step_dynamic_market_state(
+            &state,
+            Some(quote(100, 140)),
+            ts("2026-04-17 10:00:06"),
+            0,
+            DynamicMarketStepOptions::default(),
+        );
+        assert_eq!(paused.kind, DynamicMarketKind::Wait);
+        assert_eq!(paused.state.phase_label, "R1 100% natural");
+        assert_eq!(paused.state.limit_price, Decimal::new(140, 2));
+        assert_eq!(paused.state.sanity_pause_count, 1);
+        assert_eq!(paused.state.step_index, 4);
+    }
+
+    #[test]
+    fn inflight_rung_follows_phase_label_onto_the_widened_ladder() {
+        let mut stale = working(DynamicMarketProfile::Standard, 0.6);
+        stale.limit_price = Decimal::new(112, 2);
+        stale.step_index = 2;
+        stale.phase_label = "R1 60%".to_string();
+        let kept = step_dynamic_market_state(
+            &stale,
+            Some(quote(100, 120)),
+            ts("2026-04-17 10:00:01"),
+            0,
+            DynamicMarketStepOptions::default(),
+        );
+        assert_eq!(kept.kind, DynamicMarketKind::Wait);
+        assert_eq!(kept.state.step_index, 4);
+        assert_eq!(kept.state.phase_label, "R1 60%");
+        assert_eq!(kept.state.limit_price, Decimal::new(112, 2));
+        assert_eq!(kept.state.interval_seconds, 12);
+
+        let mut natural = working(DynamicMarketProfile::Standard, 1.0);
+        natural.limit_price = Decimal::new(122, 2);
+        natural.step_index = 5;
+        natural.phase_label = "R1 natural+0.02".to_string();
+        let high = step_dynamic_market_state(
+            &natural,
+            Some(quote(100, 120)),
+            ts("2026-04-17 10:00:01"),
+            0,
+            DynamicMarketStepOptions::default(),
+        );
+        assert_eq!(high.kind, DynamicMarketKind::Wait);
+        assert_eq!(high.state.step_index, 7);
+        assert_eq!(high.state.phase_label, "R1 natural+0.02");
+        assert_eq!(high.state.limit_price, Decimal::new(122, 2));
     }
 }

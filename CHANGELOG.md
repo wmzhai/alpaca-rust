@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## v0.35.5 - 2026-11-27
+
+- Slow the DynamicMarket ladder so opening and mid rungs wait longer. Wide Standard books add 45% and 55%. Wide Fast books add 60%. Narrow books still open at 50%.
+- Same-cent rungs scan forward to the next distinct price. A widened book pauses instead of stepping through the natural price.
+- Mild adverse drift below 60% stops at 60% or mid+1tick and sets `drift_accelerated`. That flag holds the defense rung until the move reaches the severe threshold. `initial_mid` stays fixed. A book that reaches 60% without that flag still jumps to 100% natural on a later mild move.
+
 ## v0.35.4 - 2026-11-26
 
 - Add `DynamicMarket` Fast and Standard profiles, a locked initial mid and spread, and `step_dynamic_market`.
